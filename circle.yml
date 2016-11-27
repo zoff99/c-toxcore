@@ -26,7 +26,7 @@ dependencies:
     ### ------- get libsodium -------
 
 ##### ------------ BUILD ------------
-    - cmake .
+    - cmake -DWARNINGS=OFF .
     - make
 ##### ------------ BUILD ------------
 
