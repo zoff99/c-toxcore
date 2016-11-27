@@ -1,6 +1,8 @@
 machine:
   timezone:
     Europe/Vienna
+  environment:
+    MAKEFLAGS: "j4"
 dependencies:
   pre:
     ### ------- DO NOT EDIT -------
