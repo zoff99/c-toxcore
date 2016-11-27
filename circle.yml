@@ -1,0 +1,21 @@
+machine:
+  timezone:
+    Europe/Vienna
+dependencies:
+  pre:
+    ### ------- DO NOT EDIT -------
+    - printf '#! /bin/bash\n pgrep -l "$1"\n kill -9 $(pgrep "$1" | grep -v ^$$\$)\n pgrep -l -f "$1"\n' > ~/pkill2.sh
+    - chmod a+rx ~/pkill2.sh
+    ### ------- DO NOT EDIT -------
+    - sudo apt-get update
+    - sudo sudo apt-get install build-essential libtool autotools-dev automake checkinstall check git yasm
+    - sudo apt-get install libopus-dev libvpx-dev pkg-config
+##### ------------ BUILD ------------
+##### ------------ BUILD ------------
+
+test:
+  pre:
+    - echo "dummy"
+  override:
+    - echo "dummy"
+
