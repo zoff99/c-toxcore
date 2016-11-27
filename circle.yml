@@ -16,6 +16,9 @@ dependencies:
     - sudo apt-get install libopus-dev libvpx-dev pkg-config
     # - sudo apt-get install libsodium13 libsodium-dev
 
+    - sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang 100
+    - sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++ 100
+
     - gcc --version ; exit 0
     - clang --version ; exit 0
 
