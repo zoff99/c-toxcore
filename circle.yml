@@ -11,6 +11,7 @@ dependencies:
     - sudo apt-get update
     - sudo sudo apt-get install build-essential libtool autotools-dev automake checkinstall check git yasm
     - sudo apt-get install libopus-dev libvpx-dev pkg-config
+    - sudo apt-get install libsodium13 libsodium-dev
 ##### ------------ BUILD ------------
 ##### ------------ BUILD ------------
 
