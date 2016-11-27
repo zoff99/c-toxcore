@@ -19,7 +19,7 @@ dependencies:
     - cd ~/libsodium/ ; cd libsodium/ ; git checkout tags/1.0.11
     - cd ~/libsodium/ ; cd libsodium/ ; ./autogen.sh
     - cd ~/libsodium/ ; cd libsodium/ ; ./configure && make check
-    - cd ~/libsodium/ ; cd libsodium/ ; sudo checkinstall --install --pkgname libsodium --pkgversion 1.0.0 --nodoc
+    - cd ~/libsodium/ ; cd libsodium/ ; sudo checkinstall --install --pkgname libsodium --pkgversion 1.0.0 --nodoc --deldesc=no --pkglicense="GPL2"
     - cd ~/libsodium/ ; cd libsodium/ ; sudo ldconfig
     ### ------- get libsodium -------
 
