@@ -15,6 +15,11 @@ dependencies:
     - sudo apt-get install libopus-dev libvpx-dev pkg-config
     # - sudo apt-get install libsodium13 libsodium-dev
 
+
+    - gcc -version ; exit 0
+    - gcc --version ; exit 0
+    - clang --version ; exit 1
+
     ### ------- get libsodium -------
     - mkdir ~/libsodium
     - cd ~/libsodium/ ; git clone https://github.com/jedisct1/libsodium.git
