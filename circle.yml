@@ -16,10 +16,8 @@ dependencies:
     - sudo apt-get install libopus-dev libvpx-dev pkg-config
     # - sudo apt-get install libsodium13 libsodium-dev
 
-
-    - gcc -version ; exit 0
     - gcc --version ; exit 0
-    - clang --version ; exit 1
+    - clang --version ; exit 0
 
     ### ------- get libsodium -------
     - mkdir ~/libsodium
@@ -32,7 +30,8 @@ dependencies:
     ### ------- get libsodium -------
 
 ##### ------------ BUILD ------------
-    - cmake -DWARNINGS=OFF .
+    #- cmake -DWARNINGS=OFF .
+    - cmake .
     - make
 ##### ------------ BUILD ------------
 
