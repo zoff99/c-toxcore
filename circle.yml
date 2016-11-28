@@ -5,19 +5,13 @@ machine:
     MAKEFLAGS: "j4"
 dependencies:
   pre:
-    ### ------- DO NOT EDIT -------
-    - printf '#! /bin/bash\n pgrep -l "$1"\n kill -9 $(pgrep "$1" | grep -v ^$$\$)\n pgrep -l -f "$1"\n' > ~/pkill2.sh
-    - chmod a+rx ~/pkill2.sh
-    ### ------- DO NOT EDIT -------
-
     - sudo apt-get update
     - sudo apt-get install clang
     - sudo sudo apt-get install build-essential libtool autotools-dev automake checkinstall check git yasm
     - sudo apt-get install libopus-dev libvpx-dev pkg-config
-    # - sudo apt-get install libsodium13 libsodium-dev
 
-    - sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang 100
-    - sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++ 100
+    #- sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang 100
+    #- sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++ 100
 
     - gcc --version ; exit 0
     - clang --version ; exit 0
@@ -33,8 +27,8 @@ dependencies:
     ### ------- get libsodium -------
 
 ##### ------------ BUILD ------------
-    #- cmake -DWARNINGS=OFF .
-    - cmake .
+    - cmake -DWARNINGS=OFF .
+    #- cmake .
     - make
 ##### ------------ BUILD ------------
 
