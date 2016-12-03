@@ -42,7 +42,7 @@ test:
 # compile echobot and start it
     - cd echobot ; gcc -o echo_bot echo_bot.c -std=gnu99 -lsodium -I /usr/local/include/ -ltoxcore
     - cd echobot ; ldd echo_bot
-    - cd echobot ; nohup ./echo_bot > ~/echobot.out 2> ~/echobot.out :
+    - cd echobot ; script -c ./echo_bot ~/echobot.out :
         background: true
     - sleep 60
     - cat ~/echobot.out
