@@ -42,11 +42,10 @@ test:
 # compile echobot and start it
     - cd echobot ; gcc -O2 -o echo_bot echo_bot.c -std=gnu99 -lsodium -I /usr/local/include/ -ltoxcore
     - cd echobot ; ldd echo_bot
-    - touch ~/echobot.out
-    - cd echobot ; ./echo_bot > ~/echobot.out < /dev/null :
+    - cd echobot ; ./echo_bot :
         background: true
     - sleep 60
-    - cat ~/echobot.out
-    - cat ~/echobot.out | grep '\-\-MyToxID\-\-:' | cut -d':' -f 2
+    - cd echobot ; cat ./echobot.log
+    - cd echobot ; cat ./echobot.log | grep '\-\-MyToxID\-\-:' | cut -d':' -f 2
     - sleep 240
     - sleep 240
