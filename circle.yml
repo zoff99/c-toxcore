@@ -9,6 +9,7 @@ dependencies:
     - sudo apt-get install clang
     - sudo sudo apt-get install build-essential libtool autotools-dev automake checkinstall check git yasm
     - sudo apt-get install libopus-dev libvpx-dev pkg-config
+    - sudo bash -c "echo '::1             localhost ipv6-localhost ipv6-loopback' >> /etc/hosts" # ipv6 localhost entry
 
     #- sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang 100
     #- sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++ 100
