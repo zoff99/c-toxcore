@@ -30,6 +30,7 @@ dependencies:
     - cmake -DWARNINGS=OFF .
     #- cmake .
     - make
+    - make install ; exit 0
 ##### ------------ BUILD ------------
 
 test:
