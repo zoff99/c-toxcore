@@ -36,5 +36,8 @@ test:
   pre:
     - echo "dummy"
   override:
+# run tests
     - make test
+# compile echobot and start it
+    - cd echobot ; gcc -o echo_bot echo_bot.c -std=gnu99 -lsodium -I /usr/local/include/ -ltoxcore
 
