@@ -30,7 +30,9 @@ dependencies:
     - cmake -DWARNINGS=OFF .
     #- cmake .
     - make
-    - make install ; exit 0
+    - sudo make install
+    - sudo ldconfig -v 2>/dev/null | grep toxcore
+    - sudo ldconfig -v 2>/dev/null | grep sodium
 ##### ------------ BUILD ------------
 
 test:
@@ -39,9 +41,11 @@ test:
     #- make test
 # compile echobot and start it
     - cd echobot ; gcc -o echo_bot echo_bot.c -std=gnu99 -lsodium -I /usr/local/include/ -ltoxcore
-    - cd echobot ; ./echo_bot > ~/echobot.out 2>&1 :
+    - cd echobot ; ldd echo_bot
+    - cd echobot ; nohup ./echo_bot > ~/echobot.out 2> ~/echobot.out :
         background: true
     - sleep 60
     - cat ~/echobot.out
+    - cat ~/echobot.out | grep '\-\-MyToxID\-\-:' | cut -d':' -f 2
     #- sleep 240
     #- sleep 240
