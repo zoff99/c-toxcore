@@ -44,8 +44,8 @@ test:
     - cd echobot ; ldd echo_bot
     - cd echobot ; ./echo_bot :
         background: true
-    - sleep 60
+    - sleep 10
     - cd echobot ; cat ./echobot.log
     - cd echobot ; cat ./echobot.log | grep '\-\-MyToxID\-\-:' | cut -d':' -f 2
     - sleep 240
-    - sleep 240
+
