@@ -38,7 +38,7 @@ dependencies:
 test:
   override:
 # run tests
-    #- make test
+    - make test
 # compile echobot and start it
     - cd echobot ; gcc -O2 -o echo_bot echo_bot.c -std=gnu99 -lsodium -I /usr/local/include/ -ltoxcore
     - cd echobot ; ldd echo_bot
