@@ -41,8 +41,8 @@ test:
     - make test
 # compile echobot and start it
     - cd echobot ; gcc -o echo_bot echo_bot.c -std=gnu99 -lsodium -I /usr/local/include/ -ltoxcore
-    - ./echo_bot > ~/echobot.out 2>&1 :
-      background: true
+    - cd echobot ; ./echo_bot > ~/echobot.out 2>&1 :
+        background: true
     - sleep 60
     - cat ~/echobot.out
     #- sleep 240
