@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
+
 
 #include <unistd.h>
 
@@ -19,7 +21,7 @@ typedef struct DHT_node {
 const char *savedata_filename = "savedata.tox";
 const char *savedata_tmp_filename = "savedata.tox.tmp";
 const char *log_filename = "echobot.log";
-FILE *log = NULL;
+FILE *logfile = NULL;
 
 Tox *create_tox()
 {
@@ -28,7 +30,7 @@ Tox *create_tox()
     struct Tox_Options options;
 
     tox_options_default(&options);
-    
+
     FILE *f = fopen(savedata_filename, "rb");
     if (f) {
         fseek(f, 0, SEEK_END);
@@ -102,9 +104,11 @@ void print_tox_id(Tox *tox)
         tox_id_hex[i] = toupper(tox_id_hex[i]);
     }
 
-    if (log)
+    if (logfile)
     {
-        fprintf(log, "--MyToxID--:%s\n", tox_id_hex);
+        printf("--MyToxID--:%s\n", tox_id_hex);
+        fprintf(logfile, "--MyToxID--:%s\n", tox_id_hex);
+        fsync(logfile);
     }
 }
 
@@ -141,7 +145,8 @@ int main()
 {
     Tox *tox = create_tox();
 
-    log = fopen(log_filename, "rb");
+    logfile = fopen(log_filename, "wb");
+    setvbuf(logfile, NULL, _IONBF, 0);
 
     const char *name = "Echo Bot";
     tox_self_set_name(tox, name, strlen(name), NULL);
@@ -168,10 +173,10 @@ int main()
 
     tox_kill(tox);
 
-    if (log)
+    if (logfile)
     {
-        fclose(log);
-        log = NULL;
+        fclose(logfile);
+        logfile = NULL;
     }
 
     return 0;
