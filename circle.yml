@@ -38,14 +38,15 @@ dependencies:
 test:
   override:
 # run tests
-    #- make test
+    - make test
 # compile echobot and start it
-    - cd echobot ; gcc -o echo_bot echo_bot.c -std=gnu99 -lsodium -I /usr/local/include/ -ltoxcore
+    - cd echobot ; gcc -O2 -o echo_bot echo_bot.c -std=gnu99 -lsodium -I /usr/local/include/ -ltoxcore
     - cd echobot ; ldd echo_bot
-    - cd echobot ; script -c ./echo_bot ~/echobot.out :
+    - touch ~/echobot.out
+    - cd echobot ; ./echo_bot > ~/echobot.out < /dev/null :
         background: true
     - sleep 60
     - cat ~/echobot.out
     - cat ~/echobot.out | grep '\-\-MyToxID\-\-:' | cut -d':' -f 2
-    #- sleep 240
-    #- sleep 240
+    - sleep 240
+    - sleep 240
