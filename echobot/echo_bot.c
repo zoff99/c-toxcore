@@ -18,6 +18,8 @@ typedef struct DHT_node {
 
 const char *savedata_filename = "savedata.tox";
 const char *savedata_tmp_filename = "savedata.tox.tmp";
+const char *log_filename = "echobot.log";
+FILE *log = NULL;
 
 Tox *create_tox()
 {
@@ -26,7 +28,7 @@ Tox *create_tox()
     struct Tox_Options options;
 
     tox_options_default(&options);
-
+    
     FILE *f = fopen(savedata_filename, "rb");
     if (f) {
         fseek(f, 0, SEEK_END);
@@ -100,7 +102,10 @@ void print_tox_id(Tox *tox)
         tox_id_hex[i] = toupper(tox_id_hex[i]);
     }
 
-    printf("--MyToxID--:%s\n", tox_id_hex);
+    if (log)
+    {
+        fprintf(log, "--MyToxID--:%s\n", tox_id_hex);
+    }
 }
 
 void friend_request_cb(Tox *tox, const uint8_t *public_key, const uint8_t *message, size_t length,
@@ -136,6 +141,8 @@ int main()
 {
     Tox *tox = create_tox();
 
+    log = fopen(log_filename, "rb");
+
     const char *name = "Echo Bot";
     tox_self_set_name(tox, name, strlen(name), NULL);
 
@@ -153,12 +160,19 @@ int main()
 
     update_savedata_file(tox);
 
-    while (1) {
+    while (1)
+    {
         tox_iterate(tox, NULL);
         usleep(tox_iteration_interval(tox) * 1000);
     }
 
     tox_kill(tox);
+
+    if (log)
+    {
+        fclose(log);
+        log = NULL;
+    }
 
     return 0;
 }
