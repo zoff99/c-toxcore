@@ -1782,7 +1782,7 @@ int m_callback_rtp_packet(Messenger *m, int32_t friendnumber, uint8_t byte, int 
 }
 
 
-int send_custom_lossy_packet(const Messenger *m, int32_t friendnumber, const uint8_t *data, uint32_t length)
+int m_send_custom_lossy_packet(const Messenger *m, int32_t friendnumber, const uint8_t *data, uint32_t length)
 {
     if (friend_not_valid(m, friendnumber)) {
         return -1;
@@ -2663,9 +2663,9 @@ static uint32_t friend_size()
     data++; // padding
     VALUE_MEMBER(info_size);
     ARRAY_MEMBER(name);
-    data++; // padding
     VALUE_MEMBER(name_length);
     ARRAY_MEMBER(statusmessage);
+    data++; // padding
     VALUE_MEMBER(statusmessage_length);
     VALUE_MEMBER(userstatus);
     data += 3; // padding
@@ -2700,9 +2700,9 @@ static uint8_t *friend_save(const struct SAVED_FRIEND *temp, uint8_t *data)
     data++; // padding
     VALUE_MEMBER(info_size);
     ARRAY_MEMBER(name);
-    data++; // padding
     VALUE_MEMBER(name_length);
     ARRAY_MEMBER(statusmessage);
+    data++; // padding
     VALUE_MEMBER(statusmessage_length);
     VALUE_MEMBER(userstatus);
     data += 3; // padding
@@ -2752,7 +2752,9 @@ static uint32_t friends_list_save(const Messenger *m, uint8_t *data)
             uint8_t *next_data = friend_save(&temp, cur_data);
 #ifdef TOX_DEBUG
             assert(next_data - cur_data == friend_size());
+#ifdef __LP64__
             assert(memcmp(cur_data, &temp, friend_size()) == 0);
+#endif
 #endif
             cur_data = next_data;
             num++;
@@ -2782,9 +2784,9 @@ static const uint8_t *friend_load(struct SAVED_FRIEND *temp, const uint8_t *data
     data++; // padding
     VALUE_MEMBER(info_size);
     ARRAY_MEMBER(name);
-    data++; // padding
     VALUE_MEMBER(name_length);
     ARRAY_MEMBER(statusmessage);
+    data++; // padding
     VALUE_MEMBER(statusmessage_length);
     VALUE_MEMBER(userstatus);
     data += 3; // padding
@@ -2812,7 +2814,9 @@ static int friends_list_load(Messenger *m, const uint8_t *data, uint32_t length)
         const uint8_t *next_data = friend_load(&temp, cur_data);
 #ifdef TOX_DEBUG
         assert(next_data - cur_data == friend_size());
+#ifdef __LP64__
         assert(memcmp(&temp, cur_data, friend_size()) == 0);
+#endif
 #endif
         cur_data = next_data;
 
@@ -2988,7 +2992,7 @@ static int messenger_load_state_callback(void *outer, const uint8_t *data, uint3
             break;
 
         case MESSENGER_STATE_TYPE_STATUSMESSAGE:
-            if ((length > 0) && (length < MAX_STATUSMESSAGE_LENGTH)) {
+            if ((length > 0) && (length <= MAX_STATUSMESSAGE_LENGTH)) {
                 m_set_statusmessage(m, data, length);
             }
 

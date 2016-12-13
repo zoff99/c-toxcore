@@ -86,11 +86,7 @@ uint32_t tox_version_patch(void)
 
 bool tox_version_is_compatible(uint32_t major, uint32_t minor, uint32_t patch)
 {
-    return (TOX_VERSION_MAJOR == major && /* Force the major version */
-            (TOX_VERSION_MINOR > minor || /* Current minor version must be newer than requested -- or -- */
-             (TOX_VERSION_MINOR == minor && TOX_VERSION_PATCH >= patch) /* the patch must be the same or newer */
-            )
-           );
+    return TOX_VERSION_IS_API_COMPATIBLE(major, minor, patch);
 }
 
 
@@ -1593,7 +1589,7 @@ bool tox_friend_send_lossy_packet(Tox *tox, uint32_t friend_number, const uint8_
         return 0;
     }
 
-    int ret = send_custom_lossy_packet(m, friend_number, data, length);
+    int ret = m_send_custom_lossy_packet(m, friend_number, data, length);
 
     set_custom_packet_error(ret, error);
 
