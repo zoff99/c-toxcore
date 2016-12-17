@@ -220,6 +220,45 @@ int check_file_signature(const char *signature, size_t size, FILE *fp)
     return ret == 0 ? 0 : 1;
 }
 
+size_t get_file_name(char *namebuf, size_t bufsize, const char *pathname)
+{
+    int len = strlen(pathname) - 1;
+    char *path = strdup(pathname);
+
+    if (path == NULL)
+    {
+        // TODO
+    }
+
+    while (len >= 0 && pathname[len] == '/')
+    {
+        path[len--] = '\0';
+    }
+
+    char *finalname = strdup(path);
+
+    if (finalname == NULL)
+    {
+        // TODO
+    }
+
+    const char *basenm = strrchr(path, '/');
+    if (basenm != NULL)
+    {
+        if (basenm[1])
+        {
+            strcpy(finalname, &basenm[1]);
+        }
+    }
+
+    snprintf(namebuf, bufsize, "%s", finalname);
+    free(finalname);
+    free(path);
+
+    return strlen(namebuf);
+}
+
+
 int avatar_set(Tox *m, const char *path, size_t path_len)
 {
     if (path_len == 0 || path_len >= sizeof(Avatar.path))
@@ -233,7 +272,8 @@ int avatar_set(Tox *m, const char *path, size_t path_len)
         return -1;
     }
     char PNG_signature[8] = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
-    if (check_file_signature(PNG_signature, sizeof(PNG_signature), fp) != 0) {
+    if (check_file_signature(PNG_signature, sizeof(PNG_signature), fp) != 0)
+    {
         fclose(fp);
         return -1;
     }
@@ -252,9 +292,20 @@ int avatar_set(Tox *m, const char *path, size_t path_len)
     Avatar.path_len = path_len;
     Avatar.size = size;
 
-    avatar_send_all(m);
+    // avatar_send_all(m);
 
     return 0;
+}
+
+static void avatar_clear(void)
+{
+    memset(&Avatar, 0, sizeof(struct Avatar));
+}
+
+void avatar_unset(Tox *m)
+{
+    avatar_clear();
+    // avatar_send_all(m);
 }
 
 
