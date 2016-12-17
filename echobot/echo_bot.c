@@ -19,6 +19,95 @@ typedef struct DHT_node {
 } DHT_node;
 
 #define MAX_AVATAR_FILE_SIZE 65536
+#define TOXIC_MAX_NAME_LENGTH 32   /* Must be <= TOX_MAX_NAME_LENGTH */
+
+define KiB 1024
+#define MiB 1048576       /* 1024^2 */
+#define GiB 1073741824    /* 1024^3 */
+
+#define MAX_FILES 32
+
+typedef enum FILE_TRANSFER_STATE {
+    FILE_TRANSFER_INACTIVE,
+    FILE_TRANSFER_PAUSED,
+    FILE_TRANSFER_PENDING,
+    FILE_TRANSFER_STARTED,
+} FILE_TRANSFER_STATE;
+
+typedef enum FILE_TRANSFER_DIRECTION {
+    FILE_TRANSFER_SEND,
+    FILE_TRANSFER_RECV
+} FILE_TRANSFER_DIRECTION;
+
+struct FileTransfer {
+    FILE *file;
+    FILE_TRANSFER_STATE state;
+    FILE_TRANSFER_DIRECTION direction;
+    uint8_t file_type;
+    char file_name[TOX_MAX_FILENAME_LENGTH + 1];
+    char file_path[PATH_MAX + 1];    /* Not used by senders */
+    double   bps;
+    uint32_t filenum;
+    uint32_t friendnum;
+    size_t   index;
+    uint64_t file_size;
+    uint64_t position;
+    time_t   last_line_progress;   /* The last time we updated the progress bar */
+    time_t   last_keep_alive;  /* The last time we sent or received data */
+    uint32_t line_id;
+    uint8_t  file_id[TOX_FILE_ID_LENGTH];
+};
+
+
+struct LastOnline {
+    uint64_t last_on;
+    struct tm tm;
+    char hour_min_str[TIME_STR_SIZE];    /* holds 12/24-hour time string e.g. "10:43 PM" */
+};
+
+struct GroupChatInvite {
+    char *key;
+    uint16_t length;
+    uint8_t type;
+    bool pending;
+};
+
+typedef struct {
+    char name[TOXIC_MAX_NAME_LENGTH + 1];
+    int namelength;
+    char statusmsg[TOX_MAX_STATUS_MESSAGE_LENGTH + 1];
+    size_t statusmsg_len;
+    char pub_key[TOX_PUBLIC_KEY_SIZE];
+    uint32_t num;
+    int chatwin;
+    bool active;
+    TOX_CONNECTION connection_status;
+    bool is_typing;
+    bool logging_on;    /* saves preference for friend irrespective of global settings */
+    uint8_t status;
+    struct LastOnline last_online;
+    struct FileTransfer file_receiver[MAX_FILES];
+    struct FileTransfer file_sender[MAX_FILES];
+} ToxicFriend;
+
+typedef struct {
+    char name[TOXIC_MAX_NAME_LENGTH + 1];
+    int namelength;
+    char pub_key[TOX_PUBLIC_KEY_SIZE];
+    uint32_t num;
+    bool active;
+    uint64_t last_on;
+} BlockedFriend;
+
+typedef struct {
+    int num_selected;
+    size_t num_friends;
+    size_t num_online;
+    size_t max_idx;    /* 1 + the index of the last friend in list */
+    uint32_t *index;
+    ToxicFriend *list;
+} FriendsList;
+
 
 static struct Avatar {
     char name[TOX_MAX_FILENAME_LENGTH + 1];
@@ -142,10 +231,51 @@ void on_file_chunk_request(Tox *tox, uint32_t friendnumber, uint32_t filenumber,
 
     if (ft->file_type == TOX_FILE_KIND_AVATAR)
     {
-        // not supported at the moment!
+        on_avatar_chunk_request(m, ft, position, length);
         return;
     }
 
+}
+
+void on_avatar_chunk_request(Tox *m, struct FileTransfer *ft, uint64_t position, size_t length)
+{
+    if (ft->state != FILE_TRANSFER_STARTED)
+        return;
+
+    if (length == 0) {
+        close_file_transfer(NULL, m, ft, -1, NULL, silent);
+        return;
+    }
+
+    if (ft->file == NULL) {
+        close_file_transfer(NULL, m, ft, TOX_FILE_CONTROL_CANCEL, NULL, silent);
+        return;
+    }
+
+    if (ft->position != position) {
+        if (fseek(ft->file, position, SEEK_SET) == -1) {
+            close_file_transfer(NULL, m, ft, TOX_FILE_CONTROL_CANCEL, NULL, silent);
+            return;
+        }
+
+        ft->position = position;
+    }
+
+    uint8_t send_data[length];
+    size_t send_length = fread(send_data, 1, sizeof(send_data), ft->file);
+
+    if (send_length != length) {
+        close_file_transfer(NULL, m, ft, TOX_FILE_CONTROL_CANCEL, NULL, silent);
+        return;
+    }
+    TOX_ERR_FILE_SEND_CHUNK err;
+    tox_file_send_chunk(m, ft->friendnum, ft->filenum, position, send_data, send_length, &err);
+
+    if (err != TOX_ERR_FILE_SEND_CHUNK_OK)
+        fprintf(stderr, "tox_file_send_chunk failed in avatar callback (error %d)\n", err);
+
+    ft->position += send_length;
+    ft->last_keep_alive = get_unix_time();
 }
 
 
@@ -165,6 +295,76 @@ void self_connection_status_cb(Tox *tox, TOX_CONNECTION connection_status, void 
 }
 
 
+static struct FileTransfer *new_file_sender(uint32_t friendnum, uint32_t filenum, uint8_t type)
+{
+    size_t i;
+
+    for (i = 0; i < MAX_FILES; ++i)
+    {
+        // TODO
+        struct FileTransfer *ft = &Friends.list[friendnum].file_sender[i];
+
+        if (ft->state == FILE_TRANSFER_INACTIVE) {
+            memset(ft, 0, sizeof(struct FileTransfer));
+            ft->index = i;
+            ft->friendnum = friendnum;
+            ft->filenum = filenum;
+            ft->file_type = type;
+            ft->last_keep_alive = get_unix_time();
+            ft->state = FILE_TRANSFER_PENDING;
+            ft->direction = FILE_TRANSFER_SEND;
+            return ft;
+        }
+    }
+
+    return NULL;
+}
+
+
+
+static struct FileTransfer *new_file_receiver(uint32_t friendnum, uint32_t filenum, uint8_t type)
+{
+    size_t i;
+
+    for (i = 0; i < MAX_FILES; ++i)
+    {
+        // TODO
+        struct FileTransfer *ft = &Friends.list[friendnum].file_receiver[i];
+
+        if (ft->state == FILE_TRANSFER_INACTIVE) {
+            memset(ft, 0, sizeof(struct FileTransfer));
+            ft->index = i;
+            ft->friendnum = friendnum;
+            ft->filenum = filenum;
+            ft->file_type = type;
+            ft->last_keep_alive = get_unix_time();
+            ft->state = FILE_TRANSFER_PENDING;
+            ft->direction = FILE_TRANSFER_RECV;
+            return ft;
+        }
+    }
+
+    return NULL;
+}
+
+
+struct FileTransfer *new_file_transfer(uint32_t friendnum, uint32_t filenum,
+                                       FILE_TRANSFER_DIRECTION direction, uint8_t type)
+{
+    if (direction == FILE_TRANSFER_RECV)
+    {
+        return new_file_receiver(friendnum, filenum, type);
+    }
+
+    if (direction == FILE_TRANSFER_SEND)
+    {
+        return new_file_sender(friendnum, filenum, type);
+    }
+
+    return NULL;
+}
+
+
 int avatar_send(Tox *m, uint32_t friendnum)
 {
     TOX_ERR_FILE_SEND err;
@@ -179,7 +379,7 @@ int avatar_send(Tox *m, uint32_t friendnum)
         return -1;
     }
 
-    struct FileTransfer *ft = new_file_transfer(NULL, friendnum, filenum, FILE_TRANSFER_SEND, TOX_FILE_KIND_AVATAR);
+    struct FileTransfer *ft = new_file_transfer(friendnum, filenum, FILE_TRANSFER_SEND, TOX_FILE_KIND_AVATAR);
 
     if (!ft)
         return -1;
