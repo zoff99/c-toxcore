@@ -1,11 +1,33 @@
+/*
+ *
+ * Zoff <zoff@zoff.cc>
+ *
+ * dirty hack (echobot and toxic were used as blueprint)
+ *
+ *
+ * compile on linux (dynamic):
+ *  gcc -O2 -fPIC -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore
+ *
+ * compile on linux (static):
+ *  gcc -O2 -o echo_bot_static echo_bot.c -static -std=gnu99 -L/usr/local/lib -I/usr/local/include/ \
+ *   -lsodium -ltoxcore -ltoxgroup -ltoxmessenger -ltoxfriends -ltoxnetcrypto \
+ *   -ltoxdht -ltoxnetwork -ltoxcrypto -lsodium -lpthread -static-libgcc -static-libstdc++
+ *
+ *
+ *
+ */
+
+
 #include <ctype.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <time.h>
 
-
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <sodium/utils.h>
@@ -20,8 +42,10 @@ typedef struct DHT_node {
 
 #define MAX_AVATAR_FILE_SIZE 65536
 #define TOXIC_MAX_NAME_LENGTH 32   /* Must be <= TOX_MAX_NAME_LENGTH */
+#define PATH_MAX 255
+#define TIME_STR_SIZE 32
 
-define KiB 1024
+#define KiB 1024
 #define MiB 1048576       /* 1024^2 */
 #define GiB 1073741824    /* 1024^3 */
 
@@ -117,10 +141,20 @@ static struct Avatar {
     off_t size;
 } Avatar;
 
+
+void on_avatar_chunk_request(Tox *m, struct FileTransfer *ft, uint64_t position, size_t length);
+
 const char *savedata_filename = "savedata.tox";
 const char *savedata_tmp_filename = "savedata.tox.tmp";
 const char *log_filename = "echobot.log";
 FILE *logfile = NULL;
+FriendsList Friends;
+
+time_t get_unix_time(void)
+{
+    return time(NULL);
+}
+
 
 Tox *create_tox()
 {
@@ -138,7 +172,7 @@ Tox *create_tox()
 
         char *savedata = malloc(fsize);
 
-        fread(savedata, fsize, 1, f);
+        int dummy = fread(savedata, fsize, 1, f);
         fclose(f);
 
         options.savedata_type = TOX_SAVEDATA_TYPE_TOX_SAVE;
@@ -207,9 +241,54 @@ void print_tox_id(Tox *tox)
     {
         printf("--MyToxID--:%s\n", tox_id_hex);
         fprintf(logfile, "--MyToxID--:%s\n", tox_id_hex);
-        fsync(logfile);
+        int fd = fileno(logfile);
+        fsync(fd);
     }
 }
+
+void close_file_transfer(Tox *m, struct FileTransfer *ft, int CTRL)
+{
+    if (!ft)
+        return;
+
+    if (ft->state == FILE_TRANSFER_INACTIVE)
+        return;
+
+    if (ft->file)
+        fclose(ft->file);
+
+    if (CTRL >= 0)
+        tox_file_control(m, ft->friendnum, ft->filenum, (TOX_FILE_CONTROL) CTRL, NULL);
+
+    memset(ft, 0, sizeof(struct FileTransfer));
+}
+
+
+
+struct FileTransfer *get_file_transfer_struct(uint32_t friendnum, uint32_t filenum)
+{
+    size_t i;
+
+    for (i = 0; i < MAX_FILES; ++i)
+    {
+        struct FileTransfer *ft_send = &Friends.list[friendnum].file_sender[i];
+
+        if (ft_send->state != FILE_TRANSFER_INACTIVE && ft_send->filenum == filenum)
+        {
+            return ft_send;
+        }
+
+        struct FileTransfer *ft_recv = &Friends.list[friendnum].file_receiver[i];
+
+        if (ft_recv->state != FILE_TRANSFER_INACTIVE && ft_recv->filenum == filenum)
+        {
+            return ft_recv;
+        }
+    }
+
+    return NULL;
+}
+
 
 void friend_request_cb(Tox *tox, const uint8_t *public_key, const uint8_t *message, size_t length,
                                    void *user_data)
@@ -228,13 +307,25 @@ void friend_message_cb(Tox *tox, uint32_t friend_number, TOX_MESSAGE_TYPE type, 
 void on_file_chunk_request(Tox *tox, uint32_t friendnumber, uint32_t filenumber, uint64_t position,
                            size_t length, void *userdata)
 {
+    struct FileTransfer *ft = get_file_transfer_struct(friendnumber, filenumber);
 
-    if (ft->file_type == TOX_FILE_KIND_AVATAR)
+    if (!ft)
     {
-        on_avatar_chunk_request(m, ft, position, length);
         return;
     }
 
+    if (ft->file_type == TOX_FILE_KIND_AVATAR)
+    {
+        on_avatar_chunk_request(tox, ft, position, length);
+        return;
+    }
+
+    size_t i;
+
+    //for (i = 0; i < MAX_WINDOWS_NUM; ++i) {
+    //   if (windows[i].onFileChunkRequest != NULL)
+    //        windows[i].onFileChunkRequest(&windows[i], m, friendnumber, filenumber, position, length);
+    //}
 }
 
 void on_avatar_chunk_request(Tox *m, struct FileTransfer *ft, uint64_t position, size_t length)
@@ -243,18 +334,18 @@ void on_avatar_chunk_request(Tox *m, struct FileTransfer *ft, uint64_t position,
         return;
 
     if (length == 0) {
-        close_file_transfer(NULL, m, ft, -1, NULL, silent);
+        close_file_transfer(m, ft, -1);
         return;
     }
 
     if (ft->file == NULL) {
-        close_file_transfer(NULL, m, ft, TOX_FILE_CONTROL_CANCEL, NULL, silent);
+        close_file_transfer(m, ft, TOX_FILE_CONTROL_CANCEL);
         return;
     }
 
     if (ft->position != position) {
         if (fseek(ft->file, position, SEEK_SET) == -1) {
-            close_file_transfer(NULL, m, ft, TOX_FILE_CONTROL_CANCEL, NULL, silent);
+            close_file_transfer(m, ft, TOX_FILE_CONTROL_CANCEL);
             return;
         }
 
@@ -265,7 +356,7 @@ void on_avatar_chunk_request(Tox *m, struct FileTransfer *ft, uint64_t position,
     size_t send_length = fread(send_data, 1, sizeof(send_data), ft->file);
 
     if (send_length != length) {
-        close_file_transfer(NULL, m, ft, TOX_FILE_CONTROL_CANCEL, NULL, silent);
+        close_file_transfer(m, ft, TOX_FILE_CONTROL_CANCEL);
         return;
     }
     TOX_ERR_FILE_SEND_CHUNK err;
@@ -400,7 +491,9 @@ off_t file_size(const char *path)
     struct stat st;
 
     if (stat(path, &st) == -1)
+    {
         return 0;
+    }
 
     return st.st_size;
 }
@@ -539,7 +632,7 @@ int main()
     snprintf(path, sizeof(path), "%s", "./avatar.png");
     int len = strlen(path) - 1;
     avatar_set(tox, path, len);
-    
+
     while (1)
     {
         tox_iterate(tox, NULL);
