@@ -45,7 +45,7 @@ test:
     - cd echobot ; gcc -O2 -o echo_bot echo_bot.c -std=gnu99 -lsodium -I /usr/local/include/ -ltoxcore
     - cd echobot ; gcc -O2 -o echo_bot_static echo_bot.c -static -std=gnu99 -L/usr/local/lib -I/usr/local/include/ -lsodium -ltoxcore -ltoxgroup -ltoxmessenger -ltoxfriends -ltoxnetcrypto -ltoxdht -ltoxnetwork -ltoxcrypto -lsodium -lpthread -static-libgcc -static-libstdc++
     - cd echobot ; ldd echo_bot ; exit 0
-    - ls -al echo_bot echo_bot_static ; exit 0
+    - cd echobot ; ls -al echo_bot echo_bot_static ; exit 0
     - cd echobot ; ./echo_bot_static :
         background: true
     - sleep 10
