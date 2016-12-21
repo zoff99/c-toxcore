@@ -7,6 +7,8 @@
  *
  * compile on linux (dynamic):
  *  gcc -O2 -fPIC -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore
+ * compile for debugging (dynamic):
+ *  gcc -O0 -g -fPIC -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore
  *
  * compile on linux (static):
  *  gcc -O2 -o echo_bot_static echo_bot.c -static -std=gnu99 -L/usr/local/lib -I/usr/local/include/ \
@@ -44,6 +46,7 @@ typedef struct DHT_node {
 #define TOXIC_MAX_NAME_LENGTH 32   /* Must be <= TOX_MAX_NAME_LENGTH */
 #define PATH_MAX 255
 #define TIME_STR_SIZE 32
+#define MAX_STR_SIZE 200
 
 #define KiB 1024
 #define MiB 1048576       /* 1024^2 */
@@ -144,11 +147,14 @@ static struct Avatar {
 
 void on_avatar_chunk_request(Tox *m, struct FileTransfer *ft, uint64_t position, size_t length);
 int avatar_send(Tox *m, uint32_t friendnum);
+struct FileTransfer *new_file_transfer(uint32_t friendnum, uint32_t filenum, FILE_TRANSFER_DIRECTION direction, uint8_t type);
 
 const char *savedata_filename = "savedata.tox";
 const char *savedata_tmp_filename = "savedata.tox.tmp";
 const char *log_filename = "echobot.log";
 const char *my_avatar_filename = "avatar.png";
+const char *savedata_friendlist_struct = "savedata_fl.dat";
+const char *savedata_ft_struct = "savedata_ft.dat";
 FILE *logfile = NULL;
 FriendsList Friends;
 
@@ -204,6 +210,56 @@ void update_savedata_file(const Tox *tox)
     rename(savedata_tmp_filename, savedata_filename);
 
     free(savedata);
+}
+
+off_t file_size(const char *path)
+{
+    struct stat st;
+
+    if (stat(path, &st) == -1)
+    {
+        return 0;
+    }
+
+    return st.st_size;
+}
+
+size_t get_file_name(char *namebuf, size_t bufsize, const char *pathname)
+{
+    int len = strlen(pathname) - 1;
+    char *path = strdup(pathname);
+
+    if (path == NULL)
+    {
+        // TODO
+    }
+
+    while (len >= 0 && pathname[len] == '/')
+    {
+        path[len--] = '\0';
+    }
+
+    char *finalname = strdup(path);
+
+    if (finalname == NULL)
+    {
+        // TODO
+    }
+
+    const char *basenm = strrchr(path, '/');
+    if (basenm != NULL)
+    {
+        if (basenm[1])
+        {
+            strcpy(finalname, &basenm[1]);
+        }
+    }
+
+    snprintf(namebuf, bufsize, "%s", finalname);
+    free(finalname);
+    free(path);
+
+    return strlen(namebuf);
 }
 
 void bootstrap(Tox *tox)
@@ -262,14 +318,100 @@ static void update_friend_last_online(uint32_t num, time_t timestamp)
 
 void friendlist_onConnectionChange(Tox *m, uint32_t num, TOX_CONNECTION connection_status, void *user_data)
 {
+    printf("friendlist_onConnectionChange:friendnum=%d %d\n", (int)num, (int)connection_status);
+
     if (avatar_send(m, num) == -1)
     {
         fprintf(stderr, "avatar_send failed for friend %d\n", num);
     }
-
     Friends.list[num].connection_status = connection_status;
     update_friend_last_online(num, get_unix_time());
     // store_data(m, DATA_FILE);
+
+    // ------- hack to send file --------
+    // ------- hack to send file --------
+    const char *errmsg = NULL;
+    char path[MAX_STR_SIZE];
+    snprintf(path, sizeof(path), "%s", "snap001.png");
+    int path_len = strlen(path) - 1;
+
+    FILE *file_to_send = fopen(path, "r");
+    if (file_to_send == NULL)
+    {
+       fprintf(stderr, "error opening file\n");
+       return;
+    }
+    off_t filesize = file_size(path);
+    if (filesize == 0)
+    {
+      fprintf(stderr, "filesize 0\n");
+      fclose(file_to_send);
+      return;
+    }
+
+    char file_name[TOX_MAX_FILENAME_LENGTH];
+    size_t namelen = get_file_name(file_name, sizeof(file_name), path);
+
+    TOX_ERR_FILE_SEND err;
+    uint32_t filenum = tox_file_send(m, num, TOX_FILE_KIND_DATA, (uint64_t) filesize, NULL,
+                                     (uint8_t *) file_name, namelen, &err);
+
+    if (err != TOX_ERR_FILE_SEND_OK)
+    {
+        printf("! TOX_ERR_FILE_SEND_OK\n");
+        goto on_send_error;
+    }
+
+    struct FileTransfer *ft = new_file_transfer(num, filenum, FILE_TRANSFER_SEND, TOX_FILE_KIND_DATA);
+
+    if (!ft)
+    {
+        printf("ft=NULL\n");
+        err = TOX_ERR_FILE_SEND_TOO_MANY;
+        goto on_send_error;
+    }
+
+    memcpy(ft->file_name, file_name, namelen + 1);
+    ft->file = file_to_send;
+    ft->file_size = filesize;
+    tox_file_get_file_id(m, num, filenum, ft->file_id, NULL);
+
+    return;
+
+on_send_error:
+
+    switch (err) {
+        case TOX_ERR_FILE_SEND_FRIEND_NOT_FOUND:
+            errmsg = "File transfer failed: Invalid friend.";
+            break;
+
+        case TOX_ERR_FILE_SEND_FRIEND_NOT_CONNECTED:
+            errmsg = "File transfer failed: Friend is offline.";
+            break;
+
+        case TOX_ERR_FILE_SEND_NAME_TOO_LONG:
+            errmsg = "File transfer failed: Filename is too long.";
+            break;
+
+        case TOX_ERR_FILE_SEND_TOO_MANY:
+            errmsg = "File transfer failed: Too many concurrent file transfers.";
+            break;
+
+        default:
+            errmsg = "File transfer failed.";
+            break;
+    }
+
+    printf("ft error=%s\n", errmsg);
+    tox_file_control(m, num, filenum, TOX_FILE_CONTROL_CANCEL, NULL);
+    fclose(file_to_send);
+
+
+
+    // ------- hack to send file --------
+    // ------- hack to send file --------
+
+
 }
 
 
@@ -315,6 +457,23 @@ void friendlist_onFriendAdded(Tox *m, uint32_t num, bool sort)
     printf("friendlist_onFriendAdded:099\n");
 
 }
+
+static void load_friendlist(Tox *m)
+{
+    size_t i;
+    size_t numfriends = tox_self_get_friend_list_size(m);
+
+    for (i = 0; i < numfriends; ++i)
+    {
+        printf("loading friend:%d\n", (int)i);
+        friendlist_onFriendAdded(m, i, false);
+    }
+
+    // sort_friendlist_index();
+}
+
+
+
 
 void close_file_transfer(Tox *m, struct FileTransfer *ft, int CTRL)
 {
@@ -454,12 +613,61 @@ void on_file_chunk_request(Tox *tox, uint32_t friendnumber, uint32_t filenumber,
         return;
     }
 
-    size_t i;
 
-    //for (i = 0; i < MAX_WINDOWS_NUM; ++i) {
-    //   if (windows[i].onFileChunkRequest != NULL)
-    //        windows[i].onFileChunkRequest(&windows[i], m, friendnumber, filenumber, position, length);
-    //}
+    if (ft->state != FILE_TRANSFER_STARTED)
+    {
+        printf("on_file_chunk_request:005 !FILE_TRANSFER_STARTED\n");
+        return;
+    }
+
+    if (length == 0)
+    {
+        printf("File '%s' successfully sent\n", ft->file_name);
+        close_file_transfer(tox, ft, -1);
+        return;
+    }
+
+    if (ft->file == NULL)
+    {
+        printf("File transfer for '%s' failed: Null file pointer\n", ft->file_name);
+        close_file_transfer(tox, ft, TOX_FILE_CONTROL_CANCEL);
+        return;
+    }
+
+    if (ft->position != position)
+    {
+        if (fseek(ft->file, position, SEEK_SET) == -1)
+        {
+            printf("File transfer for '%s' failed: Seek fail\n", ft->file_name);
+            close_file_transfer(tox, ft, TOX_FILE_CONTROL_CANCEL);
+            return;
+        }
+
+        ft->position = position;
+    }
+
+    uint8_t send_data[length];
+    size_t send_length = fread(send_data, 1, sizeof(send_data), ft->file);
+
+    if (send_length != length)
+    {
+        printf("File transfer for '%s' failed: Read fail\n", ft->file_name);
+        close_file_transfer(tox, ft, TOX_FILE_CONTROL_CANCEL);
+        return;
+    }
+
+    TOX_ERR_FILE_SEND_CHUNK err;
+    tox_file_send_chunk(tox, friendnumber, filenumber, position, send_data, send_length, &err);
+
+    if (err != TOX_ERR_FILE_SEND_CHUNK_OK)
+    {
+        printf("tox_file_send_chunk failed in chat callback (error %d)\n", err);
+    }
+
+    ft->position += send_length;
+    ft->bps += send_length;
+    ft->last_keep_alive = get_unix_time();
+
 }
 
 
@@ -492,23 +700,55 @@ void on_file_control(Tox *m, uint32_t friendnumber, uint32_t filenumber, TOX_FIL
     struct FileTransfer *ft = get_file_transfer_struct(friendnumber, filenumber);
 
     if (!ft)
+    {
         return;
+    }
 
-    if (ft->file_type == TOX_FILE_KIND_AVATAR) {
+    if (ft->file_type == TOX_FILE_KIND_AVATAR)
+    {
         on_avatar_file_control(m, ft, control);
         return;
     }
 
-    printf("on_file_control:002:incoming file\n");
 
 
-    // TODO
-    //
-    // size_t i;
-    //for (i = 0; i < MAX_WINDOWS_NUM; ++i) {
-    //    if (windows[i].onFileControl != NULL)
-    //        windows[i].onFileControl(&windows[i], m, friendnumber, filenumber, control);
-    //}
+    printf("on_file_control:002:file in/out\n");
+
+
+        char msg[MAX_STR_SIZE];
+
+        switch (control) {
+        case TOX_FILE_CONTROL_RESUME:
+        {
+            ft->last_keep_alive = get_unix_time();
+
+            /* transfer is accepted */
+            if (ft->state == FILE_TRANSFER_PENDING)
+            {
+                ft->state = FILE_TRANSFER_STARTED;
+            }
+            else if (ft->state == FILE_TRANSFER_PAUSED)
+            {    /* transfer is resumed */
+                ft->state = FILE_TRANSFER_STARTED;
+            }
+
+            break;
+        }
+
+        case TOX_FILE_CONTROL_PAUSE:
+        {
+            ft->state = FILE_TRANSFER_PAUSED;
+            break;
+        }
+
+        case TOX_FILE_CONTROL_CANCEL:
+        {
+            printf("File transfer for '%s' was aborted\n", ft->file_name);
+            close_file_transfer(m, ft, -1);
+            break;
+        }
+    }
+
 }
 
 
@@ -699,17 +939,6 @@ int avatar_send(Tox *m, uint32_t friendnum)
     return 0;
 }
 
-off_t file_size(const char *path)
-{
-    struct stat st;
-
-    if (stat(path, &st) == -1)
-    {
-        return 0;
-    }
-
-    return st.st_size;
-}
 
 int check_file_signature(const char *signature, size_t size, FILE *fp)
 {
@@ -726,43 +955,28 @@ int check_file_signature(const char *signature, size_t size, FILE *fp)
     return ret == 0 ? 0 : 1;
 }
 
-size_t get_file_name(char *namebuf, size_t bufsize, const char *pathname)
+
+void kill_all_file_transfers_friend(Tox *m, uint32_t friendnum)
 {
-    int len = strlen(pathname) - 1;
-    char *path = strdup(pathname);
+    size_t i;
 
-    if (path == NULL)
+    for (i = 0; i < MAX_FILES; ++i)
     {
-        // TODO
+        close_file_transfer(m, &Friends.list[friendnum].file_sender[i], TOX_FILE_CONTROL_CANCEL);
+        close_file_transfer(m, &Friends.list[friendnum].file_receiver[i], TOX_FILE_CONTROL_CANCEL);
     }
-
-    while (len >= 0 && pathname[len] == '/')
-    {
-        path[len--] = '\0';
-    }
-
-    char *finalname = strdup(path);
-
-    if (finalname == NULL)
-    {
-        // TODO
-    }
-
-    const char *basenm = strrchr(path, '/');
-    if (basenm != NULL)
-    {
-        if (basenm[1])
-        {
-            strcpy(finalname, &basenm[1]);
-        }
-    }
-
-    snprintf(namebuf, bufsize, "%s", finalname);
-    free(finalname);
-    free(path);
-
-    return strlen(namebuf);
 }
+
+void kill_all_file_transfers(Tox *m)
+{
+    size_t i;
+
+    for (i = 0; i < Friends.max_idx; ++i)
+    {
+        kill_all_file_transfers_friend(m, Friends.list[i].num);
+    }
+}
+
 
 
 int avatar_set(Tox *m, const char *path, size_t path_len)
@@ -856,6 +1070,7 @@ int main()
     // init callbacks ----------------------------------
 
     update_savedata_file(tox);
+    load_friendlist(tox);
 
     char path[300];
     snprintf(path, sizeof(path), "%s", my_avatar_filename);
@@ -866,13 +1081,9 @@ int main()
     {
         tox_iterate(tox, NULL);
         usleep(tox_iteration_interval(tox) * 1000);
-
-        //if (Friends.max_idx > 0)
-        //{
-        //    avatar_send(tox, Friends.list[0].num);
-        //}
     }
 
+    kill_all_file_transfers(tox);
     tox_kill(tox);
 
     if (logfile)
