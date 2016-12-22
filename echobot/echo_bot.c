@@ -158,6 +158,7 @@ const char *my_avatar_filename = "avatar.png";
 const char *motion_pics_dir = "./m/";
 const char *motion_pics_work_dir = "./work/";
 const char *motion_capture_file_extension = ".jpg";
+const char *motion_capture_file_extension_mov = ".avi";
 
 FILE *logfile = NULL;
 FriendsList Friends;
@@ -1107,6 +1108,39 @@ void check_dir(Tox *m)
                                                         printf("new image:%s (still in use ...)\n", dir->d_name);
                                                 }
                                         }
+                                        else if(strcmp(ext, motion_capture_file_extension_mov) == 0)
+                                        {
+                                                // printf("new image:%s\n", dir->d_name);
+
+                                                // move file to work dir
+                                                char oldname[300];
+                                                snprintf(oldname, sizeof(oldname), "%s/%s", motion_pics_dir, dir->d_name);
+
+
+                                                struct stat foo;
+                                                time_t mtime;
+                                                time_t time_now = time(NULL);
+
+                                                stat(oldname, &foo);
+                                                mtime = foo.st_mtime; /* seconds since the epoch */
+
+                                                if ((mtime + seconds_since_last_mod) < time_now)
+                                                {
+                                                        char newname[300];
+                                                        snprintf(newname, sizeof(newname), "%s/%s", motion_pics_work_dir, dir->d_name);
+
+                                                        printf("new movie:%s\n", dir->d_name);
+                                                        printf("move %s -> %s\n", oldname, newname);
+                                                        int renname_err = rename(oldname, newname);
+                                                        // printf("res=%d\n", renname_err);
+
+                                                        send_file_to_all_friends(m, newname);
+                                                }
+                                                else
+                                                {
+                                                        printf("new image:%s (still in use ...)\n", dir->d_name);
+                                                }
+                                        }
                                 }
                         }
                 }
@@ -1126,10 +1160,10 @@ int main()
     // create workdir of not already there
     mkdir(motion_pics_work_dir, S_IRWXU | S_IRWXG); // og+rwx
 
-    const char *name = "Door1";
+    const char *name = "Door Diana";
     tox_self_set_name(tox, name, strlen(name), NULL);
 
-    const char *status_message = "This is your Door";
+    const char *status_message = "Wo sind ihre Daten";
     tox_self_set_status_message(tox, status_message, strlen(status_message), NULL);
 
     Friends.max_idx = 0;
