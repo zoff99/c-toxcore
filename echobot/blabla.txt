@@ -1,0 +1,42 @@
+
+
+
+
+
+
+ apt-get install cheese
+ apt-get install vlc-nox
+ apt-get install x11proto-xf86dri
+ apt-get install x11proto-xf86dri-dev x11proto-dri3-dev
+ apt-get install fglrx
+ apt-get install mesa-utils
+ apt-get install ffmpeg
+ apt-get install ffmpeg2theora
+ apt-get install mplayer
+ apt-get install mplayer2
+ apt-get install mplayer2
+ apt-get install
+ apt-get install uvccapture
+ apt-get install uvccapture luvcview
+
+
+
+http://www.makeuseof.com/tag/build-a-motion-capture-security-system-using-a-raspberry-pi/
+
+sudo apt-get install motion
+sudo apt-get install libv4l-0
+sudo apt-get install uvccapture
+
+http://www.ideasonboard.org/uvc/
+
+
+
+
+
+
+
+
+apt-get install mplayer2
+mplayer tv:// -tv driver=v4l2:width=640:height=480:device=/dev/video0
+
+apt-get install uvccapture luvcview
