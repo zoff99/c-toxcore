@@ -27,6 +27,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <time.h>
+#include <dirent.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -44,7 +45,7 @@ typedef struct DHT_node {
 
 #define MAX_AVATAR_FILE_SIZE 65536
 #define TOXIC_MAX_NAME_LENGTH 32   /* Must be <= TOX_MAX_NAME_LENGTH */
-#define PATH_MAX 255
+// #define PATH_MAX 255
 #define TIME_STR_SIZE 32
 #define MAX_STR_SIZE 200
 
@@ -52,6 +53,7 @@ typedef struct DHT_node {
 #define MiB 1048576       /* 1024^2 */
 #define GiB 1073741824    /* 1024^3 */
 
+#define seconds_since_last_mod 2 // how long to wait before we process image files in seconds
 #define MAX_FILES 32
 
 typedef enum FILE_TRANSFER_STATE {
@@ -153,8 +155,10 @@ const char *savedata_filename = "savedata.tox";
 const char *savedata_tmp_filename = "savedata.tox.tmp";
 const char *log_filename = "echobot.log";
 const char *my_avatar_filename = "avatar.png";
-const char *savedata_friendlist_struct = "savedata_fl.dat";
-const char *savedata_ft_struct = "savedata_ft.dat";
+const char *motion_pics_dir = "./m/";
+const char *motion_pics_work_dir = "./work/";
+const char *motion_capture_file_extension = ".jpg";
+
 FILE *logfile = NULL;
 FriendsList Friends;
 
@@ -316,23 +320,13 @@ static void update_friend_last_online(uint32_t num, time_t timestamp)
     //         &Friends.list[num].last_online.tm);
 }
 
-void friendlist_onConnectionChange(Tox *m, uint32_t num, TOX_CONNECTION connection_status, void *user_data)
+void send_file_to_friend(Tox *m, uint32_t num, const char* filename)
 {
-    printf("friendlist_onConnectionChange:friendnum=%d %d\n", (int)num, (int)connection_status);
-
-    if (avatar_send(m, num) == -1)
-    {
-        fprintf(stderr, "avatar_send failed for friend %d\n", num);
-    }
-    Friends.list[num].connection_status = connection_status;
-    update_friend_last_online(num, get_unix_time());
-    // store_data(m, DATA_FILE);
-
     // ------- hack to send file --------
     // ------- hack to send file --------
     const char *errmsg = NULL;
     char path[MAX_STR_SIZE];
-    snprintf(path, sizeof(path), "%s", "snap001.png");
+    snprintf(path, sizeof(path), "%s", filename);
     int path_len = strlen(path) - 1;
 
     FILE *file_to_send = fopen(path, "r");
@@ -410,8 +404,32 @@ on_send_error:
 
     // ------- hack to send file --------
     // ------- hack to send file --------
+}
 
 
+void send_file_to_all_friends(Tox *m, const char* filename)
+{
+    size_t i;
+    size_t numfriends = tox_self_get_friend_list_size(m);
+
+    for (i = 0; i < numfriends; ++i)
+    {
+        printf("sending file (%s) to friendnum=%d\n", filename, (int)i);
+        send_file_to_friend(m, i, filename);
+    }
+}
+
+void friendlist_onConnectionChange(Tox *m, uint32_t num, TOX_CONNECTION connection_status, void *user_data)
+{
+    printf("friendlist_onConnectionChange:friendnum=%d %d\n", (int)num, (int)connection_status);
+
+    if (avatar_send(m, num) == -1)
+    {
+        fprintf(stderr, "avatar_send failed for friend %d\n", num);
+    }
+    Friends.list[num].connection_status = connection_status;
+    update_friend_last_online(num, get_unix_time());
+    // store_data(m, DATA_FILE);
 }
 
 
@@ -1038,6 +1056,65 @@ void avatar_unset(Tox *m)
     // avatar_send_all(m);
 }
 
+void check_dir(Tox *m)
+{
+        DIR *d;
+        struct dirent *dir;
+        d = opendir(motion_pics_dir);
+        if (d)
+        {
+                while ((dir = readdir(d)) != NULL)
+                {
+                        if (dir->d_type == DT_REG)
+                        {
+                                const char *ext = strrchr(dir->d_name,'.');
+                                if((!ext) || (ext == dir->d_name))
+                                {
+                                        // wrong fileextension
+                                }
+                                else
+                                {
+                                        if(strcmp(ext, motion_capture_file_extension) == 0)
+                                        {
+                                                // printf("new image:%s\n", dir->d_name);
+
+                                                // move file to work dir
+                                                char oldname[300];
+                                                snprintf(oldname, sizeof(oldname), "%s/%s", motion_pics_dir, dir->d_name);
+
+
+                                                struct stat foo;
+                                                time_t mtime;
+                                                time_t time_now = time(NULL);
+
+                                                stat(oldname, &foo);
+                                                mtime = foo.st_mtime; /* seconds since the epoch */
+
+                                                if ((mtime + seconds_since_last_mod) < time_now)
+                                                {
+                                                        char newname[300];
+                                                        snprintf(newname, sizeof(newname), "%s/%s", motion_pics_work_dir, dir->d_name);
+
+                                                        printf("new image:%s\n", dir->d_name);
+                                                        printf("move %s -> %s\n", oldname, newname);
+                                                        int renname_err = rename(oldname, newname);
+                                                        // printf("res=%d\n", renname_err);
+
+                                                        send_file_to_all_friends(m, newname);
+                                                }
+                                                else
+                                                {
+                                                        printf("new image:%s (still in use ...)\n", dir->d_name);
+                                                }
+                                        }
+                                }
+                        }
+                }
+
+                closedir(d);
+        }
+}
+
 
 int main()
 {
@@ -1045,6 +1122,9 @@ int main()
 
     logfile = fopen(log_filename, "wb");
     setvbuf(logfile, NULL, _IONBF, 0);
+
+    // create workdir of not already there
+    mkdir(motion_pics_work_dir, S_IRWXU | S_IRWXG); // og+rwx
 
     const char *name = "Door1";
     tox_self_set_name(tox, name, strlen(name), NULL);
@@ -1081,6 +1161,7 @@ int main()
     {
         tox_iterate(tox, NULL);
         usleep(tox_iteration_interval(tox) * 1000);
+        check_dir(tox);
     }
 
     kill_all_file_transfers(tox);
