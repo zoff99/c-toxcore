@@ -1160,10 +1160,10 @@ int main()
     // create workdir of not already there
     mkdir(motion_pics_work_dir, S_IRWXU | S_IRWXG); // og+rwx
 
-    const char *name = "Door Diana";
+    const char *name = "Door";
     tox_self_set_name(tox, name, strlen(name), NULL);
 
-    const char *status_message = "Wo sind ihre Daten";
+    const char *status_message = "This is your Door";
     tox_self_set_status_message(tox, status_message, strlen(status_message), NULL);
 
     Friends.max_idx = 0;
