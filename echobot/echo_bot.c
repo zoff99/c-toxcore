@@ -537,12 +537,9 @@ void friendlist_onFriendAdded(Tox *m, uint32_t num, bool sort)
 	{
 		fprintf(stderr, "tox_friend_get_public_key failed (error %d)\n", pkerr);
 	}
-	else
-	{
-		fprintf(stderr, "friend pubkey=%s\n", Friends.list[Friends.max_idx].pub_key);
-	}
 
-	bin_id_to_string(Friends.list[Friends.max_idx].pub_key, (size_t) TOX_ADDRESS_SIZE, Friends.list[Friends.max_idx].pubkey_string, (size_t) (TOX_ADDRESS_SIZE * 2 + 1))	
+	bin_id_to_string(Friends.list[Friends.max_idx].pub_key, (size_t) TOX_ADDRESS_SIZE, Friends.list[Friends.max_idx].pubkey_string, (size_t) (TOX_ADDRESS_SIZE * 2 + 1));
+	printf("friend pubkey=%s\n", Friends.list[Friends.max_idx].pubkey_string);
 
 	// mkdir subdir of workdir for this friend
 	snprintf(Friends.list[Friends.max_idx].worksubdir, sizeof(Friends.list[Friends.max_idx].worksubdir), "%s/%s/", motion_pics_work_dir, (const char*)Friends.list[Friends.max_idx].pubkey_string);
