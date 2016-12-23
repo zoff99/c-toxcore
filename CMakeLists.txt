@@ -6,7 +6,7 @@ include(CTest)
 # versions in a synchronised way.
 set(PROJECT_VERSION_MAJOR "0")
 set(PROJECT_VERSION_MINOR "1")
-set(PROJECT_VERSION_PATCH "1")
+set(PROJECT_VERSION_PATCH "2")
 set(PROJECT_VERSION
   "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
 
@@ -299,6 +299,7 @@ apidsl(
   toxcore/tox.api.h)
 add_module(toxcore
   toxcore/misc_tools.h
+  toxcore/tox_api.c
   toxcore/tox.c
   toxcore/tox.h)
 target_link_modules(toxcore toxgroup)
@@ -420,6 +421,7 @@ auto_test(encryptsave)
 auto_test(messenger)
 auto_test(network)
 auto_test(onion)
+auto_test(resource_leak)
 auto_test(save_friend)
 auto_test(skeleton)
 auto_test(tox)
