@@ -7,14 +7,15 @@
  *
  *
  * compile on linux (dynamic):
- *  gcc -O2 -fPIC -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore
+ *  gcc -O2 -fPIC -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore -ltoxav -lpthread
  * compile for debugging (dynamic):
- *  gcc -O0 -g -fPIC -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore
+ *  gcc -O0 -g -fPIC -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore -ltoxav -lpthread
  *
  * compile on linux (static):
  *  gcc -O2 -o echo_bot_static echo_bot.c -static -std=gnu99 -L/usr/local/lib -I/usr/local/include/ \
- *   -lsodium -ltoxcore -ltoxgroup -ltoxmessenger -ltoxfriends -ltoxnetcrypto \
- *   -ltoxdht -ltoxnetwork -ltoxcrypto -lsodium -lpthread -static-libgcc -static-libstdc++
+    -lsodium -ltoxcore -ltoxav -ltoxgroup -ltoxmessenger -ltoxfriends -ltoxnetcrypto \
+    -ltoxdht -ltoxnetwork -ltoxcrypto -lsodium -lpthread -static-libgcc -static-libstdc++ \
+    -lopus -lvpx -lm -lpthread
  *
  *
  *
@@ -34,10 +35,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <assert.h>
 #include <errno.h>
+#include <pthread.h>
 
 #include <sodium/utils.h>
 #include <tox/tox.h>
+#include <tox/toxav.h>
 
 typedef struct DHT_node {
     const char *ip;
@@ -58,6 +62,8 @@ typedef struct DHT_node {
 
 #define seconds_since_last_mod 2 // how long to wait before we process image files in seconds
 #define MAX_FILES 1000
+
+#define c_sleep(x) usleep(1000*x)
 
 typedef enum FILE_TRANSFER_STATE {
     FILE_TRANSFER_INACTIVE,
@@ -151,6 +157,11 @@ static struct Avatar {
     off_t size;
 } Avatar;
 
+typedef struct {
+    bool incoming;
+    uint32_t state;
+    pthread_mutex_t arb_mutex[1];
+} CallControl;
 
 void on_avatar_chunk_request(Tox *m, struct FileTransfer *ft, uint64_t position, size_t length);
 int avatar_send(Tox *m, uint32_t friendnum);
@@ -179,11 +190,13 @@ Tox *create_tox()
     Tox *tox;
 
     struct Tox_Options options;
-
     tox_options_default(&options);
 
+	options.ipv6_enabled = false;
+
     FILE *f = fopen(savedata_filename, "rb");
-    if (f) {
+    if (f)
+	{
         fseek(f, 0, SEEK_END);
         long fsize = ftell(f);
         fseek(f, 0, SEEK_SET);
@@ -200,7 +213,9 @@ Tox *create_tox()
         tox = tox_new(&options, NULL);
 
         free(savedata);
-    } else {
+    }
+	else
+	{
         tox = tox_new(&options, NULL);
     }
 
@@ -1299,6 +1314,124 @@ void check_dir(Tox *m)
 }
 
 
+// ------------------ Tox AV stuff --------------------
+// ------------------ Tox AV stuff --------------------
+// ------------------ Tox AV stuff --------------------
+
+static void t_toxav_call_cb(ToxAV *av, uint32_t friend_number, bool audio_enabled, bool video_enabled, void *user_data)
+{
+    printf("Handling CALL callback\n");
+    ((CallControl *)user_data)->incoming = true;
+}
+
+static void t_toxav_call_state_cb(ToxAV *av, uint32_t friend_number, uint32_t state, void *user_data)
+{
+    printf("Handling CALL STATE callback: %d\n", state);
+    ((CallControl *)user_data)->state = state;
+}
+
+static void t_toxav_bit_rate_status_cb(ToxAV *av, uint32_t friend_number,
+                                       uint32_t audio_bit_rate, uint32_t video_bit_rate,
+                                       void *user_data)
+{
+    printf("Suggested bit rates: audio: %d video: %d\n", audio_bit_rate, video_bit_rate);
+}
+
+
+static void t_toxav_receive_audio_frame_cb(ToxAV *av, uint32_t friend_number,
+        int16_t const *pcm,
+        size_t sample_count,
+        uint8_t channels,
+        uint32_t sampling_rate,
+        void *user_data)
+{
+    // CallControl *cc = (CallControl *)user_data;
+    // frame *f = (frame *)malloc(sizeof(uint16_t) + sample_count * sizeof(int16_t) * channels);
+    // memcpy(f->data, pcm, sample_count * sizeof(int16_t) * channels);
+    // f->size = sample_count;
+
+    // pthread_mutex_lock(cc->arb_mutex);
+    // free(rb_write(cc->arb, f));
+    // pthread_mutex_unlock(cc->arb_mutex);
+}
+
+
+static void t_toxav_receive_video_frame_cb(ToxAV *av, uint32_t friend_number,
+        uint16_t width, uint16_t height,
+        uint8_t const *y, uint8_t const *u, uint8_t const *v,
+        int32_t ystride, int32_t ustride, int32_t vstride,
+        void *user_data)
+{
+    // ystride = abs(ystride);
+    // ustride = abs(ustride);
+    // vstride = abs(vstride);
+
+    // uint16_t *img_data = (uint16_t *)malloc(height * width * 6);
+
+    // unsigned long int i, j;
+
+    // for (i = 0; i < height; ++i)
+	// {
+        // for (j = 0; j < width; ++j)
+		// {
+            // uint8_t *point = (uint8_t *) img_data + 3 * ((i * width) + j);
+            // int yx = y[(i * ystride) + j];
+            // int ux = u[((i / 2) * ustride) + (j / 2)];
+            // int vx = v[((i / 2) * vstride) + (j / 2)];
+
+            // point[0] = YUV2R(yx, ux, vx);
+            // point[1] = YUV2G(yx, ux, vx);
+            // point[2] = YUV2B(yx, ux, vx);
+        // }
+    // }
+
+
+    // CvMat mat = cvMat(height, width, CV_8UC3, img_data);
+
+    // CvSize sz;
+    // sz.height = height;
+    // sz.width = width;
+
+    // IplImage *header = cvCreateImageHeader(sz, 1, 3);
+    // IplImage *img = cvGetImage(&mat, header);
+    // cvShowImage(vdout, img);
+    // free(img_data);
+}
+
+void *thread_av(void *data)
+{
+    ToxAV *av = (ToxAV *) data;
+	pthread_t id = pthread_self();
+	pthread_mutex_t av_thread_lock;
+	if (pthread_mutex_init(&av_thread_lock, NULL) != 0)
+	{
+		printf("Error creating av_thread_lock\n");
+	}
+	else
+	{
+		printf("av_thread_lock created successfully\n");
+	}
+
+	printf("AV Thread #%d starting\n", (int) id);
+
+    while (true)
+	{
+        pthread_mutex_lock(&av_thread_lock);
+        toxav_iterate(av);
+		// printf("AV Thread #%d running ...\n", (int) id);
+        pthread_mutex_unlock(&av_thread_lock);
+
+        usleep(toxav_iteration_interval(av) * 1000);
+    }
+}
+
+
+// ------------------ Tox AV stuff --------------------
+// ------------------ Tox AV stuff --------------------
+// ------------------ Tox AV stuff --------------------
+
+
+
 int main()
 {
     Tox *tox = create_tox();
@@ -1335,6 +1468,7 @@ int main()
     tox_callback_file_recv_chunk(tox, on_file_recv_chunk);
     // init callbacks ----------------------------------
 
+
     update_savedata_file(tox);
     load_friendlist(tox);
 
@@ -1343,6 +1477,55 @@ int main()
     int len = strlen(path) - 1;
     avatar_set(tox, path, len);
 
+	long long unsigned int cur_time = time(NULL);
+	uint8_t off = 1;
+	while (1)
+	{
+        tox_iterate(tox, NULL);
+        usleep(tox_iteration_interval(tox) * 1000);
+        if (tox_self_get_connection_status(tox) && off)
+		{
+            printf("Tox online, took %llu seconds\n", time(NULL) - cur_time);
+            off = 0;
+			break;
+        }
+        // if (tox_friend_get_connection_status(Alice, 0, NULL) == TOX_CONNECTION_UDP &&
+        //        tox_friend_get_connection_status(Bob, 0, NULL) == TOX_CONNECTION_UDP) {
+        //    break;
+        // }
+        c_sleep(20);
+    }
+
+
+    TOXAV_ERR_NEW rc;
+    ToxAV *mytox_av = toxav_new(tox, &rc);
+    assert(rc == TOXAV_ERR_NEW_OK);
+	printf("new Tox AV\n");
+	CallControl mytox_CC;
+	memset(&mytox_CC, 0, sizeof(CallControl));
+
+    // init AV callbacks -------------------------------
+    toxav_callback_call(mytox_av, t_toxav_call_cb, &mytox_CC);
+    toxav_callback_call_state(mytox_av, t_toxav_call_state_cb, &mytox_CC);
+    toxav_callback_bit_rate_status(mytox_av, t_toxav_bit_rate_status_cb, &mytox_CC);
+    toxav_callback_video_receive_frame(mytox_av, t_toxav_receive_video_frame_cb, &mytox_CC);
+    toxav_callback_audio_receive_frame(mytox_av, t_toxav_receive_audio_frame_cb, &mytox_CC);
+    // init AV callbacks -------------------------------
+
+
+	// start toxav thread ------------------------------
+	pthread_t tid[1];
+    if (pthread_create(&(tid[0]), NULL, thread_av, (void *) mytox_av) != 0)
+	{
+        printf("AV Thread create failed\n");
+	}
+	else
+	{
+        printf("AV Thread successfully created\n");
+	}
+
+	// start toxav thread ------------------------------
+
     while (1)
     {
         tox_iterate(tox, NULL);
@@ -1350,7 +1533,9 @@ int main()
         check_dir(tox);
     }
 
+
     kill_all_file_transfers(tox);
+	toxav_kill(mytox_av);
     tox_kill(tox);
 
     if (logfile)
