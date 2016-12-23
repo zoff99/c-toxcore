@@ -426,17 +426,18 @@ on_send_error:
 
 int copy_file(const char *to, const char *from)
 {
-    int fd_to, fd_from;
+    FILE *fd_to;
+    FILE *fd_from;
     char buf[4096];
     ssize_t nread;
     int saved_errno;
 
-    fd_from = open(from, O_RDONLY);
-    if (fd_from < 0)
+    fd_from = fopen(from, O_RDONLY);
+    if (fd_from == NULL)
         return -1;
 
     fd_to = open(to, O_WRONLY | O_CREAT | O_EXCL, 0666);
-    if (fd_to < 0)
+    if (fd_to == NULL)
         goto out_error;
 
     while (nread = read(fd_from, buf, sizeof buf), nread > 0)
@@ -461,12 +462,12 @@ int copy_file(const char *to, const char *from)
 
     if (nread == 0)
     {
-        if (close(fd_to) < 0)
+        if (fclose(fd_to) != 0)
         {
             fd_to = -1;
             goto out_error;
         }
-        close(fd_from);
+        fclose(fd_from);
 
         /* Success! */
         return 0;
@@ -475,9 +476,9 @@ int copy_file(const char *to, const char *from)
   out_error:
     saved_errno = errno;
 
-    close(fd_from);
-    if (fd_to >= 0)
-        close(fd_to);
+    fclose(fd_from);
+    if (fd_to != NULL)
+        fclose(fd_to);
 
     errno = saved_errno;
     return -1;
