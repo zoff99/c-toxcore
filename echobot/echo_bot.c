@@ -54,7 +54,7 @@ typedef struct DHT_node {
 #define GiB 1073741824    /* 1024^3 */
 
 #define seconds_since_last_mod 2 // how long to wait before we process image files in seconds
-#define MAX_FILES 32
+#define MAX_FILES 1000
 
 typedef enum FILE_TRANSFER_STATE {
     FILE_TRANSFER_INACTIVE,
@@ -111,6 +111,7 @@ typedef struct {
     int chatwin;
     bool active;
     TOX_CONNECTION connection_status;
+    char worksubdir[MAX_STR_SIZE];
     bool is_typing;
     bool logging_on;    /* saves preference for friend irrespective of global settings */
     uint8_t status;
@@ -310,6 +311,21 @@ void print_tox_id(Tox *tox)
 }
 
 
+static int find_friend_in_friendlist(uint32_t friendnum)
+{
+	int i;
+
+	for (i = 0; i <= Friends.max_idx; ++i)
+	{
+        if (Friends.list[i].num == friendnum)
+		{
+			return i;
+		}
+	}
+
+	return -1;
+}
+
 static void update_friend_last_online(uint32_t num, time_t timestamp)
 {
     Friends.list[num].last_online.last_on = timestamp;
@@ -408,15 +424,95 @@ on_send_error:
 }
 
 
-void send_file_to_all_friends(Tox *m, const char* filename)
+int copy_file(const char *to, const char *from)
+{
+    int fd_to, fd_from;
+    char buf[4096];
+    ssize_t nread;
+    int saved_errno;
+
+    fd_from = open(from, O_RDONLY);
+    if (fd_from < 0)
+        return -1;
+
+    fd_to = open(to, O_WRONLY | O_CREAT | O_EXCL, 0666);
+    if (fd_to < 0)
+        goto out_error;
+
+    while (nread = read(fd_from, buf, sizeof buf), nread > 0)
+    {
+        char *out_ptr = buf;
+        ssize_t nwritten;
+
+        do {
+            nwritten = write(fd_to, out_ptr, nread);
+
+            if (nwritten >= 0)
+            {
+                nread -= nwritten;
+                out_ptr += nwritten;
+            }
+            else if (errno != EINTR)
+            {
+                goto out_error;
+            }
+        } while (nread > 0);
+    }
+
+    if (nread == 0)
+    {
+        if (close(fd_to) < 0)
+        {
+            fd_to = -1;
+            goto out_error;
+        }
+        close(fd_from);
+
+        /* Success! */
+        return 0;
+    }
+
+  out_error:
+    saved_errno = errno;
+
+    close(fd_from);
+    if (fd_to >= 0)
+        close(fd_to);
+
+    errno = saved_errno;
+    return -1;
+}
+
+
+char* copy_file_to_friend_subdir(int friendlistnum, const char* file_with_path, const char* filename)
+{
+	char *newname = NULL;
+	newname = malloc(300);
+	snprintf(newname, 299, "%s/%s", (const char*)Friends.list[Friends.max_idx].worksubdir, filename);
+	copy_file(file_with_path, newname);
+	return newname;
+}
+
+void send_file_to_all_friends(Tox *m, const char* file_with_path, const char* filename)
 {
     size_t i;
     size_t numfriends = tox_self_get_friend_list_size(m);
+	char *newname = NULL;
+	int j = -1;
 
     for (i = 0; i < numfriends; ++i)
     {
-        printf("sending file (%s) to friendnum=%d\n", filename, (int)i);
-        send_file_to_friend(m, i, filename);
+        printf("sending file (%s) to friendnum=%d\n", file_with_path, (int)i);
+
+		j = find_friend_in_friendlist((uint32_t) i);
+		if (j > -1)
+		{
+			newname = copy_file_to_friend_subdir((int) j, file_with_path, filename);
+			send_file_to_friend(m, i, newname);
+			free(newname);
+			newname = NULL;
+		}
+		unlink(file_with_path)
     }
 }
 
@@ -437,7 +533,7 @@ void friendlist_onConnectionChange(Tox *m, uint32_t num, TOX_CONNECTION connecti
 
 void friendlist_onFriendAdded(Tox *m, uint32_t num, bool sort)
 {
-    printf("friendlist_onFriendAdded:001\n");
+    // printf("friendlist_onFriendAdded:001\n");
 
     if (Friends.max_idx == 0)
     {
@@ -447,35 +543,47 @@ void friendlist_onFriendAdded(Tox *m, uint32_t num, bool sort)
     {
         Friends.list = realloc(Friends.list, ((Friends.max_idx + 1) * sizeof(ToxicFriend)));
     }
+
     memset(&Friends.list[Friends.max_idx], 0, sizeof(ToxicFriend)); // fill friend with "0" bytes
 
 
-        printf("friendlist_onFriendAdded:003:%d\n", (int)Friends.max_idx);
-        Friends.list[Friends.max_idx].num = num;
-        Friends.list[Friends.max_idx].active = true;
-        Friends.list[Friends.max_idx].connection_status = TOX_CONNECTION_NONE;
-        Friends.list[Friends.max_idx].status = TOX_USER_STATUS_NONE;
-        // Friends.list[i].logging_on = (bool) user_settings->autolog == AUTOLOG_ON;
+	printf("friendlist_onFriendAdded:003:%d\n", (int)Friends.max_idx);
+	Friends.list[Friends.max_idx].num = num;
+	Friends.list[Friends.max_idx].active = true;
+	Friends.list[Friends.max_idx].connection_status = TOX_CONNECTION_NONE;
+	Friends.list[Friends.max_idx].status = TOX_USER_STATUS_NONE;
+	// Friends.list[i].logging_on = (bool) user_settings->autolog == AUTOLOG_ON;
 
-        TOX_ERR_FRIEND_GET_PUBLIC_KEY pkerr;
-        tox_friend_get_public_key(m, num, (uint8_t *) Friends.list[Friends.max_idx].pub_key, &pkerr);
+	TOX_ERR_FRIEND_GET_PUBLIC_KEY pkerr;
+	tox_friend_get_public_key(m, num, (uint8_t *) Friends.list[Friends.max_idx].pub_key, &pkerr);
 
-        if (pkerr != TOX_ERR_FRIEND_GET_PUBLIC_KEY_OK)
-            fprintf(stderr, "tox_friend_get_public_key failed (error %d)\n", pkerr);
+	if (pkerr != TOX_ERR_FRIEND_GET_PUBLIC_KEY_OK)
+	{
+		fprintf(stderr, "tox_friend_get_public_key failed (error %d)\n", pkerr);
+	}
+	else
+	{
+		fprintf(stderr, "friend pubkey=%s\n", Friends.list[Friends.max_idx].pub_key);
+	}
 
-        // TOX_ERR_FRIEND_GET_LAST_ONLINE loerr;
-        // time_t t = tox_friend_get_last_online(m, num, &loerr);
+	// mkdir subdir of workdir for this friend
+	snprintf(Friends.list[Friends.max_idx].worksubdir, sizeof(Friends.list[Friends.max_idx].worksubdir), "%s/%s/", motion_pics_work_dir, (const char*)Friends.list[Friends.max_idx].pub_key);
+	printf("friend subdir=%s\n", Friends.list[Friends.max_idx].worksubdir);
+    mkdir(Friends.list[Friends.max_idx].worksubdir, S_IRWXU | S_IRWXG); // og+rwx
 
-        // if (loerr != TOX_ERR_FRIEND_GET_LAST_ONLINE_OK)
-        //{
-        //    t = 0;
-        //}
+	// TOX_ERR_FRIEND_GET_LAST_ONLINE loerr;
+	// time_t t = tox_friend_get_last_online(m, num, &loerr);
+
+	// if (loerr != TOX_ERR_FRIEND_GET_LAST_ONLINE_OK)
+	//{
+	//    t = 0;
+	//}
 
     Friends.max_idx++;
 
-    printf("friendlist_onFriendAdded:099\n");
-
 }
+
+
 
 static void load_friendlist(Tox *m)
 {
@@ -484,11 +592,9 @@ static void load_friendlist(Tox *m)
 
     for (i = 0; i < numfriends; ++i)
     {
-        printf("loading friend:%d\n", (int)i);
         friendlist_onFriendAdded(m, i, false);
+        printf("loading friend num:%d pubkey=%s\n", (int)i, Friends.list[Friends.max_idx - 1].pub_key);
     }
-
-    // sort_friendlist_index();
 }
 
 
@@ -543,11 +649,9 @@ struct FileTransfer *get_file_transfer_struct(uint32_t friendnum, uint32_t filen
 void friend_request_cb(Tox *tox, const uint8_t *public_key, const uint8_t *message, size_t length,
                                    void *user_data)
 {
-    printf("add friend:001\n");
     uint32_t friendnum = tox_friend_add_norequest(tox, public_key, NULL);
     printf("add friend:002:friendnum=%d max_id=%d\n", friendnum, (int)Friends.max_idx);
     friendlist_onFriendAdded(tox, friendnum, 0);
-    // avatar_send(tox, friendnum);
 
     update_savedata_file(tox);
 }
@@ -575,14 +679,9 @@ void on_file_recv_chunk(Tox *m, uint32_t friendnumber, uint32_t filenumber, uint
     struct FileTransfer *ft = get_file_transfer_struct(friendnumber, filenumber);
 
     if (!ft)
+	{
         return;
-
-    size_t i;
-
-    // for (i = 0; i < MAX_WINDOWS_NUM; ++i) {
-    //    if (windows[i].onFileRecvChunk != NULL)
-    //        windows[i].onFileRecvChunk(&windows[i], m, friendnumber, filenumber, position, (char *) data, length);
-    //}
+	}
 }
 
 
@@ -603,13 +702,6 @@ void on_file_recv(Tox *m, uint32_t friendnumber, uint32_t filenumber, uint32_t k
         printf("on_file_recv:003:cancel incoming file\n");
         return;
     }
-
-    // size_t i;
-    // for (i = 0; i < MAX_WINDOWS_NUM; ++i) {
-    //    if (windows[i].onFileRecv != NULL)
-    //        windows[i].onFileRecv(&windows[i], m, friendnumber, filenumber, file_size, (char *) filename,
-    //                              filename_length);
-    //}
 }
 
 
@@ -643,6 +735,8 @@ void on_file_chunk_request(Tox *tox, uint32_t friendnumber, uint32_t filenumber,
     {
         printf("File '%s' successfully sent\n", ft->file_name);
         close_file_transfer(tox, ft, -1);
+		// also remove the file from disk
+		unlink(ft->file_name);
         return;
     }
 
@@ -729,44 +823,42 @@ void on_file_control(Tox *m, uint32_t friendnumber, uint32_t filenumber, TOX_FIL
         return;
     }
 
-
-
     printf("on_file_control:002:file in/out\n");
 
+	char msg[MAX_STR_SIZE];
 
-        char msg[MAX_STR_SIZE];
+	switch (control)
+	{
+		case TOX_FILE_CONTROL_RESUME:
+		{
+			ft->last_keep_alive = get_unix_time();
 
-        switch (control) {
-        case TOX_FILE_CONTROL_RESUME:
-        {
-            ft->last_keep_alive = get_unix_time();
+			/* transfer is accepted */
+			if (ft->state == FILE_TRANSFER_PENDING)
+			{
+				ft->state = FILE_TRANSFER_STARTED;
+			}
+			else if (ft->state == FILE_TRANSFER_PAUSED)
+			{    /* transfer is resumed */
+				ft->state = FILE_TRANSFER_STARTED;
+			}
 
-            /* transfer is accepted */
-            if (ft->state == FILE_TRANSFER_PENDING)
-            {
-                ft->state = FILE_TRANSFER_STARTED;
-            }
-            else if (ft->state == FILE_TRANSFER_PAUSED)
-            {    /* transfer is resumed */
-                ft->state = FILE_TRANSFER_STARTED;
-            }
+			break;
+		}
 
-            break;
-        }
+		case TOX_FILE_CONTROL_PAUSE:
+		{
+			ft->state = FILE_TRANSFER_PAUSED;
+			break;
+		}
 
-        case TOX_FILE_CONTROL_PAUSE:
-        {
-            ft->state = FILE_TRANSFER_PAUSED;
-            break;
-        }
-
-        case TOX_FILE_CONTROL_CANCEL:
-        {
-            printf("File transfer for '%s' was aborted\n", ft->file_name);
-            close_file_transfer(m, ft, -1);
-            break;
-        }
-    }
+		case TOX_FILE_CONTROL_CANCEL:
+		{
+			printf("File transfer for '%s' was aborted\n", ft->file_name);
+			close_file_transfer(m, ft, -1);
+			break;
+		}
+	}
 
 }
 
@@ -788,13 +880,16 @@ void on_avatar_chunk_request(Tox *m, struct FileTransfer *ft, uint64_t position,
         return;
     }
 
-    if (ft->file == NULL) {
+    if (ft->file == NULL)
+	{
         close_file_transfer(m, ft, TOX_FILE_CONTROL_CANCEL);
         return;
     }
 
-    if (ft->position != position) {
-        if (fseek(ft->file, position, SEEK_SET) == -1) {
+    if (ft->position != position)
+	{
+        if (fseek(ft->file, position, SEEK_SET) == -1)
+		{
             close_file_transfer(m, ft, TOX_FILE_CONTROL_CANCEL);
             return;
         }
@@ -1008,13 +1103,15 @@ int avatar_set(Tox *m, const char *path, size_t path_len)
     }
 
     printf("avatar_set:002\n");
-
     FILE *fp = fopen(path, "rb");
+
     if (fp == NULL)
     {
         return -1;
     }
+
     char PNG_signature[8] = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+
     if (check_file_signature(PNG_signature, sizeof(PNG_signature), fp) != 0)
     {
         fclose(fp);
@@ -1039,8 +1136,6 @@ int avatar_set(Tox *m, const char *path, size_t path_len)
     Avatar.path_len = path_len;
     Avatar.size = size;
 
-    // avatar_send_all(m);
-
     printf("avatar_set:099\n");
 
     return 0;
@@ -1054,7 +1149,6 @@ static void avatar_clear(void)
 void avatar_unset(Tox *m)
 {
     avatar_clear();
-    // avatar_send_all(m);
 }
 
 void check_dir(Tox *m)
@@ -1101,11 +1195,11 @@ void check_dir(Tox *m)
                                                         int renname_err = rename(oldname, newname);
                                                         // printf("res=%d\n", renname_err);
 
-                                                        send_file_to_all_friends(m, newname);
+                                                        send_file_to_all_friends(m, newname, dir->d_name);
                                                 }
                                                 else
                                                 {
-                                                        printf("new image:%s (still in use ...)\n", dir->d_name);
+                                                        // printf("new image:%s (still in use ...)\n", dir->d_name);
                                                 }
                                         }
                                         else if(strcmp(ext, motion_capture_file_extension_mov) == 0)
@@ -1134,11 +1228,11 @@ void check_dir(Tox *m)
                                                         int renname_err = rename(oldname, newname);
                                                         // printf("res=%d\n", renname_err);
 
-                                                        send_file_to_all_friends(m, newname);
+                                                        send_file_to_all_friends(m, newname, dir->d_name);
                                                 }
                                                 else
                                                 {
-                                                        printf("new image:%s (still in use ...)\n", dir->d_name);
+                                                        // printf("new image:%s (still in use ...)\n", dir->d_name);
                                                 }
                                         }
                                 }
@@ -1156,6 +1250,9 @@ int main()
 
     logfile = fopen(log_filename, "wb");
     setvbuf(logfile, NULL, _IONBF, 0);
+
+    // create motion-capture-dir of not already there
+    mkdir(motion_pics_dir, S_IRWXU | S_IRWXG); // og+rwx
 
     // create workdir of not already there
     mkdir(motion_pics_work_dir, S_IRWXU | S_IRWXG); // og+rwx
