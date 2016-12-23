@@ -568,7 +568,7 @@ static void load_friendlist(Tox *m)
     for (i = 0; i < numfriends; ++i)
     {
         friendlist_onFriendAdded(m, i, false);
-        printf("loading friend num:%d pubkey=%s\n", (int)i, Friends.list[Friends.max_idx - 1].pub_key);
+        printf("loading friend num:%d pubkey=%s\n", (int)i, Friends.list[Friends.max_idx - 1].pubkey_string);
     }
 }
 
