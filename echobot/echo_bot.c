@@ -32,6 +32,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <sodium/utils.h>
 #include <tox/tox.h>
@@ -426,62 +427,19 @@ on_send_error:
 
 int copy_file(const char *to, const char *from)
 {
-    FILE *fd_to;
-    FILE *fd_from;
-    char buf[4096];
-    ssize_t nread;
-    int saved_errno;
+	int in_fd = open(from, O_RDONLY);
+	int out_fd = open(to, O_WRONLY);
+	char buf[8192];
 
-    fd_from = fopen(from, O_RDONLY);
-    if (fd_from == NULL)
-        return -1;
-
-    fd_to = open(to, O_WRONLY | O_CREAT | O_EXCL, 0666);
-    if (fd_to == NULL)
-        goto out_error;
-
-    while (nread = read(fd_from, buf, sizeof buf), nread > 0)
-    {
-        char *out_ptr = buf;
-        ssize_t nwritten;
-
-        do {
-            nwritten = write(fd_to, out_ptr, nread);
-
-            if (nwritten >= 0)
-            {
-                nread -= nwritten;
-                out_ptr += nwritten;
-            }
-            else if (errno != EINTR)
-            {
-                goto out_error;
-            }
-        } while (nread > 0);
-    }
-
-    if (nread == 0)
-    {
-        if (fclose(fd_to) != 0)
-        {
-            fd_to = -1;
-            goto out_error;
-        }
-        fclose(fd_from);
-
-        /* Success! */
-        return 0;
-    }
-
-  out_error:
-    saved_errno = errno;
-
-    fclose(fd_from);
-    if (fd_to != NULL)
-        fclose(fd_to);
-
-    errno = saved_errno;
-    return -1;
+	while (1)
+	{
+	    ssize_t result = read(in_fd, &buf[0], sizeof(buf));
+	    if (!result)
+	    {
+		    break;
+	    }
+	    write(out_fd, &buf[0], result);
+	}
 }
 
 
