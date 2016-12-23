@@ -456,14 +456,14 @@ int copy_file(const char *from, const char *to)
 
     if (fd_from < 0)
 	{
-	printf("copy_file:002\n");
+	// printf("copy_file:002\n");
         return -1;
 	}
 
     fd_to = open(to, O_WRONLY | O_CREAT | O_EXCL, 0666);
     if (fd_to < 0)
 {
-	printf("copy_file:003\n");
+	// printf("copy_file:003\n");
 
         goto out_error;
 }
@@ -483,7 +483,7 @@ int copy_file(const char *from, const char *to)
             }
             else if (errno != EINTR)
             {
-		printf("copy_file:004\n");
+		// printf("copy_file:004\n");
                 goto out_error;
             }
         } while (nread > 0);
@@ -494,7 +494,7 @@ int copy_file(const char *from, const char *to)
         if (close(fd_to) < 0)
         {
             fd_to = -1;
-	printf("copy_file:005\n");
+            // printf("copy_file:005\n");
             goto out_error;
         }
         close(fd_from);
@@ -513,7 +513,7 @@ int copy_file(const char *from, const char *to)
         close(fd_to);
 }
 
-	printf("copy_file:009\n");
+	// printf("copy_file:009\n");
 
     errno = saved_errno;
     return -1;
@@ -754,7 +754,7 @@ void on_file_recv(Tox *m, uint32_t friendnumber, uint32_t filenumber, uint32_t k
 void on_file_chunk_request(Tox *tox, uint32_t friendnumber, uint32_t filenumber, uint64_t position,
                            size_t length, void *userdata)
 {
-    printf("on_file_chunk_request:001:friendnum=%d filenum=%d position=%ld len=%d\n", (int)friendnumber, (int)filenumber, (long)position, (int)length);
+    // printf("on_file_chunk_request:001:friendnum=%d filenum=%d position=%ld len=%d\n", (int)friendnumber, (int)filenumber, (long)position, (int)length);
     struct FileTransfer *ft = get_file_transfer_struct(friendnumber, filenumber);
 
     if (!ft)
