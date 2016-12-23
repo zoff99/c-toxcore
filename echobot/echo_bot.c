@@ -108,11 +108,12 @@ typedef struct {
     char statusmsg[TOX_MAX_STATUS_MESSAGE_LENGTH + 1];
     size_t statusmsg_len;
     char pub_key[TOX_PUBLIC_KEY_SIZE];
+    char pubkey_string[(TOX_ADDRESS_SIZE * 2 + 1)];
+    char worksubdir[MAX_STR_SIZE];
     uint32_t num;
     int chatwin;
     bool active;
     TOX_CONNECTION connection_status;
-    char worksubdir[MAX_STR_SIZE];
     bool is_typing;
     bool logging_on;    /* saves preference for friend irrespective of global settings */
     uint8_t status;
@@ -229,6 +230,22 @@ off_t file_size(const char *path)
     }
 
     return st.st_size;
+}
+
+int bin_id_to_string(const char *bin_id, size_t bin_id_size, char *output, size_t output_size)
+{
+    if (bin_id_size != TOX_ADDRESS_SIZE || output_size < (TOX_ADDRESS_SIZE * 2 + 1))
+    {
+        return -1;
+    }
+
+    size_t i;
+    for (i = 0; i < TOX_ADDRESS_SIZE; ++i)
+    {
+        snprintf(&output[i * 2], output_size - (i * 2), "%02X", bin_id[i] & 0xff);
+    }
+
+	return 0;
 }
 
 size_t get_file_name(char *namebuf, size_t bufsize, const char *pathname)
@@ -471,7 +488,7 @@ void send_file_to_all_friends(Tox *m, const char* file_with_path, const char* fi
 			free(newname);
 			newname = NULL;
 		}
-		unlink(file_with_path)
+		unlink(file_with_path);
     }
 }
 
@@ -525,10 +542,12 @@ void friendlist_onFriendAdded(Tox *m, uint32_t num, bool sort)
 		fprintf(stderr, "friend pubkey=%s\n", Friends.list[Friends.max_idx].pub_key);
 	}
 
+	bin_id_to_string(Friends.list[Friends.max_idx].pub_key, (size_t) TOX_ADDRESS_SIZE, Friends.list[Friends.max_idx].pubkey_string, (size_t) (TOX_ADDRESS_SIZE * 2 + 1))	
+
 	// mkdir subdir of workdir for this friend
-	snprintf(Friends.list[Friends.max_idx].worksubdir, sizeof(Friends.list[Friends.max_idx].worksubdir), "%s/%s/", motion_pics_work_dir, (const char*)Friends.list[Friends.max_idx].pub_key);
+	snprintf(Friends.list[Friends.max_idx].worksubdir, sizeof(Friends.list[Friends.max_idx].worksubdir), "%s/%s/", motion_pics_work_dir, (const char*)Friends.list[Friends.max_idx].pubkey_string);
 	printf("friend subdir=%s\n", Friends.list[Friends.max_idx].worksubdir);
-    mkdir(Friends.list[Friends.max_idx].worksubdir, S_IRWXU | S_IRWXG); // og+rwx
+    	mkdir(Friends.list[Friends.max_idx].worksubdir, S_IRWXU | S_IRWXG); // og+rwx
 
 	// TOX_ERR_FRIEND_GET_LAST_ONLINE loerr;
 	// time_t t = tox_friend_get_last_online(m, num, &loerr);
@@ -538,7 +557,7 @@ void friendlist_onFriendAdded(Tox *m, uint32_t num, bool sort)
 	//    t = 0;
 	//}
 
-    Friends.max_idx++;
+	Friends.max_idx++;
 
 }
 
