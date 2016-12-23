@@ -1,6 +1,7 @@
 /*
- *
+ * 
  * Zoff <zoff@zoff.cc>
+ * in 2016
  *
  * dirty hack (echobot and toxic were used as blueprint)
  *
