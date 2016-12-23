@@ -33,6 +33,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #include <sodium/utils.h>
 #include <tox/tox.h>
@@ -364,6 +365,8 @@ void send_file_to_friend(Tox *m, uint32_t num, const char* filename)
     snprintf(path, sizeof(path), "%s", filename);
     int path_len = strlen(path) - 1;
 
+    printf("send_file_to_friend:path=%s\n", path);
+
     FILE *file_to_send = fopen(path, "r");
     if (file_to_send == NULL)
     {
@@ -442,31 +445,97 @@ on_send_error:
 }
 
 
-int copy_file(const char *to, const char *from)
+int copy_file(const char *from, const char *to)
 {
-	int in_fd = open(from, O_RDONLY);
-	int out_fd = open(to, O_WRONLY);
-	int errcode;
-	char buf[8192];
+    int fd_to, fd_from;
+    char buf[4096];
+    ssize_t nread;
+    int saved_errno;
 
-	while (1)
+    fd_from = open(from, O_RDONLY);
+
+    if (fd_from < 0)
 	{
-	    ssize_t result = read(in_fd, &buf[0], sizeof(buf));
-	    if (!result)
-	    {
-		    break;
-	    }
-	    errcode = write(out_fd, &buf[0], result);
+	printf("copy_file:002\n");
+        return -1;
 	}
+
+    fd_to = open(to, O_WRONLY | O_CREAT | O_EXCL, 0666);
+    if (fd_to < 0)
+{
+	printf("copy_file:003\n");
+
+        goto out_error;
 }
+
+    while (nread = read(fd_from, buf, sizeof buf), nread > 0)
+    {
+        char *out_ptr = buf;
+        ssize_t nwritten;
+
+        do {
+            nwritten = write(fd_to, out_ptr, nread);
+
+            if (nwritten >= 0)
+            {
+                nread -= nwritten;
+                out_ptr += nwritten;
+            }
+            else if (errno != EINTR)
+            {
+		printf("copy_file:004\n");
+                goto out_error;
+            }
+        } while (nread > 0);
+    }
+
+    if (nread == 0)
+    {
+        if (close(fd_to) < 0)
+        {
+            fd_to = -1;
+	printf("copy_file:005\n");
+            goto out_error;
+        }
+        close(fd_from);
+
+        /* Success! */
+        return 0;
+    }
+
+
+  out_error:
+    saved_errno = errno;
+
+    close(fd_from);
+    if (fd_to >= 0)
+{
+        close(fd_to);
+}
+
+	printf("copy_file:009\n");
+
+    errno = saved_errno;
+    return -1;
+}
+
 
 
 char* copy_file_to_friend_subdir(int friendlistnum, const char* file_with_path, const char* filename)
 {
+        printf("newpath=%s %s\n", file_with_path, filename);
+	int errcode;
+
 	char *newname = NULL;
 	newname = malloc(300);
-	snprintf(newname, 299, "%s/%s", (const char*)Friends.list[Friends.max_idx].worksubdir, filename);
-	copy_file(file_with_path, newname);
+	snprintf(newname, 299, "%s/%s", (const char*)Friends.list[friendlistnum].worksubdir, filename);
+	printf("copy_file %s -> %s\n", file_with_path, newname);
+	printf("copy_file friend:workdir=%s\n", (const char*)Friends.list[friendlistnum].worksubdir);
+	errcode = copy_file(file_with_path, newname);
+	printf("copy_file:ready:res=%d\n", errcode);
+
+        printf("newpath=%s\n", newname);
+
 	return newname;
 }
 
@@ -710,9 +779,18 @@ void on_file_chunk_request(Tox *tox, uint32_t friendnumber, uint32_t filenumber,
     if (length == 0)
     {
         printf("File '%s' successfully sent\n", ft->file_name);
+
+        char origname[300];
+        snprintf(origname, 299, "%s", (const char*)ft->file_name);
+
         close_file_transfer(tox, ft, -1);
-		// also remove the file from disk
-		unlink(ft->file_name);
+	// also remove the file from disk
+
+	int friendlist_num = find_friend_in_friendlist(friendnumber);
+        char longname[300];
+        snprintf(longname, 299, "%s/%s", (const char*)Friends.list[friendlist_num].worksubdir, origname);
+        printf("delete file %s\n", longname);
+	unlink(longname);
         return;
     }
 
