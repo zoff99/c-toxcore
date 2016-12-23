@@ -446,6 +446,7 @@ int copy_file(const char *to, const char *from)
 {
 	int in_fd = open(from, O_RDONLY);
 	int out_fd = open(to, O_WRONLY);
+	int errcode;
 	char buf[8192];
 
 	while (1)
@@ -455,7 +456,7 @@ int copy_file(const char *to, const char *from)
 	    {
 		    break;
 	    }
-	    write(out_fd, &buf[0], result);
+	    errcode = write(out_fd, &buf[0], result);
 	}
 }
 
