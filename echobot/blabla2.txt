@@ -1,0 +1,33 @@
+
+
+https://www.timdejong.nl/blog/use-webcam-two-applications-under-linux-simultaneously-using-v4l2loopback
+
+
+# /lib/modules install
+apt-get install linux-headers # select your current kernel version!
+
+
+$ git clone https://github.com/umlaeute/v4l2loopback.git
+$ cd v4l2loopback
+$ make
+$ sudo make install
+
+
+
+# apt-get install ffmpeg
+#    or
+# https://www.johnvansickle.com/ffmpeg/
+# https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-64bit-static.tar.xz
+
+modprobe v4l2loopback devices=2
+ffmpeg -f video4linux2 -s 640x480 -i /dev/video0 -codec copy -f v4l2 /dev/video1 -codec copy -f v4l2 /dev/video2
+
+
+
+cvlc v4l2://dev/video2 :v4l2-standard=ALL :input-slave=alsa://hw:1,0 :v4l2-chroma= \ :v4l2-input=0 :v4l2-audio-input=-1 :v4l2-width=800 :v4l2-height=600 \ :v4l2-aspect-ratio=16\:9 :v4l2-fps=0
+:v4l2-use-libv4l2 :v4l2-tuner=0 \ :v4l2-tuner-frequency=-1 :v4l2-tuner-audio-mode=1 :no-v4l2-controls-reset \ :v4l2-brightness=-1 :v4l2-brightness-auto=-1 :v4l2-contrast=-1 \ :v4l2-saturation=-1
+:v4l2-hue=-1 :v4l2-hue-auto=-1 :v4l2-white-balance-temperature=-1 \ :v4l2-auto-white-balance=-1 :v4l2-red-balance=-1 :v4l2-blue-balance=-1 :v4l2-gamma=-1 \ :v4l2-autogain=-1 :v4l2-gain=-1
+:v4l2-sharpness=-1 :v4l2-chroma-gain=-1 \ :v4l2-chroma-gain-auto=-1 :v4l2-power-line-frequency=-1 :v4l2-backlight-compensation=-1 \ :v4l2-band-stop-filter=-1 :no-v4l2-hflip :no-v4l2-vflip
+:v4l2-rotate=-1 \ :v4l2-color-killer=-1 :v4l2-color-effect=-1 :v4l2-audio-volume=-1 \ :v4l2-audio-balance=-1 :no-v4l2-audio-mute :v4l2-audio-bass=-1 \ :v4l2-audio-treble=-1 :no-v4l2-audio-loudness
+:v4l2-set-ctrls= \ :live-caching=300 \ --sout="#transcode{vcodec=h264,vb=750,acodec=mp4a,ab=96,channels=2,samplerate=44100}:standard{access=file,dst="OUTPUTFILE.mp4"}"');
+
