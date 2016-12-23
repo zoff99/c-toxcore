@@ -33,14 +33,18 @@
 #ifdef VANILLA_NACL
 #include <crypto_hash_sha256.h>
 #include "crypto_pwhash_scryptsalsa208sha256/crypto_pwhash_scryptsalsa208sha256.h"
+#else
+#include <sodium.h>
 #endif
+
+#include <string.h>
 
 #if TOX_PASS_SALT_LENGTH != crypto_pwhash_scryptsalsa208sha256_SALTBYTES
 #error TOX_PASS_SALT_LENGTH is assumed to be equal to crypto_pwhash_scryptsalsa208sha256_SALTBYTES
 #endif
 
-#if TOX_PASS_KEY_LENGTH != crypto_box_KEYBYTES
-#error TOX_PASS_KEY_LENGTH is assumed to be equal to crypto_box_KEYBYTES
+#if TOX_PASS_KEY_LENGTH != CRYPTO_SHARED_KEY_SIZE
+#error TOX_PASS_KEY_LENGTH is assumed to be equal to CRYPTO_SHARED_KEY_SIZE
 #endif
 
 #if TOX_PASS_ENCRYPTION_EXTRA_LENGTH != (crypto_box_MACBYTES + crypto_box_NONCEBYTES + crypto_pwhash_scryptsalsa208sha256_SALTBYTES + TOX_ENC_SAVE_MAGIC_LENGTH)
@@ -60,26 +64,6 @@ Tox_Pass_Key *tox_pass_key_new(void)
 void tox_pass_key_free(Tox_Pass_Key *pass_key)
 {
     free(pass_key);
-}
-
-void tox_pass_key_get_salt(const Tox_Pass_Key *pass_key, uint8_t *salt)
-{
-    memcpy(salt, pass_key->salt, TOX_PASS_SALT_LENGTH);
-}
-
-void tox_pass_key_set_salt(Tox_Pass_Key *pass_key, const uint8_t *salt)
-{
-    memcpy(pass_key->salt, salt, TOX_PASS_SALT_LENGTH);
-}
-
-void tox_pass_key_get_key(const Tox_Pass_Key *pass_key, uint8_t *key)
-{
-    memcpy(key, pass_key->key, TOX_PASS_KEY_LENGTH);
-}
-
-void tox_pass_key_set_key(Tox_Pass_Key *pass_key, const uint8_t *key)
-{
-    memcpy(pass_key->key, key, TOX_PASS_KEY_LENGTH);
 }
 
 /* Clients should consider alerting their users that, unlike plain data, if even one bit
@@ -146,7 +130,7 @@ bool tox_pass_key_derive_with_salt(Tox_Pass_Key *out_key, const uint8_t *passphr
     uint8_t passkey[crypto_hash_sha256_BYTES];
     crypto_hash_sha256(passkey, passphrase, pplength);
 
-    uint8_t key[crypto_box_KEYBYTES];
+    uint8_t key[CRYPTO_SHARED_KEY_SIZE];
 
     /* Derive a key from the password */
     /* http://doc.libsodium.org/key_derivation/README.html */
@@ -163,7 +147,7 @@ bool tox_pass_key_derive_with_salt(Tox_Pass_Key *out_key, const uint8_t *passphr
 
     sodium_memzero(passkey, crypto_hash_sha256_BYTES); /* wipe plaintext pw */
     memcpy(out_key->salt, salt, crypto_pwhash_scryptsalsa208sha256_SALTBYTES);
-    memcpy(out_key->key, key, crypto_box_KEYBYTES);
+    memcpy(out_key->key, key, CRYPTO_SHARED_KEY_SIZE);
     SET_ERROR_PARAMETER(error, TOX_ERR_KEY_DERIVATION_OK);
     return 1;
 }
