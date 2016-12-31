@@ -178,6 +178,7 @@ void on_avatar_chunk_request(Tox *m, struct FileTransfer *ft, uint64_t position,
 int avatar_send(Tox *m, uint32_t friendnum);
 struct FileTransfer *new_file_transfer(uint32_t friendnum, uint32_t filenum, FILE_TRANSFER_DIRECTION direction, uint8_t type);
 void kill_all_file_transfers_friend(Tox *m, uint32_t friendnum);
+int has_reached_max_file_transfer_for_friend(uint32_t num);
 
 const char *savedata_filename = "savedata.tox";
 const char *savedata_tmp_filename = "savedata.tox.tmp";
@@ -475,22 +476,23 @@ void send_file_to_friend(Tox *m, uint32_t num, const char* filename)
     char path[MAX_STR_SIZE];
 
     snprintf(path, sizeof(path), "%s", filename);
-
-
     dbg(2, "send_file_to_friend:path=%s\n", path);
 
     FILE *file_to_send = fopen(path, "r");
+
     if (file_to_send == NULL)
     {
-       dbg(0, "error opening file\n");
-       return;
+		dbg(0, "error opening file\n");
+		return;
     }
+
     off_t filesize = file_size(path);
+
     if (filesize == 0)
     {
-      dbg(0, "filesize 0\n");
-      fclose(file_to_send);
-      return;
+		dbg(0, "filesize 0\n");
+		fclose(file_to_send);
+		return;
     }
 
     char file_name[TOX_MAX_FILENAME_LENGTH];
@@ -498,21 +500,21 @@ void send_file_to_friend(Tox *m, uint32_t num, const char* filename)
 
     TOX_ERR_FILE_SEND err;
     uint32_t filenum = tox_file_send(m, num, TOX_FILE_KIND_DATA, (uint64_t) filesize, NULL,
-                                     (uint8_t *) file_name, namelen, &err);
+		(uint8_t *) file_name, namelen, &err);
 
     if (err != TOX_ERR_FILE_SEND_OK)
     {
-        dbg(0, "! TOX_ERR_FILE_SEND_OK\n");
-        goto on_send_error;
+		dbg(0, "! TOX_ERR_FILE_SEND_OK\n");
+		goto on_send_error;
     }
 
     struct FileTransfer *ft = new_file_transfer(num, filenum, FILE_TRANSFER_SEND, TOX_FILE_KIND_DATA);
 
     if (!ft)
     {
-        dbg(0, "ft=NULL\n");
-        err = TOX_ERR_FILE_SEND_TOO_MANY;
-        goto on_send_error;
+		dbg(0, "ft=NULL\n");
+		err = TOX_ERR_FILE_SEND_TOO_MANY;
+		goto on_send_error;
     }
 
     memcpy(ft->file_name, file_name, namelen + 1);
@@ -524,7 +526,8 @@ void send_file_to_friend(Tox *m, uint32_t num, const char* filename)
 
 on_send_error:
 
-    switch (err) {
+    switch (err)
+	{
         case TOX_ERR_FILE_SEND_FRIEND_NOT_FOUND:
             errmsg = "File transfer failed: Invalid friend.";
             break;
@@ -552,8 +555,6 @@ on_send_error:
     tox_file_control(m, num, filenum, TOX_FILE_CONTROL_CANCEL, NULL);
     fclose(file_to_send);
 
-
-
     // ------- hack to send file --------
     // ------- hack to send file --------
 }
@@ -576,18 +577,18 @@ int copy_file(const char *from, const char *to)
 
     fd_to = open(to, O_WRONLY | O_CREAT | O_EXCL, 0666);
     if (fd_to < 0)
-{
+	{
 		dbg(0, "copy_file:003\n");
-
         goto out_error;
-}
+	}
 
     while (nread = read(fd_from, buf, sizeof buf), nread > 0)
     {
         char *out_ptr = buf;
         ssize_t nwritten;
 
-        do {
+        do
+		{
             nwritten = write(fd_to, out_ptr, nread);
 
             if (nwritten >= 0)
@@ -600,6 +601,7 @@ int copy_file(const char *from, const char *to)
 				dbg(0, "copy_file:004\n");
                 goto out_error;
             }
+
         } while (nread > 0);
     }
 
@@ -611,6 +613,7 @@ int copy_file(const char *from, const char *to)
             dbg(0, "copy_file:005\n");
             goto out_error;
         }
+
         close(fd_from);
 
         /* Success! */
@@ -668,7 +671,12 @@ void send_file_to_all_friends(Tox *m, const char* file_with_path, const char* fi
 		if (j > -1)
 		{
 			newname = copy_file_to_friend_subdir((int) j, file_with_path, filename);
-			send_file_to_friend(m, i, newname);
+
+			// see if we have reached max filetransfers
+			if (has_reached_max_file_transfer_for_friend(i) == 0)
+			{
+				send_file_to_friend(m, i, newname);
+			}
 			free(newname);
 			newname = NULL;
 		}
@@ -794,7 +802,7 @@ void close_file_transfer(Tox *m, struct FileTransfer *ft, int CTRL)
 
 }
 
-int has_reached_max_file_transder_for_friend(uint32_t num)
+int has_reached_max_file_transfer_for_friend(uint32_t num)
 {
 	int active_ft = 0;
 	int friendlistnum = find_friend_in_friendlist(num);
@@ -1107,7 +1115,7 @@ void on_file_recv(Tox *m, uint32_t friendnumber, uint32_t filenumber, uint32_t k
 void on_file_chunk_request(Tox *tox, uint32_t friendnumber, uint32_t filenumber, uint64_t position,
                            size_t length, void *userdata)
 {
-    dbg(9, "on_file_chunk_request:001:friendnum=%d filenum=%d position=%ld len=%d\n", (int)friendnumber, (int)filenumber, (long)position, (int)length);
+    // dbg(9, "on_file_chunk_request:001:friendnum=%d filenum=%d position=%ld len=%d\n", (int)friendnumber, (int)filenumber, (long)position, (int)length);
     struct FileTransfer *ft = get_file_transfer_struct(friendnumber, filenumber);
 
     if (!ft)
@@ -1583,26 +1591,29 @@ void avatar_unset(Tox *m)
 
 void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 {
-	DIR *d;
-	struct dirent *dir;
-
-	// dbg(2, "checking friend subdir=%s\n", Friends.list[friendlistnum].worksubdir);
-
-	d = opendir(Friends.list[friendlistnum].worksubdir);
-	if (d)
+	// now check friend is online
+	if ((Friends.list[friendlistnum].connection_status == TOX_CONNECTION_TCP)
+		|| (Friends.list[friendlistnum].connection_status == TOX_CONNECTION_UDP))
 	{
-		while ((dir = readdir(d)) != NULL)
+		DIR *d;
+		struct dirent *dir;
+		// dbg(2, "checking friend subdir=%s\n", Friends.list[friendlistnum].worksubdir);
+
+		d = opendir(Friends.list[friendlistnum].worksubdir);
+		if (d)
 		{
-			if (dir->d_type == DT_REG)
+			while ((dir = readdir(d)) != NULL)
 			{
-				const char *ext = strrchr(dir->d_name,'.');
-				if((!ext) || (ext == dir->d_name))
+				if (dir->d_type == DT_REG)
 				{
-						// wrong fileextension
-				}
-				else
-				{
-						if(strcmp(ext, motion_capture_file_extension) == 0)
+					const char *ext = strrchr(dir->d_name,'.');
+					if((!ext) || (ext == dir->d_name))
+					{
+							// wrong fileextension
+					}
+					else
+					{
+						if (strcmp(ext, motion_capture_file_extension) == 0)
 						{
 							// images only
 							// dbg(9, "checking image:%s\n", dir->d_name);
@@ -1615,36 +1626,72 @@ void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 							snprintf(newname, sizeof(newname), "%s/%s", Friends.list[friendlistnum].worksubdir, dir->d_name);
 							// dbg(9, "subdir=%s\n", newname);
 
-
 							stat(newname, &foo);
 							mtime = foo.st_mtime; /* seconds since the epoch */
 
-							// see if file is in use
-							if ((mtime + seconds_since_last_mod) < time_now)
+							// see if we have reached max filetransfers
+							if (has_reached_max_file_transfer_for_friend(friendnum) == 0)
 							{
-								// now see if this file is somewhere in outgoing ft
-								if (get_file_transfer_from_filename_struct(friendnum, dir->d_name) == NULL)
+								// see if file is in use
+								if ((mtime + seconds_since_last_mod) < time_now)
 								{
-									// now check friend is online
-									if ((Friends.list[friendlistnum].connection_status == TOX_CONNECTION_TCP)
-										|| (Friends.list[friendlistnum].connection_status == TOX_CONNECTION_UDP))
+									// now see if this file is somewhere in outgoing ft
+									if (get_file_transfer_from_filename_struct(friendnum, dir->d_name) == NULL)
 									{
 										dbg(2, "resending file %s to friend %d\n", newname, friendnum);
 										send_file_to_friend(m, friendnum, newname);
 									}
 								}
-							}
-							else
-							{
-								// printf("new image:%s (still in use ...)\n", dir->d_name);
-							}
+								else
+								{
+									// printf("new image:%s (still in use ...)\n", dir->d_name);
+								}
 
+							}
 						}
+						else if (strcmp(ext, motion_capture_file_extension_mov) == 0)
+						{
+							// avi videos only
+							// dbg(9, "checking video:%s\n", dir->d_name);
+
+							struct stat foo;
+							time_t mtime;
+							time_t time_now = time(NULL);
+
+							char newname[300];
+							snprintf(newname, sizeof(newname), "%s/%s", Friends.list[friendlistnum].worksubdir, dir->d_name);
+							// dbg(9, "subdir=%s\n", newname);
+
+							stat(newname, &foo);
+							mtime = foo.st_mtime; /* seconds since the epoch */
+
+							// see if we have reached max filetransfers
+							if (has_reached_max_file_transfer_for_friend(friendnum) == 0)
+							{
+								// see if file is in use
+								if ((mtime + seconds_since_last_mod) < time_now)
+								{
+									// now see if this file is somewhere in outgoing ft
+									if (get_file_transfer_from_filename_struct(friendnum, dir->d_name) == NULL)
+									{
+										dbg(2, "resending file %s to friend %d\n", newname, friendnum);
+										send_file_to_friend(m, friendnum, newname);
+									}
+								}
+								else
+								{
+									// printf("new image:%s (still in use ...)\n", dir->d_name);
+								}
+
+							}
+						}
+
+					}
 				}
 			}
-		}
 
-		closedir(d);
+			closedir(d);
+		}
 	}
 }
 
@@ -1669,94 +1716,94 @@ void check_friends_dir(Tox *m)
 
 void check_dir(Tox *m)
 {
-        DIR *d;
-        struct dirent *dir;
-        d = opendir(motion_pics_dir);
-        if (d)
-        {
-                while ((dir = readdir(d)) != NULL)
-                {
-                        if (dir->d_type == DT_REG)
-                        {
-                                const char *ext = strrchr(dir->d_name,'.');
-                                if((!ext) || (ext == dir->d_name))
-                                {
-                                        // wrong fileextension
-                                }
-                                else
-                                {
-                                        if(strcmp(ext, motion_capture_file_extension) == 0)
-                                        {
-                                                // dbg(9, "new image:%s\n", dir->d_name);
+	DIR *d;
+	struct dirent *dir;
+	d = opendir(motion_pics_dir);
+	if (d)
+	{
+		while ((dir = readdir(d)) != NULL)
+		{
+			if (dir->d_type == DT_REG)
+			{
+				const char *ext = strrchr(dir->d_name,'.');
+				if((!ext) || (ext == dir->d_name))
+				{
+						// wrong fileextension
+				}
+				else
+				{
+					if(strcmp(ext, motion_capture_file_extension) == 0)
+					{
+						// dbg(9, "new image:%s\n", dir->d_name);
 
-                                                // move file to work dir
-                                                char oldname[300];
-                                                snprintf(oldname, sizeof(oldname), "%s/%s", motion_pics_dir, dir->d_name);
-
-
-                                                struct stat foo;
-                                                time_t mtime;
-                                                time_t time_now = time(NULL);
-
-                                                stat(oldname, &foo);
-                                                mtime = foo.st_mtime; /* seconds since the epoch */
-
-                                                if ((mtime + seconds_since_last_mod) < time_now)
-                                                {
-                                                        char newname[300];
-                                                        snprintf(newname, sizeof(newname), "%s/%s", motion_pics_work_dir, dir->d_name);
-
-                                                        dbg(2, "new image:%s\n", dir->d_name);
-                                                        dbg(2, "move %s -> %s\n", oldname, newname);
-                                                        int renname_err = rename(oldname, newname);
-                                                        dbg(2, "res=%d\n", renname_err);
-
-                                                        send_file_to_all_friends(m, newname, dir->d_name);
-                                                }
-                                                else
-                                                {
-                                                        // printf("new image:%s (still in use ...)\n", dir->d_name);
-                                                }
-                                        }
-                                        else if(strcmp(ext, motion_capture_file_extension_mov) == 0)
-                                        {
-                                                // printf("new image:%s\n", dir->d_name);
-
-                                                // move file to work dir
-                                                char oldname[300];
-                                                snprintf(oldname, sizeof(oldname), "%s/%s", motion_pics_dir, dir->d_name);
+						// move file to work dir
+						char oldname[300];
+						snprintf(oldname, sizeof(oldname), "%s/%s", motion_pics_dir, dir->d_name);
 
 
-                                                struct stat foo;
-                                                time_t mtime;
-                                                time_t time_now = time(NULL);
+						struct stat foo;
+						time_t mtime;
+						time_t time_now = time(NULL);
 
-                                                stat(oldname, &foo);
-                                                mtime = foo.st_mtime; /* seconds since the epoch */
+						stat(oldname, &foo);
+						mtime = foo.st_mtime; /* seconds since the epoch */
 
-                                                if ((mtime + seconds_since_last_mod) < time_now)
-                                                {
-                                                        char newname[300];
-                                                        snprintf(newname, sizeof(newname), "%s/%s", motion_pics_work_dir, dir->d_name);
+						if ((mtime + seconds_since_last_mod) < time_now)
+						{
+								char newname[300];
+								snprintf(newname, sizeof(newname), "%s/%s", motion_pics_work_dir, dir->d_name);
 
-                                                        dbg(2, "new movie:%s\n", dir->d_name);
-                                                        dbg(2, "move %s -> %s\n", oldname, newname);
-                                                        int renname_err = rename(oldname, newname);
-                                                        dbg(2, "res=%d\n", renname_err);
+								dbg(2, "new image:%s\n", dir->d_name);
+								dbg(2, "move %s -> %s\n", oldname, newname);
+								int renname_err = rename(oldname, newname);
+								dbg(2, "res=%d\n", renname_err);
 
-                                                        send_file_to_all_friends(m, newname, dir->d_name);
-                                                }
-                                                else
-                                                {
-                                                        // printf("new image:%s (still in use ...)\n", dir->d_name);
-                                                }
-                                        }
-                                }
-                        }
-                }
+								send_file_to_all_friends(m, newname, dir->d_name);
+						}
+						else
+						{
+								// printf("new image:%s (still in use ...)\n", dir->d_name);
+						}
+					}
+					else if(strcmp(ext, motion_capture_file_extension_mov) == 0)
+					{
+						// printf("new image:%s\n", dir->d_name);
 
-                closedir(d);
-        }
+						// move file to work dir
+						char oldname[300];
+						snprintf(oldname, sizeof(oldname), "%s/%s", motion_pics_dir, dir->d_name);
+
+
+						struct stat foo;
+						time_t mtime;
+						time_t time_now = time(NULL);
+
+						stat(oldname, &foo);
+						mtime = foo.st_mtime; /* seconds since the epoch */
+
+						if ((mtime + seconds_since_last_mod) < time_now)
+						{
+								char newname[300];
+								snprintf(newname, sizeof(newname), "%s/%s", motion_pics_work_dir, dir->d_name);
+
+								dbg(2, "new movie:%s\n", dir->d_name);
+								dbg(2, "move %s -> %s\n", oldname, newname);
+								int renname_err = rename(oldname, newname);
+								dbg(2, "res=%d\n", renname_err);
+
+								send_file_to_all_friends(m, newname, dir->d_name);
+						}
+						else
+						{
+								// printf("new image:%s (still in use ...)\n", dir->d_name);
+						}
+					}
+				}
+			}
+		}
+
+		closedir(d);
+	}
 }
 
 
