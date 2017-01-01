@@ -73,6 +73,7 @@ typedef struct DHT_node {
 
 #define seconds_since_last_mod 1 // how long to wait before we process image files in seconds
 #define MAX_FILES 3 // how many filetransfers to/from 1 friend at the same time?
+#define MAX_RESEND_FILE_BEFORE_ASK 4
 
 #define c_sleep(x) usleep(1000*x)
 
@@ -139,6 +140,8 @@ typedef struct {
     struct LastOnline last_online;
     struct FileTransfer file_receiver[MAX_FILES];
     struct FileTransfer file_sender[MAX_FILES];
+	char last_answer[100];
+	int waiting_for_answer; // 0 -> no, 1 -> waiting for answer, 2 -> got answer
 } ToxicFriend;
 
 typedef struct {
@@ -179,6 +182,8 @@ int avatar_send(Tox *m, uint32_t friendnum);
 struct FileTransfer *new_file_transfer(uint32_t friendnum, uint32_t filenum, FILE_TRANSFER_DIRECTION direction, uint8_t type);
 void kill_all_file_transfers_friend(Tox *m, uint32_t friendnum);
 int has_reached_max_file_transfer_for_friend(uint32_t num);
+static int find_friend_in_friendlist(uint32_t friendnum);
+int is_friend_online(Tox *tox, uint32_t num);
 
 const char *savedata_filename = "savedata.tox";
 const char *savedata_tmp_filename = "savedata.tox.tmp";
@@ -193,6 +198,7 @@ const char *shell_cmd__single_shot = "/home/pi/inst_/single_shot.sh";
 int global_want_restart = 0;
 const char *global_timestamp_format = "%H:%M:%S";
 const char *global_long_timestamp_format = "%Y-%m-%d %H:%M:%S";
+uint64_t global_start_time;
 
 
 TOX_CONNECTION my_connection_status = TOX_CONNECTION_NONE;
@@ -419,17 +425,28 @@ void bootstrap(Tox *tox)
     }
 }
 
-void print_tox_id(Tox *tox)
+// fill string with toxid in upper case hex.
+// size of toxid_str needs to be: [TOX_ADDRESS_SIZE*2 + 1] !!
+void get_my_toxid(Tox *tox, char *toxid_str)
 {
     uint8_t tox_id_bin[TOX_ADDRESS_SIZE];
     tox_self_get_address(tox, tox_id_bin);
 
-    char tox_id_hex[TOX_ADDRESS_SIZE*2 + 1];
-    sodium_bin2hex(tox_id_hex, sizeof(tox_id_hex), tox_id_bin, sizeof(tox_id_bin));
+	char tox_id_hex_local[TOX_ADDRESS_SIZE*2 + 1];
+    sodium_bin2hex(tox_id_hex_local, sizeof(tox_id_hex_local), tox_id_bin, sizeof(tox_id_bin));
 
-    for (size_t i = 0; i < sizeof(tox_id_hex)-1; i ++) {
-        tox_id_hex[i] = toupper(tox_id_hex[i]);
+    for (size_t i = 0; i < sizeof(tox_id_hex_local)-1; i ++)
+	{
+        tox_id_hex_local[i] = toupper(tox_id_hex_local[i]);
     }
+
+	snprintf(toxid_str, (size_t)(TOX_ADDRESS_SIZE*2 + 1), "%s", (const char*)tox_id_hex_local);
+}
+
+void print_tox_id(Tox *tox)
+{
+    char tox_id_hex[TOX_ADDRESS_SIZE*2 + 1];
+	get_my_toxid(tox, tox_id_hex);
 
     if (logfile)
     {
@@ -441,6 +458,25 @@ void print_tox_id(Tox *tox)
     }
 }
 
+int is_friend_online(Tox *tox, uint32_t num)
+{
+	int j = find_friend_in_friendlist(num);
+	switch (Friends.list[j].connection_status)
+	{
+		case TOX_CONNECTION_NONE:
+			return 0;
+			break;
+		case TOX_CONNECTION_TCP:
+			return 1;
+			break;
+		case TOX_CONNECTION_UDP:
+			return 1;
+			break;
+		default:
+			return 0;
+			break;
+	}
+}
 
 static int find_friend_in_friendlist(uint32_t friendnum)
 {
@@ -673,9 +709,12 @@ void send_file_to_all_friends(Tox *m, const char* file_with_path, const char* fi
 			newname = copy_file_to_friend_subdir((int) j, file_with_path, filename);
 
 			// see if we have reached max filetransfers
-			if (has_reached_max_file_transfer_for_friend(i) == 0)
+			if (has_reached_max_file_transfer_for_friend((uint32_t) i) == 0)
 			{
-				send_file_to_friend(m, i, newname);
+				if (is_friend_online(m, (uint32_t) i) == 1)
+				{
+					send_file_to_friend(m, i, newname);
+				}
 			}
 			free(newname);
 			newname = NULL;
@@ -724,6 +763,7 @@ void friendlist_onFriendAdded(Tox *m, uint32_t num, bool sort)
 	Friends.list[Friends.max_idx].active = true;
 	Friends.list[Friends.max_idx].connection_status = TOX_CONNECTION_NONE;
 	Friends.list[Friends.max_idx].status = TOX_USER_STATUS_NONE;
+	Friends.list[Friends.max_idx].waiting_for_answer = 0;
 	// Friends.list[i].logging_on = (bool) user_settings->autolog == AUTOLOG_ON;
 
 	TOX_ERR_FRIEND_GET_PUBLIC_KEY pkerr;
@@ -917,33 +957,46 @@ void friend_request_cb(Tox *tox, const uint8_t *public_key, const uint8_t *messa
     update_savedata_file(tox);
 }
 
+/* ssssshhh I stole this from ToxBot, don't tell anyone.. */
+/* ssssshhh and I stole this from EchoBot, don't tell anyone.. */
+static void get_elapsed_time_str(char *buf, int bufsize, uint64_t secs)
+{
+	long unsigned int minutes = (secs % 3600) / 60;
+	long unsigned int hours = (secs / 3600) % 24;
+	long unsigned int days = (secs / 3600) / 24;
+
+	snprintf(buf, bufsize, "%lud %luh %lum", days, hours, minutes);
+}
+
 void cmd_stats(Tox *tox, uint32_t friend_number)
 {
-	char *msg2 = NULL;
-
-
-	msg2 = malloc(1000);
-	if (msg2)
+	switch (my_connection_status)
 	{
-		switch (my_connection_status)
-		{
-			case TOX_CONNECTION_NONE:
-				send_text_message_to_friend(tox, friend_number, "doorspy status:offline");
-				break;
-			case TOX_CONNECTION_TCP:
-				send_text_message_to_friend(tox, friend_number, "doorspy status:Online, using TCP");
-				break;
-			case TOX_CONNECTION_UDP:
-				send_text_message_to_friend(tox, friend_number, "doorspy status:Online, using UDP");
-				break;
-			default:
-				send_text_message_to_friend(tox, friend_number, "doorspy status:*unknown*");
-				break;
-		}
-
-		free(msg2);
-		msg2 = NULL;
+		case TOX_CONNECTION_NONE:
+			send_text_message_to_friend(tox, friend_number, "doorspy status:offline");
+			break;
+		case TOX_CONNECTION_TCP:
+			send_text_message_to_friend(tox, friend_number, "doorspy status:Online, using TCP");
+			break;
+		case TOX_CONNECTION_UDP:
+			send_text_message_to_friend(tox, friend_number, "doorspy status:Online, using UDP");
+			break;
+		default:
+			send_text_message_to_friend(tox, friend_number, "doorspy status:*unknown*");
+			break;
 	}
+
+	// ----- uptime -----
+	char time_str[200];
+	uint64_t cur_time = time(NULL);
+	get_elapsed_time_str(time_str, sizeof(time_str), cur_time - global_start_time);
+	send_text_message_to_friend(tox, friend_number, "Uptime: %s", time_str);
+	// ----- uptime -----
+
+    char tox_id_hex[TOX_ADDRESS_SIZE*2 + 1];
+	get_my_toxid(tox, tox_id_hex);
+
+	send_text_message_to_friend(tox, friend_number, "tox:%s", tox_id_hex);
 }
 
 void cmd_kamft(Tox *tox, uint32_t friend_number)
@@ -1019,46 +1072,62 @@ void send_help_to_friend(Tox *tox, uint32_t friend_number)
 void friend_message_cb(Tox *tox, uint32_t friend_number, TOX_MESSAGE_TYPE type, const uint8_t *message,
                                    size_t length, void *user_data)
 {
+	int j;
 	int send_back = 0;
 
     if (type == TOX_MESSAGE_TYPE_NORMAL)
     {
 		if (message != NULL)
 		{
-			dbg(2, "message from friend:%d msg:%s\n", (int)friend_number, (char*)message);
-			if (strncmp((char*)message, ".help", strlen((char*)message)) == 0)
+			dbg(2, "waiting for answer from friend:%d msg:%s\n", (int)friend_number, (char*)message);
+
+			j = find_friend_in_friendlist(friend_number);
+			if (Friends.list[j].waiting_for_answer == 1)
 			{
-				send_help_to_friend(tox, friend_number);
-			}
-			else if (strncmp((char*)message, ".stats", strlen((char*)message)) == 0)
-			{
-				cmd_stats(tox, friend_number);
-			}
-			else if (strncmp((char*)message, ".friends", strlen((char*)message)) == 0)
-			{
-				cmd_friends(tox, friend_number);
-			}
-			else if (strncmp((char*)message, ".kamft", strlen((char*)message)) == 0)
-			{
-				cmd_kamft(tox, friend_number);
-			}
-			else if (strncmp((char*)message, ".snap", strlen((char*)message)) == 0)
-			{
-				cmd_snap(tox, friend_number);
-			}
-			else if (strncmp((char*)message, ".restart", strlen((char*)message)) == 0) // restart doorspy processes (no reboot)
-			{
-				cmd_restart(tox, friend_number);
-			}
-			else if (strncmp((char*)message, ".vcm", strlen((char*)message)) == 0) // video call me!
-			{
-				cmd_vcm(tox, friend_number);
+				// we want to get user feedback
+				snprintf(Friends.list[j].last_answer, 99, (char*)message);
+				Friends.list[j].waiting_for_answer = 2;
+
+				dbg(2, "got answer from friend:%d answer:%s\n", (int)friend_number, Friends.list[j].last_answer);
 			}
 			else
 			{
-				// send_back = 1;
-				// unknown command, just send "help / usage"
-				send_help_to_friend(tox, friend_number);
+				dbg(2, "message from friend:%d msg:%s\n", (int)friend_number, (char*)message);
+
+				if (strncmp((char*)message, ".help", strlen((char*)message)) == 0)
+				{
+					send_help_to_friend(tox, friend_number);
+				}
+				else if (strncmp((char*)message, ".stats", strlen((char*)message)) == 0)
+				{
+					cmd_stats(tox, friend_number);
+				}
+				else if (strncmp((char*)message, ".friends", strlen((char*)message)) == 0)
+				{
+					cmd_friends(tox, friend_number);
+				}
+				else if (strncmp((char*)message, ".kamft", strlen((char*)message)) == 0)
+				{
+					cmd_kamft(tox, friend_number);
+				}
+				else if (strncmp((char*)message, ".snap", strlen((char*)message)) == 0)
+				{
+					cmd_snap(tox, friend_number);
+				}
+				else if (strncmp((char*)message, ".restart", strlen((char*)message)) == 0) // restart doorspy processes (no reboot)
+				{
+					cmd_restart(tox, friend_number);
+				}
+				else if (strncmp((char*)message, ".vcm", strlen((char*)message)) == 0) // video call me!
+				{
+					cmd_vcm(tox, friend_number);
+				}
+				else
+				{
+					// send_back = 1;
+					// unknown command, just send "help / usage"
+					send_help_to_friend(tox, friend_number);
+				}
 			}
 		}
 		else
@@ -1588,13 +1657,115 @@ void avatar_unset(Tox *m)
     avatar_clear();
 }
 
+int check_number_of_files_to_resend_to_friend(Tox *m, uint32_t friendnum, int friendlistnum)
+{
+	int ret = 0;
+
+	DIR *d;
+	struct dirent *dir;
+	// dbg(2, "checking friend subdir=%s\n", Friends.list[friendlistnum].worksubdir);
+
+	d = opendir(Friends.list[friendlistnum].worksubdir);
+	if (d)
+	{
+		while ((dir = readdir(d)) != NULL)
+		{
+			if (dir->d_type == DT_REG)
+			{
+				const char *ext = strrchr(dir->d_name,'.');
+				if((!ext) || (ext == dir->d_name))
+				{
+						// wrong fileextension
+				}
+				else
+				{
+					if (strcmp(ext, motion_capture_file_extension) == 0)
+					{
+						// pictures
+						if (get_file_transfer_from_filename_struct(friendnum, dir->d_name) == NULL)
+						{
+							ret++;
+						}
+					}
+					else if (strcmp(ext, motion_capture_file_extension_mov) == 0)
+					{
+						// videos
+						if (get_file_transfer_from_filename_struct(friendnum, dir->d_name) == NULL)
+						{
+							ret++;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return ret;
+}
 
 void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 {
-	// now check friend is online
-	if ((Friends.list[friendlistnum].connection_status == TOX_CONNECTION_TCP)
-		|| (Friends.list[friendlistnum].connection_status == TOX_CONNECTION_UDP))
+	int resend_files_once = 0;
+
+	// now check if friend is online
+	if (is_friend_online(m, friendnum) == 1)
 	{
+
+		int number_of_files_to_resend = check_number_of_files_to_resend_to_friend(m, friendnum, friendlistnum);
+		if (number_of_files_to_resend > MAX_RESEND_FILE_BEFORE_ASK)
+		{
+			// dbg(9, "number_of_files_to_resend > MAX_RESEND_FILE_BEFORE_ASK\n");
+
+			if (Friends.list[friendlistnum].waiting_for_answer == 2)
+			{
+				dbg(9, "waiting_for_answer == 2\n");
+
+				if (strncmp(Friends.list[friendlistnum].last_answer, "y", 1) == 0)
+				{
+					dbg(9, "process_friends_dir:resend:got answer:y\n");
+
+					Friends.list[friendlistnum].last_answer[0] = '\0';
+					Friends.list[friendlistnum].waiting_for_answer = 0;
+					resend_files_once = 1;
+				}
+				else if (strncmp(Friends.list[friendlistnum].last_answer, "n", 1) == 0)
+				{
+					Friends.list[friendlistnum].last_answer[0] = '\0';
+					Friends.list[friendlistnum].waiting_for_answer = 0;
+					resend_files_once = 0;
+
+					dbg(9, "process_friends_dir:resend:got answer:*n*\n");
+				}
+				else
+				{
+					send_text_message_to_friend(m, friendnum, "resend %d files? [y/n]", number_of_files_to_resend);
+					Friends.list[friendlistnum].last_answer[0] = '\0';
+					Friends.list[friendlistnum].waiting_for_answer = 1; // set to "waiting for answer"
+					return;
+				}
+			}
+			else
+			{
+				if (Friends.list[friendlistnum].waiting_for_answer != 1)
+				{
+					send_text_message_to_friend(m, friendnum, "resend %d files? [y/n]", number_of_files_to_resend);
+					Friends.list[friendlistnum].waiting_for_answer = 1; // set to "waiting for answer"
+				}
+				return;
+			}
+
+			if (resend_files_once != 1)
+			{
+				return;
+			}
+		}
+		else
+		{
+			resend_files_once = 1;
+		}
+
+		// dbg(9, "resending ...\n");
+
 		DIR *d;
 		struct dirent *dir;
 		// dbg(2, "checking friend subdir=%s\n", Friends.list[friendlistnum].worksubdir);
@@ -1933,6 +2104,7 @@ int main()
     setvbuf(logfile, NULL, _IONBF, 0);
 
     Tox *tox = create_tox();
+	global_start_time = time(NULL);
 
     // create motion-capture-dir of not already there
     mkdir(motion_pics_dir, S_IRWXU | S_IRWXG); // og+rwx
