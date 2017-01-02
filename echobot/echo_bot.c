@@ -7,9 +7,9 @@
  *
  *
  * compile on linux (dynamic):
- *  gcc -O2 -fPIC -Wall -Wpedantic -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore -ltoxav -lpthread
+ *  gcc -O2 -fPIC -Wall -Wpedantic -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore -ltoxav -lpthread -lvpx
  * compile for debugging (dynamic):
- *  gcc -O0 -g -fPIC -Wall -Wpedantic -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore -ltoxav -lpthread
+ *  gcc -O0 -g -fPIC -Wall -Wpedantic -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore -ltoxav -lpthread -lvpx
  *
  * compile on linux (static):
  *  gcc -O2 -Wall -Wpedantic -o echo_bot_static echo_bot.c -static -std=gnu99 -L/usr/local/lib -I/usr/local/include/ \
@@ -17,6 +17,13 @@
     -ltoxdht -ltoxnetwork -ltoxcrypto -lsodium -lpthread -static-libgcc -static-libstdc++ \
     -lopus -lvpx -lm -lpthread
  *
+
+** motion -->
+ffmpeg_open vbr/crf for codec: 7530
+ffmpeg_open Selected Output FPS 5
+ffmpeg_avcodec_log: Using AVStream.codeco pass codec parameters to muxers is deprecated, use AVStream.codecpar instead
+** motion -->
+
  *
  *
  */
@@ -33,6 +40,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <assert.h>
@@ -42,6 +50,21 @@
 #include <sodium/utils.h>
 #include <tox/tox.h>
 #include <tox/toxav.h>
+
+#include <linux/videodev2.h>
+#include <vpx/vpx_image.h>
+#include <sys/mman.h>
+
+#define NO_V4LCONVERT 1
+
+#ifndef NO_V4LCONVERT
+#include <libv4lconvert.h>
+#endif
+
+#ifndef NO_V4LCONVERT
+static struct v4lconvert_data *v4lconvert_data;
+#endif
+
 
 // ----------- version -----------
 // ----------- version -----------
@@ -59,6 +82,8 @@ typedef struct DHT_node {
     unsigned char key_bin[TOX_PUBLIC_KEY_SIZE];
 } DHT_node;
 
+
+
 #define MAX_AVATAR_FILE_SIZE 65536
 #define TOXIC_MAX_NAME_LENGTH 32   /* Must be <= TOX_MAX_NAME_LENGTH */
 // #define PATH_MAX 255
@@ -73,8 +98,9 @@ typedef struct DHT_node {
 
 #define seconds_since_last_mod 1 // how long to wait before we process image files in seconds
 #define MAX_FILES 3 // how many filetransfers to/from 1 friend at the same time?
-#define MAX_RESEND_FILE_BEFORE_ASK 4
+#define MAX_RESEND_FILE_BEFORE_ASK 3
 
+#define CLEAR(x) memset(&(x), 0, sizeof(x))
 #define c_sleep(x) usleep(1000*x)
 
 typedef enum FILE_TRANSFER_STATE {
@@ -174,8 +200,22 @@ static struct Avatar {
 typedef struct {
     bool incoming;
     uint32_t state;
+	uint32_t audio_bit_rate;
+	uint32_t video_bit_rate;
     pthread_mutex_t arb_mutex[1];
 } CallControl;
+
+
+struct buffer {
+	void * start;
+	size_t length;
+};
+
+typedef struct DOORSPY_AV_VIDEO_FRAME {
+    uint16_t w, h;
+    uint8_t *y, *u, *v;
+} doorspy_av_video_frame;
+
 
 void on_avatar_chunk_request(Tox *m, struct FileTransfer *ft, uint64_t position, size_t length);
 int avatar_send(Tox *m, uint32_t friendnum);
@@ -184,6 +224,7 @@ void kill_all_file_transfers_friend(Tox *m, uint32_t friendnum);
 int has_reached_max_file_transfer_for_friend(uint32_t num);
 static int find_friend_in_friendlist(uint32_t friendnum);
 int is_friend_online(Tox *tox, uint32_t num);
+void av_local_disconnect(ToxAV *av, uint32_t num);
 
 const char *savedata_filename = "savedata.tox";
 const char *savedata_tmp_filename = "savedata.tox.tmp";
@@ -194,12 +235,35 @@ const char *motion_pics_work_dir = "./work/";
 const char *motion_capture_file_extension = ".jpg";
 const char *motion_capture_file_extension_mov = ".avi";
 
-const char *shell_cmd__single_shot = "/home/pi/inst_/single_shot.sh";
+const char *v4l2_device = "/dev/video0";
+
+const char *shell_cmd__single_shot = "/home/pi/inst_/single_shot.sh >> /tmp/snap.log";
 int global_want_restart = 0;
 const char *global_timestamp_format = "%H:%M:%S";
 const char *global_long_timestamp_format = "%Y-%m-%d %H:%M:%S";
 uint64_t global_start_time;
+int global_cam_device_fd = 0;
+uint32_t n_buffers;
+struct buffer *buffers = NULL;
+uint16_t video_width = 0;
+uint16_t video_height = 0;
+struct v4l2_format format;
+doorspy_av_video_frame av_video_frame;
+vpx_image_t input;
+int global_video_active = 0;
+uint32_t global_audio_bit_rate;
+uint32_t global_video_bit_rate = -1;
+ToxAV *mytox_av = NULL;
 
+// -- hardcoded --
+// -- hardcoded --
+// -- hardcoded --
+uint32_t friend_to_send_video_to = 0;
+// -- hardcoded --
+// -- hardcoded --
+// -- hardcoded --
+
+int video_call_enabled = 0;
 
 TOX_CONNECTION my_connection_status = TOX_CONNECTION_NONE;
 FILE *logfile = NULL;
@@ -279,6 +343,11 @@ void dbg(int level, const char *fmt, ...)
 time_t get_unix_time(void)
 {
     return time(NULL);
+}
+
+void yieldcpu(uint32_t ms)
+{
+    usleep(1000 * ms);
 }
 
 
@@ -450,8 +519,6 @@ void print_tox_id(Tox *tox)
 
     if (logfile)
     {
-        // printf("--MyToxID--:%s\n", tox_id_hex);
-        // fprintf(logfile, "--MyToxID--:%s\n", tox_id_hex);
 		dbg(2, "--MyToxID--:%s\n", tox_id_hex);
         int fd = fileno(logfile);
         fsync(fd);
@@ -729,15 +796,21 @@ void friendlist_onConnectionChange(Tox *m, uint32_t num, TOX_CONNECTION connecti
 	int friendlistnum = find_friend_in_friendlist(num);
     dbg(2, "friendlist_onConnectionChange:friendnum=%d %d\n", (int)num, (int)connection_status);
 
-    if (avatar_send(m, num) == -1)
-    {
-        dbg(0, "avatar_send failed for friend %d\n", num);
-    }
     Friends.list[friendlistnum].connection_status = connection_status;
-    update_friend_last_online(num, get_unix_time());
+	update_friend_last_online(num, get_unix_time());
+
+	if (is_friend_online(m, num) == 1)
+	{
+		if (avatar_send(m, num) == -1)
+		{
+			dbg(0, "avatar_send failed for friend %d\n", num);
+		}
+	}
+	else
+	{
+		av_local_disconnect(mytox_av, num);
+	}
 }
-
-
 
 void friendlist_onFriendAdded(Tox *m, uint32_t num, bool sort)
 {
@@ -1009,6 +1082,7 @@ void cmd_snap(Tox *tox, uint32_t friend_number)
 {
 	send_text_message_to_friend(tox, friend_number, "capture single shot, and send to all friends ...");
 	system(shell_cmd__single_shot);
+	send_text_message_to_friend(tox, friend_number, "... capture single shot, ready!");
 }
 
 void cmd_friends(Tox *tox, uint32_t friend_number)
@@ -1054,7 +1128,67 @@ void cmd_restart(Tox *tox, uint32_t friend_number)
 
 void cmd_vcm(Tox *tox, uint32_t friend_number)
 {
-	send_text_message_to_friend(tox, friend_number, "video-call-me not yet implemented!");
+	// send_text_message_to_friend(tox, friend_number, "video-call-me not yet implemented!");
+
+	dbg(9, "cmd_vcm:001\n");
+	send_text_message_to_friend(tox, friend_number, "i am trying to send my video ...");
+
+	if (mytox_av != NULL)
+	{
+		dbg(9, "cmd_vcm:002\n");
+		if (global_video_bit_rate == 0)
+		{
+			global_video_bit_rate = 40;
+			dbg(9, "cmd_vcm:003\n");
+		}
+		friend_to_send_video_to = friend_number;
+		dbg(9, "cmd_vcm:004\n");
+
+		TOXAV_ERR_CALL error = 0;
+		toxav_call(mytox_av, friend_number, global_audio_bit_rate, global_video_bit_rate, &error);
+		dbg(9, "cmd_vcm:005\n");
+
+		if (error != TOXAV_ERR_CALL_OK)
+		{
+			switch (error)
+			{
+				case TOXAV_ERR_CALL_MALLOC:
+					dbg(0, "toxav_call (1):TOXAV_ERR_CALL_MALLOC\n");
+					break;
+
+				case TOXAV_ERR_CALL_SYNC:
+					dbg(0, "toxav_call (1):TOXAV_ERR_CALL_SYNC\n");
+					break;
+
+				case TOXAV_ERR_CALL_FRIEND_NOT_FOUND:
+					dbg(0, "toxav_call (1):TOXAV_ERR_CALL_FRIEND_NOT_FOUND\n");
+					break;
+
+				case TOXAV_ERR_CALL_FRIEND_NOT_CONNECTED:
+					dbg(0, "toxav_call (1):TOXAV_ERR_CALL_FRIEND_NOT_CONNECTED\n");
+					break;
+
+				case TOXAV_ERR_CALL_FRIEND_ALREADY_IN_CALL:
+					dbg(0, "toxav_call (1):TOXAV_ERR_CALL_FRIEND_ALREADY_IN_CALL\n");
+					break;
+
+				case TOXAV_ERR_CALL_INVALID_BIT_RATE:
+					dbg(0, "toxav_call (1):TOXAV_ERR_CALL_INVALID_BIT_RATE\n");
+					break;
+
+				default:
+					dbg(0, "toxav_call (1):*unknown error*\n");
+					break;
+			}
+		}
+	}
+	else
+	{
+		dbg(9, "cmd_vcm:006\n");
+		send_text_message_to_friend(tox, friend_number, "sending video failed:toxav==NULL");
+	}
+
+	dbg(9, "cmd_vcm:099\n");
 }
 
 void send_help_to_friend(Tox *tox, uint32_t friend_number)
@@ -1079,8 +1213,6 @@ void friend_message_cb(Tox *tox, uint32_t friend_number, TOX_MESSAGE_TYPE type, 
     {
 		if (message != NULL)
 		{
-			dbg(2, "waiting for answer from friend:%d msg:%s\n", (int)friend_number, (char*)message);
-
 			j = find_friend_in_friendlist(friend_number);
 			if (Friends.list[j].waiting_for_answer == 1)
 			{
@@ -1088,7 +1220,14 @@ void friend_message_cb(Tox *tox, uint32_t friend_number, TOX_MESSAGE_TYPE type, 
 				snprintf(Friends.list[j].last_answer, 99, (char*)message);
 				Friends.list[j].waiting_for_answer = 2;
 
-				dbg(2, "got answer from friend:%d answer:%s\n", (int)friend_number, Friends.list[j].last_answer);
+				if (Friends.list[j].last_answer)
+				{
+					dbg(2, "got answer from friend:%d answer:%s\n", (int)friend_number, Friends.list[j].last_answer);
+				}
+				else
+				{
+					dbg(2, "got answer from friend:%d answer:NULL\n", (int)friend_number);
+				}
 			}
 			else
 			{
@@ -1720,7 +1859,7 @@ void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 			{
 				dbg(9, "waiting_for_answer == 2\n");
 
-				if (strncmp(Friends.list[friendlistnum].last_answer, "y", 1) == 0)
+				if ((Friends.list[friendlistnum].last_answer) && (strncmp(Friends.list[friendlistnum].last_answer, "y", 1) == 0))
 				{
 					dbg(9, "process_friends_dir:resend:got answer:y\n");
 
@@ -1728,7 +1867,7 @@ void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 					Friends.list[friendlistnum].waiting_for_answer = 0;
 					resend_files_once = 1;
 				}
-				else if (strncmp(Friends.list[friendlistnum].last_answer, "n", 1) == 0)
+				else if ((Friends.list[friendlistnum].last_answer) && (strncmp(Friends.list[friendlistnum].last_answer, "n", 1) == 0))
 				{
 					Friends.list[friendlistnum].last_answer[0] = '\0';
 					Friends.list[friendlistnum].waiting_for_answer = 0;
@@ -1738,6 +1877,15 @@ void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 				}
 				else
 				{
+					if (Friends.list[friendlistnum].last_answer)
+					{
+						dbg(9, "process_friends_dir:resend:ask again:waiting_for_answer=%d last_answer=%s\n", Friends.list[friendlistnum].waiting_for_answer, Friends.list[friendlistnum].last_answer);
+					}
+					else
+					{
+						dbg(9, "process_friends_dir:resend:ask again:waiting_for_answer=%d last_answer=NULL\n", Friends.list[friendlistnum].waiting_for_answer);
+					}
+
 					send_text_message_to_friend(m, friendnum, "resend %d files? [y/n]", number_of_files_to_resend);
 					Friends.list[friendlistnum].last_answer[0] = '\0';
 					Friends.list[friendlistnum].waiting_for_answer = 1; // set to "waiting for answer"
@@ -1748,6 +1896,14 @@ void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 			{
 				if (Friends.list[friendlistnum].waiting_for_answer != 1)
 				{
+					if (Friends.list[friendlistnum].last_answer)
+					{
+						dbg(9, "process_friends_dir:resend:ask?:waiting_for_answer=%d last_answer=%s\n", Friends.list[friendlistnum].waiting_for_answer, Friends.list[friendlistnum].last_answer);
+					}
+					else
+					{
+						dbg(9, "process_friends_dir:resend:ask?:waiting_for_answer=%d last_answer=NULL\n", Friends.list[friendlistnum].waiting_for_answer);
+					}
 					send_text_message_to_friend(m, friendnum, "resend %d files? [y/n]", number_of_files_to_resend);
 					Friends.list[friendlistnum].waiting_for_answer = 1; // set to "waiting for answer"
 				}
@@ -1815,7 +1971,7 @@ void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 								}
 								else
 								{
-									// printf("new image:%s (still in use ...)\n", dir->d_name);
+									// dbg(9, "new image:%s (still in use ...)\n", dir->d_name);
 								}
 
 							}
@@ -1851,7 +2007,7 @@ void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 								}
 								else
 								{
-									// printf("new image:%s (still in use ...)\n", dir->d_name);
+									// dbg(9, "new image:%s (still in use ...)\n", dir->d_name);
 								}
 
 							}
@@ -1933,12 +2089,12 @@ void check_dir(Tox *m)
 						}
 						else
 						{
-								// printf("new image:%s (still in use ...)\n", dir->d_name);
+								// dbg(9, "new image:%s (still in use ...)\n", dir->d_name);
 						}
 					}
 					else if(strcmp(ext, motion_capture_file_extension_mov) == 0)
 					{
-						// printf("new image:%s\n", dir->d_name);
+						// dbg(9, "new image:%s\n", dir->d_name);
 
 						// move file to work dir
 						char oldname[300];
@@ -1966,7 +2122,7 @@ void check_dir(Tox *m)
 						}
 						else
 						{
-								// printf("new image:%s (still in use ...)\n", dir->d_name);
+								// dbg(9, "new image:%s (still in use ...)\n", dir->d_name);
 						}
 					}
 				}
@@ -1977,6 +2133,376 @@ void check_dir(Tox *m)
 	}
 }
 
+// ------------------- V4L2 stuff ---------------------
+// ------------------- V4L2 stuff ---------------------
+// ------------------- V4L2 stuff ---------------------
+
+
+static int xioctl(int fh, unsigned long request, void *arg)
+{
+    int r;
+
+    do
+	{
+        r = ioctl(fh, request, arg);
+    } while (-1 == r && EINTR == errno);
+
+    return r;
+}
+
+
+
+int init_cam()
+{
+	int fd;
+
+	if ((fd = open(v4l2_device, O_RDWR)) < 0)
+	{
+		dbg(0, "error opening video device\n");
+	}
+
+	struct v4l2_capability cap;
+	struct v4l2_cropcap    cropcap;
+    struct v4l2_crop       crop;
+
+	if (ioctl(fd, VIDIOC_QUERYCAP, &cap) < 0)
+	{
+		dbg(0, "VIDIOC_QUERYCAP\n");
+	}
+
+	if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE))
+	{
+		dbg(0, "The device does not handle single-planar video capture.\n");
+	}
+
+	if (!(cap.capabilities & V4L2_CAP_STREAMING))
+	{
+		dbg(0, "The device does not support streaming i/o.\n");
+	}
+
+
+    /* Select video input, video standard and tune here. */
+    CLEAR(cropcap);
+
+    cropcap.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+    if (0 == xioctl(fd, VIDIOC_CROPCAP, &cropcap))
+	{
+        crop.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        crop.c    = cropcap.defrect; /* reset to default */
+
+        if (-1 == xioctl(fd, VIDIOC_S_CROP, &crop))
+		{
+            switch (errno)
+			{
+                case EINVAL:
+                    /* Cropping not supported. */
+					dbg(0, "Cropping not supported\n");
+                    break;
+                default:
+                    /* Errors ignored. */
+					dbg(0, "some error on set crop\n");
+                    break;
+            }
+        }
+    }
+	else
+	{
+        /* Errors ignored. */
+    }
+
+
+#ifndef NO_V4LCONVERT
+    v4lconvert_data = v4lconvert_create(fd);
+#endif
+
+    CLEAR(format);
+
+	format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUV420;
+
+	format.fmt.pix.width = 1920;
+	format.fmt.pix.height = 1080;
+
+	// Get <-> Set ??
+	if (-1 == xioctl(fd, VIDIOC_G_FMT, &format))
+	{
+		dbg(0, "VIDIOC_G_FMT\n");
+	}
+
+    video_width             = format.fmt.pix.width;
+    video_height            = format.fmt.pix.height;
+	dbg(2, "Video size(1): %u %u\n", video_width, video_height);
+
+	format.fmt.pix.width = 640;
+	format.fmt.pix.height = 480;
+
+	if (-1 == xioctl(fd, VIDIOC_S_FMT, &format))
+	{
+		dbg(0, "VIDIOC_S_FMT\n");
+	}
+
+	if (-1 == xioctl(fd, VIDIOC_G_FMT, &format))
+	{
+		dbg(0, "VIDIOC_G_FMT\n");
+	}
+
+    video_width             = format.fmt.pix.width;
+    video_height            = format.fmt.pix.height;
+	dbg(2, "Video size(2): %u %u\n", video_width, video_height);
+
+
+    /* Buggy driver paranoia. */
+/*
+    min = fmt.fmt.pix.width * 2;
+    if (fmt.fmt.pix.bytesperline < min)
+        fmt.fmt.pix.bytesperline = min;
+    min                          = fmt.fmt.pix.bytesperline * fmt.fmt.pix.height;
+    if (fmt.fmt.pix.sizeimage < min)
+        fmt.fmt.pix.sizeimage = min;
+*/
+
+
+	struct v4l2_requestbuffers bufrequest;
+
+	CLEAR(bufrequest);
+
+	bufrequest.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	bufrequest.memory = V4L2_MEMORY_MMAP;
+	bufrequest.count = 4;
+
+	dbg(0, "VIDIOC_REQBUFS want type=%d\n", (int)bufrequest.type);
+
+    if (-1 == xioctl(fd, VIDIOC_REQBUFS, &bufrequest))
+	{
+        if (EINVAL == errno)
+		{
+            dbg(0, "%s does not support x i/o\n", v4l2_device);
+        }
+		else
+		{
+            dbg(0, "VIDIOC_REQBUFS error %d, %s\n", errno, strerror(errno));
+        }
+    }
+
+	dbg(0, "VIDIOC_REQBUFS got type=%d\n", (int)bufrequest.type);
+
+    if (bufrequest.count < 2)
+	{
+        dbg(0, "Insufficient buffer memory on %s\n", v4l2_device);
+    }
+
+
+	buffers = calloc(bufrequest.count, sizeof(*buffers));
+
+	for (n_buffers = 0; n_buffers < bufrequest.count; ++n_buffers)
+	{
+		struct v4l2_buffer bufferinfo;
+
+		CLEAR(bufferinfo);
+
+		bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		bufferinfo.memory = V4L2_MEMORY_MMAP;
+		bufferinfo.index = n_buffers;
+
+        if (-1 == xioctl(fd, VIDIOC_QUERYBUF, &bufferinfo))
+		{
+            dbg(9, "VIDIOC_QUERYBUF (2) error %d, %s\n", errno, strerror(errno));
+        }
+
+/*
+		if (ioctl(fd, VIDIOC_QUERYBUF, &bufferinfo) < 0)
+		{
+			dbg(0, "VIDIOC_QUERYBUF %d %s\n", errno, strerror(errno));
+		}
+*/
+
+        buffers[n_buffers].length = bufferinfo.length;
+        buffers[n_buffers].start  = mmap(NULL /* start anywhere */, bufferinfo.length, PROT_READ | PROT_WRITE /* required */,
+                                        MAP_SHARED /* recommended */, fd, bufferinfo.m.offset);
+
+        if (MAP_FAILED == buffers[n_buffers].start)
+		{
+            dbg(0, "mmap error %d, %s\n", errno, strerror(errno));
+        }
+
+	}
+
+	return fd;
+}
+
+
+int v4l_startread()
+{
+    dbg(9, "start cam\n");
+    size_t i;
+    enum v4l2_buf_type type;
+
+    for (i = 0; i < n_buffers; ++i)
+	{
+		struct v4l2_buffer buf;
+
+		dbg(9, "buffer (1) %d of %d\n", i, n_buffers);
+
+        CLEAR(buf);
+        buf.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        buf.memory = V4L2_MEMORY_MMAP;
+        buf.index  = i;
+
+        if (-1 == xioctl(global_cam_device_fd, VIDIOC_QBUF, &buf))
+		{
+            dbg(9, "VIDIOC_QBUF (3) error %d, %s\n", errno, strerror(errno));
+            return 0;
+        }
+    }
+
+    type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    if (-1 == xioctl(global_cam_device_fd, VIDIOC_STREAMON, &type))
+	{
+        dbg(9, "VIDIOC_STREAMON error %d, %s\n", errno, strerror(errno));
+        return 0;
+    }
+
+    return 1;
+}
+
+
+int v4l_endread()
+{
+    dbg(9, "stop webcam\n");
+    enum v4l2_buf_type type;
+    type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    if (-1 == xioctl(global_cam_device_fd, VIDIOC_STREAMOFF, &type))
+	{
+        dbg(9, "VIDIOC_STREAMOFF error %d, %s\n", errno, strerror(errno));
+        return 0;
+    }
+
+    return 1;
+}
+
+
+void yuv422to420(uint8_t *plane_y, uint8_t *plane_u, uint8_t *plane_v, uint8_t *input, uint16_t width, uint16_t height)
+{
+    uint8_t *end = input + width * height * 2;
+    while (input != end)
+	{
+        uint8_t *line_end = input + width * 2;
+        while (input != line_end)
+		{
+            *plane_y++ = *input++;
+            *plane_v++ = *input++;
+            *plane_y++ = *input++;
+            *plane_u++ = *input++;
+        }
+
+        line_end = input + width * 2;
+        while (input != line_end)
+		{
+            *plane_y++ = *input++;
+            input++; // u
+            *plane_y++ = *input++;
+            input++; // v
+        }
+    }
+}
+
+
+int v4l_getframe(uint8_t *y, uint8_t *u, uint8_t *v, uint16_t width, uint16_t height)
+{
+    if (width != video_width || height != video_height)
+	{
+        dbg(9, "V4L:\twidth/height mismatch %u %u != %u %u\n", width, height, video_width, video_height);
+        return 0;
+    }
+
+    struct v4l2_buffer buf;
+
+    CLEAR(buf);
+
+    buf.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    buf.memory = V4L2_MEMORY_MMAP; // V4L2_MEMORY_USERPTR;
+
+    if (-1 == ioctl(global_cam_device_fd, VIDIOC_DQBUF, &buf))
+	{
+        switch (errno)
+		{
+            case EINTR:
+            case EAGAIN: return 0;
+
+            case EIO:
+            /* Could ignore EIO, see spec. */
+
+            /* fall through */
+
+            default: dbg(9, "VIDIOC_DQBUF error %d, %s\n", errno, strerror(errno)); return -1;
+
+        }
+    }
+
+    /*for (i = 0; i < n_buffers; ++i)
+        if (buf.m.userptr == (unsigned long)buffers[i].start
+                && buf.length == buffers[i].length)
+            break;
+
+    if(i >= n_buffers) {
+        dbg(9, "fatal error\n");
+        return 0;
+    }*/
+
+    void *data = (void *)buffers[buf.index].start; // length = buf.bytesused //(void*)buf.m.userptr
+
+/* assumes planes are continuous memory */
+#ifndef NO_V4LCONVERT
+    int result = v4lconvert_convert(v4lconvert_data, &fmt, &dest_fmt, data, buf.bytesused, y,
+                                    (video_width * video_height * 3) / 2);
+
+    if (result == -1)
+	{
+        dbg(0, "v4lconvert_convert error %s\n", v4lconvert_get_error_message(v4lconvert_data));
+    }
+#else
+    if (format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV)
+	{
+        yuv422to420(y, u, v, data, video_width, video_height);
+    }
+	else
+	{
+    }
+#endif
+
+    if (-1 == xioctl(global_cam_device_fd, VIDIOC_QBUF, &buf))
+	{
+        dbg(9, "VIDIOC_QBUF (1) error %d, %s\n", errno, strerror(errno));
+    }
+
+#ifndef NO_V4LCONVERT
+    return (result == -1 ? 0 : 1);
+#else
+    return 1;
+#endif
+}
+
+
+void close_cam()
+{
+    size_t i;
+    for (i = 0; i < n_buffers; ++i)
+	{
+        if (-1 == munmap(buffers[i].start, buffers[i].length))
+		{
+            dbg(9, "munmap error\n");
+        }
+    }
+
+    close(global_cam_device_fd);
+}
+
+// ------------------- V4L2 stuff ---------------------
+// ------------------- V4L2 stuff ---------------------
+// ------------------- V4L2 stuff ---------------------
+
+
 
 // ------------------ Tox AV stuff --------------------
 // ------------------ Tox AV stuff --------------------
@@ -1984,21 +2510,103 @@ void check_dir(Tox *m)
 
 static void t_toxav_call_cb(ToxAV *av, uint32_t friend_number, bool audio_enabled, bool video_enabled, void *user_data)
 {
-    dbg(9, "Handling CALL callback\n");
+    dbg(9, "Handling CALL callback friendnum=%d audio_enabled=%d video_enabled=%d\n", (int)friend_number, (int)audio_enabled, (int)video_enabled);
     ((CallControl *)user_data)->incoming = true;
 }
 
 static void t_toxav_call_state_cb(ToxAV *av, uint32_t friend_number, uint32_t state, void *user_data)
 {
-    dbg(9, "Handling CALL STATE callback: %d\n", state);
+    dbg(9, "Handling CALL STATE callback: %d friend_number=%d\n", state, (int)friend_number);
     ((CallControl *)user_data)->state = state;
+
+	if (state & TOXAV_FRIEND_CALL_STATE_FINISHED)
+	{
+		dbg(9, "Call with friend %d finished\n", friend_number);
+		global_video_active = 0;
+		return;
+	}
+	else if (state & TOXAV_FRIEND_CALL_STATE_ERROR)
+	{
+		dbg(9, "Call with friend %d errored\n", friend_number);
+		global_video_active = 0;
+		return;
+	}
+	else if (state & TOXAV_FRIEND_CALL_STATE_SENDING_A)
+	{
+		dbg(9, "Call with friend state:TOXAV_FRIEND_CALL_STATE_SENDING_A\n");
+	}
+	else if (state & TOXAV_FRIEND_CALL_STATE_SENDING_V)
+	{
+		dbg(9, "Call with friend state:TOXAV_FRIEND_CALL_STATE_SENDING_V\n");
+	}
+	else if (state & TOXAV_FRIEND_CALL_STATE_ACCEPTING_A)
+	{
+		dbg(9, "Call with friend state:TOXAV_FRIEND_CALL_STATE_ACCEPTING_A\n");
+	}
+	else if (state & TOXAV_FRIEND_CALL_STATE_ACCEPTING_V)
+	{
+		dbg(9, "Call with friend state:TOXAV_FRIEND_CALL_STATE_ACCEPTING_V\n");
+	}
+
+	dbg(9, "t_toxav_call_state_cb:002\n");
+	int send_audio = (state & TOXAV_FRIEND_CALL_STATE_SENDING_A) && (state & TOXAV_FRIEND_CALL_STATE_ACCEPTING_A);
+	int send_video = state & TOXAV_FRIEND_CALL_STATE_SENDING_V && (state & TOXAV_FRIEND_CALL_STATE_ACCEPTING_V);
+	dbg(9, "t_toxav_call_state_cb:002a send_audio=%d send_video=%d global_video_bit_rate=%d\n", send_audio, send_video, (int)global_video_bit_rate);
+	TOXAV_ERR_BIT_RATE_SET bitrate_err = 0;
+	toxav_bit_rate_set(av, friend_number, 0, send_video ? global_video_bit_rate : 0, &bitrate_err);
+	dbg(9, "t_toxav_call_state_cb:004\n");
+
+	if (bitrate_err)
+	{
+		dbg(9, "ToxAV:Error setting/changing video bitrate\n");
+	}
+
+	if (send_video == 1)
+	{
+		dbg(9, "t_toxav_call_state_cb:004\n");
+		global_video_active = 1;
+	}
+	else
+	{
+		dbg(9, "t_toxav_call_state_cb:005\n");
+		global_video_active = 0;
+	}
+
+	dbg(9, "Call state for friend %d changed to %d, audio=%d, video=%d\n", friend_number, state, send_audio, send_video);
 }
 
 static void t_toxav_bit_rate_status_cb(ToxAV *av, uint32_t friend_number,
                                        uint32_t audio_bit_rate, uint32_t video_bit_rate,
                                        void *user_data)
 {
-    dbg(2, "Suggested bit rates: audio: %d video: %d\n", audio_bit_rate, video_bit_rate);
+	dbg(0, "t_toxav_bit_rate_status_cb:001 video_bit_rate=%d\n", (int)video_bit_rate);
+
+	((CallControl *)user_data)->video_bit_rate = video_bit_rate;
+ 
+   /* Just accept what toxav wants the bitrate to be... */
+	TOXAV_ERR_BIT_RATE_SET error = 0;
+	toxav_bit_rate_set(av, friend_number, 0, video_bit_rate, &error);
+
+	if (error)
+	{
+		dbg(0, "ToxAV:Setting new Video bitrate has failed with error #%u\n", error);
+	}
+	else
+	{
+		// global_audio_bit_rate = audio_bit_rate;
+		if (video_bit_rate == -1)
+		{
+		}
+		else
+		{
+			global_video_bit_rate = video_bit_rate;
+		}
+		dbg(0, "ToxAV:Video bitrate changed to %u\n", video_bit_rate);
+	}
+
+    dbg(2, "suggested bit rates: audio: %d video: %d\n", audio_bit_rate, video_bit_rate);
+    dbg(2, "actual    bit rates: audio: %d video: %d\n", global_audio_bit_rate, global_video_bit_rate);
+
 }
 
 
@@ -2062,11 +2670,24 @@ static void t_toxav_receive_video_frame_cb(ToxAV *av, uint32_t friend_number,
     // free(img_data);
 }
 
+void set_av_video_frame()
+{
+    vpx_img_alloc(&input, VPX_IMG_FMT_I420, video_width, video_height, 1);
+    av_video_frame.y = input.planes[0];
+    av_video_frame.u = input.planes[1];
+    av_video_frame.v = input.planes[2];
+    av_video_frame.w = input.d_w;
+    av_video_frame.h = input.d_h;
+
+    dbg(2,"ToxVideo:av_video_frame set\n");
+}
+
 void *thread_av(void *data)
 {
     ToxAV *av = (ToxAV *) data;
 	pthread_t id = pthread_self();
 	pthread_mutex_t av_thread_lock;
+
 	if (pthread_mutex_init(&av_thread_lock, NULL) != 0)
 	{
 		dbg(0, "Error creating av_thread_lock\n");
@@ -2076,18 +2697,110 @@ void *thread_av(void *data)
 		dbg(2, "av_thread_lock created successfully\n");
 	}
 
-	dbg(2, "AV Thread #%d starting\n", (int) id);
+	dbg(2, "AV Thread #%d: starting\n", (int) id);
+
+	if (video_call_enabled == 1)
+	{
+		global_cam_device_fd = init_cam();
+		dbg(2, "AV Thread #%d: init cam\n", (int) id);
+
+		set_av_video_frame();
+
+		// start streaming
+		v4l_startread();
+	}
 
     while (true)
 	{
-        pthread_mutex_lock(&av_thread_lock);
-        toxav_iterate(av);
-		// printf("AV Thread #%d running ...\n", (int) id);
-        pthread_mutex_unlock(&av_thread_lock);
+		if (global_video_active == 1)
+		{
+			pthread_mutex_lock(&av_thread_lock);
+
+			// dbg(9, "AV Thread #%d:get frame\n", (int) id);
+
+            // capturing is enabled, capture frames
+            int r = v4l_getframe(av_video_frame.y, av_video_frame.u, av_video_frame.v,
+					av_video_frame.w, av_video_frame.h);
+
+			if (r == 1)
+			{
+				// dbg(9, "AV Thread #%d:send frame to friend\n", (int) id);
+
+				TOXAV_ERR_SEND_FRAME error = 0;
+				toxav_video_send_frame(av, friend_to_send_video_to, av_video_frame.w, av_video_frame.h,
+									   av_video_frame.y, av_video_frame.u, av_video_frame.v, &error);
+
+				if (error)
+				{
+					if (error == TOXAV_ERR_SEND_FRAME_SYNC)
+					{
+						//debug_notice("uToxVideo:\tVid Frame sync error: w=%u h=%u\n", av_video_frame.w,
+						//			 av_video_frame.h);
+						dbg(0, "TOXAV_ERR_SEND_FRAME_SYNC\n");
+					}
+					else if (error == TOXAV_ERR_SEND_FRAME_PAYLOAD_TYPE_DISABLED)
+					{
+						//debug_error("uToxVideo:\tToxAV disagrees with our AV state for friend %lu, self %u, friend %u\n",
+						//	i, friend[i].call_state_self, friend[i].call_state_friend);
+						dbg(0, "TOXAV_ERR_SEND_FRAME_PAYLOAD_TYPE_DISABLED\n");
+					}
+					else
+					{
+						//debug_error("uToxVideo:\ttoxav_send_video error friend: %i error: %u\n",
+						//			friend[i].number, error);
+						dbg(0, "ToxVideo:toxav_send_video error %u\n", error);
+					}
+				}
+
+            }
+			else if (r == -1)
+			{
+                // debug_error("uToxVideo:\tErr... something really bad happened trying to get this frame, I'm just going "
+                //            "to plots now!\n");
+                //video_device_stop();
+                //close_video_device(video_device);
+				dbg(0, "ToxVideo:something really bad happened trying to get this frame\n");
+            }
+
+            pthread_mutex_unlock(&av_thread_lock);
+			// yieldcpu(1000); // 1 frame every 1 seconds!!
+            yieldcpu(80); /* ~12 frames per second */
+            // yieldcpu(40); /* 60fps = 16.666ms || 25 fps = 40ms || the data quality is SO much better at 25... */
+            continue;     /* We're running video, so don't sleep for and extra 100 */
+		}
+		else
+		{
+			pthread_mutex_lock(&av_thread_lock);
+			toxav_iterate(av);
+			// dbg(9, "AV Thread #%d running ...\n", (int) id);
+			pthread_mutex_unlock(&av_thread_lock);
+
+		}
+
+		// dbg(9, "AV Thread #%d:normal sleep\n", (int) id);
 
         usleep(toxav_iteration_interval(av) * 1000);
+		yieldcpu(1000);
     }
+
+	if (video_call_enabled == 1)
+	{
+		// end streaming
+		v4l_endread();
+	}
+
+
+	// unreachable code
+	dbg(2, "ToxVideo:Clean thread exit!\n");
 }
+
+void av_local_disconnect(ToxAV *av, uint32_t num)
+{
+	dbg(9, "av_local_disconnect\n");
+    TOXAV_ERR_CALL_CONTROL error = 0;
+    toxav_call_control(av, num, TOXAV_CALL_CONTROL_CANCEL, &error);
+}
+
 
 
 // ------------------ Tox AV stuff --------------------
@@ -2099,6 +2812,11 @@ void *thread_av(void *data)
 int main()
 {
 	global_want_restart = 0;
+	global_video_active = 0;
+
+	// valid audio bitrates: [ bit_rate < 6 || bit_rate > 510 ]
+	global_audio_bit_rate = 6;
+	global_video_bit_rate = 40;
 
     logfile = fopen(log_filename, "wb");
     setvbuf(logfile, NULL, _IONBF, 0);
@@ -2161,9 +2879,13 @@ int main()
 
 
     TOXAV_ERR_NEW rc;
-    ToxAV *mytox_av = toxav_new(tox, &rc);
-    assert(rc == TOXAV_ERR_NEW_OK);
 	dbg(2, "new Tox AV\n");
+    mytox_av = toxav_new(tox, &rc);
+	if (rc != TOXAV_ERR_NEW_OK)
+	{
+		dbg(0, "Error at toxav_new: %d\n", rc);
+	}
+
 	CallControl mytox_CC;
 	memset(&mytox_CC, 0, sizeof(CallControl));
 
@@ -2208,6 +2930,7 @@ int main()
 
 
     kill_all_file_transfers(tox);
+	close_cam();
 	toxav_kill(mytox_av);
     tox_kill(tox);
 
