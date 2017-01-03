@@ -7,16 +7,17 @@
  *
  *
  * compile on linux (dynamic):
- *  gcc -O2 -fPIC -Wall -Wpedantic -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore -ltoxav -lpthread -lvpx
+ *  gcc -O2 -fPIC -Wall -Wpedantic -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore -ltoxav -lpthread -lvpx -lv4lconvert
  * compile for debugging (dynamic):
- *  gcc -O0 -g -fPIC -Wall -Wpedantic -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore -ltoxav -lpthread -lvpx
+ *  gcc -O0 -g -fPIC -Wall -Wpedantic -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore -ltoxav -lpthread -lvpx -lv4lconvert
  *
  * compile on linux (static):
  *  gcc -O2 -Wall -Wpedantic -o echo_bot_static echo_bot.c -static -std=gnu99 -L/usr/local/lib -I/usr/local/include/ \
     -lsodium -ltoxcore -ltoxav -ltoxgroup -ltoxmessenger -ltoxfriends -ltoxnetcrypto \
     -ltoxdht -ltoxnetwork -ltoxcrypto -lsodium -lpthread -static-libgcc -static-libstdc++ \
-    -lopus -lvpx -lm -lpthread
+    -lopus -lvpx -lm -lpthread -lv4lconvert
  *
+
 
 ** motion -->
 ffmpeg_open vbr/crf for codec: 7530
@@ -55,7 +56,7 @@ ffmpeg_avcodec_log: Using AVStream.codeco pass codec parameters to muxers is dep
 #include <vpx/vpx_image.h>
 #include <sys/mman.h>
 
-#define NO_V4LCONVERT 1
+#undef NO_V4LCONVERT
 
 #ifndef NO_V4LCONVERT
 #include <libv4lconvert.h>
@@ -97,8 +98,9 @@ typedef struct DHT_node {
 #define GiB 1073741824    /* 1024^3 */
 
 #define seconds_since_last_mod 1 // how long to wait before we process image files in seconds
-#define MAX_FILES 3 // how many filetransfers to/from 1 friend at the same time?
-#define MAX_RESEND_FILE_BEFORE_ASK 3
+#define MAX_FILES 10 // how many filetransfers to/from 1 friend at the same time?
+#define MAX_RESEND_FILE_BEFORE_ASK 10
+#define VIDEO_BUFFER_COUNT 4
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 #define c_sleep(x) usleep(1000*x)
@@ -235,9 +237,11 @@ const char *motion_pics_work_dir = "./work/";
 const char *motion_capture_file_extension = ".jpg";
 const char *motion_capture_file_extension_mov = ".avi";
 
-const char *v4l2_device = "/dev/video0";
+const char *v4l2_device = "/dev/video2";
 
 const char *shell_cmd__single_shot = "/home/pi/inst_/single_shot.sh >> /tmp/snap.log";
+const char *shell_cmd__get_cpu_temp = "/home/pi/inst_/get_cpu_temp.sh 2> /dev/null";
+const char *shell_cmd__get_gpu_temp = "/home/pi/inst_/get_gpu_temp.sh 2> /dev/null";
 int global_want_restart = 0;
 const char *global_timestamp_format = "%H:%M:%S";
 const char *global_long_timestamp_format = "%Y-%m-%d %H:%M:%S";
@@ -248,11 +252,12 @@ struct buffer *buffers = NULL;
 uint16_t video_width = 0;
 uint16_t video_height = 0;
 struct v4l2_format format;
+struct v4l2_format dest_format;
 doorspy_av_video_frame av_video_frame;
 vpx_image_t input;
 int global_video_active = 0;
-uint32_t global_audio_bit_rate;
-uint32_t global_video_bit_rate = -1;
+uint32_t global_audio_bit_rate = 0;
+uint32_t global_video_bit_rate = 40;
 ToxAV *mytox_av = NULL;
 
 // -- hardcoded --
@@ -263,7 +268,7 @@ uint32_t friend_to_send_video_to = 0;
 // -- hardcoded --
 // -- hardcoded --
 
-int video_call_enabled = 0;
+int video_call_enabled = 1;
 
 TOX_CONNECTION my_connection_status = TOX_CONNECTION_NONE;
 FILE *logfile = NULL;
@@ -1041,6 +1046,46 @@ static void get_elapsed_time_str(char *buf, int bufsize, uint64_t secs)
 	snprintf(buf, bufsize, "%lud %luh %lum", days, hours, minutes);
 }
 
+//
+// lastline param ignored for now!!
+//
+void run_cmd_return_output(const char *command, char* output, int lastline)
+{
+	FILE *fp;
+	char path[1035];
+	char *pos = NULL;
+
+	if (!output)
+	{
+		return;
+	}
+
+	/* Open the command for reading. */
+	fp = popen(command, "r");
+	if (fp == NULL)
+	{
+		dbg(0, "Failed to run command: %s\n", command );
+		output[0] = '\0';
+	}
+
+	/* Read the output a line at a time - output it. */
+	while (fgets(path, sizeof(path)-1, fp) != NULL)
+	{
+        snprintf(output, 299, "%s", (const char*)path);
+	}
+
+	if (strlen(output) > 1)
+	{
+		if ((pos = strchr(output, '\n')) != NULL)
+		{
+			*pos = '\0';
+		}
+	}
+
+	/* close */
+	pclose(fp);
+}
+
 void cmd_stats(Tox *tox, uint32_t friend_number)
 {
 	switch (my_connection_status)
@@ -1065,6 +1110,21 @@ void cmd_stats(Tox *tox, uint32_t friend_number)
 	get_elapsed_time_str(time_str, sizeof(time_str), cur_time - global_start_time);
 	send_text_message_to_friend(tox, friend_number, "Uptime: %s", time_str);
 	// ----- uptime -----
+
+	// --- temp ---
+	char output_str[1000];
+	run_cmd_return_output(shell_cmd__get_cpu_temp, output_str, 1);
+	if (strlen(output_str) > 0)
+	{
+		send_text_message_to_friend(tox, friend_number, "doorspy Cpu temp:%s\xC2\xB0%s", output_str, "C");
+	}
+
+	run_cmd_return_output(shell_cmd__get_gpu_temp, output_str, 1);
+	if (strlen(output_str) > 0)
+	{
+	send_text_message_to_friend(tox, friend_number, "doorspy GPU temp:%s\xC2\xB0%s", output_str, "C");
+	}
+	// --- temp ---
 
     char tox_id_hex[TOX_ADDRESS_SIZE*2 + 1];
 	get_my_toxid(tox, tox_id_hex);
@@ -1146,6 +1206,7 @@ void cmd_vcm(Tox *tox, uint32_t friend_number)
 
 		TOXAV_ERR_CALL error = 0;
 		toxav_call(mytox_av, friend_number, global_audio_bit_rate, global_video_bit_rate, &error);
+		// toxav_call(mytox_av, friend_number, 0, 40, &error);
 		dbg(9, "cmd_vcm:005\n");
 
 		if (error != TOXAV_ERR_CALL_OK)
@@ -1233,31 +1294,31 @@ void friend_message_cb(Tox *tox, uint32_t friend_number, TOX_MESSAGE_TYPE type, 
 			{
 				dbg(2, "message from friend:%d msg:%s\n", (int)friend_number, (char*)message);
 
-				if (strncmp((char*)message, ".help", strlen((char*)message)) == 0)
+				if (strncmp((char*)message, ".help", strlen((char*)".help")) == 0)
 				{
 					send_help_to_friend(tox, friend_number);
 				}
-				else if (strncmp((char*)message, ".stats", strlen((char*)message)) == 0)
+				else if (strncmp((char*)message, ".stats", strlen((char*)".stats")) == 0)
 				{
 					cmd_stats(tox, friend_number);
 				}
-				else if (strncmp((char*)message, ".friends", strlen((char*)message)) == 0)
+				else if (strncmp((char*)message, ".friends", strlen((char*)".friends")) == 0)
 				{
 					cmd_friends(tox, friend_number);
 				}
-				else if (strncmp((char*)message, ".kamft", strlen((char*)message)) == 0)
+				else if (strncmp((char*)message, ".kamft", strlen((char*)".kamft")) == 0)
 				{
 					cmd_kamft(tox, friend_number);
 				}
-				else if (strncmp((char*)message, ".snap", strlen((char*)message)) == 0)
+				else if (strncmp((char*)message, ".snap", strlen((char*)".snap")) == 0)
 				{
 					cmd_snap(tox, friend_number);
 				}
-				else if (strncmp((char*)message, ".restart", strlen((char*)message)) == 0) // restart doorspy processes (no reboot)
+				else if (strncmp((char*)message, ".restart", strlen((char*)".restart")) == 0) // restart doorspy processes (no reboot)
 				{
 					cmd_restart(tox, friend_number);
 				}
-				else if (strncmp((char*)message, ".vcm", strlen((char*)message)) == 0) // video call me!
+				else if (strncmp((char*)message, ".vcm", strlen((char*)".vcm")) == 0) // video call me!
 				{
 					cmd_vcm(tox, friend_number);
 				}
@@ -2217,12 +2278,19 @@ int init_cam()
 #endif
 
     CLEAR(format);
+    CLEAR(dest_format);
 
 	format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUV420;
 
 	format.fmt.pix.width = 1920;
 	format.fmt.pix.height = 1080;
+
+	dest_format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	dest_format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUV420;
+
+	dest_format.fmt.pix.width = format.fmt.pix.width;
+	dest_format.fmt.pix.height = format.fmt.pix.height;
 
 	// Get <-> Set ??
 	if (-1 == xioctl(fd, VIDIOC_G_FMT, &format))
@@ -2234,8 +2302,8 @@ int init_cam()
     video_height            = format.fmt.pix.height;
 	dbg(2, "Video size(1): %u %u\n", video_width, video_height);
 
-	format.fmt.pix.width = 640;
-	format.fmt.pix.height = 480;
+	format.fmt.pix.width = 1280;
+	format.fmt.pix.height = 720;
 
 	if (-1 == xioctl(fd, VIDIOC_S_FMT, &format))
 	{
@@ -2250,6 +2318,9 @@ int init_cam()
     video_width             = format.fmt.pix.width;
     video_height            = format.fmt.pix.height;
 	dbg(2, "Video size(2): %u %u\n", video_width, video_height);
+
+	dest_format.fmt.pix.width = format.fmt.pix.width;
+	dest_format.fmt.pix.height = format.fmt.pix.height;
 
 
     /* Buggy driver paranoia. */
@@ -2269,7 +2340,7 @@ int init_cam()
 
 	bufrequest.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	bufrequest.memory = V4L2_MEMORY_MMAP;
-	bufrequest.count = 4;
+	bufrequest.count = VIDEO_BUFFER_COUNT;
 
 	dbg(0, "VIDIOC_REQBUFS want type=%d\n", (int)bufrequest.type);
 
@@ -2450,11 +2521,13 @@ int v4l_getframe(uint8_t *y, uint8_t *u, uint8_t *v, uint16_t width, uint16_t he
         return 0;
     }*/
 
+	// dbg(9, "buf.index=%d\n", (int)buf.index);
+
     void *data = (void *)buffers[buf.index].start; // length = buf.bytesused //(void*)buf.m.userptr
 
 /* assumes planes are continuous memory */
 #ifndef NO_V4LCONVERT
-    int result = v4lconvert_convert(v4lconvert_data, &fmt, &dest_fmt, data, buf.bytesused, y,
+    int result = v4lconvert_convert(v4lconvert_data, &format, &dest_format, data, buf.bytesused, y,
                                     (video_width * video_height * 3) / 2);
 
     if (result == -1)
@@ -2764,8 +2837,8 @@ void *thread_av(void *data)
 
             pthread_mutex_unlock(&av_thread_lock);
 			// yieldcpu(1000); // 1 frame every 1 seconds!!
-            yieldcpu(80); /* ~12 frames per second */
-            // yieldcpu(40); /* 60fps = 16.666ms || 25 fps = 40ms || the data quality is SO much better at 25... */
+            // yieldcpu(80); /* ~12 frames per second */
+            yieldcpu(40); /* 60fps = 16.666ms || 25 fps = 40ms || the data quality is SO much better at 25... */
             continue;     /* We're running video, so don't sleep for and extra 100 */
 		}
 		else
@@ -2815,7 +2888,7 @@ int main()
 	global_video_active = 0;
 
 	// valid audio bitrates: [ bit_rate < 6 || bit_rate > 510 ]
-	global_audio_bit_rate = 6;
+	global_audio_bit_rate = 0;
 	global_video_bit_rate = 40;
 
     logfile = fopen(log_filename, "wb");
