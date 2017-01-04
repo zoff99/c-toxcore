@@ -9,8 +9,8 @@ dependencies:
     - sudo apt-get install clang
     - sudo apt-get install cmake
     - aptitude search 4l|grep -i convert ; exit 0
-    - aptitude search lib4l ; exit 0
-    - sudo apt-get install build-essential libtool autotools-dev automake checkinstall check git yasm libv4l
+    - aptitude search 4l|grep -i v4l ; exit 0
+    - sudo apt-get install build-essential libtool autotools-dev automake checkinstall check git yasm libv4lconvert0
     - sudo apt-get install libopus-dev libvpx-dev pkg-config
     - sudo apt-get install linux-generic
     - sudo apt-get install v4l2loopback-dkms
