@@ -71,8 +71,8 @@ static struct v4lconvert_data *v4lconvert_data;
 // ----------- version -----------
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 99
-#define VERSION_PATCH 0
-static const char global_version_string[] = "0.99.0";
+#define VERSION_PATCH 1
+static const char global_version_string[] = "0.99.1";
 // ----------- version -----------
 // ----------- version -----------
 
@@ -101,6 +101,8 @@ typedef struct DHT_node {
 #define MAX_FILES 10 // how many filetransfers to/from 1 friend at the same time?
 #define MAX_RESEND_FILE_BEFORE_ASK 10
 #define VIDEO_BUFFER_COUNT 4
+#define DEFAULT_GLOBAL_VID_BITRATE 100 // kb/sec
+#define DEFAULT_FPS_SLEEP_MS 160 // default video fps (sleep in msecs. !!)
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 #define c_sleep(x) usleep(1000*x)
@@ -257,7 +259,7 @@ doorspy_av_video_frame av_video_frame;
 vpx_image_t input;
 int global_video_active = 0;
 uint32_t global_audio_bit_rate = 0;
-uint32_t global_video_bit_rate = 40;
+uint32_t global_video_bit_rate = DEFAULT_GLOBAL_VID_BITRATE;
 ToxAV *mytox_av = NULL;
 
 // -- hardcoded --
@@ -359,11 +361,24 @@ void yieldcpu(uint32_t ms)
 Tox *create_tox()
 {
     Tox *tox;
+	struct Tox_Options options;
 
-    struct Tox_Options options;
+/*
+	TOX_ERR_OPTIONS_NEW err_options;
+    struct Tox_Options options = tox_options_new(&err_options);
+	if (err_options != TOX_ERR_OPTIONS_NEW_OK)
+	{
+		dbg(0, "tox_options_new error\n");
+	}
+*/
+
     tox_options_default(&options);
 
+
 	options.ipv6_enabled = false;
+	options.udp_enabled = true;
+	options.local_discovery_enabled = true;
+	options.hole_punching_enabled = true;
 
     FILE *f = fopen(savedata_filename, "rb");
     if (f)
@@ -1086,6 +1101,21 @@ void run_cmd_return_output(const char *command, char* output, int lastline)
 	pclose(fp);
 }
 
+void remove_friend(Tox *tox, uint32_t friend_number)
+{
+	TOX_ERR_FRIEND_DELETE error;
+	tox_friend_delete(tox, friend_number, &error);
+}
+
+void cmd_delfriend(Tox *tox, uint32_t friend_number, const char* message)
+{
+	uint32_t del_friend_number = -1;
+	if (friend_number != del_friend_number)
+	{
+		remove_friend(tox, del_friend_number);
+	}
+}
+
 void cmd_stats(Tox *tox, uint32_t friend_number)
 {
 	switch (my_connection_status)
@@ -1198,7 +1228,7 @@ void cmd_vcm(Tox *tox, uint32_t friend_number)
 		dbg(9, "cmd_vcm:002\n");
 		if (global_video_bit_rate == 0)
 		{
-			global_video_bit_rate = 40;
+			global_video_bit_rate = DEFAULT_GLOBAL_VID_BITRATE;
 			dbg(9, "cmd_vcm:003\n");
 		}
 		friend_to_send_video_to = friend_number;
@@ -1275,52 +1305,52 @@ void friend_message_cb(Tox *tox, uint32_t friend_number, TOX_MESSAGE_TYPE type, 
 		if (message != NULL)
 		{
 			j = find_friend_in_friendlist(friend_number);
-			if (Friends.list[j].waiting_for_answer == 1)
-			{
-				// we want to get user feedback
-				snprintf(Friends.list[j].last_answer, 99, (char*)message);
-				Friends.list[j].waiting_for_answer = 2;
+			dbg(2, "message from friend:%d msg:%s\n", (int)friend_number, (char*)message);
 
-				if (Friends.list[j].last_answer)
-				{
-					dbg(2, "got answer from friend:%d answer:%s\n", (int)friend_number, Friends.list[j].last_answer);
-				}
-				else
-				{
-					dbg(2, "got answer from friend:%d answer:NULL\n", (int)friend_number);
-				}
+			if (strncmp((char*)message, ".help", strlen((char*)".help")) == 0)
+			{
+				send_help_to_friend(tox, friend_number);
+			}
+			else if (strncmp((char*)message, ".stats", strlen((char*)".stats")) == 0)
+			{
+				cmd_stats(tox, friend_number);
+			}
+			else if (strncmp((char*)message, ".friends", strlen((char*)".friends")) == 0)
+			{
+				cmd_friends(tox, friend_number);
+			}
+			else if (strncmp((char*)message, ".kamft", strlen((char*)".kamft")) == 0)
+			{
+				cmd_kamft(tox, friend_number);
+			}
+			else if (strncmp((char*)message, ".snap", strlen((char*)".snap")) == 0)
+			{
+				cmd_snap(tox, friend_number);
+			}
+			else if (strncmp((char*)message, ".restart", strlen((char*)".restart")) == 0) // restart doorspy processes (no reboot)
+			{
+				cmd_restart(tox, friend_number);
+			}
+			else if (strncmp((char*)message, ".vcm", strlen((char*)".vcm")) == 0) // video call me!
+			{
+				cmd_vcm(tox, friend_number);
 			}
 			else
 			{
-				dbg(2, "message from friend:%d msg:%s\n", (int)friend_number, (char*)message);
+				if (Friends.list[j].waiting_for_answer == 1)
+				{
+					// we want to get user feedback
+					snprintf(Friends.list[j].last_answer, 99, (char*)message);
+					Friends.list[j].waiting_for_answer = 2;
 
-				if (strncmp((char*)message, ".help", strlen((char*)".help")) == 0)
-				{
-					send_help_to_friend(tox, friend_number);
-				}
-				else if (strncmp((char*)message, ".stats", strlen((char*)".stats")) == 0)
-				{
-					cmd_stats(tox, friend_number);
-				}
-				else if (strncmp((char*)message, ".friends", strlen((char*)".friends")) == 0)
-				{
-					cmd_friends(tox, friend_number);
-				}
-				else if (strncmp((char*)message, ".kamft", strlen((char*)".kamft")) == 0)
-				{
-					cmd_kamft(tox, friend_number);
-				}
-				else if (strncmp((char*)message, ".snap", strlen((char*)".snap")) == 0)
-				{
-					cmd_snap(tox, friend_number);
-				}
-				else if (strncmp((char*)message, ".restart", strlen((char*)".restart")) == 0) // restart doorspy processes (no reboot)
-				{
-					cmd_restart(tox, friend_number);
-				}
-				else if (strncmp((char*)message, ".vcm", strlen((char*)".vcm")) == 0) // video call me!
-				{
-					cmd_vcm(tox, friend_number);
+					if (Friends.list[j].last_answer)
+					{
+						dbg(2, "got answer from friend:%d answer:%s\n", (int)friend_number, Friends.list[j].last_answer);
+					}
+					else
+					{
+						dbg(2, "got answer from friend:%d answer:NULL\n", (int)friend_number);
+					}
 				}
 				else
 				{
@@ -2250,26 +2280,29 @@ int init_cam()
     if (0 == xioctl(fd, VIDIOC_CROPCAP, &cropcap))
 	{
         crop.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        crop.c    = cropcap.defrect; /* reset to default */
+        crop.c    = cropcap.defrect; /* reset to full area */
+		/* Scale the width and height to 50 % of their original size and center the output. */
+		crop.c.width = crop.c.width / 2;
+		crop.c.height = crop.c.height / 2;
+		crop.c.left = crop.c.left + crop.c.width / 2;
+		crop.c.top = crop.c.top + crop.c.height / 2;
 
         if (-1 == xioctl(fd, VIDIOC_S_CROP, &crop))
 		{
             switch (errno)
 			{
                 case EINVAL:
-                    /* Cropping not supported. */
-					dbg(0, "Cropping not supported\n");
+					dbg(0, "Cropping not supported (1)\n");
                     break;
                 default:
-                    /* Errors ignored. */
-					dbg(0, "some error on set crop\n");
+					dbg(0, "some error on croping setup\n");
                     break;
             }
         }
     }
 	else
 	{
-        /* Errors ignored. */
+		dbg(0, "Cropping not supported (2)\n");
     }
 
 
@@ -2559,6 +2592,10 @@ int v4l_getframe(uint8_t *y, uint8_t *u, uint8_t *v, uint16_t width, uint16_t he
 
 void close_cam()
 {
+#ifndef NO_V4LCONVERT
+	v4lconvert_destroy(v4lconvert_data);
+#endif
+
     size_t i;
     for (i = 0; i < n_buffers; ++i)
 	{
@@ -2837,8 +2874,9 @@ void *thread_av(void *data)
 
             pthread_mutex_unlock(&av_thread_lock);
 			// yieldcpu(1000); // 1 frame every 1 seconds!!
+            yieldcpu(DEFAULT_FPS_SLEEP_MS); /* ~6 frames per second */
             // yieldcpu(80); /* ~12 frames per second */
-            yieldcpu(40); /* 60fps = 16.666ms || 25 fps = 40ms || the data quality is SO much better at 25... */
+            // yieldcpu(40); /* 60fps = 16.666ms || 25 fps = 40ms || the data quality is SO much better at 25... */
             continue;     /* We're running video, so don't sleep for and extra 100 */
 		}
 		else
@@ -2889,7 +2927,7 @@ int main()
 
 	// valid audio bitrates: [ bit_rate < 6 || bit_rate > 510 ]
 	global_audio_bit_rate = 0;
-	global_video_bit_rate = 40;
+	global_video_bit_rate = DEFAULT_GLOBAL_VID_BITRATE;
 
     logfile = fopen(log_filename, "wb");
     setvbuf(logfile, NULL, _IONBF, 0);
