@@ -8,7 +8,9 @@ dependencies:
     - sudo apt-get update
     - sudo apt-get install clang
     - sudo apt-get install cmake
-    - sudo sudo apt-get install build-essential libtool autotools-dev automake checkinstall check git yasm
+    - aptitude search 4l|grep -i convert ; exit 0
+    - aptitude search lib4l ; exit 0
+    - sudo sudo apt-get install build-essential libtool autotools-dev automake checkinstall check git yasm libv4l
     - sudo apt-get install libopus-dev libvpx-dev pkg-config
     - sudo bash -c "echo '::1             localhost ipv6-localhost ipv6-loopback' >> /etc/hosts" # ipv6 localhost entry
 
