@@ -412,6 +412,26 @@ Tox *create_tox()
     return tox;
 }
 
+void replace_bad_char_from_string(char *str, const char replace_with)
+{
+	// win32: '\ / : * ? " < > |'
+	char bad_chars[] = "/:*?<>|\"";
+	int i;
+	int j;
+
+	if ((str) && (strlen(str) > 0))
+	{
+		for(i = 0; i < strlen(str) ;i++)
+		{
+			for(j = 0; j < strlen(bad_chars); j++)
+			if (str[i] == bad_chars[j])
+			{
+				str[i] = replace_with;
+			}
+		}
+	}
+}
+
 void update_savedata_file(const Tox *tox)
 {
     size_t size = tox_get_savedata_size(tox);
