@@ -50,7 +50,7 @@ test:
 # compile echobot and start it
     - cd echobot ; cc -O2 -fPIC -Wall -Wextra -Wconversion -Wpedantic -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore -ltoxav -lpthread -lvpx -lv4lconvert
     - cd echobot ; ldd echo_bot ; exit 0
-    - cd echobot ; gcc -O2 -Wall -Wextra -Wconversion -Wpedantic -o echo_bot_static echo_bot.c -static -std=gnu99 -L/usr/local/lib -I/usr/local/include/ -lsodium -ltoxcore -ltoxav -ltoxgroup -ltoxmessenger -ltoxfriends -ltoxnetcrypto -ltoxdht -ltoxnetwork -ltoxcrypto -lsodium -lpthread -static-libgcc -static-libstdc++ -lopus -lvpx -lm -lpthread -lv4lconvert
+    - cd echobot ; gcc -O2 -Wall -Wextra -Wconversion -Wpedantic -o echo_bot_static echo_bot.c -static -std=gnu99 -L/usr/local/lib -I/usr/local/include/ -lsodium -ltoxcore -ltoxav -ltoxgroup -ltoxmessenger -ltoxfriends -ltoxnetcrypto -ltoxdht -ltoxnetwork -ltoxcrypto -lsodium -lpthread -static-libgcc -static-libstdc++ -lopus -lvpx -lm -lpthread -ljpeg -lv4lconvert
     - cd echobot ; ls -al echo_bot echo_bot_static ; exit 0
     - cd echobot ; ./echo_bot_static :
         background: true
