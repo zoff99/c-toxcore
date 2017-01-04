@@ -14,6 +14,7 @@ dependencies:
     - sudo apt-get install libopus-dev libvpx-dev pkg-config
     - sudo apt-get install linux-generic
     - sudo apt-get install v4l2loopback-dkms
+    - sudo depmod -av | grep v4l2loopback
     - sudo modprobe v4l2loopback
     - sudo bash -c "echo '::1             localhost ipv6-localhost ipv6-loopback' >> /etc/hosts" # ipv6 localhost entry
 
