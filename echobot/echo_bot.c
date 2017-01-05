@@ -7,12 +7,12 @@
  *
  *
  * compile on linux (dynamic):
- *  gcc -O2 -fPIC -Wall -Wconversion -Wpedantic -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore -ltoxav -lpthread -lvpx -lv4lconvert
+ *  gcc -O2 -fPIC -Wall -Wextra -Wpedantic -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore -ltoxav -lpthread -lvpx -lv4lconvert
  * compile for debugging (dynamic):
- *  gcc -O0 -g -fPIC -Wall -Wconversion -Wpedantic -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore -ltoxav -lpthread -lvpx -lv4lconvert
+ *  gcc -O0 -g -fPIC -Wall -Wextra -Wpedantic -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore -ltoxav -lpthread -lvpx -lv4lconvert
  *
  * compile on linux (static):
- *  gcc -O2 -Wall -Wconversion -Wpedantic -o echo_bot_static echo_bot.c -static -std=gnu99 -L/usr/local/lib -I/usr/local/include/ \
+ *  gcc -O2 -Wall -Wextra -Wpedantic -o echo_bot_static echo_bot.c -static -std=gnu99 -L/usr/local/lib -I/usr/local/include/ \
     -lsodium -ltoxcore -ltoxav -ltoxgroup -ltoxmessenger -ltoxfriends -ltoxnetcrypto \
     -ltoxdht -ltoxnetwork -ltoxcrypto -lsodium -lpthread -static-libgcc -static-libstdc++ \
     -lopus -lvpx -lm -lpthread -lv4lconvert
@@ -71,8 +71,8 @@ static struct v4lconvert_data *v4lconvert_data;
 // ----------- version -----------
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 99
-#define VERSION_PATCH 1
-static const char global_version_string[] = "0.99.1";
+#define VERSION_PATCH 3
+static const char global_version_string[] = "0.99.3";
 // ----------- version -----------
 // ----------- version -----------
 
@@ -98,8 +98,9 @@ typedef struct DHT_node {
 #define GiB 1073741824    /* 1024^3 */
 
 #define seconds_since_last_mod 1 // how long to wait before we process image files in seconds
-#define MAX_FILES 10 // how many filetransfers to/from 1 friend at the same time?
-#define MAX_RESEND_FILE_BEFORE_ASK 10
+#define MAX_FILES 6 // how many filetransfers to/from 1 friend at the same time?
+#define MAX_RESEND_FILE_BEFORE_ASK 6
+#define AUTO_RESEND_SECONDS 60*5 // resend for this much seconds before asking again [5 min]
 #define VIDEO_BUFFER_COUNT 4
 #define DEFAULT_GLOBAL_VID_BITRATE 100 // kb/sec
 #define DEFAULT_FPS_SLEEP_MS 160 // default video fps (sleep in msecs. !!)
@@ -172,6 +173,7 @@ typedef struct {
     struct FileTransfer file_sender[MAX_FILES];
 	char last_answer[100];
 	int waiting_for_answer; // 0 -> no, 1 -> waiting for answer, 2 -> got answer
+	time_t auto_resend_start_time;
 } ToxicFriend;
 
 typedef struct {
@@ -229,6 +231,7 @@ int has_reached_max_file_transfer_for_friend(uint32_t num);
 static int find_friend_in_friendlist(uint32_t friendnum);
 int is_friend_online(Tox *tox, uint32_t num);
 void av_local_disconnect(ToxAV *av, uint32_t num);
+void run_cmd_return_output(const char *command, char* output, int lastline);
 
 const char *savedata_filename = "savedata.tox";
 const char *savedata_tmp_filename = "savedata.tox.tmp";
@@ -244,6 +247,7 @@ const char *v4l2_device = "/dev/video2";
 const char *shell_cmd__single_shot = "/home/pi/inst_/single_shot.sh >> /tmp/snap.log";
 const char *shell_cmd__get_cpu_temp = "/home/pi/inst_/get_cpu_temp.sh 2> /dev/null";
 const char *shell_cmd__get_gpu_temp = "/home/pi/inst_/get_gpu_temp.sh 2> /dev/null";
+const char *shell_cmd__get_my_number_of_open_files = "cat /proc/sys/fs/file-nr 2> /dev/null";
 int global_want_restart = 0;
 const char *global_timestamp_format = "%H:%M:%S";
 const char *global_long_timestamp_format = "%Y-%m-%d %H:%M:%S";
@@ -431,6 +435,7 @@ void replace_bad_char_from_string(char *str, const char replace_with)
 		}
 	}
 }
+
 
 void update_savedata_file(const Tox *tox)
 {
@@ -620,6 +625,15 @@ void send_file_to_friend(Tox *m, uint32_t num, const char* filename)
 
     snprintf(path, sizeof(path), "%s", filename);
     dbg(2, "send_file_to_friend:path=%s\n", path);
+
+/*
+	char output_str[1000];
+	run_cmd_return_output(shell_cmd__get_my_number_of_open_files, output_str, 1);
+	if (strlen(output_str) > 0)
+	{
+		dbg(2, "send_file_to_friend: open files=%s\n", output_str);
+	}
+*/
 
     FILE *file_to_send = fopen(path, "r");
 
@@ -877,6 +891,7 @@ void friendlist_onFriendAdded(Tox *m, uint32_t num, bool sort)
 	Friends.list[Friends.max_idx].connection_status = TOX_CONNECTION_NONE;
 	Friends.list[Friends.max_idx].status = TOX_USER_STATUS_NONE;
 	Friends.list[Friends.max_idx].waiting_for_answer = 0;
+	Friends.list[Friends.max_idx].auto_resend_start_time = 0;
 	// Friends.list[i].logging_on = (bool) user_settings->autolog == AUTOLOG_ON;
 
 	TOX_ERR_FRIEND_GET_PUBLIC_KEY pkerr;
@@ -1039,6 +1054,9 @@ struct FileTransfer *get_file_transfer_struct(uint32_t friendnum, uint32_t filen
     return NULL;
 }
 
+//
+// cut message at 999 chars length !!
+//
 void send_text_message_to_friend(Tox *tox, uint32_t friend_number, const char *fmt, ...)
 {
 	char msg2[1000];
@@ -1086,7 +1104,7 @@ static void get_elapsed_time_str(char *buf, int bufsize, uint64_t secs)
 //
 void run_cmd_return_output(const char *command, char* output, int lastline)
 {
-	FILE *fp;
+	FILE *fp = NULL;
 	char path[1035];
 	char *pos = NULL;
 
@@ -1099,8 +1117,9 @@ void run_cmd_return_output(const char *command, char* output, int lastline)
 	fp = popen(command, "r");
 	if (fp == NULL)
 	{
-		dbg(0, "Failed to run command: %s\n", command );
+		dbg(0, "Failed to run command: %s errno=%d error=%s\n", command, errno, strerror(errno));
 		output[0] = '\0';
+		return;
 	}
 
 	/* Read the output a line at a time - output it. */
@@ -1132,7 +1151,7 @@ void cmd_delfriend(Tox *tox, uint32_t friend_number, const char* message)
 	uint32_t del_friend_number = -1;
 	if (friend_number != del_friend_number)
 	{
-		remove_friend(tox, del_friend_number);
+		// remove_friend(tox, del_friend_number);
 	}
 }
 
@@ -1161,18 +1180,36 @@ void cmd_stats(Tox *tox, uint32_t friend_number)
 	send_text_message_to_friend(tox, friend_number, "Uptime: %s", time_str);
 	// ----- uptime -----
 
-	// --- temp ---
 	char output_str[1000];
+	run_cmd_return_output(shell_cmd__get_my_number_of_open_files, output_str, 1);
+	if (strlen(output_str) > 0)
+	{
+		send_text_message_to_friend(tox, friend_number, "doorspy open files:%s", output_str);
+	}
+	else
+	{
+		send_text_message_to_friend(tox, friend_number, "ERROR getting open files");
+	}
+
+	// --- temp ---
 	run_cmd_return_output(shell_cmd__get_cpu_temp, output_str, 1);
 	if (strlen(output_str) > 0)
 	{
 		send_text_message_to_friend(tox, friend_number, "doorspy Cpu temp:%s\xC2\xB0%s", output_str, "C");
 	}
+	else
+	{
+		send_text_message_to_friend(tox, friend_number, "ERROR getting Cpu temp");
+	}
 
 	run_cmd_return_output(shell_cmd__get_gpu_temp, output_str, 1);
 	if (strlen(output_str) > 0)
 	{
-	send_text_message_to_friend(tox, friend_number, "doorspy GPU temp:%s\xC2\xB0%s", output_str, "C");
+		send_text_message_to_friend(tox, friend_number, "doorspy GPU temp:%s\xC2\xB0%s", output_str, "C");
+	}
+	else
+	{
+		send_text_message_to_friend(tox, friend_number, "ERROR getting GPU temp");
 	}
 	// --- temp ---
 
@@ -1191,7 +1228,18 @@ void cmd_kamft(Tox *tox, uint32_t friend_number)
 void cmd_snap(Tox *tox, uint32_t friend_number)
 {
 	send_text_message_to_friend(tox, friend_number, "capture single shot, and send to all friends ...");
-	system(shell_cmd__single_shot);
+
+	char output_str[1000];
+	run_cmd_return_output(shell_cmd__single_shot, output_str, 1);
+	if (strlen(output_str) > 0)
+	{
+		send_text_message_to_friend(tox, friend_number, "doorspy:%s", output_str);
+	}
+	else
+	{
+		send_text_message_to_friend(tox, friend_number, "ERROR running snap command");
+	}
+
 	send_text_message_to_friend(tox, friend_number, "... capture single shot, ready!");
 }
 
@@ -1207,7 +1255,7 @@ void cmd_friends(Tox *tox, uint32_t friend_number)
 		if (j > -1)
 		{
 			send_text_message_to_friend(tox, friend_number, "%d:friend", j);
-			send_text_message_to_friend(tox, friend_number, "%d:key:%s", j, (const char*)Friends.list[j].pubkey_string);
+			send_text_message_to_friend(tox, friend_number, "%d tox:%s", j, (const char*)Friends.list[j].pubkey_string);
 			send_text_message_to_friend(tox, friend_number, "%d:last online (in client local time):%s", j, (const char*)Friends.list[j].last_online.hour_min_str);
 
 			switch (Friends.list[j].connection_status)
@@ -1948,6 +1996,8 @@ int check_number_of_files_to_resend_to_friend(Tox *m, uint32_t friendnum, int fr
 				}
 			}
 		}
+
+		closedir(d);
 	}
 
 	return ret;
@@ -1964,61 +2014,71 @@ void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 		int number_of_files_to_resend = check_number_of_files_to_resend_to_friend(m, friendnum, friendlistnum);
 		if (number_of_files_to_resend > MAX_RESEND_FILE_BEFORE_ASK)
 		{
-			// dbg(9, "number_of_files_to_resend > MAX_RESEND_FILE_BEFORE_ASK\n");
-
-			if (Friends.list[friendlistnum].waiting_for_answer == 2)
+			if ((time(NULL) - Friends.list[friendlistnum].auto_resend_start_time) < (time_t)AUTO_RESEND_SECONDS)
 			{
-				dbg(9, "waiting_for_answer == 2\n");
-
-				if ((Friends.list[friendlistnum].last_answer) && (strncmp(Friends.list[friendlistnum].last_answer, "y", 1) == 0))
-				{
-					dbg(9, "process_friends_dir:resend:got answer:y\n");
-
-					Friends.list[friendlistnum].last_answer[0] = '\0';
-					Friends.list[friendlistnum].waiting_for_answer = 0;
-					resend_files_once = 1;
-				}
-				else if ((Friends.list[friendlistnum].last_answer) && (strncmp(Friends.list[friendlistnum].last_answer, "n", 1) == 0))
-				{
-					Friends.list[friendlistnum].last_answer[0] = '\0';
-					Friends.list[friendlistnum].waiting_for_answer = 0;
-					resend_files_once = 0;
-
-					dbg(9, "process_friends_dir:resend:got answer:*n*\n");
-				}
-				else
-				{
-					if (Friends.list[friendlistnum].last_answer)
-					{
-						dbg(9, "process_friends_dir:resend:ask again:waiting_for_answer=%d last_answer=%s\n", Friends.list[friendlistnum].waiting_for_answer, Friends.list[friendlistnum].last_answer);
-					}
-					else
-					{
-						dbg(9, "process_friends_dir:resend:ask again:waiting_for_answer=%d last_answer=NULL\n", Friends.list[friendlistnum].waiting_for_answer);
-					}
-
-					send_text_message_to_friend(m, friendnum, "resend %d files? [y/n]", number_of_files_to_resend);
-					Friends.list[friendlistnum].last_answer[0] = '\0';
-					Friends.list[friendlistnum].waiting_for_answer = 1; // set to "waiting for answer"
-					return;
-				}
+				// ok keep sending until specified time runs out
+				resend_files_once = 1;
 			}
 			else
 			{
-				if (Friends.list[friendlistnum].waiting_for_answer != 1)
+				// dbg(9, "number_of_files_to_resend > MAX_RESEND_FILE_BEFORE_ASK\n");
+
+				if (Friends.list[friendlistnum].waiting_for_answer == 2)
 				{
-					if (Friends.list[friendlistnum].last_answer)
+					dbg(9, "waiting_for_answer == 2\n");
+
+					if ((Friends.list[friendlistnum].last_answer) && (strncmp(Friends.list[friendlistnum].last_answer, "y", 1) == 0))
 					{
-						dbg(9, "process_friends_dir:resend:ask?:waiting_for_answer=%d last_answer=%s\n", Friends.list[friendlistnum].waiting_for_answer, Friends.list[friendlistnum].last_answer);
+						dbg(9, "process_friends_dir:resend:got answer:y\n");
+
+						Friends.list[friendlistnum].last_answer[0] = '\0';
+						Friends.list[friendlistnum].waiting_for_answer = 0;
+						Friends.list[friendlistnum].auto_resend_start_time = time(NULL);
+
+						resend_files_once = 1;
+					}
+					else if ((Friends.list[friendlistnum].last_answer) && (strncmp(Friends.list[friendlistnum].last_answer, "n", 1) == 0))
+					{
+						Friends.list[friendlistnum].last_answer[0] = '\0';
+						Friends.list[friendlistnum].waiting_for_answer = 0;
+						resend_files_once = 0;
+
+						dbg(9, "process_friends_dir:resend:got answer:*n*\n");
 					}
 					else
 					{
-						dbg(9, "process_friends_dir:resend:ask?:waiting_for_answer=%d last_answer=NULL\n", Friends.list[friendlistnum].waiting_for_answer);
+						if (Friends.list[friendlistnum].last_answer)
+						{
+							dbg(9, "process_friends_dir:resend:ask again:waiting_for_answer=%d last_answer=%s\n", Friends.list[friendlistnum].waiting_for_answer, Friends.list[friendlistnum].last_answer);
+						}
+						else
+						{
+							dbg(9, "process_friends_dir:resend:ask again:waiting_for_answer=%d last_answer=NULL\n", Friends.list[friendlistnum].waiting_for_answer);
+						}
+
+						send_text_message_to_friend(m, friendnum, "resend %d files? [y/n]", number_of_files_to_resend);
+						Friends.list[friendlistnum].last_answer[0] = '\0';
+						Friends.list[friendlistnum].waiting_for_answer = 1; // set to "waiting for answer"
+						return;
 					}
-					send_text_message_to_friend(m, friendnum, "resend %d files? [y/n]", number_of_files_to_resend);
-					Friends.list[friendlistnum].waiting_for_answer = 1; // set to "waiting for answer"
 				}
-				return;
+				else
+				{
+					if (Friends.list[friendlistnum].waiting_for_answer != 1)
+					{
+						if (Friends.list[friendlistnum].last_answer)
+						{
+							dbg(9, "process_friends_dir:resend:ask?:waiting_for_answer=%d last_answer=%s\n", Friends.list[friendlistnum].waiting_for_answer, Friends.list[friendlistnum].last_answer);
+						}
+						else
+						{
+							dbg(9, "process_friends_dir:resend:ask?:waiting_for_answer=%d last_answer=NULL\n", Friends.list[friendlistnum].waiting_for_answer);
+						}
+						send_text_message_to_friend(m, friendnum, "resend %d files? [y/n]", number_of_files_to_resend);
+						Friends.list[friendlistnum].waiting_for_answer = 1; // set to "waiting for answer"
+					}
+					return;
+				}
 			}
 
 			if (resend_files_once != 1)
@@ -2033,19 +2093,20 @@ void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 
 		// dbg(9, "resending ...\n");
 
-		DIR *d;
-		struct dirent *dir;
-		// dbg(2, "checking friend subdir=%s\n", Friends.list[friendlistnum].worksubdir);
 
-		d = opendir(Friends.list[friendlistnum].worksubdir);
-		if (d)
+		struct dirent **namelist;
+		int n = 0;
+		int i;
+
+		i = scandir(Friends.list[friendlistnum].worksubdir, &namelist, NULL, alphasort);
+		if (i > 0)
 		{
-			while ((dir = readdir(d)) != NULL)
+			while (n < i)
 			{
-				if (dir->d_type == DT_REG)
+				if (namelist[n]->d_type == DT_REG)
 				{
-					const char *ext = strrchr(dir->d_name,'.');
-					if((!ext) || (ext == dir->d_name))
+					const char *ext = strrchr(namelist[n]->d_name,'.');
+					if((!ext) || (ext == namelist[n]->d_name))
 					{
 							// wrong fileextension
 					}
@@ -2054,14 +2115,14 @@ void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 						if (strcmp(ext, motion_capture_file_extension) == 0)
 						{
 							// images only
-							// dbg(9, "checking image:%s\n", dir->d_name);
+							// dbg(9, "checking image:%s\n", namelist[n]->d_name);
 
 							struct stat foo;
 							time_t mtime;
 							time_t time_now = time(NULL);
 
 							char newname[300];
-							snprintf(newname, sizeof(newname), "%s/%s", Friends.list[friendlistnum].worksubdir, dir->d_name);
+							snprintf(newname, sizeof(newname), "%s/%s", Friends.list[friendlistnum].worksubdir, namelist[n]->d_name);
 							// dbg(9, "subdir=%s\n", newname);
 
 							stat(newname, &foo);
@@ -2074,7 +2135,7 @@ void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 								if ((mtime + seconds_since_last_mod) < time_now)
 								{
 									// now see if this file is somewhere in outgoing ft
-									if (get_file_transfer_from_filename_struct(friendnum, dir->d_name) == NULL)
+									if (get_file_transfer_from_filename_struct(friendnum, namelist[n]->d_name) == NULL)
 									{
 										dbg(2, "resending file %s to friend %d\n", newname, friendnum);
 										send_file_to_friend(m, friendnum, newname);
@@ -2082,7 +2143,7 @@ void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 								}
 								else
 								{
-									// dbg(9, "new image:%s (still in use ...)\n", dir->d_name);
+									// dbg(9, "new image:%s (still in use ...)\n", namelist[n]->d_name);
 								}
 
 							}
@@ -2090,14 +2151,14 @@ void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 						else if (strcmp(ext, motion_capture_file_extension_mov) == 0)
 						{
 							// avi videos only
-							// dbg(9, "checking video:%s\n", dir->d_name);
+							// dbg(9, "checking video:%s\n", namelist[n]->d_name);
 
 							struct stat foo;
 							time_t mtime;
 							time_t time_now = time(NULL);
 
 							char newname[300];
-							snprintf(newname, sizeof(newname), "%s/%s", Friends.list[friendlistnum].worksubdir, dir->d_name);
+							snprintf(newname, sizeof(newname), "%s/%s", Friends.list[friendlistnum].worksubdir, namelist[n]->d_name);
 							// dbg(9, "subdir=%s\n", newname);
 
 							stat(newname, &foo);
@@ -2110,7 +2171,7 @@ void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 								if ((mtime + seconds_since_last_mod) < time_now)
 								{
 									// now see if this file is somewhere in outgoing ft
-									if (get_file_transfer_from_filename_struct(friendnum, dir->d_name) == NULL)
+									if (get_file_transfer_from_filename_struct(friendnum, namelist[n]->d_name) == NULL)
 									{
 										dbg(2, "resending file %s to friend %d\n", newname, friendnum);
 										send_file_to_friend(m, friendnum, newname);
@@ -2118,7 +2179,7 @@ void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 								}
 								else
 								{
-									// dbg(9, "new image:%s (still in use ...)\n", dir->d_name);
+									// dbg(9, "new image:%s (still in use ...)\n", namelist[n]->d_name);
 								}
 
 							}
@@ -2126,9 +2187,13 @@ void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 
 					}
 				}
+
+				free(namelist[n]);
+				++n;
+
 			}
 
-			closedir(d);
+			free(namelist);
 		}
 	}
 }
@@ -2154,17 +2219,21 @@ void check_friends_dir(Tox *m)
 
 void check_dir(Tox *m)
 {
-	DIR *d;
-	struct dirent *dir;
-	d = opendir(motion_pics_dir);
-	if (d)
+
+	struct dirent **namelist;
+	int n = 0;
+	int i;
+
+	i = scandir(motion_pics_dir, &namelist, NULL, alphasort);
+
+	if (i > 0)
 	{
-		while ((dir = readdir(d)) != NULL)
+		while (n < i)
 		{
-			if (dir->d_type == DT_REG)
+			if (namelist[n]->d_type == DT_REG)
 			{
-				const char *ext = strrchr(dir->d_name,'.');
-				if((!ext) || (ext == dir->d_name))
+				const char *ext = strrchr(namelist[n]->d_name,'.');
+				if((!ext) || (ext == namelist[n]->d_name))
 				{
 						// wrong fileextension
 				}
@@ -2172,11 +2241,11 @@ void check_dir(Tox *m)
 				{
 					if(strcmp(ext, motion_capture_file_extension) == 0)
 					{
-						// dbg(9, "new image:%s\n", dir->d_name);
+						// dbg(9, "new image:%s\n", namelist[n]->d_name);
 
 						// move file to work dir
 						char oldname[300];
-						snprintf(oldname, sizeof(oldname), "%s/%s", motion_pics_dir, dir->d_name);
+						snprintf(oldname, sizeof(oldname), "%s/%s", motion_pics_dir, namelist[n]->d_name);
 
 
 						struct stat foo;
@@ -2189,27 +2258,27 @@ void check_dir(Tox *m)
 						if ((mtime + seconds_since_last_mod) < time_now)
 						{
 								char newname[300];
-								snprintf(newname, sizeof(newname), "%s/%s", motion_pics_work_dir, dir->d_name);
+								snprintf(newname, sizeof(newname), "%s/%s", motion_pics_work_dir, namelist[n]->d_name);
 
-								dbg(2, "new image:%s\n", dir->d_name);
+								dbg(2, "new image:%s\n", namelist[n]->d_name);
 								dbg(2, "move %s -> %s\n", oldname, newname);
 								int renname_err = rename(oldname, newname);
 								dbg(2, "res=%d\n", renname_err);
 
-								send_file_to_all_friends(m, newname, dir->d_name);
+								send_file_to_all_friends(m, newname, namelist[n]->d_name);
 						}
 						else
 						{
-								// dbg(9, "new image:%s (still in use ...)\n", dir->d_name);
+								// dbg(9, "new image:%s (still in use ...)\n", namelist[n]->d_name);
 						}
 					}
 					else if(strcmp(ext, motion_capture_file_extension_mov) == 0)
 					{
-						// dbg(9, "new image:%s\n", dir->d_name);
+						// dbg(9, "new image:%s\n", namelist[n]->d_name);
 
 						// move file to work dir
 						char oldname[300];
-						snprintf(oldname, sizeof(oldname), "%s/%s", motion_pics_dir, dir->d_name);
+						snprintf(oldname, sizeof(oldname), "%s/%s", motion_pics_dir, namelist[n]->d_name);
 
 
 						struct stat foo;
@@ -2222,25 +2291,28 @@ void check_dir(Tox *m)
 						if ((mtime + seconds_since_last_mod) < time_now)
 						{
 								char newname[300];
-								snprintf(newname, sizeof(newname), "%s/%s", motion_pics_work_dir, dir->d_name);
+								snprintf(newname, sizeof(newname), "%s/%s", motion_pics_work_dir, namelist[n]->d_name);
 
-								dbg(2, "new movie:%s\n", dir->d_name);
+								dbg(2, "new movie:%s\n", namelist[n]->d_name);
 								dbg(2, "move %s -> %s\n", oldname, newname);
 								int renname_err = rename(oldname, newname);
 								dbg(2, "res=%d\n", renname_err);
 
-								send_file_to_all_friends(m, newname, dir->d_name);
+								send_file_to_all_friends(m, newname, namelist[n]->d_name);
 						}
 						else
 						{
-								// dbg(9, "new image:%s (still in use ...)\n", dir->d_name);
+								// dbg(9, "new image:%s (still in use ...)\n", namelist[n]->d_name);
 						}
 					}
 				}
 			}
+
+			free(namelist[n]);
+			++n;
 		}
 
-		closedir(d);
+		free(namelist);
 	}
 }
 
@@ -2299,6 +2371,7 @@ int init_cam()
 
     if (0 == xioctl(fd, VIDIOC_CROPCAP, &cropcap))
 	{
+#if 0
         crop.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         crop.c    = cropcap.defrect; /* reset to full area */
 		/* Scale the width and height to 50 % of their original size and center the output. */
@@ -2319,6 +2392,7 @@ int init_cam()
                     break;
             }
         }
+#endif
     }
 	else
 	{
@@ -2879,6 +2953,10 @@ void *thread_av(void *data)
 						//debug_error("uToxVideo:\ttoxav_send_video error friend: %i error: %u\n",
 						//			friend[i].number, error);
 						dbg(0, "ToxVideo:toxav_send_video error %u\n", error);
+
+						// *TODO* if these keep piling up --> just disconnect the call!!
+						// *TODO* if these keep piling up --> just disconnect the call!!
+						// *TODO* if these keep piling up --> just disconnect the call!!
 					}
 				}
 
