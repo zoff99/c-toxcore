@@ -244,7 +244,7 @@ const char *motion_capture_file_extension_mov = ".avi";
 
 const char *v4l2_device = "/dev/video2";
 
-const char *shell_cmd__single_shot = "/home/pi/inst_/single_shot.sh >> /tmp/snap.log";
+const char *shell_cmd__single_shot = "/home/pi/inst_/single_shot.sh 2> /dev/null";
 const char *shell_cmd__get_cpu_temp = "/home/pi/inst_/get_cpu_temp.sh 2> /dev/null";
 const char *shell_cmd__get_gpu_temp = "/home/pi/inst_/get_gpu_temp.sh 2> /dev/null";
 const char *shell_cmd__get_my_number_of_open_files = "cat /proc/sys/fs/file-nr 2> /dev/null";
@@ -1231,14 +1231,17 @@ void cmd_snap(Tox *tox, uint32_t friend_number)
 
 	char output_str[1000];
 	run_cmd_return_output(shell_cmd__single_shot, output_str, 1);
+
+#if 0
 	if (strlen(output_str) > 0)
 	{
-		send_text_message_to_friend(tox, friend_number, "doorspy:%s", output_str);
+		// send_text_message_to_friend(tox, friend_number, "doorspy:%s", output_str);
 	}
 	else
 	{
 		send_text_message_to_friend(tox, friend_number, "ERROR running snap command");
 	}
+#endif
 
 	send_text_message_to_friend(tox, friend_number, "... capture single shot, ready!");
 }
