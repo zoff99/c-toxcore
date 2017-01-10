@@ -13,9 +13,6 @@ dependencies:
     - sudo apt-get install build-essential libtool autotools-dev automake checkinstall check git yasm libv4lconvert0 libv4l-dev
     - sudo apt-get install libopus-dev libvpx-dev pkg-config
     - sudo apt-get install linux-generic
-    - sudo apt-get install v4l2loopback-dkms
-    - sudo depmod -av | grep v4l2loopback
-    #- sudo modprobe v4l2loopback
     - sudo bash -c "echo '::1             localhost ipv6-localhost ipv6-loopback' >> /etc/hosts" # ipv6 localhost entry
 
     #- sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang 100
