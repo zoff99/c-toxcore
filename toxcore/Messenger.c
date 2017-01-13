@@ -31,9 +31,7 @@
 #include "network.h"
 #include "util.h"
 
-#ifdef TOX_DEBUG
 #include <assert.h>
-#endif
 
 
 static void set_friend_status(Messenger *m, int32_t friendnumber, uint8_t status, void *userdata);
@@ -1328,29 +1326,22 @@ int file_seek(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uin
         return -2;
     }
 
-    uint32_t temp_filenum;
-    uint8_t send_receive, file_number;
-
-    if (filenumber >= (1 << 16)) {
-        send_receive = 1;
-        temp_filenum = (filenumber >> 16) - 1;
-    } else {
+    if (filenumber < (1 << 16)) {
+        // Not receiving.
         return -4;
     }
+
+    uint32_t temp_filenum = (filenumber >> 16) - 1;
 
     if (temp_filenum >= MAX_CONCURRENT_FILE_PIPES) {
         return -3;
     }
 
-    file_number = temp_filenum;
+    assert(temp_filenum <= UINT8_MAX);
+    uint8_t file_number = temp_filenum;
 
-    struct File_Transfers *ft;
-
-    if (send_receive) {
-        ft = &m->friendlist[friendnumber].file_receiving[file_number];
-    } else {
-        ft = &m->friendlist[friendnumber].file_sending[file_number];
-    }
+    // We're always receiving at this point.
+    struct File_Transfers *ft = &m->friendlist[friendnumber].file_receiving[file_number];
 
     if (ft->status == FILESTATUS_NONE) {
         return -3;
@@ -1367,7 +1358,7 @@ int file_seek(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uin
     uint64_t sending_pos = position;
     host_to_net((uint8_t *)&sending_pos, sizeof(sending_pos));
 
-    if (send_file_control_packet(m, friendnumber, send_receive, file_number, FILECONTROL_SEEK, (uint8_t *)&sending_pos,
+    if (send_file_control_packet(m, friendnumber, 1, file_number, FILECONTROL_SEEK, (uint8_t *)&sending_pos,
                                  sizeof(sending_pos))) {
         ft->transferred = position;
     } else {
@@ -1613,96 +1604,135 @@ static void break_files(const Messenger *m, int32_t friendnumber)
     }
 }
 
+static struct File_Transfers *get_file_transfer(uint8_t receive_send, uint8_t filenumber,
+        uint32_t *real_filenumber, Friend *sender)
+{
+    struct File_Transfers *ft;
+
+    if (receive_send == 0) {
+        *real_filenumber = (filenumber + 1) << 16;
+        ft = &sender->file_receiving[filenumber];
+    } else {
+        *real_filenumber = filenumber;
+        ft = &sender->file_sending[filenumber];
+    }
+
+    if (ft->status == FILESTATUS_NONE) {
+        return NULL;
+    }
+
+    return ft;
+}
+
 /* return -1 on failure, 0 on success.
  */
 static int handle_filecontrol(Messenger *m, int32_t friendnumber, uint8_t receive_send, uint8_t filenumber,
                               uint8_t control_type, const uint8_t *data, uint16_t length, void *userdata)
 {
     if (receive_send > 1) {
+        LOGGER_DEBUG(m->log, "file control (friend %d, file %d): receive_send value is invalid (should be 0 or 1): %d",
+                     friendnumber, filenumber, receive_send);
         return -1;
     }
 
-    if (control_type > FILECONTROL_SEEK) {
-        return -1;
-    }
+    uint32_t real_filenumber;
+    struct File_Transfers *ft = get_file_transfer(receive_send, filenumber, &real_filenumber, &m->friendlist[friendnumber]);
 
-    uint32_t real_filenumber = filenumber;
-    struct File_Transfers *ft;
-
-    if (receive_send == 0) {
-        real_filenumber += 1;
-        real_filenumber <<= 16;
-        ft = &m->friendlist[friendnumber].file_receiving[filenumber];
-    } else {
-        ft = &m->friendlist[friendnumber].file_sending[filenumber];
-    }
-
-    if (ft->status == FILESTATUS_NONE) {
-        /* File transfer doesn't exist, tell the other to kill it. */
+    if (ft == NULL) {
+        LOGGER_DEBUG(m->log, "file control (friend %d, file %d): file transfer does not exist; telling the other to kill it",
+                     friendnumber, filenumber);
         send_file_control_packet(m, friendnumber, !receive_send, filenumber, FILECONTROL_KILL, 0, 0);
         return -1;
     }
 
-    if (control_type == FILECONTROL_ACCEPT) {
-        if (receive_send && ft->status == FILESTATUS_NOT_ACCEPTED) {
-            ft->status = FILESTATUS_TRANSFERRING;
-        } else {
-            if (ft->paused & FILE_PAUSE_OTHER) {
-                ft->paused ^= FILE_PAUSE_OTHER;
+    switch (control_type) {
+        case FILECONTROL_ACCEPT: {
+            if (receive_send && ft->status == FILESTATUS_NOT_ACCEPTED) {
+                ft->status = FILESTATUS_TRANSFERRING;
             } else {
+                if (ft->paused & FILE_PAUSE_OTHER) {
+                    ft->paused ^= FILE_PAUSE_OTHER;
+                } else {
+                    LOGGER_DEBUG(m->log, "file control (friend %d, file %d): friend told us to resume file transfer that wasn't paused",
+                                 friendnumber, filenumber);
+                    return -1;
+                }
+            }
+
+            if (m->file_filecontrol) {
+                m->file_filecontrol(m, friendnumber, real_filenumber, control_type, userdata);
+            }
+
+            return 0;
+        }
+
+        case FILECONTROL_PAUSE: {
+            if ((ft->paused & FILE_PAUSE_OTHER) || ft->status != FILESTATUS_TRANSFERRING) {
+                LOGGER_DEBUG(m->log, "file control (friend %d, file %d): friend told us to pause file transfer that is already paused",
+                             friendnumber, filenumber);
                 return -1;
             }
+
+            ft->paused |= FILE_PAUSE_OTHER;
+
+            if (m->file_filecontrol) {
+                m->file_filecontrol(m, friendnumber, real_filenumber, control_type, userdata);
+            }
+
+            return 0;
         }
 
-        if (m->file_filecontrol) {
-            (*m->file_filecontrol)(m, friendnumber, real_filenumber, control_type, userdata);
+        case FILECONTROL_KILL: {
+            if (m->file_filecontrol) {
+                m->file_filecontrol(m, friendnumber, real_filenumber, control_type, userdata);
+            }
+
+            ft->status = FILESTATUS_NONE;
+
+            if (receive_send) {
+                --m->friendlist[friendnumber].num_sending_files;
+            }
+
+            return 0;
         }
-    } else if (control_type == FILECONTROL_PAUSE) {
-        if ((ft->paused & FILE_PAUSE_OTHER) || ft->status != FILESTATUS_TRANSFERRING) {
+
+        case FILECONTROL_SEEK: {
+            uint64_t position;
+
+            if (length != sizeof(position)) {
+                LOGGER_DEBUG(m->log, "file control (friend %d, file %d): expected payload of length %d, but got %d",
+                             friendnumber, filenumber, (uint32_t)sizeof(position), length);
+                return -1;
+            }
+
+            /* seek can only be sent by the receiver to seek before resuming broken transfers. */
+            if (ft->status != FILESTATUS_NOT_ACCEPTED || !receive_send) {
+                LOGGER_DEBUG(m->log,
+                             "file control (friend %d, file %d): seek was either sent by a sender or by the receiver after accepting",
+                             friendnumber, filenumber);
+                return -1;
+            }
+
+            memcpy(&position, data, sizeof(position));
+            net_to_host((uint8_t *) &position, sizeof(position));
+
+            if (position >= ft->size) {
+                LOGGER_DEBUG(m->log,
+                             "file control (friend %d, file %d): seek position %lld exceeds file size %lld",
+                             friendnumber, filenumber, (unsigned long long)position, (unsigned long long)ft->size);
+                return -1;
+            }
+
+            ft->transferred = ft->requested = position;
+            return 0;
+        }
+
+        default: {
+            LOGGER_DEBUG(m->log, "file control (friend %d, file %d): invalid file control: %d",
+                         friendnumber, filenumber, control_type);
             return -1;
         }
-
-        ft->paused |= FILE_PAUSE_OTHER;
-
-        if (m->file_filecontrol) {
-            (*m->file_filecontrol)(m, friendnumber, real_filenumber, control_type, userdata);
-        }
-    } else if (control_type == FILECONTROL_KILL) {
-
-        if (m->file_filecontrol) {
-            (*m->file_filecontrol)(m, friendnumber, real_filenumber, control_type, userdata);
-        }
-
-        ft->status = FILESTATUS_NONE;
-
-        if (receive_send) {
-            --m->friendlist[friendnumber].num_sending_files;
-        }
-    } else if (control_type == FILECONTROL_SEEK) {
-        uint64_t position;
-
-        if (length != sizeof(position)) {
-            return -1;
-        }
-
-        /* seek can only be sent by the receiver to seek before resuming broken transfers. */
-        if (ft->status != FILESTATUS_NOT_ACCEPTED || !receive_send) {
-            return -1;
-        }
-
-        memcpy(&position, data, sizeof(position));
-        net_to_host((uint8_t *) &position, sizeof(position));
-
-        if (position >= ft->size) {
-            return -1;
-        }
-
-        ft->transferred = ft->requested = position;
-    } else {
-        return -1;
     }
-
-    return 0;
 }
 
 /**************************************/
@@ -2276,6 +2306,8 @@ static int handle_packet(void *object, int i, const uint8_t *temp, uint16_t len,
             }
 
             if (handle_filecontrol(m, i, send_receive, filenumber, control_type, data + 3, data_length - 3, userdata) == -1) {
+                // TODO(iphydf): Do something different here? Right now, this
+                // check is pointless.
                 break;
             }
 
@@ -2749,20 +2781,16 @@ static uint32_t friends_list_save(const Messenger *m, uint8_t *data)
             }
 
             uint8_t *next_data = friend_save(&temp, cur_data);
-#ifdef TOX_DEBUG
             assert(next_data - cur_data == friend_size());
 #ifdef __LP64__
             assert(memcmp(cur_data, &temp, friend_size()) == 0);
-#endif
 #endif
             cur_data = next_data;
             num++;
         }
     }
 
-#ifdef TOX_DEBUG
     assert(cur_data - data == num * friend_size());
-#endif
     return cur_data - data;
 }
 
@@ -2811,11 +2839,9 @@ static int friends_list_load(Messenger *m, const uint8_t *data, uint32_t length)
     for (i = 0; i < num; ++i) {
         struct SAVED_FRIEND temp = { 0 };
         const uint8_t *next_data = friend_load(&temp, cur_data);
-#ifdef TOX_DEBUG
         assert(next_data - cur_data == friend_size());
 #ifdef __LP64__
         assert(memcmp(&temp, cur_data, friend_size()) == 0);
-#endif
 #endif
         cur_data = next_data;
 
@@ -2886,9 +2912,7 @@ void messenger_save(const Messenger *m, uint8_t *data)
     host_to_lendian32(data, MESSENGER_STATE_COOKIE_GLOBAL);
     data += size32;
 
-#ifdef TOX_DEBUG
-    assert(sizeof(get_nospam(&(m->fr))) == sizeof(uint32_t));
-#endif
+    assert(sizeof(get_nospam(&m->fr)) == sizeof(uint32_t));
     len = size32 + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_SECRET_KEY_SIZE;
     type = MESSENGER_STATE_TYPE_NOSPAMKEYS;
     data = z_state_save_subheader(data, len, type);
@@ -3039,13 +3063,10 @@ static int messenger_load_state_callback(void *outer, const uint8_t *data, uint3
             return -2;
         }
 
-#ifdef TOX_DEBUG
-
         default:
-            fprintf(stderr, "Load state: contains unrecognized part (len %u, type %u)\n",
-                    length, type);
+            LOGGER_ERROR(m->log, "Load state: contains unrecognized part (len %u, type %u)\n",
+                         length, type);
             break;
-#endif
     }
 
     return 0;
@@ -3065,7 +3086,7 @@ int messenger_load(Messenger *m, const uint8_t *data, uint32_t length)
     lendian_to_host32(data32 + 1, data + sizeof(uint32_t));
 
     if (!data32[0] && (data32[1] == MESSENGER_STATE_COOKIE_GLOBAL)) {
-        return load_state(messenger_load_state_callback, m, data + cookie_len,
+        return load_state(messenger_load_state_callback, m->log, m, data + cookie_len,
                           length - cookie_len, MESSENGER_STATE_COOKIE_TYPE);
     }
 

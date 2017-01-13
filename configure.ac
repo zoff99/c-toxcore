@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.65])
-AC_INIT([tox], [0.1.2])
+AC_INIT([tox], [0.1.4])
 AC_CONFIG_AUX_DIR(configure_aux)
 AC_CONFIG_SRCDIR([toxcore/net_crypto.c])
 AC_CONFIG_HEADERS([config.h])
@@ -27,13 +27,13 @@ if test "x${prefix}" = "xNONE"; then
 fi
 
 BUILD_DHT_BOOTSTRAP_DAEMON="no"
+BUILD_DHT_BOOTSTRAP="no"
 BUILD_NTOX="no"
 BUILD_TESTS="yes"
 BUILD_AV="yes"
 BUILD_TESTING="yes"
 
 TOX_LOGGER="no"
-TOX_DEBUG="no"
 
 NCURSES_FOUND="no"
 LIBCONFIG_FOUND="no"
@@ -88,17 +88,6 @@ AC_ARG_ENABLE([logging],
             TOX_LOGGER="yes"
 
             AC_DEFINE([MIN_LOGGER_LEVEL], [LOG_DEBUG], [LOG_LEVEL value])
-        fi
-    ]
-)
-
-AC_ARG_ENABLE([debug],
-    [AC_HELP_STRING([--enable-debug], [enable debugging (default: disabled)]) ],
-    [
-        if test "x$enableval" = "xyes"; then
-            TOX_DEBUG="yes"
-
-            AC_DEFINE([TOX_DEBUG], [], [If debugging enabled])
         fi
     ]
 )
@@ -176,6 +165,18 @@ AC_ARG_ENABLE([daemon],
         fi
     ]
 )
+
+AC_ARG_ENABLE([dht-bootstrap],
+    [AC_HELP_STRING([--enable-dht-bootstrap], [build DHT bootstrap utility (default: disabled)]) ],
+    [
+        if test "x$enableval" = "xno"; then
+            BUILD_DHT_BOOTSTRAP="no"
+        elif test "x$enableval" = "xyes"; then
+            BUILD_DHT_BOOTSTRAP="yes"
+        fi
+    ]
+)
+
 
 AC_ARG_ENABLE([rt],
     [AC_HELP_STRING([--disable-rt], [Disables the librt check (default: auto)]) ],
@@ -282,7 +283,12 @@ if test "x$WANT_NACL" = "xyes"; then
 fi
 
 # Checks for programs.
-AC_PROG_CC
+AC_PROG_CC_C99
+
+if test "x$ac_cv_prog_cc_c99" = "xno" ; then
+    AC_MSG_ERROR([c-toxcore requires a C99 compatible compiler])
+fi
+
 AM_PROG_CC_C_O
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 AC_LIBTOOL_WIN32_DLL
@@ -688,6 +694,7 @@ if test "x$WIN32" = "xyes"; then
 fi
 
 AM_CONDITIONAL(BUILD_DHT_BOOTSTRAP_DAEMON, test "x$BUILD_DHT_BOOTSTRAP_DAEMON" = "xyes")
+AM_CONDITIONAL(BUILD_DHT_BOOTSTRAP, test "x$BUILD_DHT_BOOTSTRAP" = "xyes")
 AM_CONDITIONAL(BUILD_TESTS, test "x$BUILD_TESTS" = "xyes")
 AM_CONDITIONAL(BUILD_NTOX, test "x$BUILD_NTOX" = "xyes")
 AM_CONDITIONAL(BUILD_AV, test "x$BUILD_AV" = "xyes")

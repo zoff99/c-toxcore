@@ -11,6 +11,7 @@ libtoxcore_la_SOURCES = ../toxcore/DHT.h \
                         ../toxcore/network.c \
                         ../toxcore/crypto_core.h \
                         ../toxcore/crypto_core.c \
+                        ../toxcore/crypto_core_mem.c \
                         ../toxcore/ping_array.h \
                         ../toxcore/ping_array.c \
                         ../toxcore/net_crypto.h \
@@ -47,8 +48,7 @@ libtoxcore_la_SOURCES = ../toxcore/DHT.h \
                         ../toxcore/TCP_connection.h \
                         ../toxcore/TCP_connection.c \
                         ../toxcore/list.c \
-                        ../toxcore/list.h \
-                        ../toxcore/misc_tools.h
+                        ../toxcore/list.h
 
 libtoxcore_la_CFLAGS =  -I$(top_srcdir) \
                         -I$(top_srcdir)/toxcore \

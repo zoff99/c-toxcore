@@ -31,7 +31,6 @@
 
 #include "LAN_discovery.h"
 #include "logger.h"
-#include "misc_tools.h"
 #include "network.h"
 #include "ping.h"
 #include "util.h"
@@ -316,27 +315,27 @@ static int pack_ip_port(uint8_t *data, uint16_t length, const IP_Port *ip_port)
         return -1;
     }
 
-    int ipv6 = -1;
+    bool is_ipv4;
     uint8_t net_family;
 
     if (ip_port->ip.family == AF_INET) {
         // TODO(irungentoo): use functions to convert endianness
-        ipv6 = 0;
+        is_ipv4 = true;
         net_family = TOX_AF_INET;
     } else if (ip_port->ip.family == TCP_INET) {
-        ipv6 = 0;
+        is_ipv4 = true;
         net_family = TOX_TCP_INET;
     } else if (ip_port->ip.family == AF_INET6) {
-        ipv6 = 1;
+        is_ipv4 = false;
         net_family = TOX_AF_INET6;
     } else if (ip_port->ip.family == TCP_INET6) {
-        ipv6 = 1;
+        is_ipv4 = false;
         net_family = TOX_TCP_INET6;
     } else {
         return -1;
     }
 
-    if (ipv6 == 0) {
+    if (is_ipv4) {
         uint32_t size = 1 + SIZE_IP4 + sizeof(uint16_t);
 
         if (size > length) {
@@ -347,9 +346,7 @@ static int pack_ip_port(uint8_t *data, uint16_t length, const IP_Port *ip_port)
         memcpy(data + 1, &ip_port->ip.ip4, SIZE_IP4);
         memcpy(data + 1 + SIZE_IP4, &ip_port->port, sizeof(uint16_t));
         return size;
-    }
-
-    if (ipv6 == 1) {
+    } else {
         uint32_t size = 1 + SIZE_IP6 + sizeof(uint16_t);
 
         if (size > length) {
@@ -361,8 +358,6 @@ static int pack_ip_port(uint8_t *data, uint16_t length, const IP_Port *ip_port)
         memcpy(data + 1 + SIZE_IP6, &ip_port->port, sizeof(uint16_t));
         return size;
     }
-
-    return -1;
 }
 
 static int DHT_create_packet(const uint8_t public_key[CRYPTO_PUBLIC_KEY_SIZE],
@@ -399,34 +394,34 @@ static int unpack_ip_port(IP_Port *ip_port, const uint8_t *data, uint16_t length
         return -1;
     }
 
-    int ipv6 = -1;
+    bool is_ipv4;
     uint8_t host_family;
 
     if (data[0] == TOX_AF_INET) {
-        ipv6 = 0;
+        is_ipv4 = true;
         host_family = AF_INET;
     } else if (data[0] == TOX_TCP_INET) {
         if (!tcp_enabled) {
             return -1;
         }
 
-        ipv6 = 0;
+        is_ipv4 = true;
         host_family = TCP_INET;
     } else if (data[0] == TOX_AF_INET6) {
-        ipv6 = 1;
+        is_ipv4 = false;
         host_family = AF_INET6;
     } else if (data[0] == TOX_TCP_INET6) {
         if (!tcp_enabled) {
             return -1;
         }
 
-        ipv6 = 1;
+        is_ipv4 = false;
         host_family = TCP_INET6;
     } else {
         return -1;
     }
 
-    if (ipv6 == 0) {
+    if (is_ipv4) {
         uint32_t size = 1 + SIZE_IP4 + sizeof(uint16_t);
 
         if (size > length) {
@@ -437,9 +432,7 @@ static int unpack_ip_port(IP_Port *ip_port, const uint8_t *data, uint16_t length
         memcpy(&ip_port->ip.ip4, data + 1, SIZE_IP4);
         memcpy(&ip_port->port, data + 1 + SIZE_IP4, sizeof(uint16_t));
         return size;
-    }
-
-    if (ipv6 == 1) {
+    } else {
         uint32_t size = 1 + SIZE_IP6 + sizeof(uint16_t);
 
         if (size > length) {
@@ -451,8 +444,6 @@ static int unpack_ip_port(IP_Port *ip_port, const uint8_t *data, uint16_t length
         memcpy(&ip_port->port, data + 1 + SIZE_IP6, sizeof(uint16_t));
         return size;
     }
-
-    return -1;
 }
 
 /* Pack number of nodes into data of maxlength length.
@@ -562,7 +553,7 @@ static int client_or_ip_port_in_list(Logger *log, Client_data *list, uint16_t le
                 list[i].assoc4.timestamp = temp_time;
             } else if (ip_port.ip.family == AF_INET6) {
 
-                if (!ipport_equal(&list[i].assoc4.ip_port, &ip_port)) {
+                if (!ipport_equal(&list[i].assoc6.ip_port, &ip_port)) {
                     LOGGER_TRACE(log, "coipil[%u]: switching ipv6 from %s:%u to %s:%u", i,
                                  ip_ntoa(&list[i].assoc6.ip_port.ip), ntohs(list[i].assoc6.ip_port.port),
                                  ip_ntoa(&ip_port.ip), ntohs(ip_port.port));
@@ -2822,13 +2813,10 @@ static int dht_load_state_callback(void *outer, const uint8_t *data, uint32_t le
 
             break;
 
-#ifdef TOX_DEBUG
-
         default:
-            fprintf(stderr, "Load state (DHT): contains unrecognized part (len %u, type %u)\n",
-                    length, type);
+            LOGGER_ERROR(dht->log, "Load state (DHT): contains unrecognized part (len %u, type %u)\n",
+                         length, type);
             break;
-#endif
     }
 
     return 0;
@@ -2848,7 +2836,7 @@ int DHT_load(DHT *dht, const uint8_t *data, uint32_t length)
         lendian_to_host32(&data32, data);
 
         if (data32 == DHT_STATE_COOKIE_GLOBAL) {
-            return load_state(dht_load_state_callback, dht, data + cookie_len,
+            return load_state(dht_load_state_callback, dht->log, dht, data + cookie_len,
                               length - cookie_len, DHT_STATE_COOKIE_TYPE);
         }
     }

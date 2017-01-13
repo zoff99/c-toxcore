@@ -6,7 +6,7 @@ include(CTest)
 # versions in a synchronised way.
 set(PROJECT_VERSION_MAJOR "0")
 set(PROJECT_VERSION_MINOR "1")
-set(PROJECT_VERSION_PATCH "2")
+set(PROJECT_VERSION_PATCH "4")
 set(PROJECT_VERSION
   "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
 
@@ -56,21 +56,20 @@ macro(add_flag flag)
   add_cflag(${flag})
   add_cxxflag(${flag})
 endmacro()
+  
+# Set standard version for compiler.
+add_cflag("-std=c99")
+add_cxxflag("-std=c++11")
+
+# Warn on non-ISO C.
+add_cflag("-pedantic")
 
 option(WARNINGS "Enable additional compiler warnings" ON)
 if(WARNINGS)
-  # Set standard version for compiler.
-  add_cflag("-std=gnu99")
-  add_cxxflag("-std=c++98")
-
   # Add all warning flags we can.
   add_flag("-Wall")
   add_flag("-Wextra")
   add_flag("-Weverything")
-
-  # -pedantic only for C, because in C++ we want to allow the GNU/C99 extension
-  # of having a comma at the end of an enumerator list.
-  add_cflag("-pedantic")
 
   # Disable specific warning flags for both C and C++.
   add_flag("-Wno-cast-align")
@@ -128,7 +127,6 @@ endif()
 option(DEBUG "Enable assertions and other debugging facilities" OFF)
 if(DEBUG)
   set(MIN_LOGGER_LEVEL DEBUG)
-  add_definitions(-DTOX_DEBUG=1)
   add_cflag("-g3")
 endif()
 
@@ -204,7 +202,11 @@ apidsl(
   toxcore/crypto_core.api.h)
 add_module(toxcrypto
   toxcore/crypto_core.c
-  toxcore/crypto_core.h)
+  toxcore/crypto_core.h
+  toxcore/crypto_core_mem.c)
+include(CheckFunctionExists)
+check_function_exists(explicit_bzero HAVE_EXPLICIT_BZERO)
+check_function_exists(memset_s HAVE_MEMSET_S)
 target_link_modules(toxcrypto ${LIBSODIUM_LIBRARIES})
 if(WIN32)
   target_link_modules(toxcrypto ws2_32) # for htonl
@@ -298,7 +300,6 @@ target_link_modules(toxgroup toxmessenger)
 apidsl(
   toxcore/tox.api.h)
 add_module(toxcore
-  toxcore/misc_tools.h
   toxcore/tox_api.c
   toxcore/tox.c
   toxcore/tox.h)
@@ -593,11 +594,11 @@ endif()
 #
 ################################################################################
 
-find_program(SH NAMES sh dash bash zsh)
+find_program(SHELL NAMES sh dash bash zsh)
 
-if(SH)
+if(SHELL)
   execute_process(
-    COMMAND ${SH} ${toxcore_SOURCE_DIR}/other/version-sync
+    COMMAND ${SHELL} ${toxcore_SOURCE_DIR}/other/version-sync
       ${toxcore_SOURCE_DIR}
       ${PROJECT_VERSION_MAJOR}
       ${PROJECT_VERSION_MINOR}
@@ -608,11 +609,16 @@ endif()
 #
 # :: Strict ABI
 #
+# Enabling the STRICT_ABI flag will generate and use an LD version script.
+# It ensures that the dynamic libraries (libtoxcore.so, libtoxav.so) only
+# export the symbols that are defined in their public API (tox.h and toxav.h,
+# respectively).
+#
 ################################################################################
 
 function(make_version_script header ns lib)
   execute_process(
-    COMMAND ${SH} -c "egrep '^\\w' ${header} | grep '${ns}_[a-z0-9_]*(' | grep -v '^typedef' | grep -o '${ns}_[a-z0-9_]*(' | egrep -o '\\w+' | sort -u"
+    COMMAND ${SHELL} -c "egrep '^\\w' ${header} | grep '${ns}_[a-z0-9_]*(' | grep -v '^typedef' | grep -o '${ns}_[a-z0-9_]*(' | egrep -o '\\w+' | sort -u"
     OUTPUT_VARIABLE ${lib}_SYMS
     OUTPUT_STRIP_TRAILING_WHITESPACE)
   string(REPLACE "\n" ";" ${lib}_SYMS ${${lib}_SYMS})
@@ -638,7 +644,7 @@ if(WIN32 OR APPLE)
   set(STRICT_ABI OFF)
 endif()
 
-if(STRICT_ABI AND SH)
+if(STRICT_ABI AND SHELL AND ENABLE_SHARED)
   if(BUILD_TOXAV)
     make_version_script(${toxcore_SOURCE_DIR}/toxav/toxav.h toxav toxav)
   endif()
