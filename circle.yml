@@ -12,12 +12,24 @@ dependencies:
     - sudo bash -c "echo '::1             localhost ipv6-localhost ipv6-loopback' >> /etc/hosts" # ipv6 localhost entry
 # ------------ network_test requires that "localhost" resolves to ::1 ------------
 
+# ------- install missing NDK ----------
+    - wget -O ~/zandroid-ndk.sh 'https://raw.githubusercontent.com/zoff99/circleCI_android_template/master/android-ndk.sh'
+    - printf 'export NDK_VERSION=r10e\n. ~/zandroid-ndk.sh && install_android_ndk\n' | sudo bash
+    - sudo chown -R ubuntu:ubuntu /usr/local/android-ndk # fix ACLs
+# ------- install missing NDK ----------
+
     - gcc --version ; exit 0
     - clang --version ; exit 0
 
 compile:
   override:
 ##### ------------ BUILD ------------
-    - echo "dummy"
+# ---- arm ----
+    - cd jvm-toxcore-c/ ; export CFLAGS=-O2 ; export CXXFLAGS=-O2 ; export CASHER_DIR=$HOME/.casher ; export CACHE_DIR=~/cache ; export TARGET=arm-linux-androideabi ; export NDK_HOME=~/android-ndk ; buildscripts/00_dependencies_host
+    - cd jvm-toxcore-c/ ; export CFLAGS=-O2 ; export CXXFLAGS=-O2 ; export CASHER_DIR=$HOME/.casher ; export CACHE_DIR=~/cache ; export TARGET=arm-linux-androideabi ; export NDK_HOME=~/android-ndk ; buildscripts/01_ndk
+    - cd jvm-toxcore-c/ ; export CFLAGS=-O2 ; export CXXFLAGS=-O2 ; export CASHER_DIR=$HOME/.casher ; export CACHE_DIR=~/cache ; export TARGET=arm-linux-androideabi ; export NDK_HOME=~/android-ndk ; buildscripts/02_toolchain
+    - cd jvm-toxcore-c/ ; export CFLAGS=-O2 ; export CXXFLAGS=-O2 ; export CASHER_DIR=$HOME/.casher ; export CACHE_DIR=~/cache ; export TARGET=arm-linux-androideabi ; export NDK_HOME=~/android-ndk ; buildscripts/03_dependencies_target
+    - cd jvm-toxcore-c/ ; export CFLAGS=-O2 ; export CXXFLAGS=-O2 ; export CASHER_DIR=$HOME/.casher ; export CACHE_DIR=~/cache ; export TARGET=arm-linux-androideabi ; export NDK_HOME=~/android-ndk ; buildscripts/04_build
+# ---- arm ----
 ##### ------------ BUILD ------------
 
