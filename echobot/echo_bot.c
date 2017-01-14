@@ -72,8 +72,8 @@ static struct v4lconvert_data *v4lconvert_data;
 // ----------- version -----------
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 99
-#define VERSION_PATCH 3
-static const char global_version_string[] = "0.99.3";
+#define VERSION_PATCH 5
+static const char global_version_string[] = "0.99.5";
 // ----------- version -----------
 // ----------- version -----------
 
@@ -134,7 +134,6 @@ struct FileTransfer {
     size_t   index;
     uint64_t file_size;
     uint64_t position;
-    time_t   last_line_progress;   /* The last time we updated the progress bar */
     time_t   last_keep_alive;  /* The last time we sent or received data */
     uint32_t line_id;
     uint8_t  file_id[TOX_FILE_ID_LENGTH];
@@ -163,13 +162,12 @@ typedef struct {
     char pubkey_string[(TOX_ADDRESS_SIZE * 2 + 1)];
     char worksubdir[MAX_STR_SIZE];
     uint32_t num;
-    int chatwin;
     bool active;
     TOX_CONNECTION connection_status;
     bool is_typing;
-    bool logging_on;    /* saves preference for friend irrespective of global settings */
     uint8_t status;
     struct LastOnline last_online;
+    int have_resumed_fts; // wait with new FTs until all old FTs have been started (to resume) including avatars!
     struct FileTransfer file_receiver[MAX_FILES];
     struct FileTransfer file_sender[MAX_FILES];
 	char last_answer[100];
@@ -225,6 +223,7 @@ typedef struct DOORSPY_AV_VIDEO_FRAME {
 } doorspy_av_video_frame;
 
 
+
 void on_avatar_chunk_request(Tox *m, struct FileTransfer *ft, uint64_t position, size_t length);
 int avatar_send(Tox *m, uint32_t friendnum);
 struct FileTransfer *new_file_transfer(uint32_t friendnum, uint32_t filenum, FILE_TRANSFER_DIRECTION direction, uint8_t type);
@@ -234,6 +233,10 @@ static int find_friend_in_friendlist(uint32_t friendnum);
 int is_friend_online(Tox *tox, uint32_t num);
 void av_local_disconnect(ToxAV *av, uint32_t num);
 void run_cmd_return_output(const char *command, char* output, int lastline);
+void save_resumable_fts(Tox *m, uint32_t friendnum);
+void resume_resumable_fts(Tox *m, uint32_t friendnum);
+
+
 
 const char *savedata_filename = "savedata.tox";
 const char *savedata_tmp_filename = "savedata.tox.tmp";
@@ -352,6 +355,126 @@ void dbg(int level, const char *fmt, ...)
 	}
 	// fprintf(stderr, "free:002\n");
 }
+
+
+
+
+
+
+// linked list ----------
+typedef struct ll_node {
+    void* val;
+    struct ll_node* next;
+} ll_node_t;
+
+
+void ll_fill_val(void **val, size_t data_size, void* data)
+{
+	if (*val != NULL)
+	{
+		free(*val);
+		*val = NULL;
+	}
+
+	*val = malloc(data_size);
+	memcpy(*val, data, data_size);
+}
+
+
+// add to the beginning of the list
+void ll_push(ll_node_t** head, size_t data_size, void* data)
+{
+    ll_node_t* new_node;
+    new_node = calloc(1, sizeof(ll_node_t));
+	ll_fill_val(&(new_node->val), data_size, data);
+    new_node->next = *head;
+    *head = new_node;
+}
+
+void* ll_pop(ll_node_t** head)
+{
+    void* retval = NULL;
+    ll_node_t* next_node = NULL;
+
+    if (*head == NULL)
+	{
+        return NULL;
+	}
+
+    next_node = (*head)->next;
+    retval = (*head)->val;
+    free(*head);
+    *head = next_node;
+
+    return retval;
+}
+
+void ll_free_val(void* val)
+{
+	if (val != NULL)
+	{
+		free(val);
+		val = NULL;
+	}
+}
+
+void* ll_remove_by_index(ll_node_t** head, int n)
+{
+    int i = 0;
+    void* retval = NULL;
+    ll_node_t* current = *head;
+    ll_node_t* temp_node = NULL;
+
+    if (n == 0)
+	{
+        return ll_pop(head);
+    }
+
+    for (i = 0; i < n-1; i++)
+        {
+        if (current->next == NULL)
+                {
+            return NULL;
+        }
+        current = current->next;
+    }
+
+    temp_node = current->next;
+	if (temp_node != NULL)
+	{
+			retval = temp_node->val;
+			current->next = temp_node->next;
+			free(temp_node);
+	}
+
+    return retval;
+}
+
+#if 0
+void ll_print_list(ll_node_t* head)
+{
+    ll_node_t* current = head;
+    int i = 0;
+
+    while (current != NULL)
+	{
+		dbg(9, "element #%d=%p\n", i, current->val);
+		i++;
+		current = current->next;
+	}
+}
+#endif
+
+ll_node_t* resumable_filetransfers = NULL;
+
+// linked list ----------
+
+
+
+
+
+
+
 
 
 time_t get_unix_time(void)
@@ -482,6 +605,31 @@ int bin_id_to_string(const char *bin_id, size_t bin_id_size, char *output, size_
 
 	return 0;
 }
+
+void random_char(char *output, int len)
+{
+	int i;
+	srandom(time(NULL));
+
+	for (i = 0; i < len - 1; i++)
+	{
+		output[i] = (unsigned char) (rand() % 255 + 1);
+	}
+	output[len - 1] = '\0';
+}
+
+void bin_id_to_string_all(const char *bin_id, size_t bin_id_size, char *output, size_t output_size)
+{
+	if (bin_id)
+	{
+		size_t i;
+		for (i = 0; i < bin_id_size; ++i)
+		{
+			snprintf(&output[i * 2], output_size - (i * 2), "%02X", bin_id[i] & 0xff);
+		}
+	}
+}
+
 
 size_t get_file_name(char *namebuf, size_t bufsize, const char *pathname)
 {
@@ -619,7 +767,7 @@ static void update_friend_last_online(uint32_t num, time_t timestamp)
     strftime(Friends.list[friendlistnum].last_online.hour_min_str, TIME_STR_SIZE, global_timestamp_format, &Friends.list[friendlistnum].last_online.tm);
 }
 
-void send_file_to_friend(Tox *m, uint32_t num, const char* filename)
+void send_file_to_friend_real(Tox *m, uint32_t num, const char* filename, int resume, uint8_t* fileid_resume)
 {
     // ------- hack to send file --------
     // ------- hack to send file --------
@@ -627,13 +775,13 @@ void send_file_to_friend(Tox *m, uint32_t num, const char* filename)
     char path[MAX_STR_SIZE];
 
     snprintf(path, sizeof(path), "%s", filename);
-    dbg(2, "send_file_to_friend:path=%s\n", path);
+    dbg(2, "send_file_to_friend_real:path=%s\n", path);
 
     FILE *file_to_send = fopen(path, "r");
 
     if (file_to_send == NULL)
     {
-		dbg(0, "error opening file\n");
+		dbg(0, "send_file_to_friend_real:error opening file\n");
 		return;
     }
 
@@ -641,7 +789,7 @@ void send_file_to_friend(Tox *m, uint32_t num, const char* filename)
 
     if (filesize == 0)
     {
-		dbg(0, "filesize 0\n");
+		dbg(0, "send_file_to_friend_real:filesize 0\n");
 		fclose(file_to_send);
 		return;
     }
@@ -650,23 +798,39 @@ void send_file_to_friend(Tox *m, uint32_t num, const char* filename)
     size_t namelen = get_file_name(file_name, sizeof(file_name), path);
 
     TOX_ERR_FILE_SEND err;
-    uint32_t filenum = tox_file_send(m, num, TOX_FILE_KIND_DATA, (uint64_t) filesize, NULL,
-		(uint8_t *) file_name, namelen, &err);
+
+	char *o = calloc(1, (size_t)TOX_FILE_ID_LENGTH);
+	uint32_t filenum = -1;
+	if (resume == 0)
+	{
+		dbg(9, "resume == 0\n");
+		random_char(o, (int)TOX_FILE_ID_LENGTH);
+
+		filenum = tox_file_send(m, num, TOX_FILE_KIND_DATA, (uint64_t)filesize, (uint8_t*)o,
+			(uint8_t *)file_name, namelen, &err);
+	}
+	else
+	{
+		dbg(9, "resume == 1\n");
+
+		filenum = tox_file_send(m, num, TOX_FILE_KIND_DATA, (uint64_t)filesize, fileid_resume,
+			(uint8_t *)file_name, namelen, &err);
+	}
 	dbg(2, "send_file_to_friend:tox_file_send=%s filenum=%d\n", file_name, (int)filenum);
 
     if (err != TOX_ERR_FILE_SEND_OK)
     {
-		dbg(0, "! TOX_ERR_FILE_SEND_OK\n");
+		dbg(0, "send_file_to_friend_real: ! TOX_ERR_FILE_SEND_OK\n");
 		goto on_send_error;
     }
 
-	dbg(2, "send_file_to_friend(1):tox_file_send=%s filenum=%d\n", file_name, (int)filenum);
+	dbg(2, "send_file_to_friend_real(1):tox_file_send=%s filenum=%d\n", file_name, (int)filenum);
     struct FileTransfer *ft = new_file_transfer(num, filenum, FILE_TRANSFER_SEND, TOX_FILE_KIND_DATA);
-	dbg(2, "send_file_to_friend(2):tox_file_send=%s filenum=%d\n", file_name, (int)filenum);
+	dbg(2, "send_file_to_friend_real(2):tox_file_send=%s filenum=%d\n", file_name, (int)filenum);
 
     if (!ft)
     {
-		dbg(0, "ft=NULL\n");
+		dbg(0, "send_file_to_friend_real:ft=NULL\n");
 		err = TOX_ERR_FILE_SEND_TOO_MANY;
 		goto on_send_error;
     }
@@ -674,11 +838,39 @@ void send_file_to_friend(Tox *m, uint32_t num, const char* filename)
     memcpy(ft->file_name, file_name, namelen + 1);
     ft->file = file_to_send;
     ft->file_size = filesize;
-    tox_file_get_file_id(m, num, filenum, ft->file_id, NULL);
+
+	if (resume == 0)
+	{
+		dbg(9, "resume == 0\n");
+		memcpy(ft->file_id, o, (size_t)TOX_FILE_ID_LENGTH);
+	}
+	else
+	{
+		dbg(9, "resume == 1\n");
+		memcpy(ft->file_id, fileid_resume, (size_t)TOX_FILE_ID_LENGTH);
+	}
+
+	dbg(0, "send_file_to_friend_real:tox_file_get_file_id num=%d filenum=%d\n", (int)num, (int)filenum);
+	dbg(0, "send_file_to_friend_real:file_id_resume=%d ft->file_id=%d\n", (int)fileid_resume, (int)ft->file_id);
+	dbg(0, "send_file_to_friend_real:o=%d ft->file_id=%d\n", (int)o, (int)ft->file_id);
+
+	char file_id_str[TOX_FILE_ID_LENGTH * 2 + 1];
+	bin_id_to_string_all((char*)ft->file_id, (size_t)TOX_FILE_ID_LENGTH, file_id_str, (size_t)(TOX_FILE_ID_LENGTH * 2 + 1));
+	dbg(2, "send_file_to_friend_real:file_id=%s\n", file_id_str);
+	bin_id_to_string_all((char*)fileid_resume, (size_t)TOX_FILE_ID_LENGTH, file_id_str, (size_t)(TOX_FILE_ID_LENGTH * 2 + 1));
+	dbg(2, "send_file_to_friend_real:fileid_resume=%s\n", file_id_str);
+	bin_id_to_string_all((char*)o, (size_t)TOX_FILE_ID_LENGTH, file_id_str, (size_t)(TOX_FILE_ID_LENGTH * 2 + 1));
+	dbg(2, "send_file_to_friend_real:o=%s\n", file_id_str);
+
+	free(o);
+	o = NULL;
 
     return;
 
 on_send_error:
+
+	free(o);
+	o = NULL;
 
     switch (err)
 	{
@@ -705,12 +897,41 @@ on_send_error:
             break;
     }
 
-    dbg(0, "ft error=%s\n", errmsg);
+    dbg(0, "send_file_to_friend_real:ft error=%s\n", errmsg);
     tox_file_control(m, num, filenum, TOX_FILE_CONTROL_CANCEL, NULL);
     fclose(file_to_send);
 
     // ------- hack to send file --------
     // ------- hack to send file --------
+}
+
+void resume_file_to_friend(Tox *m, uint32_t num, struct FileTransfer* ft)
+{
+	char *file_name_incl_full_path = NULL;
+	int j = find_friend_in_friendlist(ft->friendnum);
+
+	if (j > -1)
+	{
+		file_name_incl_full_path = malloc(300);
+		snprintf(file_name_incl_full_path, 299, "%s/%s", (const char*)Friends.list[j].worksubdir, ft->file_name);
+		dbg(2, "resume_file_to_friend:full path=%s\n", file_name_incl_full_path);
+		char file_id_str[TOX_FILE_ID_LENGTH * 2 + 1];
+		bin_id_to_string_all((char*)ft->file_id, (size_t)TOX_FILE_ID_LENGTH, file_id_str, (size_t)(TOX_FILE_ID_LENGTH * 2 + 1));
+		dbg(2, "resume_file_to_friend:file_id=%d file_id_bin=%d\n", (int)file_id_str, (int)ft->file_id);
+		dbg(2, "resume_file_to_friend:file_id=%s\n", file_id_str);
+
+		dbg(2, "resume_file_to_friend:path=%s friendnum=%d filenum=%d\n", file_name_incl_full_path, (int)ft->friendnum, (int)ft->filenum);
+		send_file_to_friend_real(m, ft->friendnum, file_name_incl_full_path, 1, ft->file_id);
+	}
+	else
+	{
+		dbg(0, "resume_file_to_friend:friend %d not found in friendlist\n", (int)ft->friendnum);
+	}
+}
+
+void send_file_to_friend(Tox *m, uint32_t num, const char* filename)
+{
+	send_file_to_friend_real(m, num, filename, 0, NULL);
 }
 
 
@@ -810,9 +1031,24 @@ char* copy_file_to_friend_subdir(int friendlistnum, const char* file_with_path, 
 	return newname;
 }
 
+int have_resumed_fts_friend(uint32_t friendnum)
+{
+	int j = find_friend_in_friendlist(friendnum);
+
+	if (Friends.list[j].have_resumed_fts == 1)
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
 void send_file_to_all_friends(Tox *m, const char* file_with_path, const char* filename)
 {
     size_t i;
+	// TODO
     size_t numfriends = tox_self_get_friend_list_size(m);
 	char *newname = NULL;
 	int j = -1;
@@ -831,7 +1067,10 @@ void send_file_to_all_friends(Tox *m, const char* file_with_path, const char* fi
 			{
 				if (is_friend_online(m, (uint32_t) i) == 1)
 				{
-					send_file_to_friend(m, i, newname);
+					if (have_resumed_fts_friend((uint32_t)i) == 1)
+					{
+						send_file_to_friend(m, i, newname);
+					}
 				}
 			}
 			free(newname);
@@ -842,10 +1081,15 @@ void send_file_to_all_friends(Tox *m, const char* file_with_path, const char* fi
     unlink(file_with_path);
 }
 
+void on_tox_friend_status(Tox *tox, uint32_t friend_number, TOX_USER_STATUS status, void *user_data)
+{
+	dbg(2, "on_tox_friend_status:friendnum=%d status=%d\n", (int)friend_number, (int)status);
+}
+
 void friendlist_onConnectionChange(Tox *m, uint32_t num, TOX_CONNECTION connection_status, void *user_data)
 {
 	int friendlistnum = find_friend_in_friendlist(num);
-    dbg(2, "friendlist_onConnectionChange:friendnum=%d %d\n", (int)num, (int)connection_status);
+    dbg(2, "friendlist_onConnectionChange:*ENTER*:friendnum=%d %d\n", (int)num, (int)connection_status);
 
     Friends.list[friendlistnum].connection_status = connection_status;
 	update_friend_last_online(num, get_unix_time());
@@ -853,6 +1097,8 @@ void friendlist_onConnectionChange(Tox *m, uint32_t num, TOX_CONNECTION connecti
 	if (is_friend_online(m, num) == 1)
 	{
 		dbg(0, "friend %d just got online\n", num);
+
+		resume_resumable_fts(m, num);
 
 		if (avatar_send(m, num) == -1)
 		{
@@ -863,11 +1109,16 @@ void friendlist_onConnectionChange(Tox *m, uint32_t num, TOX_CONNECTION connecti
 	{
 		dbg(0, "friend %d went *OFFLINE*\n", num);
 
+		// save all resumeable FTs
+		save_resumable_fts(m, num);
 		// friend went offline -> cancel all filetransfers
 		kill_all_file_transfers_friend(m, num);
 		// friend went offline -> hang up on all calls
 		av_local_disconnect(mytox_av, num);
 	}
+
+    dbg(2, "friendlist_onConnectionChange:*READY*:friendnum=%d %d\n", (int)num, (int)connection_status);
+
 }
 
 void friendlist_onFriendAdded(Tox *m, uint32_t num, bool sort)
@@ -896,7 +1147,7 @@ void friendlist_onFriendAdded(Tox *m, uint32_t num, bool sort)
 	Friends.list[Friends.max_idx].status = TOX_USER_STATUS_NONE;
 	Friends.list[Friends.max_idx].waiting_for_answer = 0;
 	Friends.list[Friends.max_idx].auto_resend_start_time = 0;
-	// Friends.list[i].logging_on = (bool) user_settings->autolog == AUTOLOG_ON;
+	Friends.list[Friends.max_idx].have_resumed_fts = 0;
 
 	TOX_ERR_FRIEND_GET_PUBLIC_KEY pkerr;
 	tox_friend_get_public_key(m, num, (uint8_t *) Friends.list[Friends.max_idx].pub_key, &pkerr);
@@ -928,18 +1179,39 @@ void friendlist_onFriendAdded(Tox *m, uint32_t num, bool sort)
 
 }
 
+// after you are finished call free_friendlist_nums !
+uint32_t* load_friendlist_nums(Tox *m)
+{
+	size_t numfriends = tox_self_get_friend_list_size(m);
+	uint32_t *friend_list = malloc(numfriends * sizeof(uint32_t));
+	tox_self_get_friend_list(m, friend_list);
 
+	return friend_list;
+}
+
+void free_friendlist_nums(void* friend_list)
+{
+	if (friend_list)
+	{
+		free(friend_list);
+		friend_list = NULL;
+	}
+}
 
 static void load_friendlist(Tox *m)
 {
     size_t i;
+	// TODO
     size_t numfriends = tox_self_get_friend_list_size(m);
+	uint32_t* friend_lookup_list = load_friendlist_nums(m);
 
     for (i = 0; i < numfriends; ++i)
     {
-        friendlist_onFriendAdded(m, i, false);
-        dbg(2, "loading friend num:%d pubkey=%s\n", (int)i, Friends.list[Friends.max_idx - 1].pubkey_string);
+        friendlist_onFriendAdded(m, friend_lookup_list[i], false);
+        dbg(2, "loading friend num:%d pubkey=%s\n", (int)friend_lookup_list[i], Friends.list[Friends.max_idx - 1].pubkey_string);
     }
+
+	free_friendlist_nums((void*) friend_lookup_list);
 }
 
 
@@ -1253,6 +1525,7 @@ void cmd_snap(Tox *tox, uint32_t friend_number)
 void cmd_friends(Tox *tox, uint32_t friend_number)
 {
 	size_t i;
+	// TODO
     size_t numfriends = tox_self_get_friend_list_size(tox);
 	int j = -1;
 
@@ -1290,6 +1563,7 @@ void cmd_restart(Tox *tox, uint32_t friend_number)
 
 	global_want_restart = 1;
 }
+
 
 void cmd_vcm(Tox *tox, uint32_t friend_number)
 {
@@ -1504,12 +1778,68 @@ void on_file_recv(Tox *m, uint32_t friendnumber, uint32_t filenumber, uint32_t k
     }
 }
 
+void save_resumable_fts(Tox *m, uint32_t friendnum)
+{
+	size_t i;
+	int friendlistnum = find_friend_in_friendlist(friendnum);
+	for (i = 0; i < MAX_FILES; ++i)
+	{
+		// for now save only sending FTs
+		struct FileTransfer *ft = &Friends.list[friendlistnum].file_sender[i];
+		if (ft->state != FILE_TRANSFER_INACTIVE)
+		{
+			dbg(9, "save_resumable_fts:saving sender FT i=%d ftnum=%d for friendnum:#%d pos=%d filesize=%d\n", i, (int)ft->filenum, (int)friendnum, (int)ft->position, (int)ft->file_size);
+			ll_push(&resumable_filetransfers, sizeof(struct FileTransfer), ft);
+			dbg(9, "save_resumable_fts:pushed struct=%p\n", resumable_filetransfers->val);
+		}
+	}
+
+	Friends.list[friendlistnum].have_resumed_fts = 0;
+}
+
+
+
+void resume_resumable_fts(Tox *m, uint32_t friendnum)
+{
+	dbg(9, "resume_resumable_fts:001\n");
+
+    ll_node_t* saved_ft_list = resumable_filetransfers;
+    int i = 0;
+    while (saved_ft_list != NULL)
+	{
+		dbg(9, "resume_resumable_fts:element #%d=%p\n", i, saved_ft_list->val);
+		if (saved_ft_list->val != NULL)
+		{
+			struct FileTransfer *ft = (struct FileTransfer*)saved_ft_list->val;
+			if (ft->friendnum == friendnum)
+			{
+				dbg(9, "resume_resumable_fts:**found element #%d=%p\n", i, saved_ft_list->val);
+				resume_file_to_friend(m, ft->filenum, ft);
+				// now remove element, and start loop again
+				ll_remove_by_index(&resumable_filetransfers, i);
+				saved_ft_list = resumable_filetransfers;
+				i = 0;
+				continue;
+			}
+		}
+
+		i++;
+		saved_ft_list = saved_ft_list->next;
+	}
+
+	int j = find_friend_in_friendlist(friendnum);
+	if (j > -1)
+	{
+		Friends.list[j].have_resumed_fts = 1;
+	}
+}
+
 
 
 void on_file_chunk_request(Tox *tox, uint32_t friendnumber, uint32_t filenumber, uint64_t position,
                            size_t length, void *userdata)
 {
-    dbg(9, "on_file_chunk_request:001:friendnum=%d filenum=%d position=%ld len=%d\n", (int)friendnumber, (int)filenumber, (long)position, (int)length);
+    // dbg(9, "on_file_chunk_request:001:friendnum=%d filenum=%d position=%ld len=%d\n", (int)friendnumber, (int)filenumber, (long)position, (int)length);
     struct FileTransfer *ft = get_file_transfer_struct(friendnumber, filenumber);
 
     if (!ft)
@@ -1858,7 +2188,7 @@ int avatar_send(Tox *m, uint32_t friendnum)
 
     if (err != TOX_ERR_FILE_SEND_OK)
     {
-        dbg(0, "tox_file_send failed for _friendnumber %d (error %d)\n", friendnum, err);
+        dbg(0, "avatar_send:tox_file_send failed for _friendnumber %d (error %d)\n", friendnum, err);
         return -1;
     }
 
@@ -1924,7 +2254,6 @@ void kill_all_file_transfers(Tox *m)
         kill_all_file_transfers_friend(m, Friends.list[i].num);
     }
 }
-
 
 
 int avatar_set(Tox *m, const char *path, size_t path_len)
@@ -2404,6 +2733,7 @@ void process_friends_dir(Tox *m, uint32_t friendnum, int friendlistnum)
 void check_friends_dir(Tox *m)
 {
     size_t i;
+	// TODO
     size_t numfriends = tox_self_get_friend_list_size(m);
 	int j = -1;
 
@@ -3257,9 +3587,12 @@ int main()
     // init callbacks ----------------------------------
     tox_callback_friend_request(tox, friend_request_cb);
     tox_callback_friend_message(tox, friend_message_cb);
-    tox_callback_file_chunk_request(tox, on_file_chunk_request);
-    tox_callback_self_connection_status(tox, self_connection_status_cb);
     tox_callback_friend_connection_status(tox, friendlist_onConnectionChange);
+	tox_callback_friend_status(tox, on_tox_friend_status);
+
+    tox_callback_self_connection_status(tox, self_connection_status_cb);
+
+    tox_callback_file_chunk_request(tox, on_file_chunk_request);
     tox_callback_file_recv_control(tox, on_file_control);
     tox_callback_file_recv(tox, on_file_recv);
     tox_callback_file_recv_chunk(tox, on_file_recv_chunk);
