@@ -57,7 +57,7 @@ test:
         background: true
     - sleep 10
     - cd echobot ; cat ./echobot.log
-    - cd echobot ; cat ./echobot.log | grep '\-\-MyToxID\-\-:' | cut -d':' -f 2
+    - cd echobot ; cat ./echobot.log | grep '\-\-MyToxID\-\-:' | cut -d':' -f 3
     - sleep 240
     - cd echobot ; cat ./echobot.log
 
