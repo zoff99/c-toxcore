@@ -47,6 +47,7 @@ ffmpeg_avcodec_log: Using AVStream.codeco pass codec parameters to muxers is dep
 #include <assert.h>
 #include <errno.h>
 #include <pthread.h>
+#include <signal.h>
 
 #include <sodium/utils.h>
 #include <tox/tox.h>
@@ -271,6 +272,7 @@ int global_video_active = 0;
 uint32_t global_audio_bit_rate = 0;
 uint32_t global_video_bit_rate = DEFAULT_GLOBAL_VID_BITRATE;
 ToxAV *mytox_av = NULL;
+int tox_loop_running = 1;
 
 // -- hardcoded --
 // -- hardcoded --
@@ -3550,6 +3552,14 @@ void av_local_disconnect(ToxAV *av, uint32_t num)
 // ------------------ Tox AV stuff --------------------
 
 
+void sigint_handler(int sig)
+{
+    if (signo == SIGINT)
+    {
+    	printf("received SIGINT, pid=%d\n", getpid());
+    	tox_loop_running = 0;
+    }
+}
 
 int main()
 {
@@ -3656,7 +3666,11 @@ int main()
 
 	// start toxav thread ------------------------------
 
-    while (1)
+    signal(SIGINT, sigint_handler)
+
+    tox_loop_running = 1;
+	
+    while (tox_loop_running)
     {
         tox_iterate(tox, NULL);
         usleep(tox_iteration_interval(tox) * 1000);
