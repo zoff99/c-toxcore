@@ -45,10 +45,10 @@ test:
 # run tests
 #    - make test ARGS="-V" ; ex1=$? ; if [ $ex1 -ne 0 ]; then sleep 60; make test ARGS="-V" ; exit $? ; fi
 # compile echobot and start it
-    - cd echobot ; cc -O2 -fPIC -Wall -Wextra -Wconversion -Wpedantic -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore -ltoxav -lpthread -lvpx -lv4lconvert
+    - cd echobot ; cc -O2 -fPIC -Wall -Wextra -Wpedantic -o echo_bot echo_bot.c -std=gnu99 -lsodium -I/usr/local/include/ -ltoxcore -ltoxav -lpthread -lvpx -lv4lconvert
     - cd echobot ; ldd echo_bot ; exit 0
     - find / -name '*libjpeg*' 2> /dev/null ; exit 0
-    - cd echobot ; gcc -O2 -Wall -Wextra -Wconversion -Wpedantic -o echo_bot_static echo_bot.c -static -std=gnu99 -L/usr/local/lib -I/usr/local/include/ -lsodium -ltoxcore -ltoxav -ltoxgroup -ltoxmessenger -ltoxfriends -ltoxnetcrypto -ltoxdht -ltoxnetwork -ltoxcrypto -lsodium -lpthread -static-libgcc -static-libstdc++ -lopus -lvpx -lm -lpthread -lv4lconvert -ljpeg -lm -lrt
+    - cd echobot ; gcc -O2 -Wall -Wextra -Wpedantic -o echo_bot_static echo_bot.c -static -std=gnu99 -L/usr/local/lib -I/usr/local/include/ -lsodium -ltoxcore -ltoxav -ltoxgroup -ltoxmessenger -ltoxfriends -ltoxnetcrypto -ltoxdht -ltoxnetwork -ltoxcrypto -lsodium -lpthread -static-libgcc -static-libstdc++ -lopus -lvpx -lm -lpthread -lv4lconvert -ljpeg -lm -lrt
     - cd echobot ; ls -al echo_bot echo_bot_static
     - mkdir -p $CIRCLE_ARTIFACTS/ubuntu_14_04_binaries/
     - cp -av echobot/echo_bot $CIRCLE_ARTIFACTS/ubuntu_14_04_binaries/
