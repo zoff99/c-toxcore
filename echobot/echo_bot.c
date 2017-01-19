@@ -3552,7 +3552,7 @@ void av_local_disconnect(ToxAV *av, uint32_t num)
 // ------------------ Tox AV stuff --------------------
 
 
-void sigint_handler(int sig)
+void sigint_handler(int signo)
 {
     if (signo == SIGINT)
     {
@@ -3666,9 +3666,8 @@ int main()
 
 	// start toxav thread ------------------------------
 
-    signal(SIGINT, sigint_handler)
-
     tox_loop_running = 1;
+    signal(SIGINT, sigint_handler);
 	
     while (tox_loop_running)
     {
