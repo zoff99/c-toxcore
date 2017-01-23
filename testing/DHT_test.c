@@ -7,26 +7,27 @@
  * EX: ./test 127.0.0.1 33445 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
  *
  * The test will then ask you for the id (in hex format) of the friend you wish to add
- *
- *  Copyright (C) 2013 Tox project All Rights Reserved.
- *
- *  This file is part of Tox.
- *
- *  Tox is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  Tox is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Tox.  If not, see <http://www.gnu.org/licenses/>.
- *
  */
 
+/*
+ * Copyright © 2016-2017 The TokTok team.
+ * Copyright © 2013 Tox project.
+ *
+ * This file is part of Tox, the free peer to peer instant messenger.
+ *
+ * Tox is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Tox is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
+ */
 #define _XOPEN_SOURCE 600
 
 #ifdef HAVE_CONFIG_H
@@ -86,16 +87,17 @@ static void print_hardening(Hardening *h)
 static void print_assoc(IPPTsPng *assoc, uint8_t ours)
 {
     IP_Port *ipp = &assoc->ip_port;
-    printf("\nIP: %s Port: %u", ip_ntoa(&ipp->ip), ntohs(ipp->port));
+    char ip_str[IP_NTOA_LEN];
+    printf("\nIP: %s Port: %u", ip_ntoa(&ipp->ip, ip_str, sizeof(ip_str)), ntohs(ipp->port));
     printf("\nTimestamp: %llu", (long long unsigned int) assoc->timestamp);
     printf("\nLast pinged: %llu\n", (long long unsigned int) assoc->last_pinged);
 
     ipp = &assoc->ret_ip_port;
 
     if (ours) {
-        printf("OUR IP: %s Port: %u\n", ip_ntoa(&ipp->ip), ntohs(ipp->port));
+        printf("OUR IP: %s Port: %u\n", ip_ntoa(&ipp->ip, ip_str, sizeof(ip_str)), ntohs(ipp->port));
     } else {
-        printf("RET IP: %s Port: %u\n", ip_ntoa(&ipp->ip), ntohs(ipp->port));
+        printf("RET IP: %s Port: %u\n", ip_ntoa(&ipp->ip, ip_str, sizeof(ip_str)), ntohs(ipp->port));
     }
 
     printf("Timestamp: %llu\n", (long long unsigned int) assoc->ret_timestamp);
@@ -135,7 +137,8 @@ static void print_friendlist(DHT *dht)
         print_client_id(dht->friends_list[k].public_key);
 
         int friendok = DHT_getfriendip(dht, dht->friends_list[k].public_key, &p_ip);
-        printf("\nIP: %s:%u (%d)", ip_ntoa(&p_ip.ip), ntohs(p_ip.port), friendok);
+        char ip_str[IP_NTOA_LEN];
+        printf("\nIP: %s:%u (%d)", ip_ntoa(&p_ip.ip, ip_str, sizeof(ip_str)), ntohs(p_ip.port), friendok);
 
         printf("\nCLIENTS IN LIST:\n\n");
 

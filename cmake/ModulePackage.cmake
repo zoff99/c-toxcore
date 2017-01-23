@@ -10,7 +10,7 @@ if(NOT ENABLE_SHARED AND NOT ENABLE_STATIC)
   set(ENABLE_SHARED ON)
 endif()
 
-find_package(PkgConfig REQUIRED)
+find_package(PkgConfig)
 
 if(COMPILE_AS_CXX)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__STDC_FORMAT_MACROS=1")
@@ -34,8 +34,10 @@ function(add_c_executable exec)
   add_executable(${exec} ${ARGN})
 endfunction()
 
-function(pkg_use_module mod)
-  pkg_search_module(${mod} ${ARGN})
+function(pkg_use_module mod pkg)
+  if(PKG_CONFIG_FOUND)
+    pkg_search_module(${mod} ${pkg})
+  endif()
   if(${mod}_FOUND)
     link_directories(${${mod}_LIBRARY_DIRS})
     include_directories(${${mod}_INCLUDE_DIRS})
@@ -56,10 +58,8 @@ function(add_module lib)
     add_library(${lib}_shared SHARED ${ARGN})
     set_target_properties(${lib}_shared PROPERTIES
       OUTPUT_NAME ${lib}
-      VERSION ${PROJECT_VERSION}
-      # While on 0.x, the x behaves like the major version. 0.2 will be
-      # incompatible with 0.1. Change this, when releasing 1.0!
-      SOVERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+      VERSION ${SOVERSION}
+      SOVERSION ${SOVERSION_MAJOR}
     )
     install(TARGETS ${lib}_shared DESTINATION "lib")
   endif()

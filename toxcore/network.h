@@ -1,28 +1,34 @@
-/* network.h
- *
+/*
  * Datatypes, functions and includes for the core networking.
- *
- *  Copyright (C) 2013 Tox project All Rights Reserved.
- *
- *  This file is part of Tox.
- *
- *  Tox is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  Tox is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Tox.  If not, see <http://www.gnu.org/licenses/>.
- *
  */
 
+/*
+ * Copyright © 2016-2017 The TokTok team.
+ * Copyright © 2013 Tox project.
+ *
+ * This file is part of Tox, the free peer to peer instant messenger.
+ *
+ * Tox is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Tox is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
+ */
 #ifndef NETWORK_H
 #define NETWORK_H
+
+#if defined(__GNUC__)
+#define GNU_EXTENSION __extension__
+#else
+#define GNU_EXTENSION
+#endif
 
 #ifdef PLAN9
 #include <u.h> // Plan 9 requires this is imported first
@@ -163,7 +169,7 @@ IP6;
 
 typedef struct {
     uint8_t family;
-    __extension__ union {
+    GNU_EXTENSION union {
         IP4 ip4;
         IP6 ip6;
     };
@@ -193,12 +199,16 @@ IP_Port;
 
 /* ip_ntoa
  *   converts ip into a string
- *   uses a static buffer, so mustn't used multiple times in the same output
+ *   ip_str must be of length at least IP_NTOA_LEN
  *
  *   IPv6 addresses are enclosed into square brackets, i.e. "[IPv6]"
  *   writes error message into the buffer on error
+ *
+ *   returns ip_str
  */
-const char *ip_ntoa(const IP *ip);
+/* this would be INET6_ADDRSTRLEN, but it might be too short for the error message */
+#define IP_NTOA_LEN 96 // TODO(irungentoo): magic number. Why not INET6_ADDRSTRLEN ?
+const char *ip_ntoa(const IP *ip, char *ip_str, size_t length);
 
 /*
  * ip_parse_addr

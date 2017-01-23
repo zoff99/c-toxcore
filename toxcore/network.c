@@ -1,35 +1,35 @@
-/* network.c
- *
+/*
  * Functions for the core networking.
- *
- *  Copyright (C) 2013 Tox project All Rights Reserved.
- *
- *  This file is part of Tox.
- *
- *  Tox is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  Tox is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Tox.  If not, see <http://www.gnu.org/licenses/>.
- *
  */
+
+/*
+ * Copyright © 2016-2017 The TokTok team.
+ * Copyright © 2013 Tox project.
+ *
+ * This file is part of Tox, the free peer to peer instant messenger.
+ *
+ * Tox is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Tox is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #define _DARWIN_C_SOURCE
 #define _XOPEN_SOURCE 600
 
 #if defined(_WIN32) && _WIN32_WINNT >= _WIN32_WINNT_WINXP
 #define _WIN32_WINNT  0x501
-#endif
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
 #endif
 
 #include "network.h"
@@ -242,11 +242,16 @@ uint64_t current_time_monotonic(void)
 {
     uint64_t time;
 #if defined(_WIN32) || defined(__WIN32__) || defined (WIN32)
+    uint64_t old_add_monotime = add_monotime;
     time = (uint64_t)GetTickCount() + add_monotime;
 
-    if (time < last_monotime) { /* Prevent time from ever decreasing because of 32 bit wrap. */
+    /* Check if time has decreased because of 32 bit wrap from GetTickCount(), while avoiding false positives from race
+     * conditions when multiple threads call this function at once */
+    if (time + 0x10000 < last_monotime) {
         uint32_t add = ~0;
-        add_monotime += add;
+        /* use old_add_monotime rather than simply incrementing add_monotime, to handle the case that many threads
+         * simultaneously detect an overflow */
+        add_monotime = old_add_monotime + add;
         time += add;
     }
 
@@ -285,21 +290,23 @@ static uint32_t data_1(uint16_t buflen, const uint8_t *buffer)
 static void loglogdata(Logger *log, const char *message, const uint8_t *buffer,
                        uint16_t buflen, IP_Port ip_port, int res)
 {
+    char ip_str[IP_NTOA_LEN];
+
     if (res < 0) { /* Windows doesn't necessarily know %zu */
         LOGGER_TRACE(log, "[%2u] %s %3hu%c %s:%hu (%u: %s) | %04x%04x",
                      buffer[0], message, (buflen < 999 ? (uint16_t)buflen : 999), 'E',
-                     ip_ntoa(&ip_port.ip), ntohs(ip_port.port), errno, strerror(errno), data_0(buflen, buffer),
-                     data_1(buflen, buffer));
+                     ip_ntoa(&ip_port.ip, ip_str, sizeof(ip_str)), ntohs(ip_port.port), errno,
+                     strerror(errno), data_0(buflen, buffer), data_1(buflen, buffer));
     } else if ((res > 0) && ((size_t)res <= buflen)) {
         LOGGER_TRACE(log, "[%2u] %s %3zu%c %s:%hu (%u: %s) | %04x%04x",
                      buffer[0], message, (res < 999 ? (size_t)res : 999), ((size_t)res < buflen ? '<' : '='),
-                     ip_ntoa(&ip_port.ip), ntohs(ip_port.port), 0, "OK", data_0(buflen, buffer), data_1(buflen,
-                             buffer));
+                     ip_ntoa(&ip_port.ip, ip_str, sizeof(ip_str)), ntohs(ip_port.port), 0, "OK",
+                     data_0(buflen, buffer), data_1(buflen, buffer));
     } else { /* empty or overwrite */
         LOGGER_TRACE(log, "[%2u] %s %zu%c%zu %s:%hu (%u: %s) | %04x%04x",
                      buffer[0], message, (size_t)res, (!res ? '!' : '>'), buflen,
-                     ip_ntoa(&ip_port.ip), ntohs(ip_port.port), 0, "OK", data_0(buflen, buffer), data_1(buflen,
-                             buffer));
+                     ip_ntoa(&ip_port.ip, ip_str, sizeof(ip_str)), ntohs(ip_port.port), 0, "OK",
+                     data_0(buflen, buffer), data_1(buflen, buffer));
     }
 }
 
@@ -690,7 +697,9 @@ Networking_Core *new_networking_ex(Logger *log, IP ip, uint16_t port_from, uint1
         if (!res) {
             temp->port = *portptr;
 
-            LOGGER_DEBUG(log, "Bound successfully to %s:%u", ip_ntoa(&ip), ntohs(temp->port));
+            char ip_str[IP_NTOA_LEN];
+            LOGGER_DEBUG(log, "Bound successfully to %s:%u", ip_ntoa(&ip, ip_str, sizeof(ip_str)),
+                         ntohs(temp->port));
 
             /* errno isn't reset on success, only set on failure, the failed
              * binds with parallel clients yield a -EPERM to the outside if
@@ -715,8 +724,9 @@ Networking_Core *new_networking_ex(Logger *log, IP ip, uint16_t port_from, uint1
         *portptr = htons(port_to_try);
     }
 
+    char ip_str[IP_NTOA_LEN];
     LOGGER_ERROR(log, "Failed to bind socket: %u, %s IP: %s port_from: %u port_to: %u", errno, strerror(errno),
-                 ip_ntoa(&ip), port_from, port_to);
+                 ip_ntoa(&ip, ip_str, sizeof(ip_str)), port_from, port_to);
 
     kill_networking(temp);
 
@@ -867,41 +877,46 @@ void ipport_copy(IP_Port *target, const IP_Port *source)
 
 /* ip_ntoa
  *   converts ip into a string
- *   uses a static buffer, so mustn't used multiple times in the same output
+ *   ip_str must be of length at least IP_NTOA_LEN
  *
  *   IPv6 addresses are enclosed into square brackets, i.e. "[IPv6]"
  *   writes error message into the buffer on error
+ *
+ *   returns ip_str
  */
-/* there would be INET6_ADDRSTRLEN, but it might be too short for the error message */
-static char addresstext[96]; // TODO(irungentoo): magic number. Why not INET6_ADDRSTRLEN ?
-const char *ip_ntoa(const IP *ip)
+const char *ip_ntoa(const IP *ip, char *ip_str, size_t length)
 {
+    if (length < IP_NTOA_LEN) {
+        snprintf(ip_str, length, "Bad buf length");
+        return ip_str;
+    }
+
     if (ip) {
         if (ip->family == AF_INET) {
             /* returns standard quad-dotted notation */
             const struct in_addr *addr = (const struct in_addr *)&ip->ip4;
 
-            addresstext[0] = 0;
-            inet_ntop(ip->family, addr, addresstext, sizeof(addresstext));
+            ip_str[0] = 0;
+            inet_ntop(ip->family, addr, ip_str, length);
         } else if (ip->family == AF_INET6) {
             /* returns hex-groups enclosed into square brackets */
             const struct in6_addr *addr = (const struct in6_addr *)&ip->ip6;
 
-            addresstext[0] = '[';
-            inet_ntop(ip->family, addr, &addresstext[1], sizeof(addresstext) - 3);
-            size_t len = strlen(addresstext);
-            addresstext[len] = ']';
-            addresstext[len + 1] = 0;
+            ip_str[0] = '[';
+            inet_ntop(ip->family, addr, &ip_str[1], length - 3);
+            size_t len = strlen(ip_str);
+            ip_str[len] = ']';
+            ip_str[len + 1] = 0;
         } else {
-            snprintf(addresstext, sizeof(addresstext), "(IP invalid, family %u)", ip->family);
+            snprintf(ip_str, length, "(IP invalid, family %u)", ip->family);
         }
     } else {
-        snprintf(addresstext, sizeof(addresstext), "(IP invalid: NULL)");
+        snprintf(ip_str, length, "(IP invalid: NULL)");
     }
 
     /* brute force protection against lacking termination */
-    addresstext[sizeof(addresstext) - 1] = 0;
-    return addresstext;
+    ip_str[length - 1] = 0;
+    return ip_str;
 }
 
 /*
