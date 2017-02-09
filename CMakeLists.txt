@@ -15,7 +15,7 @@ set(CMAKE_MODULE_PATH ${toxcore_SOURCE_DIR}/cmake)
 # versions in a synchronised way.
 set(PROJECT_VERSION_MAJOR "0")
 set(PROJECT_VERSION_MINOR "1")
-set(PROJECT_VERSION_PATCH "5")
+set(PROJECT_VERSION_PATCH "6")
 set(PROJECT_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
 
 # set .so library version / following libtool scheme
@@ -197,6 +197,7 @@ set(toxcore_PKGCONFIG_LIBS)
 apidsl(
   toxcore/crypto_core.api.h)
 add_module(toxcrypto
+  toxcore/ccompat.h
   toxcore/crypto_core.c
   toxcore/crypto_core.h
   toxcore/crypto_core_mem.c)

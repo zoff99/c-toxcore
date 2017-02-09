@@ -38,7 +38,7 @@ START_TEST(test_basic)
     ck_assert_msg(tcp_s != NULL, "Failed to create TCP relay server");
     ck_assert_msg(tcp_server_listen_count(tcp_s) == NUM_PORTS, "Failed to bind to all ports");
 
-    sock_t sock = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
+    Socket sock = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
     struct sockaddr_in6 addr6_loopback = {0};
     addr6_loopback.sin6_family = AF_INET6;
     addr6_loopback.sin6_port = htons(ports[rand() % NUM_PORTS]);
@@ -126,7 +126,7 @@ START_TEST(test_basic)
 END_TEST
 
 struct sec_TCP_con {
-    sock_t  sock;
+    Socket sock;
     uint8_t public_key[CRYPTO_PUBLIC_KEY_SIZE];
     uint8_t recv_nonce[CRYPTO_NONCE_SIZE];
     uint8_t sent_nonce[CRYPTO_NONCE_SIZE];
@@ -136,7 +136,7 @@ struct sec_TCP_con {
 static struct sec_TCP_con *new_TCP_con(TCP_Server *tcp_s)
 {
     struct sec_TCP_con *sec_c = (struct sec_TCP_con *)malloc(sizeof(struct sec_TCP_con));
-    sock_t sock = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
+    Socket sock = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
     struct sockaddr_in6 addr6_loopback = {0};
     addr6_loopback.sin6_family = AF_INET6;
     addr6_loopback.sin6_port = htons(ports[rand() % NUM_PORTS]);
@@ -188,19 +188,19 @@ static void kill_TCP_con(struct sec_TCP_con *con)
 
 static int write_packet_TCP_secure_connection(struct sec_TCP_con *con, uint8_t *data, uint16_t length)
 {
-    uint8_t packet[sizeof(uint16_t) + length + CRYPTO_MAC_SIZE];
+    VLA(uint8_t, packet, sizeof(uint16_t) + length + CRYPTO_MAC_SIZE);
 
     uint16_t c_length = htons(length + CRYPTO_MAC_SIZE);
     memcpy(packet, &c_length, sizeof(uint16_t));
     int len = encrypt_data_symmetric(con->shared_key, con->sent_nonce, data, length, packet + sizeof(uint16_t));
 
-    if ((unsigned int)len != (sizeof(packet) - sizeof(uint16_t))) {
+    if ((unsigned int)len != (SIZEOF_VLA(packet) - sizeof(uint16_t))) {
         return -1;
     }
 
     increment_nonce(con->sent_nonce);
 
-    ck_assert_msg(send(con->sock, (const char *)packet, sizeof(packet), 0) == sizeof(packet), "send failed");
+    ck_assert_msg(send(con->sock, (const char *)packet, SIZEOF_VLA(packet), 0) == SIZEOF_VLA(packet), "send failed");
     return 0;
 }
 
@@ -407,7 +407,7 @@ START_TEST(test_client)
 
     ip_port_tcp_s.port = htons(ports[rand() % NUM_PORTS]);
     ip_port_tcp_s.ip.family = AF_INET6;
-    ip_port_tcp_s.ip.ip6.in6_addr = in6addr_loopback;
+    get_ip6(&ip_port_tcp_s.ip.ip6, &in6addr_loopback);
     TCP_Client_Connection *conn = new_TCP_connection(ip_port_tcp_s, self_public_key, f_public_key, f_secret_key, 0);
     c_sleep(50);
     do_TCP_connection(conn, NULL);
@@ -505,7 +505,7 @@ START_TEST(test_client_invalid)
 
     ip_port_tcp_s.port = htons(ports[rand() % NUM_PORTS]);
     ip_port_tcp_s.ip.family = AF_INET6;
-    ip_port_tcp_s.ip.ip6.in6_addr = in6addr_loopback;
+    get_ip6(&ip_port_tcp_s.ip.ip6, &in6addr_loopback);
     TCP_Client_Connection *conn = new_TCP_connection(ip_port_tcp_s, self_public_key, f_public_key, f_secret_key, 0);
     c_sleep(50);
     do_TCP_connection(conn, NULL);
@@ -574,7 +574,7 @@ START_TEST(test_tcp_connection)
 
     ip_port_tcp_s.port = htons(ports[rand() % NUM_PORTS]);
     ip_port_tcp_s.ip.family = AF_INET6;
-    ip_port_tcp_s.ip.ip6.in6_addr = in6addr_loopback;
+    get_ip6(&ip_port_tcp_s.ip.ip6, &in6addr_loopback);
 
     int connection = new_tcp_connection_to(tc_1, tcp_connections_public_key(tc_2), 123);
     ck_assert_msg(connection == 0, "Connection id wrong");
@@ -683,7 +683,7 @@ START_TEST(test_tcp_connection2)
 
     ip_port_tcp_s.port = htons(ports[rand() % NUM_PORTS]);
     ip_port_tcp_s.ip.family = AF_INET6;
-    ip_port_tcp_s.ip.ip6.in6_addr = in6addr_loopback;
+    get_ip6(&ip_port_tcp_s.ip.ip6, &in6addr_loopback);
 
     int connection = new_tcp_connection_to(tc_1, tcp_connections_public_key(tc_2), 123);
     ck_assert_msg(connection == 0, "Connection id wrong");
