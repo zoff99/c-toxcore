@@ -33,6 +33,11 @@
 #include "ccompat.h"
 #include "logger.h"
 
+#ifdef HAVE_LIBEV
+#include <ev.h>
+#elif HAVE_LIBEVENT
+#include <event2/event.h>
+#endif
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,8 +58,10 @@
 #include <windows.h>
 #include <ws2tcpip.h>
 
-#else // Linux includes
+#else // UNIX includes
 
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <unistd.h>
@@ -316,6 +323,14 @@ typedef struct {
     uint16_t port;
     /* Our UDP socket. */
     Socket sock;
+#ifdef HAVE_LIBEV
+    struct {
+        ev_io listener;
+        struct ev_loop *dispatcher;
+    } sock_listener;
+#elif HAVE_LIBEVENT
+    struct event *sock_listener;
+#endif
 } Networking_Core;
 
 /* Run this before creating sockets.
@@ -389,20 +404,21 @@ int net_connect(Socket sock, IP_Port ip_port);
  * Skip all addresses with socktype != type (use type = -1 to get all addresses)
  * To correctly deallocate array memory use net_freeipport()
  *
- * return number of elements in res array.
+ * return number of elements in res array
+ * and -1 on error.
  */
-int32_t net_getipport(const char* node, IP_Port** res, int type);
+int32_t net_getipport(const char *node, IP_Port **res, int type);
 
 /* Deallocates memory allocated by net_getipport
  */
-void net_freeipport(IP_Port* ip_ports);
+void net_freeipport(IP_Port *ip_ports);
 
 /* return 1 on success
  * return 0 on failure
  */
 int bind_to_port(Socket sock, int family, uint16_t port);
 
-size_t net_sendto_ip4(Socket sock, const char* buf, size_t n, IP_Port ip_port);
+size_t net_sendto_ip4(Socket sock, const char *buf, size_t n, IP_Port ip_port);
 
 /* Initialize networking.
  * bind to ip and port.
