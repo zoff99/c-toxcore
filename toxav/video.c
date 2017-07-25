@@ -90,7 +90,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     cfg.g_lag_in_frames = 1;
     cfg.g_threads = 4; // Maximum number of threads to use
     cfg.kf_min_dist = 0;
-    cfg.kf_max_dist = 8;
+    cfg.kf_max_dist = 10;
     /*
     This value, expressed as a number of frames,
     forces the encoder to code a keyframe if one has not been
@@ -100,7 +100,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     cfg.kf_mode = VPX_KF_AUTO; // Keyframe placement mode
     cfg.rc_resize_allowed = 1;
     cfg.rc_end_usage = VPX_CQ;
-    cfg.rc_dropframe_thresh = 25;
+    // cfg.rc_dropframe_thresh = 25;
 
     rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, 0);
 
