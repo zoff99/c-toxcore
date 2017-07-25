@@ -101,6 +101,12 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
         vpx_codec_destroy(vc->encoder);
         goto BASE_CLEANUP_1;
     }
+    
+    // zoff --------------
+    vpx_codec_control(vc->encoder, VP8E_SET_MAX_INTRA_BITRATE_PCT, 400);
+    vpx_codec_control(vc->encoder, VP9E_SET_MAX_INTER_BITRATE_PCT, 400);
+    vpx_codec_control(vc->encoder, VP9E_SET_MAX_GF_INTERVAL, 4);
+    // zoff --------------
 
     vc->linfts = current_time_monotonic();
     vc->lcfd = 60;
