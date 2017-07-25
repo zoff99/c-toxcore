@@ -73,34 +73,26 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
         goto BASE_CLEANUP_1;
     }
 
-    cfg.rc_target_bitrate = 2000; // Target bandwidth to use for this stream, in kilobits per second
-    cfg.g_w = 480;
-    cfg.g_h = 640;
-    cfg.g_pass = VPX_RC_ONE_PASS;    
+    cfg.rc_target_bitrate = 500000;
+    cfg.g_w = 800;
+    cfg.g_h = 600;
+    cfg.g_pass = VPX_RC_ONE_PASS;
+    /* TODO(mannol): If we set error resilience the app will crash due to bug in vp8.
+       Perhaps vp9 has solved it?*/
 #if 0
     cfg.g_error_resilient = VPX_ERROR_RESILIENT_DEFAULT | VPX_ERROR_RESILIENT_PARTITIONS;
 #endif
-    /*
-    Enable error resilient modes.
-    The error resilient bitfield indicates to the encoder which features it
-    should enable to take measures for streaming over lossy or noisy links.
-    */
-    /* TODO(mannol): If we set error resilience the app will crash due to bug in vp8.
-       Perhaps vp9 has solved it?*/
-    cfg.g_lag_in_frames = 1;
-    cfg.g_threads = 4; // Maximum number of threads to use
+    cfg.g_lag_in_frames = 0;
     cfg.kf_min_dist = 0;
-    cfg.kf_max_dist = 10;
-    /*
-    This value, expressed as a number of frames,
-    forces the encoder to code a keyframe if one has not been
-    coded in the last kf_max_dist frames. A value of 0 implies all frames
-    will be keyframes. Set kf_min_dist equal to kf_max_dist for a fixed interval. 
-    */
-    cfg.kf_mode = VPX_KF_AUTO; // Keyframe placement mode
-    cfg.rc_resize_allowed = 1;
+    // cfg.kf_max_dist = 48;
+    cfg.kf_mode = VPX_KF_AUTO;
+    
+    // zoff ---------------------
+    cfg.g_threads = 2; // Maximum number of threads to use
     cfg.rc_end_usage = VPX_CQ;
     // cfg.rc_dropframe_thresh = 25;
+    cfg.kf_max_dist = 15;
+    // zoff ---------------------
 
     rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, 0);
 
@@ -109,7 +101,6 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
         goto BASE_CLEANUP_1;
     }
 
-    // rc = vpx_codec_control(&new_c, VP8E_SET_CPUUSED, 16);
     rc = vpx_codec_control(vc->encoder, VP8E_SET_CPUUSED, 8);
 
     if (rc != VPX_CODEC_OK) {
@@ -117,12 +108,6 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
         vpx_codec_destroy(vc->encoder);
         goto BASE_CLEANUP_1;
     }
-    
-    // zoff --------------
-    // vpx_codec_control(vc->encoder, VP8E_SET_MAX_INTRA_BITRATE_PCT, 400);
-    // vpx_codec_control(vc->encoder, VP9E_SET_MAX_INTER_BITRATE_PCT, 400);
-    // vpx_codec_control(vc->encoder, VP9E_SET_MAX_GF_INTERVAL, 4);
-    // zoff --------------
 
     vc->linfts = current_time_monotonic();
     vc->lcfd = 60;
@@ -283,7 +268,6 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
             return -1;
         }
 
-        // rc = vpx_codec_control(&new_c, VP8E_SET_CPUUSED, 16);
         rc = vpx_codec_control(&new_c, VP8E_SET_CPUUSED, 8);
 
         if (rc != VPX_CODEC_OK) {
