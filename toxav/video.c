@@ -79,7 +79,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     cfg.g_pass = VPX_RC_ONE_PASS;
     /* TODO(mannol): If we set error resilience the app will crash due to bug in vp8.
        Perhaps vp9 has solved it?*/
-#if 0
+#if 1
     cfg.g_error_resilient = VPX_ERROR_RESILIENT_DEFAULT | VPX_ERROR_RESILIENT_PARTITIONS;
 #endif
     cfg.g_lag_in_frames = 0;
@@ -261,6 +261,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
             return -1;
         }
 
+        // rc = vpx_codec_control(&new_c, VP8E_SET_CPUUSED, 16);
         rc = vpx_codec_control(&new_c, VP8E_SET_CPUUSED, 8);
 
         if (rc != VPX_CODEC_OK) {
