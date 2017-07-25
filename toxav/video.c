@@ -34,7 +34,7 @@
 #include <stdlib.h>
 
 #define MAX_DECODE_TIME_US 0 /* Good quality encode. */
-#define VIDEO_DECODE_BUFFER_SIZE 40
+#define VIDEO_DECODE_BUFFER_SIZE 20
 
 VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data)
 {
@@ -88,8 +88,8 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     /* TODO(mannol): If we set error resilience the app will crash due to bug in vp8.
        Perhaps vp9 has solved it?*/
     cfg.g_lag_in_frames = 1;
-    cfg.kf_min_dist = 0;
     cfg.g_threads = 4; // Maximum number of threads to use
+    cfg.kf_min_dist = 0;
     cfg.kf_max_dist = 8;
     /*
     This value, expressed as a number of frames,
@@ -109,6 +109,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
         goto BASE_CLEANUP_1;
     }
 
+    // rc = vpx_codec_control(&new_c, VP8E_SET_CPUUSED, 16);
     rc = vpx_codec_control(vc->encoder, VP8E_SET_CPUUSED, 8);
 
     if (rc != VPX_CODEC_OK) {
