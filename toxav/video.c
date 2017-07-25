@@ -34,7 +34,7 @@
 #include <stdlib.h>
 
 #define MAX_DECODE_TIME_US 0 /* Good quality encode. */
-#define VIDEO_DECODE_BUFFER_SIZE 20
+#define VIDEO_DECODE_BUFFER_SIZE 40
 
 VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data)
 {
@@ -73,19 +73,34 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
         goto BASE_CLEANUP_1;
     }
 
-    cfg.rc_target_bitrate = 500000;
-    cfg.g_w = 800;
-    cfg.g_h = 600;
-    cfg.g_pass = VPX_RC_ONE_PASS;
-    /* TODO(mannol): If we set error resilience the app will crash due to bug in vp8.
-       Perhaps vp9 has solved it?*/
+    cfg.rc_target_bitrate = 2000; // Target bandwidth to use for this stream, in kilobits per second
+    cfg.g_w = 480;
+    cfg.g_h = 640;
+    cfg.g_pass = VPX_RC_ONE_PASS;    
 #if 1
     cfg.g_error_resilient = VPX_ERROR_RESILIENT_DEFAULT | VPX_ERROR_RESILIENT_PARTITIONS;
 #endif
-    cfg.g_lag_in_frames = 0;
+    /*
+    Enable error resilient modes.
+    The error resilient bitfield indicates to the encoder which features it
+    should enable to take measures for streaming over lossy or noisy links.
+    */
+    /* TODO(mannol): If we set error resilience the app will crash due to bug in vp8.
+       Perhaps vp9 has solved it?*/
+    cfg.g_lag_in_frames = 1;
     cfg.kf_min_dist = 0;
-    cfg.kf_max_dist = 48;
-    cfg.kf_mode = VPX_KF_AUTO;
+    cfg.g_threads = 4; // Maximum number of threads to use
+    cfg.kf_max_dist = 8;
+    /*
+    This value, expressed as a number of frames,
+    forces the encoder to code a keyframe if one has not been
+    coded in the last kf_max_dist frames. A value of 0 implies all frames
+    will be keyframes. Set kf_min_dist equal to kf_max_dist for a fixed interval. 
+    */
+    cfg.kf_mode = VPX_KF_AUTO; // Keyframe placement mode
+    cfg.rc_resize_allowed = 1;
+    cfg.rc_end_usage = VPX_CQ;
+    cfg.rc_dropframe_thresh = 25;
 
     rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, 0);
 
@@ -103,9 +118,9 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     }
     
     // zoff --------------
-    vpx_codec_control(vc->encoder, VP8E_SET_MAX_INTRA_BITRATE_PCT, 400);
-    vpx_codec_control(vc->encoder, VP9E_SET_MAX_INTER_BITRATE_PCT, 400);
-    vpx_codec_control(vc->encoder, VP9E_SET_MAX_GF_INTERVAL, 4);
+    // vpx_codec_control(vc->encoder, VP8E_SET_MAX_INTRA_BITRATE_PCT, 400);
+    // vpx_codec_control(vc->encoder, VP9E_SET_MAX_INTER_BITRATE_PCT, 400);
+    // vpx_codec_control(vc->encoder, VP9E_SET_MAX_GF_INTERVAL, 4);
     // zoff --------------
 
     vc->linfts = current_time_monotonic();
