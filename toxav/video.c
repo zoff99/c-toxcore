@@ -77,7 +77,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     cfg.g_w = 480;
     cfg.g_h = 640;
     cfg.g_pass = VPX_RC_ONE_PASS;    
-#if 1
+#if 0
     cfg.g_error_resilient = VPX_ERROR_RESILIENT_DEFAULT | VPX_ERROR_RESILIENT_PARTITIONS;
 #endif
     /*
