@@ -89,8 +89,8 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     
     // zoff ---------------------
     // cfg.g_threads = 2; // Maximum number of threads to use
-    cfg.rc_end_usage = VPX_CQ;
-    // cfg.rc_dropframe_thresh = 25;
+    // cfg.rc_end_usage = VPX_CQ;
+    cfg.rc_dropframe_thresh = 25;
     // cfg.kf_max_dist = 8;
     // zoff ---------------------
 
