@@ -88,6 +88,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     cfg.kf_mode = VPX_KF_AUTO;
     
     // zoff ---------------------
+    cfg.rc_target_bitrate = 1000;
     // cfg.g_threads = 4; // Maximum number of threads to use
     cfg.rc_end_usage = VPX_CQ;
     // cfg.rc_dropframe_thresh = 25;
