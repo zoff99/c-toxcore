@@ -88,10 +88,10 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     cfg.kf_mode = VPX_KF_AUTO;
     
     // zoff ---------------------
-    cfg.g_threads = 4; // Maximum number of threads to use
-    // cfg.rc_end_usage = VPX_CQ;
+    // cfg.g_threads = 4; // Maximum number of threads to use
+    cfg.rc_end_usage = VPX_CQ;
     // cfg.rc_dropframe_thresh = 25;
-    // cfg.kf_max_dist = 8;
+    cfg.kf_max_dist = 10;
     // zoff ---------------------
 
     rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, 0);
