@@ -27,7 +27,8 @@
 #include "TCP_server.h"
 #include "crypto_core.h"
 
-#define TCP_CONNECTION_TIMEOUT 10
+/* hacked for mobile friendly experiment */
+#define TCP_CONNECTION_TIMEOUT 30
 
 typedef enum {
     TCP_PROXY_NONE,
