@@ -65,8 +65,8 @@
 
 /* frequency to ping connected nodes and timeout in seconds */
 /* hacked for mobile friendly experiment */
-#define TCP_PING_FREQUENCY 240
-#define TCP_PING_TIMEOUT 30
+#define TCP_PING_FREQUENCY 60
+#define TCP_PING_TIMEOUT 15
 
 #ifdef TCP_SERVER_USE_EPOLL
 #define TCP_SOCKET_LISTENING 0
