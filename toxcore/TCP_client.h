@@ -28,7 +28,7 @@
 #include "crypto_core.h"
 
 /* hacked for mobile friendly experiment */
-#define TCP_CONNECTION_TIMEOUT 30
+#define TCP_CONNECTION_TIMEOUT 15
 
 typedef enum {
     TCP_PROXY_NONE,
