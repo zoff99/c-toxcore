@@ -64,8 +64,9 @@
 #define ARRAY_ENTRY_SIZE 6
 
 /* frequency to ping connected nodes and timeout in seconds */
-#define TCP_PING_FREQUENCY 30
-#define TCP_PING_TIMEOUT 10
+/* hacked for mobile friendly experiment */
+#define TCP_PING_FREQUENCY 240
+#define TCP_PING_TIMEOUT 30
 
 #ifdef TCP_SERVER_USE_EPOLL
 #define TCP_SOCKET_LISTENING 0
