@@ -353,6 +353,7 @@ OpusEncoder *create_audio_encoder(Logger *log, int32_t bit_rate, int32_t samplin
 {
     int status = OPUS_OK;
 
+  
     // HINT: http://opus-codec.org/docs/opus_api-1.2/group__opus__encoder.html
     //       application	int: Coding mode (OPUS_APPLICATION_VOIP/OPUS_APPLICATION_AUDIO/OPUS_APPLICATION_RESTRICTED_LOWDELAY)
     /*
@@ -410,8 +411,29 @@ OPUS_APPLICATION_RESTRICTED_LOWDELAY configures low-delay mode that disables the
         goto FAILURE;
     }
 
-    /* Set algorithm to the highest complexity, maximizing compression */
+    /*
+opus_int32: Allowed values:
 
+OPUS_BANDWIDTH_NARROWBAND
+    4 kHz passband 
+OPUS_BANDWIDTH_MEDIUMBAND
+    6 kHz passband 
+OPUS_BANDWIDTH_WIDEBAND
+    8 kHz passband 
+OPUS_BANDWIDTH_SUPERWIDEBAND
+    12 kHz passband 
+OPUS_BANDWIDTH_FULLBAND
+    20 kHz passband (default) 
+   */
+    status = opus_encoder_ctl(rc, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_WIDEBAND));
+
+    if (status != OPUS_OK) {
+        LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
+        goto FAILURE;
+    }
+
+
+    /* Set algorithm to the highest complexity, maximizing compression */
     // HINT: http://opus-codec.org/docs/opus_api-1.2/group__opus__encoderctls.html
     // opus_int32: Allowed values: 0-10, inclusive. 
     status = opus_encoder_ctl(rc, OPUS_SET_COMPLEXITY(10));
