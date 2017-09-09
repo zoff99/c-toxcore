@@ -352,6 +352,25 @@ static struct RTPMessage *jbuf_read(struct JitterBuffer *q, int32_t *success)
 OpusEncoder *create_audio_encoder(Logger *log, int32_t bit_rate, int32_t sampling_rate, int32_t channel_count)
 {
     int status = OPUS_OK;
+
+    // HINT: http://opus-codec.org/docs/opus_api-1.2/group__opus__encoder.html
+    //       application	int: Coding mode (OPUS_APPLICATION_VOIP/OPUS_APPLICATION_AUDIO/OPUS_APPLICATION_RESTRICTED_LOWDELAY)
+    /*
+There are three coding modes:
+
+OPUS_APPLICATION_VOIP gives best quality at a given bitrate for voice signals.
+    It enhances the input signal by high-pass filtering and emphasizing formants and harmonics.
+    Optionally it includes in-band forward error correction to protect against packet loss.
+    Use this mode for typical VoIP applications. Because of the enhancement, even at high bitrates
+    the output may sound different from the input.
+OPUS_APPLICATION_AUDIO gives best quality at a given bitrate for most non-voice signals like music.
+    Use this mode for music and mixed (music/voice) content, broadcast, and applications requiring less
+    than 15 ms of coding delay.
+OPUS_APPLICATION_RESTRICTED_LOWDELAY configures low-delay mode that disables the speech-optimized mode in
+    exchange for slightly reduced delay. This mode can only be set on an newly initialized or freshly reset
+    encoder because it changes the codec delay.
+    This is useful when the caller knows that the speech-optimized modes will not be needed (use with caution). 
+    */
     OpusEncoder *rc = opus_encoder_create(sampling_rate, channel_count, OPUS_APPLICATION_VOIP, &status);
 
     if (status != OPUS_OK) {
@@ -367,6 +386,11 @@ OpusEncoder *create_audio_encoder(Logger *log, int32_t bit_rate, int32_t samplin
     }
 
     /* Enable in-band forward error correction in codec */
+    /*
+    opus_int32: Allowed values:
+     0 Disable inband FEC (default). 
+     1 Enable inband FEC. 
+    */
     status = opus_encoder_ctl(rc, OPUS_SET_INBAND_FEC(1));
 
     if (status != OPUS_OK) {
@@ -378,6 +402,7 @@ OpusEncoder *create_audio_encoder(Logger *log, int32_t bit_rate, int32_t samplin
      * NOTE This could also be adjusted on the fly, rather than hard-coded,
      *      with feedback from the receiving client.
      */
+    // opus_int32: Loss percentage in the range 0-100, inclusive (default: 0). 
     status = opus_encoder_ctl(rc, OPUS_SET_PACKET_LOSS_PERC(10));
 
     if (status != OPUS_OK) {
@@ -386,6 +411,9 @@ OpusEncoder *create_audio_encoder(Logger *log, int32_t bit_rate, int32_t samplin
     }
 
     /* Set algorithm to the highest complexity, maximizing compression */
+
+    // HINT: http://opus-codec.org/docs/opus_api-1.2/group__opus__encoderctls.html
+    // opus_int32: Allowed values: 0-10, inclusive. 
     status = opus_encoder_ctl(rc, OPUS_SET_COMPLEXITY(10));
 
     if (status != OPUS_OK) {
