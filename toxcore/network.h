@@ -63,10 +63,6 @@
 
 #endif
 
-struct in_addr;
-struct in6_addr;
-struct addrinfo;
-
 typedef short Family;
 
 typedef int Socket;
@@ -111,6 +107,7 @@ typedef enum NET_PACKET_TYPE {
 #define TOX_PORT_DEFAULT   TOX_PORTRANGE_FROM
 
 /* Redefinitions of variables for safe transfer over wire. */
+#define TOX_AF_UNSPEC 0
 #define TOX_AF_INET 2
 #define TOX_AF_INET6 10
 #define TOX_TCP_INET 130
@@ -123,17 +120,20 @@ typedef enum NET_PACKET_TYPE {
 #define TOX_PROTO_UDP 2
 
 /* TCP related */
-#define TCP_ONION_FAMILY (AF_INET6 + 1)
-#define TCP_INET (AF_INET6 + 2)
-#define TCP_INET6 (AF_INET6 + 3)
-#define TCP_FAMILY (AF_INET6 + 4)
+#define TCP_ONION_FAMILY (TOX_AF_INET6 + 1)
+#define TCP_INET (TOX_AF_INET6 + 2)
+#define TCP_INET6 (TOX_AF_INET6 + 3)
+#define TCP_FAMILY (TOX_AF_INET6 + 4)
 
 typedef union {
-    uint8_t uint8[4];
-    uint16_t uint16[2];
     uint32_t uint32;
+    uint16_t uint16[2];
+    uint8_t uint8[4];
 }
 IP4;
+
+extern const IP4 IP4_LOOPBACK;
+extern const IP4 IP4_BROADCAST;
 
 typedef union {
     uint8_t uint8[16];
@@ -142,6 +142,9 @@ typedef union {
     uint64_t uint64[2];
 }
 IP6;
+
+extern const IP6 IP6_LOOPBACK;
+extern const IP6 IP6_BROADCAST;
 
 typedef struct {
     uint8_t family;
@@ -158,14 +161,6 @@ typedef struct {
 }
 IP_Port;
 
-/* Convert in_addr to IP */
-void get_ip4(IP4 *ip, const struct in_addr *addr);
-void get_ip6(IP6 *ip, const struct in6_addr *addr);
-
-/* Conevrt IP to in_addr */
-void fill_addr4(IP4 ip, struct in_addr *addr);
-void fill_addr6(IP6 ip, struct in6_addr *addr);
-
 /* Convert values between host and network byte order.
  */
 uint32_t net_htonl(uint32_t hostlong);
@@ -174,7 +169,7 @@ uint32_t net_ntohl(uint32_t hostlong);
 uint16_t net_ntohs(uint16_t hostshort);
 
 /* Does the IP6 struct a contain an IPv4 address in an IPv6 one? */
-#define IPV6_IPV4_IN_V6(a) ((a.uint64[0] == 0) && (a.uint32[2] == htonl (0xffff)))
+#define IPV6_IPV4_IN_V6(a) ((a.uint64[0] == 0) && (a.uint32[2] == net_htonl (0xffff)))
 
 #define SIZE_IP4 4
 #define SIZE_IP6 16
@@ -188,6 +183,9 @@ uint16_t net_ntohs(uint16_t hostshort);
 #define TOX_ADDR_RESOLVE_INET  1
 #define TOX_ADDR_RESOLVE_INET6 2
 
+#define TOX_INET6_ADDRSTRLEN 66
+#define TOX_INET_ADDRSTRLEN 22
+
 /* ip_ntoa
  *   converts ip into a string
  *   ip_str must be of length at least IP_NTOA_LEN
@@ -197,7 +195,7 @@ uint16_t net_ntohs(uint16_t hostshort);
  *
  *   returns ip_str
  */
-/* this would be INET6_ADDRSTRLEN, but it might be too short for the error message */
+/* this would be TOX_INET6_ADDRSTRLEN, but it might be too short for the error message */
 #define IP_NTOA_LEN 96 // TODO(irungentoo): magic number. Why not INET6_ADDRSTRLEN ?
 const char *ip_ntoa(const IP *ip, char *ip_str, size_t length);
 
@@ -206,10 +204,10 @@ const char *ip_ntoa(const IP *ip, char *ip_str, size_t length);
  *  parses IP structure into an address string
  *
  * input
- *  ip: ip of AF_INET or AF_INET6 families
+ *  ip: ip of TOX_AF_INET or TOX_AF_INET6 families
  *  length: length of the address buffer
- *          Must be at least INET_ADDRSTRLEN for AF_INET
- *          and INET6_ADDRSTRLEN for AF_INET6
+ *          Must be at least TOX_INET_ADDRSTRLEN for TOX_AF_INET
+ *          and TOX_INET6_ADDRSTRLEN for TOX_AF_INET6
  *
  * output
  *  address: dotted notation (IPv4: quad, IPv6: 16) or colon notation (IPv6)
@@ -270,13 +268,13 @@ void ipport_copy(IP_Port *target, const IP_Port *source);
  * input
  *  address: a hostname (or something parseable to an IP address)
  *  to: to.family MUST be initialized, either set to a specific IP version
- *     (AF_INET/AF_INET6) or to the unspecified AF_UNSPEC (= 0), if both
+ *     (TOX_AF_INET/TOX_AF_INET6) or to the unspecified TOX_AF_UNSPEC (= 0), if both
  *     IP versions are acceptable
  *  extra can be NULL and is only set in special circumstances, see returns
  *
  * returns in *to a valid IPAny (v4/v6),
- *     prefers v6 if ip.family was AF_UNSPEC and both available
- * returns in *extra an IPv4 address, if family was AF_UNSPEC and *to is AF_INET6
+ *     prefers v6 if ip.family was TOX_AF_UNSPEC and both available
+ * returns in *extra an IPv4 address, if family was TOX_AF_UNSPEC and *to is TOX_AF_INET6
  * returns 0 on failure
  */
 int addr_resolve(const char *address, IP *to, IP *extra);
@@ -287,12 +285,12 @@ int addr_resolve(const char *address, IP *to, IP *extra);
  *
  *  address: a hostname (or something parseable to an IP address)
  *  to: to.family MUST be initialized, either set to a specific IP version
- *     (AF_INET/AF_INET6) or to the unspecified AF_UNSPEC (= 0), if both
+ *     (TOX_AF_INET/TOX_AF_INET6) or to the unspecified TOX_AF_UNSPEC (= 0), if both
  *     IP versions are acceptable
  *  extra can be NULL and is only set in special circumstances, see returns
  *
  *  returns in *tro a matching address (IPv6 or IPv4)
- *  returns in *extra, if not NULL, an IPv4 address, if to->family was AF_UNSPEC
+ *  returns in *extra, if not NULL, an IPv4 address, if to->family was TOX_AF_UNSPEC
  *  returns 1 on success
  *  returns 0 on failure
  */
@@ -394,7 +392,7 @@ int net_connect(Socket sock, IP_Port ip_port);
  * return number of elements in res array
  * and -1 on error.
  */
-int32_t net_getipport(const char *node, IP_Port **res, int type);
+int32_t net_getipport(const char *node, IP_Port **res, int tox_type);
 
 /* Deallocates memory allocated by net_getipport
  */

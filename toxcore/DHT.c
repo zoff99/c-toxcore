@@ -256,30 +256,6 @@ int handle_request(const uint8_t *self_public_key, const uint8_t *self_secret_ke
     return len1;
 }
 
-void to_net_family(IP *ip)
-{
-    if (ip->family == AF_INET) {
-        ip->family = TOX_AF_INET;
-    } else if (ip->family == AF_INET6) {
-        ip->family = TOX_AF_INET6;
-    }
-}
-
-int to_host_family(IP *ip)
-{
-    if (ip->family == TOX_AF_INET) {
-        ip->family = AF_INET;
-        return 0;
-    }
-
-    if (ip->family == TOX_AF_INET6) {
-        ip->family = AF_INET6;
-        return 0;
-    }
-
-    return -1;
-}
-
 #define PACKED_NODE_SIZE_IP4 (1 + SIZE_IP4 + sizeof(uint16_t) + CRYPTO_PUBLIC_KEY_SIZE)
 #define PACKED_NODE_SIZE_IP6 (1 + SIZE_IP6 + sizeof(uint16_t) + CRYPTO_PUBLIC_KEY_SIZE)
 
@@ -289,11 +265,11 @@ int to_host_family(IP *ip)
 int packed_node_size(uint8_t ip_family)
 {
     switch (ip_family) {
-        case AF_INET:
+        case TOX_AF_INET:
         case TCP_INET:
             return PACKED_NODE_SIZE_IP4;
 
-        case AF_INET6:
+        case TOX_AF_INET6:
         case TCP_INET6:
             return PACKED_NODE_SIZE_IP6;
 
@@ -317,14 +293,14 @@ static int pack_ip_port(uint8_t *data, uint16_t length, const IP_Port *ip_port)
     bool is_ipv4;
     uint8_t net_family;
 
-    if (ip_port->ip.family == AF_INET) {
+    if (ip_port->ip.family == TOX_AF_INET) {
         // TODO(irungentoo): use functions to convert endianness
         is_ipv4 = true;
         net_family = TOX_AF_INET;
     } else if (ip_port->ip.family == TCP_INET) {
         is_ipv4 = true;
         net_family = TOX_TCP_INET;
-    } else if (ip_port->ip.family == AF_INET6) {
+    } else if (ip_port->ip.family == TOX_AF_INET6) {
         is_ipv4 = false;
         net_family = TOX_AF_INET6;
     } else if (ip_port->ip.family == TCP_INET6) {
@@ -397,7 +373,7 @@ static int unpack_ip_port(IP_Port *ip_port, const uint8_t *data, uint16_t length
 
     if (data[0] == TOX_AF_INET) {
         is_ipv4 = true;
-        host_family = AF_INET;
+        host_family = TOX_AF_INET;
     } else if (data[0] == TOX_TCP_INET) {
         if (!tcp_enabled) {
             return -1;
@@ -407,7 +383,7 @@ static int unpack_ip_port(IP_Port *ip_port, const uint8_t *data, uint16_t length
         host_family = TCP_INET;
     } else if (data[0] == TOX_AF_INET6) {
         is_ipv4 = false;
-        host_family = AF_INET6;
+        host_family = TOX_AF_INET6;
     } else if (data[0] == TOX_TCP_INET6) {
         if (!tcp_enabled) {
             return -1;
@@ -551,8 +527,8 @@ static uint32_t index_of_node_pk(const Node_format *array, uint32_t size, const 
 static uint32_t index_of_client_ip_port(const Client_data *array, uint32_t size, const IP_Port *ip_port)
 {
     for (uint32_t i = 0; i < size; ++i) {
-        if (ip_port->ip.family == AF_INET  && ipport_equal(&array[i].assoc4.ip_port, ip_port) ||
-                ip_port->ip.family == AF_INET6 && ipport_equal(&array[i].assoc6.ip_port, ip_port)) {
+        if (ip_port->ip.family == TOX_AF_INET  && ipport_equal(&array[i].assoc4.ip_port, ip_port) ||
+                ip_port->ip.family == TOX_AF_INET6 && ipport_equal(&array[i].assoc6.ip_port, ip_port)) {
             return i;
         }
     }
@@ -567,10 +543,10 @@ static void update_client(Logger *log, int index, Client_data *client, IP_Port i
     IPPTsPng *assoc;
     int ip_version;
 
-    if (ip_port.ip.family == AF_INET) {
+    if (ip_port.ip.family == TOX_AF_INET) {
         assoc = &client->assoc4;
         ip_version = 4;
-    } else if (ip_port.ip.family == AF_INET6) {
+    } else if (ip_port.ip.family == TOX_AF_INET6) {
         assoc = &client->assoc6;
         ip_version = 6;
     } else {
@@ -628,7 +604,7 @@ static int client_or_ip_port_in_list(Logger *log, Client_data *list, uint16_t le
     IPPTsPng *assoc;
     int ip_version;
 
-    if (ip_port.ip.family == AF_INET) {
+    if (ip_port.ip.family == TOX_AF_INET) {
         assoc = &list[index].assoc4;
         ip_version = 4;
     } else {
@@ -692,7 +668,7 @@ static void get_close_nodes_inner(const uint8_t *public_key, Node_format *nodes_
                                   Family sa_family, const Client_data *client_list, uint32_t client_list_length,
                                   uint32_t *num_nodes_ptr, uint8_t is_LAN, uint8_t want_good)
 {
-    if ((sa_family != AF_INET) && (sa_family != AF_INET6) && (sa_family != 0)) {
+    if ((sa_family != TOX_AF_INET) && (sa_family != TOX_AF_INET6) && (sa_family != 0)) {
         return;
     }
 
@@ -708,9 +684,9 @@ static void get_close_nodes_inner(const uint8_t *public_key, Node_format *nodes_
 
         const IPPTsPng *ipptp = NULL;
 
-        if (sa_family == AF_INET) {
+        if (sa_family == TOX_AF_INET) {
             ipptp = &client->assoc4;
-        } else if (sa_family == AF_INET6) {
+        } else if (sa_family == TOX_AF_INET6) {
             ipptp = &client->assoc6;
         } else if (client->assoc4.timestamp >= client->assoc6.timestamp) {
             ipptp = &client->assoc4;
@@ -879,7 +855,7 @@ static void update_client_with_reset(Client_data *client, const IP_Port *ip_port
     IPPTsPng *ipptp_write = NULL;
     IPPTsPng *ipptp_clear = NULL;
 
-    if (ip_port->ip.family == AF_INET) {
+    if (ip_port->ip.family == TOX_AF_INET) {
         ipptp_write = &client->assoc4;
         ipptp_clear = &client->assoc6;
     } else {
@@ -917,7 +893,7 @@ static int replace_all(Client_data    *list,
                        IP_Port         ip_port,
                        const uint8_t  *comp_public_key)
 {
-    if ((ip_port.ip.family != AF_INET) && (ip_port.ip.family != AF_INET6)) {
+    if ((ip_port.ip.family != TOX_AF_INET) && (ip_port.ip.family != TOX_AF_INET6)) {
         return 0;
     }
 
@@ -988,7 +964,7 @@ static bool is_pk_in_client_list(Client_data *list, unsigned int client_list_len
         return 0;
     }
 
-    const IPPTsPng *assoc = ip_port.ip.family == AF_INET ?
+    const IPPTsPng *assoc = ip_port.ip.family == TOX_AF_INET ?
                             &list[index].assoc4 :
                             &list[index].assoc6;
 
@@ -1079,8 +1055,8 @@ uint32_t addto_lists(DHT *dht, IP_Port ip_port, const uint8_t *public_key)
     uint32_t used = 0;
 
     /* convert IPv4-in-IPv6 to IPv4 */
-    if ((ip_port.ip.family == AF_INET6) && IPV6_IPV4_IN_V6(ip_port.ip.ip6)) {
-        ip_port.ip.family = AF_INET;
+    if ((ip_port.ip.family == TOX_AF_INET6) && IPV6_IPV4_IN_V6(ip_port.ip.ip6)) {
+        ip_port.ip.family = TOX_AF_INET;
         ip_port.ip.ip4.uint32 = ip_port.ip.ip6.uint32[3];
     }
 
@@ -1140,9 +1116,9 @@ static bool update_client_data(Client_data *array, size_t size, IP_Port ip_port,
     Client_data *data = &array[index];
     IPPTsPng *assoc;
 
-    if (ip_port.ip.family == AF_INET) {
+    if (ip_port.ip.family == TOX_AF_INET) {
         assoc = &data->assoc4;
-    } else if (ip_port.ip.family == AF_INET6) {
+    } else if (ip_port.ip.family == TOX_AF_INET6) {
         assoc = &data->assoc6;
     } else {
         return true;
@@ -1159,8 +1135,8 @@ static bool update_client_data(Client_data *array, size_t size, IP_Port ip_port,
 static void returnedip_ports(DHT *dht, IP_Port ip_port, const uint8_t *public_key, const uint8_t *nodepublic_key)
 {
     /* convert IPv4-in-IPv6 to IPv4 */
-    if ((ip_port.ip.family == AF_INET6) && IPV6_IPV4_IN_V6(ip_port.ip.ip6)) {
-        ip_port.ip.family = AF_INET;
+    if ((ip_port.ip.family == TOX_AF_INET6) && IPV6_IPV4_IN_V6(ip_port.ip.ip6)) {
+        ip_port.ip.family = TOX_AF_INET;
         ip_port.ip.ip4.uint32 = ip_port.ip.ip6.uint32[3];
     }
 
@@ -1717,7 +1693,7 @@ int DHT_bootstrap_from_address(DHT *dht, const char *address, uint8_t ipv6enable
 
     if (ipv6enabled) {
         /* setup for getting BOTH: an IPv6 AND an IPv4 address */
-        ip_port_v64.ip.family = AF_UNSPEC;
+        ip_port_v64.ip.family = TOX_AF_UNSPEC;
         ip_reset(&ip_port_v4.ip);
         ip_extra = &ip_port_v4.ip;
     }
@@ -2237,11 +2213,11 @@ static IPPTsPng *get_closelist_IPPTsPng(DHT *dht, const uint8_t *public_key, Fam
             continue;
         }
 
-        if (sa_family == AF_INET) {
+        if (sa_family == TOX_AF_INET) {
             return &dht->close_clientlist[i].assoc4;
         }
 
-        if (sa_family == AF_INET6) {
+        if (sa_family == TOX_AF_INET6) {
             return &dht->close_clientlist[i].assoc6;
         }
     }
@@ -2464,10 +2440,10 @@ static void do_hardening(DHT *dht)
 
         if (i % 2 == 0) {
             cur_iptspng = &dht->close_clientlist[i / 2].assoc4;
-            sa_family = AF_INET;
+            sa_family = TOX_AF_INET;
         } else {
             cur_iptspng = &dht->close_clientlist[i / 2].assoc6;
-            sa_family = AF_INET6;
+            sa_family = TOX_AF_INET6;
         }
 
         if (is_timeout(cur_iptspng->timestamp, BAD_NODE_TIMEOUT)) {
@@ -2675,7 +2651,7 @@ uint32_t DHT_size(const DHT *dht)
 
     uint32_t size32 = sizeof(uint32_t), sizesubhead = size32 * 2;
 
-    return size32 + sizesubhead + (packed_node_size(AF_INET) * numv4) + (packed_node_size(AF_INET6) * numv6);
+    return size32 + sizesubhead + (packed_node_size(TOX_AF_INET) * numv4) + (packed_node_size(TOX_AF_INET6) * numv6);
 }
 
 static uint8_t *DHT_save_subheader(uint8_t *data, uint32_t len, uint16_t type)
