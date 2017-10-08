@@ -47,7 +47,7 @@
 #define CRYPTO_MIN_QUEUE_LENGTH 64
 
 /* Maximum total size of packets that net_crypto sends. */
-#define MAX_CRYPTO_PACKET_SIZE 1400
+#define MAX_CRYPTO_PACKET_SIZE 1000 // default was: 1400
 
 #define CRYPTO_DATA_PACKET_MIN_SIZE (1 + sizeof(uint16_t) + (sizeof(uint32_t) + sizeof(uint32_t)) + CRYPTO_MAC_SIZE)
 
