@@ -64,7 +64,7 @@ ACSession *ac_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_audio_re
         goto BASE_CLEANUP;
     }
 
-    if (!(ac->j_buf = jbuf_new(3))) {
+    if (!(ac->j_buf = jbuf_new(JITTER_BUFFER_DEFAULT_CAPACITY))) {
         LOGGER_WARNING(log, "Jitter buffer creaton failed!");
         opus_decoder_destroy(ac->decoder);
         goto BASE_CLEANUP;
