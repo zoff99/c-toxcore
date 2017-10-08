@@ -30,8 +30,8 @@
 
 struct RTPMessage;
 
-// default was 3, changed to 10 (by Zoff in 2017)
-#define JITTER_BUFFER_DEFAULT_CAPACITY 10
+// default was 3, changed to 50 (by Zoff in 2017)
+#define JITTER_BUFFER_DEFAULT_CAPACITY 50
 
 typedef struct ACSession_s {
     Logger *log;
