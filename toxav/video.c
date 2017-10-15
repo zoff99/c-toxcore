@@ -88,6 +88,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     cfg.kf_mode = VPX_KF_AUTO; // Encoder determines optimal placement automatically
     cfg.rc_end_usage = VPX_CQ; // Constrained Quality (CQ) mode -> give codec a hint that we may be on low bandwidth connection
     cfg.kf_max_dist = 12; // a full frame every 12 frames minimum (can be more often, codec decides automatically)
+    cfg.g_threads = 3; // Maximum number of threads to use
 
     rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, 0);
 
@@ -96,6 +97,15 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
         goto BASE_CLEANUP_1;
     }
 
+    /*
+    Codec control function to set encoder internal speed settings.
+    Changes in this value influences, among others, the encoder's selection of motion estimation methods.
+    Values greater than 0 will increase encoder speed at the expense of quality.
+
+    Note:
+      Valid range for VP8: -16..16 
+      Valid range for VP9: -8..8
+    */
     rc = vpx_codec_control(vc->encoder, VP8E_SET_CPUUSED, 8);
 
     if (rc != VPX_CODEC_OK) {
@@ -103,7 +113,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
         vpx_codec_destroy(vc->encoder);
         goto BASE_CLEANUP_1;
     }
-
+    
     vc->linfts = current_time_monotonic();
     vc->lcfd = 60;
     vc->vcb.first = cb;
