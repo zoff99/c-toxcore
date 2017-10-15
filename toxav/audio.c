@@ -425,7 +425,7 @@ OPUS_BANDWIDTH_SUPERWIDEBAND
 OPUS_BANDWIDTH_FULLBAND
     20 kHz passband (default) 
    */
-    status = opus_encoder_ctl(rc, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_WIDEBAND));
+    status = opus_encoder_ctl(rc, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_FULLBAND));
 
     if (status != OPUS_OK) {
         LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
