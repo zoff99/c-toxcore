@@ -33,7 +33,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#define MAX_DECODE_TIME_US 0 /* Good quality encode. */
+#define MAX_DECODE_TIME_US 0 /* Soft deadline the decoder should attempt to meet, in us (microseconds). Set to zero for unlimited. */
 #define VIDEO_DECODE_BUFFER_SIZE 20
 
 VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data)
