@@ -87,7 +87,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     cfg.kf_min_dist = 0;
     cfg.kf_mode = VPX_KF_AUTO; // Encoder determines optimal placement automatically
     cfg.rc_end_usage = VPX_CQ; // Constrained Quality (CQ) mode -> give codec a hint that we may be on low bandwidth connection
-    cfg.kf_max_dist = 10; // a full frame every 10 frames minimum (can be more often, codec decides automatically)
+    cfg.kf_max_dist = 12; // a full frame every 12 frames minimum (can be more often, codec decides automatically)
 
     rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, 0);
 
