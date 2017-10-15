@@ -404,7 +404,7 @@ OPUS_APPLICATION_RESTRICTED_LOWDELAY configures low-delay mode that disables the
      *      with feedback from the receiving client.
      */
     // opus_int32: Loss percentage in the range 0-100, inclusive (default: 0). 
-    status = opus_encoder_ctl(rc, OPUS_SET_PACKET_LOSS_PERC(10));
+    status = opus_encoder_ctl(rc, OPUS_SET_PACKET_LOSS_PERC(15));
 
     if (status != OPUS_OK) {
         LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
