@@ -56,7 +56,16 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
         goto BASE_CLEANUP;
     }
 
-    rc = vpx_codec_dec_init(vc->decoder, VIDEO_CODEC_DECODER_INTERFACE, NULL, 0);
+    /*
+    VPX_CODEC_USE_FRAME_THREADING
+       Enable frame-based multi-threading
+
+    VPX_CODEC_USE_ERROR_CONCEALMENT
+       Conceal errors in decoded frames
+    */
+    vpx_codec_dec_cfg_t  dec_cfg;
+    dec_cfg.threads = 3; // Maximum number of threads to use
+    rc = vpx_codec_dec_init(vc->decoder, VIDEO_CODEC_DECODER_INTERFACE, &dec_cfg, VPX_CODEC_USE_FRAME_THREADING);
 
     if (rc != VPX_CODEC_OK) {
         LOGGER_ERROR(log, "Init video_decoder failed: %s", vpx_codec_err_to_string(rc));
@@ -66,7 +75,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     /* Set encoder to some initial values
      */
     vpx_codec_enc_cfg_t  cfg;
-    rc = vpx_codec_enc_config_default(VIDEO_CODEC_ENCODER_INTERFACE, &cfg, 0);
+    rc = vpx_codec_enc_config_default(VIDEO_CODEC_ENCODER_INTERFACE, &cfg, VPX_CODEC_USE_FRAME_THREADING);
 
     if (rc != VPX_CODEC_OK) {
         LOGGER_ERROR(log, "Failed to get config: %s", vpx_codec_err_to_string(rc));
