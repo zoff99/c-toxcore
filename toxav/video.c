@@ -35,6 +35,7 @@
 
 #define MAX_DECODE_TIME_US 0 /* Soft deadline the decoder should attempt to meet, in us (microseconds). Set to zero for unlimited. */
 #define VIDEO_DECODE_BUFFER_SIZE 20
+#define VIDEO_BITRATE_INITIAL_VALUE 2500 // initialize encoder with this value
 
 VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data)
 {
@@ -84,14 +85,15 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
         goto BASE_CLEANUP_1;
     }
 
-    cfg.rc_target_bitrate = 500000;
+    cfg.rc_target_bitrate = VIDEO_BITRATE_INITIAL_VALUE; /* Target bandwidth to use for this stream, in kilobits per second */
     cfg.g_w = 800;
     cfg.g_h = 600;
     cfg.g_pass = VPX_RC_ONE_PASS;
+
     /* TODO(mannol): If we set error resilience the app will crash due to bug in vp8.
        Perhaps vp9 has solved it?*/
 #if 0
-    /* zoff: this does still not work */
+    /* zoff (in 2017): this does still not work */
     cfg.g_error_resilient = VPX_ERROR_RESILIENT_DEFAULT | VPX_ERROR_RESILIENT_PARTITIONS;
 #endif
     cfg.g_lag_in_frames = 0;
