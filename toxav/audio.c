@@ -135,9 +135,7 @@ void ac_iterate(ACSession *ac)
     /* TODO(mannol): fix this and jitter buffering */
 
     /* Enough space for the maximum frame size (120 ms 48 KHz stereo audio) */
-
-    /* Zoff: try more mem here */
-    int16_t tmp[5760 * 2 * 2];
+    int16_t tmp[5760 * 2];
 
     struct RTPMessage *msg;
     int rc = 0;
