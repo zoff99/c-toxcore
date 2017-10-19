@@ -30,7 +30,7 @@
 #include <stdlib.h>
 
 
-#define JITTER_BUFFER_SIZE 10
+#define JITTER_BUFFER_SIZE 30
 
 static struct JitterBuffer *jbuf_new(uint32_t capacity);
 static void jbuf_clear(struct JitterBuffer *q);
