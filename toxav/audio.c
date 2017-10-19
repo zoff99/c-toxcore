@@ -29,6 +29,9 @@
 
 #include <stdlib.h>
 
+
+#define JITTER_BUFFER_SIZE 10
+
 static struct JitterBuffer *jbuf_new(uint32_t capacity);
 static void jbuf_clear(struct JitterBuffer *q);
 static void jbuf_free(struct JitterBuffer *q);
@@ -64,7 +67,7 @@ ACSession *ac_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_audio_re
         goto BASE_CLEANUP;
     }
 
-    if (!(ac->j_buf = jbuf_new(3))) {
+    if (!(ac->j_buf = jbuf_new(JITTER_BUFFER_SIZE))) {
         LOGGER_WARNING(log, "Jitter buffer creaton failed!");
         opus_decoder_destroy(ac->decoder);
         goto BASE_CLEANUP;
@@ -132,7 +135,9 @@ void ac_iterate(ACSession *ac)
     /* TODO(mannol): fix this and jitter buffering */
 
     /* Enough space for the maximum frame size (120 ms 48 KHz stereo audio) */
-    int16_t tmp[5760 * 2];
+
+    /* Zoff: try more mem here */
+    int16_t tmp[5760 * 2 * 2];
 
     struct RTPMessage *msg;
     int rc = 0;
@@ -311,13 +316,9 @@ static int jbuf_write(Logger *log, struct JitterBuffer *q, struct RTPMessage *m)
         return 0;
     }
 
-    LOGGER_WARNING(log, "==========================================");
-    LOGGER_WARNING(log, "A:q->queue[num] = %p", q->queue[num]);
     if (q->queue[num]) {
         return -1;
     }
-    LOGGER_WARNING(log, "B:q->queue[num] = %p", q->queue[num]);
-    LOGGER_WARNING(log, "==========================================");
 
     q->queue[num] = m;
 
