@@ -311,13 +311,13 @@ static int jbuf_write(Logger *log, struct JitterBuffer *q, struct RTPMessage *m)
         return 0;
     }
 
-    LOGGER_WARNING(ac->log, "==========================================");
-    LOGGER_WARNING(ac->log, "A:q->queue[num] = %p", q->queue[num]);
+    LOGGER_WARNING(log, "==========================================");
+    LOGGER_WARNING(log, "A:q->queue[num] = %p", q->queue[num]);
     if (q->queue[num]) {
         return -1;
     }
-    LOGGER_WARNING(ac->log, "B:q->queue[num] = %p", q->queue[num]);
-    LOGGER_WARNING(ac->log, "==========================================");
+    LOGGER_WARNING(log, "B:q->queue[num] = %p", q->queue[num]);
+    LOGGER_WARNING(log, "==========================================");
 
     q->queue[num] = m;
 
