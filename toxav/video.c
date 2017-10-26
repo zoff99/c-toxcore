@@ -73,7 +73,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     dec_cfg.threads = 3; // Maximum number of threads to use
     dec_cfg.w = 800;
     dec_cfg.h = 600;
-    rc = vpx_codec_dec_init(vc->decoder, VIDEO_CODEC_DECODER_INTERFACE, &dec_cfg, VPX_CODEC_USE_FRAME_THREADING  | VPX_CODEC_USE_INPUT_FRAGMENTS);
+    rc = vpx_codec_dec_init(vc->decoder, VIDEO_CODEC_DECODER_INTERFACE, &dec_cfg, VPX_CODEC_USE_FRAME_THREADING);
 
     if (rc != VPX_CODEC_OK) {
         LOGGER_ERROR(log, "Init video_decoder failed: %s", vpx_codec_err_to_string(rc));
@@ -95,13 +95,8 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     cfg.g_h = 600;
     cfg.g_pass = VPX_RC_ONE_PASS;
 
-    /* TODO(mannol): If we set error resilience the app will crash due to bug in vp8.
-       Perhaps vp9 has solved it?*/
-#if 0
-    /* zoff (in 2017): this does still not work */
+    /* zoff (in 2017) */
     cfg.g_error_resilient = VPX_ERROR_RESILIENT_DEFAULT | VPX_ERROR_RESILIENT_PARTITIONS;
-#endif
-    // cfg.g_error_resilient = VPX_ERROR_RESILIENT_DEFAULT;
     cfg.g_lag_in_frames = 0;
     cfg.kf_min_dist = 0;
     cfg.kf_mode = VPX_KF_AUTO; // Encoder determines optimal placement automatically
