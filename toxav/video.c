@@ -101,6 +101,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     /* zoff (in 2017): this does still not work */
     cfg.g_error_resilient = VPX_ERROR_RESILIENT_DEFAULT | VPX_ERROR_RESILIENT_PARTITIONS;
 #endif
+    cfg.g_error_resilient = VPX_ERROR_RESILIENT_DEFAULT; // 
     cfg.g_lag_in_frames = 0;
     cfg.kf_min_dist = 0;
     cfg.kf_mode = VPX_KF_AUTO; // Encoder determines optimal placement automatically
@@ -108,7 +109,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     cfg.kf_max_dist = 12; // a full frame every 12 frames minimum (can be more often, codec decides automatically)
     cfg.g_threads = 3; // Maximum number of threads to use
 
-    rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, VPX_CODEC_USE_FRAME_THREADING);
+    rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, VPX_CODEC_USE_FRAME_THREADING | VPX_CODEC_USE_INPUT_FRAGMENTS);
 
     if (rc != VPX_CODEC_OK) {
         LOGGER_ERROR(log, "Failed to initialize encoder: %s", vpx_codec_err_to_string(rc));
