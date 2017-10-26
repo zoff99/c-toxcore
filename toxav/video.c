@@ -101,7 +101,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     /* zoff (in 2017): this does still not work */
     cfg.g_error_resilient = VPX_ERROR_RESILIENT_DEFAULT | VPX_ERROR_RESILIENT_PARTITIONS;
 #endif
-    cfg.g_error_resilient = VPX_ERROR_RESILIENT_DEFAULT; // 
+    // cfg.g_error_resilient = VPX_ERROR_RESILIENT_DEFAULT;
     cfg.g_lag_in_frames = 0;
     cfg.kf_min_dist = 0;
     cfg.kf_mode = VPX_KF_AUTO; // Encoder determines optimal placement automatically
