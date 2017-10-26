@@ -109,7 +109,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     cfg.kf_max_dist = 12; // a full frame every 12 frames minimum (can be more often, codec decides automatically)
     cfg.g_threads = 3; // Maximum number of threads to use
 
-    rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, VPX_CODEC_USE_FRAME_THREADING | VPX_CODEC_USE_INPUT_FRAGMENTS);
+    rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, VPX_CODEC_USE_FRAME_THREADING);
 
     if (rc != VPX_CODEC_OK) {
         LOGGER_ERROR(log, "Failed to initialize encoder: %s", vpx_codec_err_to_string(rc));
