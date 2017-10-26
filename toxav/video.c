@@ -33,7 +33,12 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#define MAX_DECODE_TIME_US 0 /* Soft deadline the decoder should attempt to meet, in us (microseconds). Set to zero for unlimited. */
+/*
+  Soft deadline the decoder should attempt to meet, in us (microseconds). Set to zero for unlimited.
+  By convention, the value 1 is used to mean "return as fast as possible."
+*/
+#define MAX_DECODE_TIME_US 1
+
 #define VIDEO_DECODE_BUFFER_SIZE 20
 #define VIDEO_BITRATE_INITIAL_VALUE 2500 // initialize encoder with this value
 
