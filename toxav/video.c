@@ -39,7 +39,7 @@
 */
 #define MAX_DECODE_TIME_US VPX_DL_GOOD_QUALITY
 /*
-VPX_DL_REALTIME   (1)
+VPX_DL_REALTIME       (1)
 deadline parameter analogous to VPx REALTIME mode.
 
 VPX_DL_GOOD_QUALITY   (1000000)
@@ -48,6 +48,17 @@ deadline parameter analogous to VPx GOOD QUALITY mode.
 VPX_DL_BEST_QUALITY   (0)
 deadline parameter analogous to VPx BEST QUALITY mode.
 */
+
+#define VP8E_SET_CPUUSED_VALUE (-8)
+/*
+Codec control function to set encoder internal speed settings.
+Changes in this value influences, among others, the encoder's selection of motion estimation methods.
+Values greater than 0 will increase encoder speed at the expense of quality.
+
+Note
+    Valid range for VP8: -16..16 
+    Valid range for VP9: -8..8
+ */
 
 #define VIDEO_DECODE_BUFFER_SIZE 20
 #define VIDEO_BITRATE_INITIAL_VALUE 10000 // initialize encoder with this value
@@ -136,7 +147,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
       Valid range for VP8: -16..16 
       Valid range for VP9: -8..8
     */
-    rc = vpx_codec_control(vc->encoder, VP8E_SET_CPUUSED, 8);
+    rc = vpx_codec_control(vc->encoder, VP8E_SET_CPUUSED, VP8E_SET_CPUUSED_VALUE);
 
     if (rc != VPX_CODEC_OK) {
         LOGGER_ERROR(log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
@@ -303,7 +314,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
             return -1;
         }
 
-        rc = vpx_codec_control(&new_c, VP8E_SET_CPUUSED, 8);
+        rc = vpx_codec_control(&new_c, VP8E_SET_CPUUSED, VP8E_SET_CPUUSED_VALUE);
 
         if (rc != VPX_CODEC_OK) {
             LOGGER_ERROR(vc->log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
