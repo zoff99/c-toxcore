@@ -83,7 +83,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     dec_cfg.threads = 3; // Maximum number of threads to use
     dec_cfg.w = 800;
     dec_cfg.h = 600;
-    rc = vpx_codec_dec_init(vc->decoder, VIDEO_CODEC_DECODER_INTERFACE, &dec_cfg, VPX_CODEC_USE_FRAME_THREADING | VPX_CODEC_USE_POSTPROC);
+    rc = vpx_codec_dec_init(vc->decoder, VIDEO_CODEC_DECODER_INTERFACE, &dec_cfg, VPX_CODEC_USE_FRAME_THREADING);
 
     if (rc != VPX_CODEC_OK) {
         LOGGER_ERROR(log, "Init video_decoder failed: %s", vpx_codec_err_to_string(rc));
