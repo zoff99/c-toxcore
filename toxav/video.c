@@ -50,7 +50,7 @@ deadline parameter analogous to VPx BEST QUALITY mode.
 */
 
 #define VIDEO_DECODE_BUFFER_SIZE 20
-#define VIDEO_BITRATE_INITIAL_VALUE 2500 // initialize encoder with this value
+#define VIDEO_BITRATE_INITIAL_VALUE 10000 // initialize encoder with this value
 
 VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data)
 {
