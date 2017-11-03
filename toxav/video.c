@@ -165,8 +165,21 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
         vpx_codec_destroy(vc->encoder);
         goto BASE_CLEANUP_1;
     }
-    
-    vc->linfts = current_time_monotonic();
+
+  /*
+  VPX_CTRL_USE_TYPE(VP8E_SET_NOISE_SENSITIVITY,  unsigned int)
+  control function to set noise sensitivity
+    0: off, 1: OnYOnly, 2: OnYUV, 3: OnYUVAggressive, 4: Adaptive
+  */
+    rc = vpx_codec_control(vc->encoder, VP8E_SET_NOISE_SENSITIVITY, 2);
+
+    if (rc != VPX_CODEC_OK) {
+        LOGGER_ERROR(log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
+        vpx_codec_destroy(vc->encoder);
+        goto BASE_CLEANUP_1;
+    }
+
+  vc->linfts = current_time_monotonic();
     vc->lcfd = 60;
     vc->vcb.first = cb;
     vc->vcb.second = cb_data;
