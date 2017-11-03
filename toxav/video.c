@@ -37,7 +37,17 @@
   Soft deadline the decoder should attempt to meet, in us (microseconds). Set to zero for unlimited.
   By convention, the value 1 is used to mean "return as fast as possible."
 */
-#define MAX_DECODE_TIME_US 1
+#define MAX_DECODE_TIME_US VPX_DL_GOOD_QUALITY
+/*
+VPX_DL_REALTIME   (1)
+deadline parameter analogous to VPx REALTIME mode.
+
+VPX_DL_GOOD_QUALITY   (1000000)
+deadline parameter analogous to VPx GOOD QUALITY mode.
+
+VPX_DL_BEST_QUALITY   (0)
+deadline parameter analogous to VPx BEST QUALITY mode.
+*/
 
 #define VIDEO_DECODE_BUFFER_SIZE 20
 #define VIDEO_BITRATE_INITIAL_VALUE 2500 // initialize encoder with this value
