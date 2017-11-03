@@ -60,6 +60,17 @@ Note
     Valid range for VP9: -8..8
  */
 
+/*
+VP8E_SET_CQ_LEVEL 	
+
+Codec control function to set constrained quality level.
+Attention
+    For this value to be used vpx_codec_enc_cfg_t::g_usage must be set to VPX_CQ. 
+Note
+    Valid range: 0..63
+Supported in codecs: VP8, VP9 
+ */
+
 #define VIDEO_DECODE_BUFFER_SIZE 20
 #define VIDEO_BITRATE_INITIAL_VALUE 10000 // initialize encoder with this value
 
