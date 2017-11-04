@@ -129,7 +129,19 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
 
     /* zoff (in 2017) */
     cfg.g_error_resilient = VPX_ERROR_RESILIENT_DEFAULT | VPX_ERROR_RESILIENT_PARTITIONS;
-    cfg.g_lag_in_frames = 0;
+    cfg.g_lag_in_frames = 1;
+  /* Allow lagged encoding
+   *
+   * If set, this value allows the encoder to consume a number of input
+   * frames before producing output frames. This allows the encoder to
+   * base decisions for the current frame on future frames. This does
+   * increase the latency of the encoding pipeline, so it is not appropriate
+   * in all situations (ex: realtime encoding).
+   *
+   * Note that this is a maximum value -- the encoder may produce frames
+   * sooner than the given limit. Set this value to 0 to disable this
+   * feature.
+   */
     cfg.kf_min_dist = 0;
     cfg.kf_mode = VPX_KF_AUTO; // Encoder determines optimal placement automatically
     cfg.rc_end_usage = VPX_CBR; // quality mode
