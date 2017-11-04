@@ -37,7 +37,7 @@
   Soft deadline the decoder should attempt to meet, in us (microseconds). Set to zero for unlimited.
   By convention, the value 1 is used to mean "return as fast as possible."
 */
-#define MAX_DECODE_TIME_US VPX_DL_GOOD_QUALITY
+#define MAX_DECODE_TIME_US VPX_DL_REALTIME
 /*
 VPX_DL_REALTIME       (1)
 deadline parameter analogous to VPx REALTIME mode.
@@ -49,7 +49,7 @@ VPX_DL_BEST_QUALITY   (0)
 deadline parameter analogous to VPx BEST QUALITY mode.
 */
 
-#define VP8E_SET_CPUUSED_VALUE (2)
+#define VP8E_SET_CPUUSED_VALUE (8)
 /*
 Codec control function to set encoder internal speed settings.
 Changes in this value influences, among others, the encoder's selection of motion estimation methods.
@@ -102,7 +102,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
        Conceal errors in decoded frames
     */
     vpx_codec_dec_cfg_t  dec_cfg;
-    dec_cfg.threads = 3; // Maximum number of threads to use
+    dec_cfg.threads = 4; // Maximum number of threads to use
     dec_cfg.w = 800;
     dec_cfg.h = 600;
     rc = vpx_codec_dec_init(vc->decoder, VIDEO_CODEC_DECODER_INTERFACE, &dec_cfg, VPX_CODEC_USE_FRAME_THREADING);
@@ -144,7 +144,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
    */
     cfg.kf_min_dist = 0;
     cfg.kf_mode = VPX_KF_AUTO; // Encoder determines optimal placement automatically
-    cfg.rc_end_usage = VPX_CBR; // quality mode
+    cfg.rc_end_usage = VPX_CQ; // quality mode
     /*
      VPX_VBR 	Variable Bit Rate (VBR) mode
      VPX_CBR 	Constant Bit Rate (CBR) mode
@@ -345,7 +345,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 
         vpx_codec_ctx_t new_c;
 
-        rc = vpx_codec_enc_init(&new_c, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, 0);
+        rc = vpx_codec_enc_init(&new_c, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, VPX_CODEC_USE_FRAME_THREADING);
 
         if (rc != VPX_CODEC_OK) {
             LOGGER_ERROR(vc->log, "Failed to initialize encoder: %s", vpx_codec_err_to_string(rc));
