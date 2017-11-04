@@ -151,7 +151,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
      VPX_CQ 	Constrained Quality (CQ) mode -> give codec a hint that we may be on low bandwidth connection
      VPX_Q 	  Constant Quality (Q) mode 
      */
-    cfg.kf_max_dist = 48; // a full frame every x frames minimum (can be more often, codec decides automatically)
+    cfg.kf_max_dist = 1; // a full frame every x frames minimum (can be more often, codec decides automatically)
     cfg.g_threads = 4; // Maximum number of threads to use
 
     rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, VPX_CODEC_USE_FRAME_THREADING);
