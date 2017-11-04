@@ -132,7 +132,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     cfg.g_lag_in_frames = 0;
     cfg.kf_min_dist = 0;
     cfg.kf_mode = VPX_KF_AUTO; // Encoder determines optimal placement automatically
-    cfg.rc_end_usage = VPX_VBR; // quality mode
+    cfg.rc_end_usage = VPX_CBR; // quality mode
     /*
      VPX_VBR 	Variable Bit Rate (VBR) mode
      VPX_CBR 	Constant Bit Rate (CBR) mode
