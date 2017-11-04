@@ -37,7 +37,7 @@
   Soft deadline the decoder should attempt to meet, in us (microseconds). Set to zero for unlimited.
   By convention, the value 1 is used to mean "return as fast as possible."
 */
-#define MAX_DECODE_TIME_US VPX_DL_GOOD_QUALITY
+#define MAX_DECODE_TIME_US VPX_DL_BEST_QUALITY
 /*
 VPX_DL_REALTIME       (1)
 deadline parameter analogous to VPx REALTIME mode.
@@ -49,7 +49,7 @@ VPX_DL_BEST_QUALITY   (0)
 deadline parameter analogous to VPx BEST QUALITY mode.
 */
 
-#define VP8E_SET_CPUUSED_VALUE (8)
+#define VP8E_SET_CPUUSED_VALUE (0)
 /*
 Codec control function to set encoder internal speed settings.
 Changes in this value influences, among others, the encoder's selection of motion estimation methods.
@@ -144,14 +144,14 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
    */
     cfg.kf_min_dist = 0;
     cfg.kf_mode = VPX_KF_AUTO; // Encoder determines optimal placement automatically
-    cfg.rc_end_usage = VPX_CQ; // quality mode
+    cfg.rc_end_usage = VPX_CQ; // what quality mode?
     /*
      VPX_VBR 	Variable Bit Rate (VBR) mode
      VPX_CBR 	Constant Bit Rate (CBR) mode
      VPX_CQ 	Constrained Quality (CQ) mode -> give codec a hint that we may be on low bandwidth connection
      VPX_Q 	  Constant Quality (Q) mode 
      */
-    cfg.kf_max_dist = 1; // a full frame every x frames minimum (can be more often, codec decides automatically)
+    cfg.kf_max_dist = 8; // a full frame every x frames minimum (can be more often, codec decides automatically)
     cfg.g_threads = 4; // Maximum number of threads to use
 
     rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, VPX_CODEC_USE_FRAME_THREADING);
