@@ -72,7 +72,7 @@ Supported in codecs: VP8, VP9
  */
 
 #define VIDEO_DECODE_BUFFER_SIZE 20
-#define VIDEO_BITRATE_INITIAL_VALUE 2500 // initialize encoder with this value
+#define VIDEO_BITRATE_INITIAL_VALUE 2500 // initialize encoder with this value. Target bandwidth to use for this stream, in kilobits per second.
 
 VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data)
 {
