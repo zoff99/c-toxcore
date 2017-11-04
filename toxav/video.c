@@ -171,6 +171,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
   control function to set noise sensitivity
     0: off, 1: OnYOnly, 2: OnYUV, 3: OnYUVAggressive, 4: Adaptive
   */
+  /*
     rc = vpx_codec_control(vc->encoder, VP8E_SET_NOISE_SENSITIVITY, 2);
 
     if (rc != VPX_CODEC_OK) {
@@ -178,6 +179,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
         vpx_codec_destroy(vc->encoder);
         goto BASE_CLEANUP_1;
     }
+   */
 
   vc->linfts = current_time_monotonic();
     vc->lcfd = 60;
