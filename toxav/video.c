@@ -83,9 +83,13 @@ Supported in codecs: VP8, VP9
 int global__MAX_DECODE_TIME_US = MAX_DECODE_TIME_US;
 int global__VP8E_SET_CPUUSED_VALUE = VP8E_SET_CPUUSED_VALUE;
 int global__VPX_END_USAGE = VPX_CQ;
+int global__VPX_KF_MAX_DIST = 12;
+int global__VPX_G_LAG_IN_FRAMES = 0;
 
 int global__VP8E_SET_CPUUSED_VALUE__prev_value = VP8E_SET_CPUUSED_VALUE;
 int global__VPX_END_USAGE__prev_value = VPX_CQ;
+int global__VPX_KF_MAX_DIST__prev_value = 12;
+int global__VPX_G_LAG_IN_FRAMES__prev_value = 0;
 // ---------- dirty hack ----------
 // ---------- dirty hack ----------
 // ---------- dirty hack ----------
@@ -146,7 +150,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
 
     /* zoff (in 2017) */
     cfg.g_error_resilient = VPX_ERROR_RESILIENT_DEFAULT | VPX_ERROR_RESILIENT_PARTITIONS;
-    cfg.g_lag_in_frames = 0;
+    cfg.g_lag_in_frames = global__VPX_G_LAG_IN_FRAMES;
   /* Allow lagged encoding
    *
    * If set, this value allows the encoder to consume a number of input
@@ -168,7 +172,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
      VPX_CQ 	Constrained Quality (CQ) mode -> give codec a hint that we may be on low bandwidth connection
      VPX_Q 	  Constant Quality (Q) mode 
      */
-    cfg.kf_max_dist = 12; // a full frame every x frames minimum (can be more often, codec decides automatically)
+    cfg.kf_max_dist = global__VPX_KF_MAX_DIST; // a full frame every x frames minimum (can be more often, codec decides automatically)
     cfg.g_threads = 4; // Maximum number of threads to use
 
     rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, VPX_CODEC_USE_FRAME_THREADING);
@@ -327,66 +331,6 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
     return 0;
 }
 
-#if 0
-int xxxx_vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uint16_t height)
-{
-    if (!vc) {
-        return -1;
-    }
-
-    vpx_codec_enc_cfg_t cfg = *vc->encoder->config.enc;
-    vpx_codec_err_t rc;
-
-    if (cfg.rc_target_bitrate == bit_rate && cfg.g_w == width && cfg.g_h == height) {
-        return 0; /* Nothing changed */
-    }
-
-    if (cfg.g_w == width && cfg.g_h == height) {
-        /* Only bit rate changed */
-        cfg.rc_target_bitrate = bit_rate;
-
-        rc = vpx_codec_enc_config_set(vc->encoder, &cfg);
-
-        if (rc != VPX_CODEC_OK) {
-            LOGGER_ERROR(vc->log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
-            return -1;
-        }
-    } else {
-        /* Resolution is changed, must reinitialize encoder since libvpx v1.4 doesn't support
-         * reconfiguring encoder to use resolutions greater than initially set.
-         */
-
-        LOGGER_DEBUG(vc->log, "Have to reinitialize vpx encoder on session %p", vc);
-
-        cfg.rc_target_bitrate = bit_rate;
-        cfg.g_w = width;
-        cfg.g_h = height;
-
-        vpx_codec_ctx_t new_c;
-
-        rc = vpx_codec_enc_init(&new_c, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, VPX_CODEC_USE_FRAME_THREADING);
-
-        if (rc != VPX_CODEC_OK) {
-            LOGGER_ERROR(vc->log, "Failed to initialize encoder: %s", vpx_codec_err_to_string(rc));
-            return -1;
-        }
-
-        rc = vpx_codec_control(&new_c, VP8E_SET_CPUUSED, global__VP8E_SET_CPUUSED_VALUE);
-
-        if (rc != VPX_CODEC_OK) {
-            LOGGER_ERROR(vc->log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
-            vpx_codec_destroy(&new_c);
-            return -1;
-        }
-
-        vpx_codec_destroy(vc->encoder);
-        memcpy(vc->encoder, &new_c, sizeof(new_c));
-    }
-
-    return 0;
-}
-#endif
-
 
 int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uint16_t height)
 {
@@ -400,12 +344,16 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
     if ((cfg.rc_target_bitrate == bit_rate && cfg.g_w == width && cfg.g_h == height)
 		&& (global__VP8E_SET_CPUUSED_VALUE__prev_value == global__VP8E_SET_CPUUSED_VALUE)
 		&& (global__VPX_END_USAGE__prev_value == global__VPX_END_USAGE)
+		&& (global__VPX_KF_MAX_DIST__prev_value == global__VPX_KF_MAX_DIST)
+		&& (global__VPX_G_LAG_IN_FRAMES__prev_value == global__VPX_G_LAG_IN_FRAMES)
 		) {
         return 0; /* Nothing changed */
     }
 
 		global__VP8E_SET_CPUUSED_VALUE__prev_value = global__VP8E_SET_CPUUSED_VALUE;
 		global__VPX_END_USAGE__prev_value = global__VPX_END_USAGE;
+		global__VPX_KF_MAX_DIST__prev_value = global__VPX_KF_MAX_DIST;
+		global__VPX_G_LAG_IN_FRAMES__prev_value = global__VPX_G_LAG_IN_FRAMES;
 
         LOGGER_DEBUG(vc->log, "Have to reinitialize vpx encoder on session %p", vc);
 
@@ -420,6 +368,10 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 		VPX_CQ 	Constrained Quality (CQ) mode -> give codec a hint that we may be on low bandwidth connection
 		VPX_Q 	  Constant Quality (Q) mode 
 		*/
+
+		cfg.kf_max_dist = global__VPX_KF_MAX_DIST;
+		cfg.g_lag_in_frames = global__VPX_G_LAG_IN_FRAMES;
+
 
         LOGGER_ERROR(vc->log, "encoder: global__VPX_END_USAGE=%d, global__VP8E_SET_CPUUSED_VALUE=%d", (int)global__VPX_END_USAGE, (int)global__VP8E_SET_CPUUSED_VALUE);
 
