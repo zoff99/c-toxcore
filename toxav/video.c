@@ -83,6 +83,9 @@ Supported in codecs: VP8, VP9
 int global__MAX_DECODE_TIME_US = MAX_DECODE_TIME_US;
 int global__VP8E_SET_CPUUSED_VALUE = VP8E_SET_CPUUSED_VALUE;
 int global__VPX_END_USAGE = VPX_CQ;
+
+int global__VP8E_SET_CPUUSED_VALUE__prev_value = global__VP8E_SET_CPUUSED_VALUE;
+int global__VPX_END_USAGE__prev_value = global__VPX_END_USAGE;
 // ---------- dirty hack ----------
 // ---------- dirty hack ----------
 // ---------- dirty hack ----------
@@ -324,6 +327,7 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
     return 0;
 }
 
+#if 0
 int xxxx_vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uint16_t height)
 {
     if (!vc) {
@@ -381,6 +385,7 @@ int xxxx_vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width
 
     return 0;
 }
+#endif
 
 
 int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uint16_t height)
@@ -392,9 +397,15 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
     vpx_codec_enc_cfg_t cfg = *vc->encoder->config.enc;
     vpx_codec_err_t rc;
 
-        /* Resolution is changed, must reinitialize encoder since libvpx v1.4 doesn't support
-         * reconfiguring encoder to use resolutions greater than initially set.
-         */
+    if ((cfg.rc_target_bitrate == bit_rate && cfg.g_w == width && cfg.g_h == height)
+		&& (global__VP8E_SET_CPUUSED_VALUE__prev_value == global__VP8E_SET_CPUUSED_VALUE)
+		&& (global__VPX_END_USAGE__prev_value == global__VPX_END_USAGE)
+		) {
+        return 0; /* Nothing changed */
+    }
+
+		global__VP8E_SET_CPUUSED_VALUE__prev_value = global__VP8E_SET_CPUUSED_VALUE;
+		global__VPX_END_USAGE__prev_value = global__VPX_END_USAGE;
 
         LOGGER_DEBUG(vc->log, "Have to reinitialize vpx encoder on session %p", vc);
 
