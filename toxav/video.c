@@ -84,8 +84,8 @@ int global__MAX_DECODE_TIME_US = MAX_DECODE_TIME_US;
 int global__VP8E_SET_CPUUSED_VALUE = VP8E_SET_CPUUSED_VALUE;
 int global__VPX_END_USAGE = VPX_CQ;
 
-int global__VP8E_SET_CPUUSED_VALUE__prev_value = global__VP8E_SET_CPUUSED_VALUE;
-int global__VPX_END_USAGE__prev_value = global__VPX_END_USAGE;
+int global__VP8E_SET_CPUUSED_VALUE__prev_value = VP8E_SET_CPUUSED_VALUE;
+int global__VPX_END_USAGE__prev_value = VPX_CQ;
 // ---------- dirty hack ----------
 // ---------- dirty hack ----------
 // ---------- dirty hack ----------
