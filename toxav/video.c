@@ -74,6 +74,20 @@ Supported in codecs: VP8, VP9
 #define VIDEO_DECODE_BUFFER_SIZE 20
 #define VIDEO_BITRATE_INITIAL_VALUE 2500 // initialize encoder with this value. Target bandwidth to use for this stream, in kilobits per second.
 
+
+
+
+// ---------- dirty hack ----------
+// ---------- dirty hack ----------
+// ---------- dirty hack ----------
+int global__MAX_DECODE_TIME_US = MAX_DECODE_TIME_US;
+int global__VP8E_SET_CPUUSED_VALUE = VP8E_SET_CPUUSED_VALUE;
+int global__VPX_END_USAGE = VPX_CQ;
+// ---------- dirty hack ----------
+// ---------- dirty hack ----------
+// ---------- dirty hack ----------
+
+
 VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data)
 {
     VCSession *vc = (VCSession *)calloc(sizeof(VCSession), 1);
@@ -144,7 +158,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
    */
     cfg.kf_min_dist = 0;
     cfg.kf_mode = VPX_KF_AUTO; // Encoder determines optimal placement automatically
-    cfg.rc_end_usage = VPX_CQ; // what quality mode?
+    cfg.rc_end_usage = global__VPX_END_USAGE // what quality mode?
     /*
      VPX_VBR 	Variable Bit Rate (VBR) mode
      VPX_CBR 	Constant Bit Rate (CBR) mode
@@ -170,7 +184,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
       Valid range for VP8: -16..16 
       Valid range for VP9: -8..8
     */
-    rc = vpx_codec_control(vc->encoder, VP8E_SET_CPUUSED, VP8E_SET_CPUUSED_VALUE);
+    rc = vpx_codec_control(vc->encoder, VP8E_SET_CPUUSED, global__VP8E_SET_CPUUSED_VALUE);
 
     if (rc != VPX_CODEC_OK) {
         LOGGER_ERROR(log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
@@ -248,7 +262,7 @@ void vc_iterate(VCSession *vc)
     if (rb_read((RingBuffer *)vc->vbuf_raw, (void **)&p)) {
         pthread_mutex_unlock(vc->queue_mutex);
 
-        rc = vpx_codec_decode(vc->decoder, p->data, p->len, NULL, MAX_DECODE_TIME_US);
+        rc = vpx_codec_decode(vc->decoder, p->data, p->len, NULL, global__MAX_DECODE_TIME_US);
         free(p);
 
         if (rc != VPX_CODEC_OK) {
@@ -309,7 +323,8 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
 
     return 0;
 }
-int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uint16_t height)
+
+int xxxx_vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uint16_t height)
 {
     if (!vc) {
         return -1;
@@ -352,7 +367,82 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
             return -1;
         }
 
-        rc = vpx_codec_control(&new_c, VP8E_SET_CPUUSED, VP8E_SET_CPUUSED_VALUE);
+        rc = vpx_codec_control(&new_c, VP8E_SET_CPUUSED, global__VP8E_SET_CPUUSED_VALUE);
+
+        if (rc != VPX_CODEC_OK) {
+            LOGGER_ERROR(vc->log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
+            vpx_codec_destroy(&new_c);
+            return -1;
+        }
+
+        vpx_codec_destroy(vc->encoder);
+        memcpy(vc->encoder, &new_c, sizeof(new_c));
+    }
+
+    return 0;
+}
+
+
+int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uint16_t height)
+{
+    if (!vc) {
+        return -1;
+    }
+
+    vpx_codec_enc_cfg_t cfg = *vc->encoder->config.enc;
+    vpx_codec_err_t rc;
+
+    if (cfg.rc_target_bitrate == bit_rate && cfg.g_w == width && cfg.g_h == height) {
+        return 0; /* Nothing changed */
+    }
+
+    if (cfg.g_w == width && cfg.g_h == height) {
+        /* Only bit rate changed */
+        cfg.rc_target_bitrate = bit_rate;
+		cfg.rc_end_usage = global__VPX_END_USAGE; // what quality mode?
+		/*
+		VPX_VBR 	Variable Bit Rate (VBR) mode
+		VPX_CBR 	Constant Bit Rate (CBR) mode
+		VPX_CQ 	Constrained Quality (CQ) mode -> give codec a hint that we may be on low bandwidth connection
+		VPX_Q 	  Constant Quality (Q) mode 
+		*/
+
+        rc = vpx_codec_enc_config_set(vc->encoder, &cfg);
+
+        if (rc != VPX_CODEC_OK) {
+            LOGGER_ERROR(vc->log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
+            return -1;
+        }
+    } else {
+        /* Resolution is changed, must reinitialize encoder since libvpx v1.4 doesn't support
+         * reconfiguring encoder to use resolutions greater than initially set.
+         */
+
+        LOGGER_DEBUG(vc->log, "Have to reinitialize vpx encoder on session %p", vc);
+
+        cfg.rc_target_bitrate = bit_rate;
+        cfg.g_w = width;
+        cfg.g_h = height;
+
+		cfg.rc_end_usage = global__VPX_END_USAGE; // what quality mode?
+		/*
+		VPX_VBR 	Variable Bit Rate (VBR) mode
+		VPX_CBR 	Constant Bit Rate (CBR) mode
+		VPX_CQ 	Constrained Quality (CQ) mode -> give codec a hint that we may be on low bandwidth connection
+		VPX_Q 	  Constant Quality (Q) mode 
+		*/
+
+
+        vpx_codec_ctx_t new_c;
+
+        rc = vpx_codec_enc_init(&new_c, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, VPX_CODEC_USE_FRAME_THREADING);
+
+        if (rc != VPX_CODEC_OK) {
+            LOGGER_ERROR(vc->log, "Failed to initialize encoder: %s", vpx_codec_err_to_string(rc));
+            return -1;
+        }
+
+        rc = vpx_codec_control(&new_c, VP8E_SET_CPUUSED, global__VP8E_SET_CPUUSED_VALUE);
 
         if (rc != VPX_CODEC_OK) {
             LOGGER_ERROR(vc->log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
