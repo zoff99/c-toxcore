@@ -82,12 +82,12 @@ Supported in codecs: VP8, VP9
 // ---------- dirty hack ----------
 int global__MAX_DECODE_TIME_US = MAX_DECODE_TIME_US;
 int global__VP8E_SET_CPUUSED_VALUE = VP8E_SET_CPUUSED_VALUE;
-int global__VPX_END_USAGE = VPX_CQ;
+int global__VPX_END_USAGE = VPX_VBR;
 int global__VPX_KF_MAX_DIST = 12;
 int global__VPX_G_LAG_IN_FRAMES = 0;
 
 int global__VP8E_SET_CPUUSED_VALUE__prev_value = VP8E_SET_CPUUSED_VALUE;
-int global__VPX_END_USAGE__prev_value = VPX_CQ;
+int global__VPX_END_USAGE__prev_value = VPX_VBR;
 int global__VPX_KF_MAX_DIST__prev_value = 12;
 int global__VPX_G_LAG_IN_FRAMES__prev_value = 0;
 // ---------- dirty hack ----------
