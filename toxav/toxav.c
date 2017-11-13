@@ -35,7 +35,24 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_ENCODE_TIME_US ((1000 / 24) * 1000)
+// don't hardcode this, let the application choose it
+#define MAX_ENCODE_TIME_US VPX_DL_BEST_QUALITY // ((1000 / 24) * 1000)
+/*
+VPX_DL_REALTIME       (1)       deadline parameter analogous to VPx REALTIME mode.
+VPX_DL_GOOD_QUALITY   (1000000) deadline parameter analogous to VPx GOOD QUALITY mode.
+VPX_DL_BEST_QUALITY   (0)       deadline parameter analogous to VPx BEST QUALITY mode.
+*/
+
+// ---------- dirty hack ----------
+// ---------- dirty hack ----------
+// ---------- dirty hack ----------
+int global__MAX_ENCODE_TIME_US = MAX_ENCODE_TIME_US;
+
+int global__MAX_ENCODE_TIME_US__prev_value = MAX_ENCODE_TIME_US;
+// ---------- dirty hack ----------
+// ---------- dirty hack ----------
+// ---------- dirty hack ----------
+
 
 typedef struct ToxAVCall_s {
     ToxAV *av;
@@ -795,7 +812,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         memcpy(img.planes[VPX_PLANE_V], v, (width / 2) * (height / 2));
 
         vpx_codec_err_t vrc = vpx_codec_encode(call->video.second->encoder, &img,
-                                               call->video.second->frame_counter, 1, 0, MAX_ENCODE_TIME_US);
+                                               call->video.second->frame_counter, 1, 0, global__MAX_ENCODE_TIME_US);
 
         vpx_img_free(&img);
 
