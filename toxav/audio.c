@@ -29,6 +29,8 @@
 
 #include <stdlib.h>
 
+#define GLOBAL__OPUS_PACKET_LOSS_PERC (10) // Loss percentage in the range 0-100, inclusive (default: 0)
+#define GLOBAL__OPUS_COMPLEXITY (6) // The supported range is 0-10 inclusive with 10 representing the highest complexity
 
 #define JITTER_BUFFER_SIZE 3
 
@@ -407,7 +409,7 @@ OPUS_APPLICATION_RESTRICTED_LOWDELAY configures low-delay mode that disables the
      *      with feedback from the receiving client.
      */
     // opus_int32: Loss percentage in the range 0-100, inclusive (default: 0). 
-    status = opus_encoder_ctl(rc, OPUS_SET_PACKET_LOSS_PERC(15));
+    status = opus_encoder_ctl(rc, OPUS_SET_PACKET_LOSS_PERC(GLOBAL__OPUS_PACKET_LOSS_PERC));
 
     if (status != OPUS_OK) {
         LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
@@ -435,11 +437,10 @@ OPUS_BANDWIDTH_FULLBAND
         goto FAILURE;
     }
 
-
     /* Set algorithm to the highest complexity, maximizing compression */
     // HINT: http://opus-codec.org/docs/opus_api-1.2/group__opus__encoderctls.html
-    // opus_int32: Allowed values: 0-10, inclusive. 
-    status = opus_encoder_ctl(rc, OPUS_SET_COMPLEXITY(10));
+    // opus_int32: Allowed values: 0-10, inclusive.
+    status = opus_encoder_ctl(rc, OPUS_SET_COMPLEXITY(GLOBAL__OPUS_COMPLEXITY));
 
     if (status != OPUS_OK) {
         LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
