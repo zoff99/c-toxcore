@@ -31,6 +31,7 @@
 
 #define GLOBAL__OPUS_PACKET_LOSS_PERC (10) // Loss percentage in the range 0-100, inclusive (default: 0)
 #define GLOBAL__OPUS_COMPLEXITY (6) // The supported range is 0-10 inclusive with 10 representing the highest complexity
+#define GLOBAL__OPUS_SIGNAL OPUS_SIGNAL_VOICE // This is a hint which helps the encoder's mode selection
 
 #define JITTER_BUFFER_SIZE 3
 
@@ -441,6 +442,15 @@ OPUS_BANDWIDTH_FULLBAND
     // HINT: http://opus-codec.org/docs/opus_api-1.2/group__opus__encoderctls.html
     // opus_int32: Allowed values: 0-10, inclusive.
     status = opus_encoder_ctl(rc, OPUS_SET_COMPLEXITY(GLOBAL__OPUS_COMPLEXITY));
+
+    if (status != OPUS_OK) {
+        LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
+        goto FAILURE;
+    }
+
+    /* Configures the type of signal being encoded. This is a hint which helps the encoder's mode selection. */
+    // opus_int32: Allowed values: OPUS_AUTO / OPUS_SIGNAL_VOICE/ OPUS_SIGNAL_MUSIC
+    status = opus_encoder_ctl(rc, OPUS_SET_SIGNAL(GLOBAL__OPUS_SIGNAL));
 
     if (status != OPUS_OK) {
         LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
