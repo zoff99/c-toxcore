@@ -1796,6 +1796,9 @@ int m_callback_rtp_packet(Messenger *m, int32_t friendnumber, uint8_t byte, int 
         return -1;
     }
 
+    LOGGER_ERROR(m->log, "m_callback_rtp_packet: packet id=%d\n", (int) byte);
+
+
     if (byte < PACKET_ID_LOSSY_RANGE_START) {
         return -1;
     }
@@ -1849,6 +1852,8 @@ static int handle_custom_lossless_packet(void *object, int friend_num, const uin
     if (friend_not_valid(m, friend_num)) {
         return -1;
     }
+
+    LOGGER_ERROR(m->log, "handle_custom_lossless_packet: packet[0]=%d\n", (int) packet[0]);
 
     if (packet[0] < PACKET_ID_LOSSLESS_RANGE_START) {
         return -1;

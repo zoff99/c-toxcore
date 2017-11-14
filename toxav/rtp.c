@@ -130,8 +130,11 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
 
     header->ma = 0;
     header->pt = session->payload_type % 128;
+    LOGGER_WARNING(log, "header->pt = %d, session->payload_type=%d", (int)header->pt, (int)session->payload_type);
 
     header->sequnum = net_htons(session->sequnum);
+    LOGGER_WARNING(log, "header->sequnum = %d", (int)header->sequnum);
+
     header->timestamp = net_htonl(current_time_monotonic());
     header->ssrc = net_htonl(session->ssrc);
 
@@ -147,7 +150,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
 
         memcpy(rdata + 1 + sizeof(struct RTPHeader), data, length);
 
-        if (-1 == m_send_custom_lossy_packet(session->m, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
+        if (-1 == send_custom_lossless_packet(session->m, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
             LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
         }
     } else {
@@ -163,7 +166,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
         while ((length - sent) + sizeof(struct RTPHeader) + 1 > MAX_CRYPTO_DATA_SIZE) {
             memcpy(rdata + 1 + sizeof(struct RTPHeader), data + sent, piece);
 
-            if (-1 == m_send_custom_lossy_packet(session->m, session->friend_number,
+            if (-1 == send_custom_lossless_packet(session->m, session->friend_number,
                                                  rdata, piece + sizeof(struct RTPHeader) + 1)) {
                 LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s",
                                piece + sizeof(struct RTPHeader) + 1, strerror(errno));
@@ -179,7 +182,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
         if (piece) {
             memcpy(rdata + 1 + sizeof(struct RTPHeader), data + sent, piece);
 
-            if (-1 == m_send_custom_lossy_packet(session->m, session->friend_number, rdata,
+            if (-1 == send_custom_lossless_packet(session->m, session->friend_number, rdata,
                                                  piece + sizeof(struct RTPHeader) + 1)) {
                 LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s",
                                piece + sizeof(struct RTPHeader) + 1, strerror(errno));
