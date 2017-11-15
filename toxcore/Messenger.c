@@ -1766,6 +1766,19 @@ static int m_handle_custom_lossy_packet(void *object, int friend_num, const uint
         return 1;
     }
 
+
+// Zoff ---
+    if (packet[0] == (171)) {
+        if (m->friendlist[friend_num].lossy_rtp_packethandlers[5].function) {
+            return m->friendlist[friend_num].lossy_rtp_packethandlers[5].function(
+                       m, friend_num, packet, length, m->friendlist[friend_num].lossy_rtp_packethandlers[5].object);
+        }
+
+        return 1;
+    }
+// Zoff ---
+
+
     if (packet[0] < (PACKET_ID_LOSSY_RANGE_START + PACKET_LOSSY_AV_RESERVED)) {
         if (m->friendlist[friend_num].lossy_rtp_packethandlers[packet[0] % PACKET_LOSSY_AV_RESERVED].function) {
             return m->friendlist[friend_num].lossy_rtp_packethandlers[packet[0] % PACKET_LOSSY_AV_RESERVED].function(
@@ -1798,6 +1811,15 @@ int m_callback_rtp_packet(Messenger *m, int32_t friendnumber, uint8_t byte, int 
 
     LOGGER_ERROR(m->log, "m_callback_rtp_packet: packet id=%d\n", (int) byte);
 
+
+// Zoff ----
+    if (byte == 171) {
+	    m->friendlist[friendnumber].lossy_rtp_packethandlers[5].function =
+	        packet_handler_callback;
+	    m->friendlist[friendnumber].lossy_rtp_packethandlers[5].object = object;
+	    return 0;
+    }
+// Zoff ----
 
     if (byte < PACKET_ID_LOSSY_RANGE_START) {
         return -1;

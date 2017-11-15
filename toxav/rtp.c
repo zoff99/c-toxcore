@@ -121,6 +121,14 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
 
     rdata[0] = session->payload_type;
 
+// Zoff --
+    if (session->payload_type == 193)
+	{
+		// video payload
+		rdata[0] = 171; // rewrite to lossless!
+	}
+// Zoff --
+
     struct RTPHeader *header = (struct RTPHeader *)(rdata + 1);
 
     header->ve = 2;
@@ -410,3 +418,4 @@ NEW_MULTIPARTED:
 
     return 0;
 }
+
