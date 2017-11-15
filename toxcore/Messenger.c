@@ -1767,18 +1767,6 @@ static int m_handle_custom_lossy_packet(void *object, int friend_num, const uint
     }
 
 
-// Zoff ---
-    if (packet[0] == (171)) {
-        if (m->friendlist[friend_num].lossy_rtp_packethandlers[5].function) {
-            return m->friendlist[friend_num].lossy_rtp_packethandlers[5].function(
-                       m, friend_num, packet, length, m->friendlist[friend_num].lossy_rtp_packethandlers[5].object);
-        }
-
-        return 1;
-    }
-// Zoff ---
-
-
     if (packet[0] < (PACKET_ID_LOSSY_RANGE_START + PACKET_LOSSY_AV_RESERVED)) {
         if (m->friendlist[friend_num].lossy_rtp_packethandlers[packet[0] % PACKET_LOSSY_AV_RESERVED].function) {
             return m->friendlist[friend_num].lossy_rtp_packethandlers[packet[0] % PACKET_LOSSY_AV_RESERVED].function(
@@ -1876,6 +1864,19 @@ static int handle_custom_lossless_packet(void *object, int friend_num, const uin
     }
 
     LOGGER_ERROR(m->log, "handle_custom_lossless_packet: packet[0]=%d\n", (int) packet[0]);
+
+// Zoff ---
+    if (packet[0] == (171)) {
+        if (m->friendlist[friend_num].lossy_rtp_packethandlers[5].function) {
+            return m->friendlist[friend_num].lossy_rtp_packethandlers[5].function(
+                       m, friend_num, packet, length, m->friendlist[friend_num].lossy_rtp_packethandlers[5].object);
+        }
+
+        return 1;
+    }
+// Zoff ---
+
+
 
     if (packet[0] < PACKET_ID_LOSSLESS_RANGE_START) {
         return -1;
