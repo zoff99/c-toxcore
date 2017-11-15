@@ -89,6 +89,20 @@ int rtp_allow_receiving(RTPSession *session)
         return -1;
     }
 
+// Zoff --
+    LOGGER_ERROR(session->m->log, "Started receiving on session: %p session->payload_type=%d", session, (int)session->payload_type);
+
+	if (session->payload_type == 193)
+	{
+	    if (m_callback_rtp_packet(session->m, session->friend_number, 171,
+		                      handle_rtp_packet, session) == -1) {
+		LOGGER_WARNING(session->m->log, "Failed to register rtp receive handler");
+		return -1;
+	    }
+	}
+// Zoff --
+
+
     if (m_callback_rtp_packet(session->m, session->friend_number, session->payload_type,
                               handle_rtp_packet, session) == -1) {
         LOGGER_WARNING(session->m->log, "Failed to register rtp receive handler");
@@ -105,6 +119,15 @@ int rtp_stop_receiving(RTPSession *session)
     }
 
     m_callback_rtp_packet(session->m, session->friend_number, session->payload_type, NULL, NULL);
+
+// Zoff --
+    LOGGER_ERROR(session->m->log, "Stopped receiving on session: %p session->payload_type=%d", session, (int)session->payload_type);
+
+	if (session->payload_type == 193)
+	{
+    m_callback_rtp_packet(session->m, session->friend_number, 171, NULL, NULL);
+	}
+// Zoff --
 
     LOGGER_DEBUG(session->m->log, "Stopped receiving on session: %p", session);
     return 0;

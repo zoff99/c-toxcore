@@ -1867,7 +1867,13 @@ static int handle_custom_lossless_packet(void *object, int friend_num, const uin
 
 // Zoff ---
     if (packet[0] == (171)) {
+
+    LOGGER_ERROR(m->log, "handle_custom_lossless_packet.1: packet[0]=%d\n", (int) packet[0]);
+
         if (m->friendlist[friend_num].lossy_rtp_packethandlers[5].function) {
+
+    LOGGER_ERROR(m->log, "handle_custom_lossless_packet.2: packet[0]=%d\n", (int) packet[0]);
+
             return m->friendlist[friend_num].lossy_rtp_packethandlers[5].function(
                        m, friend_num, packet, length, m->friendlist[friend_num].lossy_rtp_packethandlers[5].object);
         }
