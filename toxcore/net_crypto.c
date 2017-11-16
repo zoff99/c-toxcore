@@ -30,6 +30,7 @@
 #include "net_crypto.h"
 
 #include "util.h"
+// #include "logger.h"
 
 #include <math.h>
 
@@ -2594,12 +2595,18 @@ int64_t write_cryptpacket(Net_Crypto *c, int crypt_connection_id, const uint8_t 
     }
 
     if (congestion_control && conn->packets_left == 0) {
+        LOGGER_ERROR(c->log, "congestion_control=%d, conn->packets_left=%d, conn->packets_left_requested=%d, conn->packets_sent=%d\n",
+                    (int)congestion_control,
+                    (int)conn->packets_left,
+                    (int)conn->packets_left_requested,
+                    (int)conn->packets_sent);
         return -1;
     }
 
     int64_t ret = send_lossless_packet(c, crypt_connection_id, data, length, congestion_control);
 
     if (ret == -1) {
+        LOGGER_ERROR(c->log, "send_lossless_packet failed! data[0]=%d\n", (int)data[0]);
         return -1;
     }
 
