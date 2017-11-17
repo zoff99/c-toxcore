@@ -82,7 +82,7 @@ char *logger_dumphex(const void* data, size_t size) {
 	ascii[16] = '\0';
 
 	long dump_size = 0;
-	printf("logger_dumphex:001\n");
+	printf("logger_dumphex:001:size=%d\n", (int)size);
 
 	for (i = 0; i < size; ++i) {
 		dump_size = dump_size + 3;
@@ -111,7 +111,7 @@ char *logger_dumphex(const void* data, size_t size) {
 		}
 	}
 
-	printf("logger_dumphex:002:dump_size=%d\n", (int)dump_size);
+	printf("logger_dumphex:002:size=%d:dump_size=%d\n", (int)size, (int)dump_size);
 
 	char *log_msg = calloc(1, (size_t)(dump_size * 2));
 	char *log_msg_orig = log_msg;
@@ -140,7 +140,7 @@ char *logger_dumphex(const void* data, size_t size) {
 		}
 	}
 
-	printf("logger_dumphex:003\n");
+	printf("logger_dumphex:003:size=%d\n", (int)size);
 
 	return log_msg_orig;
 }

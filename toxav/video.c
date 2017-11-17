@@ -343,7 +343,7 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
     void *ret = rb_write((RingBuffer *)vc->vbuf_raw, msg);
     LOGGER_WARNING(vc->log, "vc_queue_message:rb_write ret=%p --> len=%d", ret, (int)msg->len);
     char *lmsg = logger_dumphex((const void*) msg->data, (size_t)msg->len);
-    LOGGER_WARNING(vc->log, "vc_queue_message:rb_write:data --> \n%s", lmsg);
+    LOGGER_WARNING(vc->log, "vc_queue_message:rb_write:data --> len=%d\n%s", (int)msg->len, lmsg);
 	free(lmsg);
     free(ret);
 

@@ -371,6 +371,11 @@ int sendpacket(Networking_Core *net, IP_Port ip_port, const uint8_t *data, uint1
         return -1;
     }
 
+	LOGGER_ERROR(net->log, "sendpacket:len=%d data[0]=%d", length, (int)data[0]);
+    char *lmsg = logger_dumphex((const void*) data, (size_t)length);
+    LOGGER_WARNING(net->log, "sendpacket:data --> len=%d\n%s", (int)length, lmsg);
+	free(lmsg);
+
     struct sockaddr_storage addr;
 
     size_t addrsize = 0;
@@ -443,7 +448,7 @@ static int receivepacket(Logger *log, Socket sock, IP_Port *ip_port, uint8_t *da
     *length = 0;
     int fail_or_len = recvfrom(sock, (char *) data, MAX_UDP_PACKET_SIZE, 0, (struct sockaddr *)&addr, &addrlen);
 
-	LOGGER_ERROR(log, "recvfrom:fail_or_len=%d", fail_or_len);
+	LOGGER_ERROR(log, "recvfrom:fail_or_len=%d data[0]=%d", fail_or_len, (int)data[0]);
 
     if (fail_or_len < 0) {
 
