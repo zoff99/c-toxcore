@@ -172,6 +172,10 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
     header->cpart = 0;
     header->tlen = net_htons(length);
 
+    LOGGER_WARNING(log, "rtp_send_data --> len=%d", (int)length);
+    logger_dumphex((const void*) data, (size_t)length);
+
+
     if (MAX_CRYPTO_DATA_SIZE > length + sizeof(struct RTPHeader) + 1) {
 
         /**
@@ -274,8 +278,12 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
 
     RTPSession *session = (RTPSession *)object;
 
+    LOGGER_WARNING(log, "handle_rtp_packet(a) --> len=%d", (int)length);
+
     data ++;
     length--;
+
+    LOGGER_WARNING(log, "handle_rtp_packet(b) --> len=%d", (int)length);
 
     if (!session || length < sizeof(struct RTPHeader)) {
         LOGGER_WARNING(m->log, "No session or invalid length of received buffer!");
