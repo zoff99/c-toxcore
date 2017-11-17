@@ -182,11 +182,13 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
     if (MAX_CRYPTO_DATA_SIZE > length + sizeof(struct RTPHeader) + 1) {
 
         /**
-         * The lenght is lesser than the maximum allowed lenght (including header)
+         * The length is less than the maximum allowed length (including header)
          * Send the packet in single piece.
          */
 
         memcpy(rdata + 1 + sizeof(struct RTPHeader), data, length);
+
+		LOGGER_WARNING(log, "rtp_send_data (1 piece) --> len=%d", (int)length);
 
         if (-1 == send_custom_lossless_packet(session->m, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
             LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
@@ -194,15 +196,22 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
     } else {
 
         /**
-         * The lenght is greater than the maximum allowed lenght (including header)
+         * The length is greater than the maximum allowed length (including header)
          * Send the packet in multiple pieces.
          */
 
         uint16_t sent = 0;
         uint16_t piece = MAX_CRYPTO_DATA_SIZE - (sizeof(struct RTPHeader) + 1);
 
+		LOGGER_WARNING(log, "rtp_send_data (multiple pieces) [0] --> sent=%d piece=%d", (int)sent, (int)piece);
+
+		long countme = 0;
+
         while ((length - sent) + sizeof(struct RTPHeader) + 1 > MAX_CRYPTO_DATA_SIZE) {
             memcpy(rdata + 1 + sizeof(struct RTPHeader), data + sent, piece);
+
+			countme++;
+			LOGGER_WARNING(log, "rtp_send_data (multiple pieces) [%d] --> sent=%d piece=%d", (int)countme, (int)sent, (int)piece);
 
             if (-1 == send_custom_lossless_packet(session->m, session->friend_number,
                                                  rdata, piece + sizeof(struct RTPHeader) + 1)) {
@@ -219,6 +228,9 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
 
         if (piece) {
             memcpy(rdata + 1 + sizeof(struct RTPHeader), data + sent, piece);
+
+			countme++;
+			LOGGER_WARNING(log, "rtp_send_data (Send remaining) [%d] --> sent=%d piece=%d", (int)countme, (int)sent, (int)piece);
 
             if (-1 == send_custom_lossless_packet(session->m, session->friend_number, rdata,
                                                  piece + sizeof(struct RTPHeader) + 1)) {
@@ -375,18 +387,23 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
          * processing message
          */
 
+		LOGGER_WARNING(m->log, "session->mp->header.sequnum=%d session->mp->header.timestamp=%d", (int)session->mp->header.sequnum ,(int)session->mp->header.timestamp);
+
         if (session->mp->header.sequnum == net_ntohs(header->sequnum) &&
                 session->mp->header.timestamp == net_ntohl(header->timestamp))
         {
             /* First case */
+			LOGGER_WARNING(m->log, "++ 1) being that we got the part of already processing message");
 
             /* Make sure we have enough allocated memory */
             if (session->mp->header.tlen - session->mp->len < length - sizeof(struct RTPHeader) ||
                     session->mp->header.tlen <= net_ntohs(header->cpart))
             {
                 /* There happened to be some corruption on the stream;
-                 * continue wihtout this part
+                 * continue without this part
                  */
+				LOGGER_WARNING(m->log, "There happened to be some corruption on the stream, continue without this part");
+
                 return 0;
             }
 
@@ -399,6 +416,9 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
 
             if (session->mp->len == session->mp->header.tlen)
             {
+
+				LOGGER_WARNING(m->log, "Received a full message. session->mp->len=%d", (int)session->mp->len);
+
                 /* Received a full message; now push it for the further
                  * processing.
                  */
@@ -417,9 +437,13 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
         else
         {
             /* Second case */
+			LOGGER_WARNING(m->log, "++ 2) being that we got the part of a new/old message [you have already LOST!]");
 
             if (session->mp->header.timestamp > net_ntohl(header->timestamp))
             {
+
+				LOGGER_WARNING(m->log, "The received message part is from the old message. session->mp->header.timestamp=%d", (int)session->mp->header.timestamp);
+
                 /* The received message part is from the old message;
                  * discard it.
                  */
