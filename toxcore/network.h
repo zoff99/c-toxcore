@@ -72,7 +72,8 @@ typedef short Family;
 typedef int Socket;
 Socket net_socket(int domain, int type, int protocol);
 
-#define MAX_UDP_PACKET_SIZE 2048
+// #define MAX_UDP_PACKET_SIZE 2048
+#define MAX_UDP_PACKET_SIZE 65507
 
 typedef enum NET_PACKET_TYPE {
     NET_PACKET_PING_REQUEST         = 0x00, /* Ping request packet ID. */
