@@ -256,6 +256,7 @@ void vc_kill(VCSession *vc)
     LOGGER_DEBUG(vc->log, "Terminated video handler: %p", vc);
     free(vc);
 }
+
 void vc_iterate(VCSession *vc)
 {
     if (!vc) {
@@ -271,6 +272,8 @@ void vc_iterate(VCSession *vc)
     if (rb_read((RingBuffer *)vc->vbuf_raw, (void **)&p)) {
         pthread_mutex_unlock(vc->queue_mutex);
 
+        LOGGER_ERROR(vc->log, "vc_iterate: rb_read");
+
         rc = vpx_codec_decode(vc->decoder, p->data, p->len, NULL, global__MAX_DECODE_TIME_US);
         free(p);
 
@@ -279,6 +282,17 @@ void vc_iterate(VCSession *vc)
         } else {
             vpx_codec_iter_t iter = NULL;
             vpx_image_t *dest = vpx_codec_get_frame(vc->decoder, &iter);
+            LOGGER_ERROR(vc->log, "vpx_codec_get_frame=%p", dest);
+
+            if (dest != NULL)
+	    {
+                if (vc->vcb.first) {
+                    vc->vcb.first(vc->av, vc->friend_number, dest->d_w, dest->d_h,
+                                  (const uint8_t *)dest->planes[0], (const uint8_t *)dest->planes[1], (const uint8_t *)dest->planes[2],
+                                  dest->stride[0], dest->stride[1], dest->stride[2], vc->vcb.second);
+                }
+		vpx_img_free(dest);
+	    }
 
             /* Play decoded images */
             for (; dest; dest = vpx_codec_get_frame(vc->decoder, &iter)) {
@@ -301,6 +315,7 @@ void vc_iterate(VCSession *vc)
 
     pthread_mutex_unlock(vc->queue_mutex);
 }
+
 int vc_queue_message(void *vcp, struct RTPMessage *msg)
 {
     /* This function does the reconstruction of video packets.
@@ -325,13 +340,17 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
     }
 
     pthread_mutex_lock(vc->queue_mutex);
-    free(rb_write((RingBuffer *)vc->vbuf_raw, msg));
-    {
+    void *ret = rb_write((RingBuffer *)vc->vbuf_raw, msg);
+    LOGGER_WARNING(vc->log, "vc_queue_message:rb_write ret=%p", ret);
+    free(ret);
+
+   //{
         /* Calculate time took for peer to send us this frame */
         uint32_t t_lcfd = current_time_monotonic() - vc->linfts;
         vc->lcfd = t_lcfd > 100 ? vc->lcfd : t_lcfd;
         vc->linfts = current_time_monotonic();
-    }
+    //}
+
     pthread_mutex_unlock(vc->queue_mutex);
 
     return 0;
