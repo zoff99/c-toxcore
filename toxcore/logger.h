@@ -25,6 +25,7 @@
 #define TOXLOGGER_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 #ifndef MIN_LOGGER_LEVEL
 #define MIN_LOGGER_LEVEL LOG_INFO
