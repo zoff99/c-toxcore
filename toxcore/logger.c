@@ -75,3 +75,84 @@ void logger_write(Logger *log, LOGGER_LEVEL level, const char *file, int line, c
 
     log->callback(log->context, level, file, line, func, msg, log->userdata);
 }
+
+void logger_dumphex(const void* data, size_t size) {
+	char ascii[17];
+	size_t i, j;
+	ascii[16] = '\0';
+	for (i = 0; i < size; ++i) {
+		printf("%02X ", ((unsigned char*)data)[i]);
+		if (((unsigned char*)data)[i] >= ' ' && ((unsigned char*)data)[i] <= '~') {
+			ascii[i % 16] = ((unsigned char*)data)[i];
+		} else {
+			ascii[i % 16] = '.';
+		}
+		if ((i+1) % 8 == 0 || i+1 == size) {
+			printf(" ");
+			if ((i+1) % 16 == 0) {
+				printf("|  %s \n", ascii);
+			} else if (i+1 == size) {
+				ascii[(i+1) % 16] = '\0';
+				if ((i+1) % 16 <= 8) {
+					printf(" ");
+				}
+				for (j = (i+1) % 16; j < 16; ++j) {
+					printf("   ");
+				}
+				printf("|  %s \n", ascii);
+			}
+		}
+	}
+}
+
+void logger_hexdump_XX(char *desc, void *addr, int len) {
+    int i;
+    unsigned char buff[17];
+    unsigned char *pc = (unsigned char*)addr;
+
+    // Output description if given.
+    if (desc != NULL)
+        printf ("%s:\n", desc);
+
+    if (len == 0) {
+        printf("  ZERO LENGTH\n");
+        return;
+    }
+    if (len < 0) {
+        printf("  NEGATIVE LENGTH: %i\n",len);
+        return;
+    }
+
+    // Process every byte in the data.
+    for (i = 0; i < len; i++) {
+        // Multiple of 16 means new line (with line offset).
+
+        if ((i % 16) == 0) {
+            // Just don't print ASCII for the zeroth line.
+            if (i != 0)
+                printf ("  %s\n", buff);
+
+            // Output the offset.
+            printf ("  %04x ", i);
+        }
+
+        // Now the hex code for the specific character.
+        printf (" %02x", pc[i]);
+
+        // And store a printable ASCII character for later.
+        if ((pc[i] < 0x20) || (pc[i] > 0x7e))
+            buff[i % 16] = '.';
+        else
+            buff[i % 16] = pc[i];
+        buff[(i % 16) + 1] = '\0';
+    }
+
+    // Pad out last line if not exactly 16 characters.
+    while ((i % 16) != 0) {
+        printf ("   ");
+        i++;
+    }
+
+    // And print the final ASCII bit.
+    printf ("  %s\n", buff);
+}
