@@ -177,6 +177,10 @@ void vc_iterate(VCSession *vc)
                 vpx_img_free(dest);
             }
         }
+        else
+        {
+            LOGGER_ERROR(vc->log, "Error decoding video: rb_read");
+        }
 
         return;
     }
