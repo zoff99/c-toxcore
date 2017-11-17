@@ -294,6 +294,10 @@ void vc_iterate(VCSession *vc)
 
         return;
     }
+    else
+    {
+        LOGGER_ERROR(vc->log, "Error decoding video: rb_read");
+    }
 
     pthread_mutex_unlock(vc->queue_mutex);
 }
