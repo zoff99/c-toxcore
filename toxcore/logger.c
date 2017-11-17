@@ -76,7 +76,7 @@ void logger_write(Logger *log, LOGGER_LEVEL level, const char *file, int line, c
     log->callback(log->context, level, file, line, func, msg, log->userdata);
 }
 
-void logger_dumphex(const void* data, size_t size) {
+char *logger_dumphex(const void* data, size_t size) {
 	char ascii[17];
 	size_t i, j;
 	ascii[16] = '\0';
@@ -110,31 +110,31 @@ void logger_dumphex(const void* data, size_t size) {
 		}
 	}
 
-	char *log_msg = calloc(1, (size_t)dump_size);
+	char *log_msg = calloc(1, (size_t)(dump_size + 1));
 
 	for (i = 0; i < size; ++i) {
-		printf("%02X ", ((unsigned char*)data)[i]);
+		log_msg = sprintf(log_msg, "%02X ", ((unsigned char*)data)[i]);
 		if (((unsigned char*)data)[i] >= ' ' && ((unsigned char*)data)[i] <= '~') {
 			ascii[i % 16] = ((unsigned char*)data)[i];
 		} else {
 			ascii[i % 16] = '.';
 		}
 		if ((i+1) % 8 == 0 || i+1 == size) {
-			printf(" ");
+			log_msg = sprintf(log_msg, " ");
 			if ((i+1) % 16 == 0) {
-				printf("|  %s \n", ascii);
+				log_msg = sprintf(log_msg, "|  %s \n", ascii);
 			} else if (i+1 == size) {
 				ascii[(i+1) % 16] = '\0';
 				if ((i+1) % 16 <= 8) {
-					printf(" ");
+					log_msg = sprintf(log_msg, " ");
 				}
 				for (j = (i+1) % 16; j < 16; ++j) {
-					printf("   ");
+					log_msg = sprintf(log_msg, "   ");
 				}
-				printf("|  %s \n", ascii);
+				log_msg = sprintf(log_msg, "|  %s \n", ascii);
 			}
 		}
 	}
 
-	free(log_msg);
+	return log_msg;
 }

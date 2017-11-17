@@ -173,7 +173,10 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
     header->tlen = net_htons(length);
 
     LOGGER_WARNING(log, "rtp_send_data --> len=%d", (int)length);
-    logger_dumphex((const void*) data, (size_t)length);
+    char *lmsg = logger_dumphex((const void*) data, (size_t)length);
+    LOGGER_WARNING(log, "rtp_send_data:data --> \n%s", lmsg);
+	free(lmsg);
+
 
 
     if (MAX_CRYPTO_DATA_SIZE > length + sizeof(struct RTPHeader) + 1) {
@@ -279,10 +282,9 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
 
     RTPSession *session = (RTPSession *)object;
 
-    LOGGER_WARNING(m->log, "handle_rtp_packet(a) --> len=%d", (int)length);
+    LOGGER_WARNING(m->log, "incoming: handle_rtp_packet data[0]=%d session->payload_type=%d --> len=%d", (int)data[0], (int)session->payload_type, (int)length);
     data ++;
     length--;
-    LOGGER_WARNING(m->log, "handle_rtp_packet(b) --> len=%d", (int)length);
 
     if (!session || length < sizeof(struct RTPHeader)) {
         LOGGER_WARNING(m->log, "No session or invalid length of received buffer!");
@@ -298,18 +300,24 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
 
     if (net_ntohs(header->cpart) >= net_ntohs(header->tlen)) {
         /* Never allow this case to happen */
+		LOGGER_WARNING(m->log, "Never allow this case to happen");
         return -1;
     }
 
     bwc_feed_avg(session->bwc, length);
 
-    if (net_ntohs(header->tlen) == length - sizeof(struct RTPHeader)) {
+    if (net_ntohs(header->tlen) == length - sizeof(struct RTPHeader))
+    {
         /* The message is sent in single part */
+
+		LOGGER_WARNING(m->log, "The message is sent in single part");
 
         /* Only allow messages which have arrived in order;
          * drop late messages
          */
-        if (chloss(session, header)) {
+        if (chloss(session, header))
+        {
+			LOGGER_WARNING(m->log, "chloss==0");
             return 0;
         }
 
@@ -317,17 +325,27 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
         session->rsequnum = net_ntohs(header->sequnum);
         session->rtimestamp = net_ntohl(header->timestamp);
 
+		LOGGER_WARNING(m->log, "session->rsequnum=%d session->rtimestamp=%d", (int)header->sequnum ,(int)header->timestamp);
+
         bwc_add_recv(session->bwc, length);
 
         /* Invoke processing of active multiparted message */
-        if (session->mp) {
-            if (session->mcb) {
+        if (session->mp)
+        {
+			LOGGER_WARNING(m->log, "session->mp");
+            if (session->mcb)
+            {
+				LOGGER_WARNING(m->log, "session->MCB");
                 session->mcb(session->cs, session->mp);
-            } else {
+            }
+            else
+            {
                 free(session->mp);
             }
 
             session->mp = NULL;
+			LOGGER_WARNING(m->log, "session->mp = NULL");
+
         }
 
         /* The message came in the allowed time;
@@ -335,6 +353,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
          */
 
         if (!session->mcb) {
+			LOGGER_WARNING(m->log, "NOT session->mcb");
             return 0;
         }
 
@@ -344,6 +363,10 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
     /* The message is sent in multiple parts */
 
     if (session->mp) {
+
+		LOGGER_WARNING(m->log, "The message is sent in multiple parts");
+
+
         /* There are 2 possible situations in this case:
          *      1) being that we got the part of already processing message.
          *      2) being that we got the part of a new/old message.
@@ -353,12 +376,14 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
          */
 
         if (session->mp->header.sequnum == net_ntohs(header->sequnum) &&
-                session->mp->header.timestamp == net_ntohl(header->timestamp)) {
+                session->mp->header.timestamp == net_ntohl(header->timestamp))
+        {
             /* First case */
 
             /* Make sure we have enough allocated memory */
             if (session->mp->header.tlen - session->mp->len < length - sizeof(struct RTPHeader) ||
-                    session->mp->header.tlen <= net_ntohs(header->cpart)) {
+                    session->mp->header.tlen <= net_ntohs(header->cpart))
+            {
                 /* There happened to be some corruption on the stream;
                  * continue wihtout this part
                  */
@@ -372,22 +397,29 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
 
             bwc_add_recv(session->bwc, length);
 
-            if (session->mp->len == session->mp->header.tlen) {
+            if (session->mp->len == session->mp->header.tlen)
+            {
                 /* Received a full message; now push it for the further
                  * processing.
                  */
-                if (session->mcb) {
+                if (session->mcb)
+                {
                     session->mcb(session->cs, session->mp);
-                } else {
+                }
+                else
+                {
                     free(session->mp);
                 }
 
                 session->mp = NULL;
             }
-        } else {
+        }
+        else
+        {
             /* Second case */
 
-            if (session->mp->header.timestamp > net_ntohl(header->timestamp)) {
+            if (session->mp->header.timestamp > net_ntohl(header->timestamp))
+            {
                 /* The received message part is from the old message;
                  * discard it.
                  */
@@ -403,16 +435,21 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
                           MAX_CRYPTO_DATA_SIZE) * sizeof(struct RTPHeader));
 
             /* Push the previous message for processing */
-            if (session->mcb) {
+            if (session->mcb)
+            {
                 session->mcb(session->cs, session->mp);
-            } else {
+            }
+            else
+            {
                 free(session->mp);
             }
 
             session->mp = NULL;
             goto NEW_MULTIPARTED;
         }
-    } else {
+    }
+    else
+    {
         /* In this case threat the message as if it was received in order
          */
 
@@ -422,7 +459,9 @@ NEW_MULTIPARTED:
         /* Only allow messages which have arrived in order;
          * drop late messages
          */
-        if (chloss(session, header)) {
+        if (chloss(session, header))
+        {
+			LOGGER_WARNING(m->log, "(2)chloss==0");
             return 0;
         }
 
@@ -430,15 +469,19 @@ NEW_MULTIPARTED:
         session->rsequnum = net_ntohs(header->sequnum);
         session->rtimestamp = net_ntohl(header->timestamp);
 
+		LOGGER_WARNING(m->log, "(2)session->rsequnum=%d session->rtimestamp=%d", (int)header->sequnum ,(int)header->timestamp);
+
         bwc_add_recv(session->bwc, length);
 
         /* Again, only store message if handler is present
          */
-        if (session->mcb) {
+        if (session->mcb)
+        {
             session->mp = new_message(net_ntohs(header->tlen) + sizeof(struct RTPHeader), data, length);
 
             /* Reposition data if necessary */
-            if (net_ntohs(header->cpart)) {
+            if (net_ntohs(header->cpart))
+            {
                 ;
             }
 
