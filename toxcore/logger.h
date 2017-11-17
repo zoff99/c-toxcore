@@ -66,6 +66,7 @@ void logger_callback_log(Logger *log, logger_cb *function, void *context, void *
 void logger_write(Logger *log, LOGGER_LEVEL level, const char *file, int line, const char *func, const char *format,
                   ...);
 
+void logger_dumphex(const void* data, size_t size);
 
 #define LOGGER_WRITE(log, level, ...) \
     do { \
