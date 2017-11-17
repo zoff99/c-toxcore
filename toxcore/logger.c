@@ -82,6 +82,7 @@ char *logger_dumphex(const void* data, size_t size) {
 	ascii[16] = '\0';
 
 	long dump_size = 0;
+	printf("logger_dumphex:001\n");
 
 	for (i = 0; i < size; ++i) {
 		dump_size = dump_size + 3;
@@ -95,7 +96,7 @@ char *logger_dumphex(const void* data, size_t size) {
 			dump_size = dump_size + 1;
 			if ((i+1) % 16 == 0) {
 				// printf("|  %s \n", ascii);
-				dump_size = dump_size + 4 + strlen(ascii) + 1;
+				dump_size = dump_size + 4 + 16 + 1;
 			} else if (i+1 == size) {
 				ascii[(i+1) % 16] = '\0';
 				if ((i+1) % 16 <= 8) {
@@ -105,36 +106,40 @@ char *logger_dumphex(const void* data, size_t size) {
 					dump_size = dump_size + 3;
 				}
 				// printf("|  %s \n", ascii);
-				dump_size = dump_size + 4 + strlen(ascii) + 1;
+				dump_size = dump_size + 4 + 16 + 1;
 			}
 		}
 	}
 
+	printf("logger_dumphex:002:dump_size=%d\n", (int)dump_size);
+
 	char *log_msg = calloc(1, (size_t)(dump_size + 1));
 
 	for (i = 0; i < size; ++i) {
-		log_msg = sprintf(log_msg, "%02X ", ((unsigned char*)data)[i]);
+		log_msg += sprintf(log_msg, "%02X ", ((unsigned char*)data)[i]);
 		if (((unsigned char*)data)[i] >= ' ' && ((unsigned char*)data)[i] <= '~') {
 			ascii[i % 16] = ((unsigned char*)data)[i];
 		} else {
 			ascii[i % 16] = '.';
 		}
 		if ((i+1) % 8 == 0 || i+1 == size) {
-			log_msg = sprintf(log_msg, " ");
+			log_msg += sprintf(log_msg, " ");
 			if ((i+1) % 16 == 0) {
-				log_msg = sprintf(log_msg, "|  %s \n", ascii);
+				log_msg += sprintf(log_msg, "|  %s \n", ascii);
 			} else if (i+1 == size) {
 				ascii[(i+1) % 16] = '\0';
 				if ((i+1) % 16 <= 8) {
-					log_msg = sprintf(log_msg, " ");
+					log_msg += sprintf(log_msg, " ");
 				}
 				for (j = (i+1) % 16; j < 16; ++j) {
-					log_msg = sprintf(log_msg, "   ");
+					log_msg += sprintf(log_msg, "   ");
 				}
-				log_msg = sprintf(log_msg, "|  %s \n", ascii);
+				log_msg += sprintf(log_msg, "|  %s \n", ascii);
 			}
 		}
 	}
+
+	printf("logger_dumphex:003\n");
 
 	return log_msg;
 }
