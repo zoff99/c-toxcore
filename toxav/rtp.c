@@ -241,7 +241,8 @@ static bool chloss(const RTPSession *session, const struct RTPHeader *header)
                (session->rsequnum + 65535) - hosq :
                session->rsequnum - hosq;
 
-        fprintf(stderr, "Lost packet\n");
+        // fprintf(stderr, "Lost packet\n");
+		LOGGER_WARNING(session->m->log, "Lost packet");
 
         while (lost --) {
             bwc_add_lost(session->bwc , 0);
@@ -278,12 +279,10 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
 
     RTPSession *session = (RTPSession *)object;
 
-    LOGGER_WARNING(log, "handle_rtp_packet(a) --> len=%d", (int)length);
-
+    LOGGER_WARNING(m->log, "handle_rtp_packet(a) --> len=%d", (int)length);
     data ++;
     length--;
-
-    LOGGER_WARNING(log, "handle_rtp_packet(b) --> len=%d", (int)length);
+    LOGGER_WARNING(m->log, "handle_rtp_packet(b) --> len=%d", (int)length);
 
     if (!session || length < sizeof(struct RTPHeader)) {
         LOGGER_WARNING(m->log, "No session or invalid length of received buffer!");
