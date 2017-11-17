@@ -447,16 +447,9 @@ static int receivepacket(Logger *log, Socket sock, IP_Port *ip_port, uint8_t *da
 
     if (fail_or_len < 0) {
 
-        if (fail_or_len < 0 && errno != EWOULDBLOCK) {
-
-			if (errno == MSG_TRUNC)
-			{
-				LOGGER_ERROR(log, "Unexpected error MSG_TRUNC reading from socket: %u, %s\n", errno, strerror(errno));
-			}
-			else
-			{
-				LOGGER_ERROR(log, "Unexpected error reading from socket: %u, %s\n", errno, strerror(errno));
-			}
+        if (fail_or_len < 0 && errno != EWOULDBLOCK)
+		{
+			LOGGER_ERROR(log, "Unexpected error reading from socket: %u, %s\n", errno, strerror(errno));
         }
 
         return -1; /* Nothing received. */
