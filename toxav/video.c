@@ -272,7 +272,12 @@ void vc_iterate(VCSession *vc)
     if (rb_read((RingBuffer *)vc->vbuf_raw, (void **)&p)) {
         pthread_mutex_unlock(vc->queue_mutex);
 
-        LOGGER_ERROR(vc->log, "vc_iterate: rb_read");
+        LOGGER_ERROR(vc->log, "vc_iterate: rb_read p->len=%d", (int)p->len);
+
+       char *lmsg = logger_dumphex((const void*) p->data, (size_t)p->len);
+       LOGGER_WARNING(vc->log, "vc_iterate: rb_read :data --> len=%d\n%s", (int)p->len, lmsg);
+	free(lmsg);
+
 
         rc = vpx_codec_decode(vc->decoder, p->data, p->len, NULL, global__MAX_DECODE_TIME_US);
         free(p);
