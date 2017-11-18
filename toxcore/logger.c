@@ -77,35 +77,39 @@ void logger_write(Logger *log, LOGGER_LEVEL level, const char *file, int line, c
 }
 
 char *logger_dumphex(const void* data, size_t size) {
-	char ascii[17];
+	char ascii2[17];
 	size_t i, j;
-	ascii[16] = '\0';
+	ascii2[16] = '\0';
 
 	long dump_size = 0;
 	printf("logger_dumphex:001:size=%d\n", (int)size);
 
 	for (i = 0; i < size; ++i) {
+		printf("%02X ", ((unsigned char*)data)[i]);
 		dump_size = dump_size + 3;
 		if (((unsigned char*)data)[i] >= ' ' && ((unsigned char*)data)[i] <= '~') {
-			ascii[i % 16] = ((unsigned char*)data)[i];
+			ascii2[i % 16] = ((unsigned char*)data)[i];
 		} else {
-			ascii[i % 16] = '.';
+			ascii2[i % 16] = '.';
 		}
 
 		if ((i+1) % 8 == 0 || i+1 == size) {
 			dump_size = dump_size + 1;
+			printf(" ");
 			if ((i+1) % 16 == 0) {
-				// printf("|  %s \n", ascii);
+				printf("|  %s \n", ascii2);
 				dump_size = dump_size + 4 + 17 + 1;
 			} else if (i+1 == size) {
-				ascii[(i+1) % 16] = '\0';
+				ascii2[(i+1) % 16] = '\0';
 				if ((i+1) % 16 <= 8) {
+					printf(" ");
 					dump_size = dump_size + 1;
 				}
 				for (j = (i+1) % 16; j < 16; ++j) {
+					printf("   ");
 					dump_size = dump_size + 3;
 				}
-				// printf("|  %s \n", ascii);
+				printf("|  %s \n", ascii2);
 				dump_size = dump_size + 4 + 17 + 1;
 			}
 		}
@@ -113,8 +117,12 @@ char *logger_dumphex(const void* data, size_t size) {
 
 	printf("logger_dumphex:002:size=%d:dump_size=%d\n", (int)size, (int)dump_size);
 
-	char *log_msg = calloc(1, (size_t)(dump_size * 2));
+	char *log_msg = malloc((size_t)(dump_size * 2));
+	memset(log_msg, 0, (size_t)(dump_size * 2));
 	char *log_msg_orig = log_msg;
+
+	char ascii[17];
+	ascii[16] = '\0';
 
 	for (i = 0; i < size; ++i) {
 		log_msg += sprintf(log_msg, "%02X ", ((unsigned char*)data)[i]);
@@ -140,7 +148,7 @@ char *logger_dumphex(const void* data, size_t size) {
 		}
 	}
 
-	printf("logger_dumphex:003:size=%d\n", (int)size);
+	printf("logger_dumphex:003:size=%d lenmsg=%d\n", (int)size, (int)strlen(log_msg_orig));
 
 	return log_msg_orig;
 }

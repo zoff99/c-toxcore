@@ -203,15 +203,15 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
         uint16_t sent = 0;
         uint16_t piece = MAX_CRYPTO_DATA_SIZE - (sizeof(struct RTPHeader) + 1);
 
-		LOGGER_WARNING(log, "rtp_send_data (multiple pieces) [0] --> sent=%d piece=%d", (int)sent, (int)piece);
+		LOGGER_WARNING(log, "rtp_send_data (multiple pieces) [S] --> sent=%d piece=%d len=%d", (int)sent, (int)piece, (int)length);
 
 		long countme = 0;
 
         while ((length - sent) + sizeof(struct RTPHeader) + 1 > MAX_CRYPTO_DATA_SIZE) {
             memcpy(rdata + 1 + sizeof(struct RTPHeader), data + sent, piece);
 
+			LOGGER_WARNING(log, "rtp_send_data (multiple pieces) [%d] --> sent=%d piece=%d len=%d", (int)countme, (int)sent, (int)piece, (int)length);
 			countme++;
-			LOGGER_WARNING(log, "rtp_send_data (multiple pieces) [%d] --> sent=%d piece=%d", (int)countme, (int)sent, (int)piece);
 
             if (-1 == send_custom_lossless_packet(session->m, session->friend_number,
                                                  rdata, piece + sizeof(struct RTPHeader) + 1)) {
@@ -229,8 +229,8 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
         if (piece) {
             memcpy(rdata + 1 + sizeof(struct RTPHeader), data + sent, piece);
 
+			LOGGER_WARNING(log, "rtp_send_data (Send remaining) [%d] --> sent=%d piece=%d len=%d", (int)countme, (int)sent, (int)piece, (int)length);
 			countme++;
-			LOGGER_WARNING(log, "rtp_send_data (Send remaining) [%d] --> sent=%d piece=%d", (int)countme, (int)sent, (int)piece);
 
             if (-1 == send_custom_lossless_packet(session->m, session->friend_number, rdata,
                                                  piece + sizeof(struct RTPHeader) + 1)) {
