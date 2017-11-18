@@ -31,6 +31,7 @@
 
 #include <vpx/vp8cx.h>
 #include <vpx/vp8dx.h>
+#include <vp9/common/vp9_common.h>
 
 #if 0
 #define VIDEO_CODEC_DECODER_INTERFACE (vpx_codec_vp8_dx())
