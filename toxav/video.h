@@ -31,8 +31,14 @@
 
 #include <vpx/vp8cx.h>
 #include <vpx/vp8dx.h>
+
+#if 0
 #define VIDEO_CODEC_DECODER_INTERFACE (vpx_codec_vp8_dx())
 #define VIDEO_CODEC_ENCODER_INTERFACE (vpx_codec_vp8_cx())
+#else
+#define VIDEO_CODEC_DECODER_INTERFACE (vpx_codec_vp9_dx())
+#define VIDEO_CODEC_ENCODER_INTERFACE (vpx_codec_vp9_cx())
+#endif
 
 #include <pthread.h>
 

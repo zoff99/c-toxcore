@@ -49,7 +49,7 @@ VPX_DL_BEST_QUALITY   (0)
 deadline parameter analogous to VPx BEST QUALITY mode.
 */
 
-#define VP8E_SET_CPUUSED_VALUE (16)
+#define VP8E_SET_CPUUSED_VALUE (8)
 /*
 Codec control function to set encoder internal speed settings.
 Changes in this value influences, among others, the encoder's selection of motion estimation methods.
@@ -125,8 +125,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
        Conceal errors in decoded frames
     */
     vpx_codec_dec_cfg_t  dec_cfg;
-    // dec_cfg.threads = 4; // Maximum number of threads to use
-	dec_cfg.threads = 1;
+    dec_cfg.threads = 4; // Maximum number of threads to use
     dec_cfg.w = 800;
     dec_cfg.h = 600;
     rc = vpx_codec_dec_init(vc->decoder, VIDEO_CODEC_DECODER_INTERFACE, &dec_cfg, VPX_CODEC_USE_FRAME_THREADING);
@@ -176,8 +175,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
      VPX_Q 	  Constant Quality (Q) mode 
      */
     cfg.kf_max_dist = global__VPX_KF_MAX_DIST; // a full frame every x frames minimum (can be more often, codec decides automatically)
-    // cfg.g_threads = 4; // Maximum number of threads to use
-	cfg.g_threads = 1;
+    cfg.g_threads = 4; // Maximum number of threads to use
 
     rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, VPX_CODEC_USE_FRAME_THREADING);
 
@@ -202,6 +200,35 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
         vpx_codec_destroy(vc->encoder);
         goto BASE_CLEANUP_1;
     }
+
+/*
+VP9E_SET_TILE_COLUMNS 	
+
+Codec control function to set number of tile columns.
+
+In encoding and decoding, VP9 allows an input image frame be partitioned
+into separated vertical tile columns, which can be encoded or decoded independently.
+This enables easy implementation of parallel encoding and decoding. This control requests
+the encoder to use column tiles in encoding an input frame, with number of tile columns
+(in Log2 unit) as the parameter: 0 = 1 tile column 1 = 2 tile columns
+2 = 4 tile columns ..... n = 2**n tile columns The requested tile columns will
+be capped by encoder based on image size limitation (The minimum width of a
+tile column is 256 pixel, the maximum is 4096).
+
+By default, the value is 0, i.e. one single column tile for entire image.
+
+Supported in codecs: VP9 
+ */
+    rc = vpx_codec_control(vc->encoder, VP9E_SET_TILE_COLUMNS, 2);
+
+    if (rc != VPX_CODEC_OK) {
+        LOGGER_ERROR(log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
+        vpx_codec_destroy(vc->encoder);
+        goto BASE_CLEANUP_1;
+    }
+
+
+
 
   /*
   VPX_CTRL_USE_TYPE(VP8E_SET_NOISE_SENSITIVITY,  unsigned int)
