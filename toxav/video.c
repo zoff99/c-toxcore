@@ -219,6 +219,8 @@ By default, the value is 0, i.e. one single column tile for entire image.
 
 Supported in codecs: VP9 
  */
+
+/*
     rc = vpx_codec_control(vc->encoder, VP9E_SET_TILE_COLUMNS, 2);
 
     if (rc != VPX_CODEC_OK) {
@@ -226,7 +228,7 @@ Supported in codecs: VP9
         vpx_codec_destroy(vc->encoder);
         goto BASE_CLEANUP_1;
     }
-
+*/
 
 /*
     rc = vpx_codec_control(vc->encoder, VP9E_SET_LOSSLESS, 1);

@@ -33,7 +33,7 @@
 #include <vpx/vp8dx.h>
 // #include <vp9/common/vp9_common.h>
 
-#if 0
+#if 1
 // use VP8 codec ----------------
 #define VIDEO_CODEC_DECODER_INTERFACE (vpx_codec_vp8_dx())
 #define VIDEO_CODEC_ENCODER_INTERFACE (vpx_codec_vp8_cx())
