@@ -372,9 +372,9 @@ int sendpacket(Networking_Core *net, IP_Port ip_port, const uint8_t *data, uint1
     }
 
 	LOGGER_ERROR(net->log, "sendpacket:len=%d data[0]=%d", length, (int)data[0]);
-    char *lmsg = logger_dumphex((const void*) data, (size_t)length);
-    LOGGER_WARNING(net->log, "sendpacket:data --> len=%d\n%s", (int)length, lmsg);
-	free(lmsg);
+    // char *lmsg = logger_dumphex((const void*) data, (size_t)length);
+    // LOGGER_WARNING(net->log, "sendpacket:data --> len=%d\n%s", (int)length, lmsg);
+	// free(lmsg);
 
     struct sockaddr_storage addr;
 
