@@ -85,7 +85,7 @@ char *logger_dumphex(const void* data, size_t size) {
 	printf("logger_dumphex:001:size=%d\n", (int)size);
 
 	for (i = 0; i < size; ++i) {
-		printf("%02X ", ((unsigned char*)data)[i]);
+		// printf("%02X ", ((unsigned char*)data)[i]);
 		dump_size = dump_size + 3;
 		if (((unsigned char*)data)[i] >= ' ' && ((unsigned char*)data)[i] <= '~') {
 			ascii2[i % 16] = ((unsigned char*)data)[i];
@@ -95,21 +95,21 @@ char *logger_dumphex(const void* data, size_t size) {
 
 		if ((i+1) % 8 == 0 || i+1 == size) {
 			dump_size = dump_size + 1;
-			printf(" ");
+			// printf(" ");
 			if ((i+1) % 16 == 0) {
-				printf("|  %s \n", ascii2);
+				// printf("|  %s \n", ascii2);
 				dump_size = dump_size + 4 + 17 + 1;
 			} else if (i+1 == size) {
 				ascii2[(i+1) % 16] = '\0';
 				if ((i+1) % 16 <= 8) {
-					printf(" ");
+					// printf(" ");
 					dump_size = dump_size + 1;
 				}
 				for (j = (i+1) % 16; j < 16; ++j) {
 					printf("   ");
-					dump_size = dump_size + 3;
+					// dump_size = dump_size + 3;
 				}
-				printf("|  %s \n", ascii2);
+				// printf("|  %s \n", ascii2);
 				dump_size = dump_size + 4 + 17 + 1;
 			}
 		}
