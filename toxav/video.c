@@ -125,7 +125,8 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
        Conceal errors in decoded frames
     */
     vpx_codec_dec_cfg_t  dec_cfg;
-    dec_cfg.threads = 4; // Maximum number of threads to use
+    // dec_cfg.threads = 4; // Maximum number of threads to use
+	dec_cfg.threads = 1;
     dec_cfg.w = 800;
     dec_cfg.h = 600;
     rc = vpx_codec_dec_init(vc->decoder, VIDEO_CODEC_DECODER_INTERFACE, &dec_cfg, VPX_CODEC_USE_FRAME_THREADING);
@@ -175,7 +176,8 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
      VPX_Q 	  Constant Quality (Q) mode 
      */
     cfg.kf_max_dist = global__VPX_KF_MAX_DIST; // a full frame every x frames minimum (can be more often, codec decides automatically)
-    cfg.g_threads = 4; // Maximum number of threads to use
+    // cfg.g_threads = 4; // Maximum number of threads to use
+	cfg.g_threads = 1;
 
     rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, VPX_CODEC_USE_FRAME_THREADING);
 
