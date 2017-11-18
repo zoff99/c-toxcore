@@ -173,9 +173,9 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
     header->tlen = net_htons(length);
 
     LOGGER_WARNING(log, "rtp_send_data --> len=%d", (int)length);
-    char *lmsg = logger_dumphex((const void*) data, (size_t)length);
-    LOGGER_WARNING(log, "rtp_send_data:data --> len=%d\n%s", (int)length, lmsg);
-	free(lmsg);
+    // char *lmsg = logger_dumphex((const void*) data, (size_t)length);
+    // LOGGER_WARNING(log, "rtp_send_data:data --> len=%d\n%s", (int)length, lmsg);
+	// free(lmsg);
 
 
 
