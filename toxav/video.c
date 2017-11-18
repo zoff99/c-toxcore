@@ -312,7 +312,7 @@ void vc_iterate(VCSession *vc)
     if (rb_read((RingBuffer *)vc->vbuf_raw, (void **)&p)) {
         pthread_mutex_unlock(vc->queue_mutex);
 
-        LOGGER_ERROR(vc->log, "vc_iterate: rb_read p->len=%d", (int)p->len);
+        LOGGER_DEBUG(vc->log, "vc_iterate: rb_read p->len=%d", (int)p->len);
 
         // char *lmsg = logger_dumphex((const void*) p->data, (size_t)p->len);
         // LOGGER_WARNING(vc->log, "vc_iterate: rb_read :data --> len=%d\n%s", (int)p->len, lmsg);
@@ -327,7 +327,7 @@ void vc_iterate(VCSession *vc)
         } else {
             vpx_codec_iter_t iter = NULL;
             vpx_image_t *dest = vpx_codec_get_frame(vc->decoder, &iter);
-            LOGGER_ERROR(vc->log, "vpx_codec_get_frame=%p", dest);
+            LOGGER_DEBUG(vc->log, "vpx_codec_get_frame=%p", dest);
 
             if (dest != NULL)
 	    {
@@ -355,7 +355,7 @@ void vc_iterate(VCSession *vc)
     }
     else
     {
-        LOGGER_ERROR(vc->log, "Error decoding video: rb_read");
+        LOGGER_DEBUG(vc->log, "Error decoding video: rb_read");
     }
 
     pthread_mutex_unlock(vc->queue_mutex);
@@ -386,7 +386,7 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
 
     pthread_mutex_lock(vc->queue_mutex);
     void *ret = rb_write((RingBuffer *)vc->vbuf_raw, msg);
-    LOGGER_WARNING(vc->log, "vc_queue_message:rb_write ret=%p --> len=%d", ret, (int)msg->len);
+    LOGGER_DEBUG(vc->log, "vc_queue_message:rb_write ret=%p --> len=%d", ret, (int)msg->len);
     // char *lmsg = logger_dumphex((const void*) msg->data, (size_t)msg->len);
     // LOGGER_WARNING(vc->log, "vc_queue_message:rb_write:data --> len=%d\n%s", (int)msg->len, lmsg);
 	// free(lmsg);
@@ -448,7 +448,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 		cfg.g_lag_in_frames = global__VPX_G_LAG_IN_FRAMES;
 
 
-        LOGGER_ERROR(vc->log, "encoder: global__VPX_END_USAGE=%d, global__VP8E_SET_CPUUSED_VALUE=%d", (int)global__VPX_END_USAGE, (int)global__VP8E_SET_CPUUSED_VALUE);
+        LOGGER_DEBUG(vc->log, "encoder: global__VPX_END_USAGE=%d, global__VP8E_SET_CPUUSED_VALUE=%d", (int)global__VPX_END_USAGE, (int)global__VP8E_SET_CPUUSED_VALUE);
 
         vpx_codec_ctx_t new_c;
 

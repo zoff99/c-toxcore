@@ -371,7 +371,7 @@ int sendpacket(Networking_Core *net, IP_Port ip_port, const uint8_t *data, uint1
         return -1;
     }
 
-	LOGGER_ERROR(net->log, "sendpacket:len=%d data[0]=%d", length, (int)data[0]);
+	LOGGER_DEBUG(net->log, "sendpacket:len=%d data[0]=%d", length, (int)data[0]);
     // char *lmsg = logger_dumphex((const void*) data, (size_t)length);
     // LOGGER_WARNING(net->log, "sendpacket:data --> len=%d\n%s", (int)length, lmsg);
 	// free(lmsg);
@@ -448,13 +448,13 @@ static int receivepacket(Logger *log, Socket sock, IP_Port *ip_port, uint8_t *da
     *length = 0;
     int fail_or_len = recvfrom(sock, (char *) data, MAX_UDP_PACKET_SIZE, 0, (struct sockaddr *)&addr, &addrlen);
 
-	LOGGER_ERROR(log, "recvfrom:fail_or_len=%d data[0]=%d", fail_or_len, (int)data[0]);
+	LOGGER_DEBUG(log, "recvfrom:fail_or_len=%d data[0]=%d", fail_or_len, (int)data[0]);
 
     if (fail_or_len < 0) {
 
         if (fail_or_len < 0 && errno != EWOULDBLOCK)
 		{
-			LOGGER_ERROR(log, "Unexpected error reading from socket: %u, %s\n", errno, strerror(errno));
+			LOGGER_DEBUG(log, "Unexpected error reading from socket: %u, %s\n", errno, strerror(errno));
         }
 
         return -1; /* Nothing received. */

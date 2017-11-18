@@ -90,13 +90,13 @@ int rtp_allow_receiving(RTPSession *session)
     }
 
 // Zoff --
-    LOGGER_ERROR(session->m->log, "Started receiving on session: %p session->payload_type=%d", session, (int)session->payload_type);
+    LOGGER_DEBUG(session->m->log, "Started receiving on session: %p session->payload_type=%d", session, (int)session->payload_type);
 
 	if (session->payload_type == 193)
 	{
 	    if (m_callback_rtp_packet(session->m, session->friend_number, 171,
 		                      handle_rtp_packet, session) == -1) {
-		LOGGER_WARNING(session->m->log, "Failed to register rtp receive handler");
+		LOGGER_DEBUG(session->m->log, "Failed to register rtp receive handler");
 		return -1;
 	    }
 	}
@@ -105,7 +105,7 @@ int rtp_allow_receiving(RTPSession *session)
 
     if (m_callback_rtp_packet(session->m, session->friend_number, session->payload_type,
                               handle_rtp_packet, session) == -1) {
-        LOGGER_WARNING(session->m->log, "Failed to register rtp receive handler");
+        LOGGER_DEBUG(session->m->log, "Failed to register rtp receive handler");
         return -1;
     }
 
@@ -121,7 +121,7 @@ int rtp_stop_receiving(RTPSession *session)
     m_callback_rtp_packet(session->m, session->friend_number, session->payload_type, NULL, NULL);
 
 // Zoff --
-    LOGGER_ERROR(session->m->log, "Stopped receiving on session: %p session->payload_type=%d", session, (int)session->payload_type);
+    LOGGER_DEBUG(session->m->log, "Stopped receiving on session: %p session->payload_type=%d", session, (int)session->payload_type);
 
 	if (session->payload_type == 193)
 	{
@@ -161,10 +161,10 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
 
     header->ma = 0;
     header->pt = session->payload_type % 128;
-    LOGGER_WARNING(log, "header->pt = %d, session->payload_type=%d", (int)header->pt, (int)session->payload_type);
+    LOGGER_DEBUG(log, "header->pt = %d, session->payload_type=%d", (int)header->pt, (int)session->payload_type);
 
     header->sequnum = net_htons(session->sequnum);
-    LOGGER_WARNING(log, "header->sequnum = %d", (int)header->sequnum);
+    LOGGER_DEBUG(log, "header->sequnum = %d", (int)header->sequnum);
 
     header->timestamp = net_htonl(current_time_monotonic());
     header->ssrc = net_htonl(session->ssrc);
@@ -172,7 +172,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
     header->cpart = 0;
     header->tlen = net_htons(length);
 
-    LOGGER_WARNING(log, "rtp_send_data --> len=%d", (int)length);
+    LOGGER_DEBUG(log, "rtp_send_data --> len=%d", (int)length);
     // char *lmsg = logger_dumphex((const void*) data, (size_t)length);
     // LOGGER_WARNING(log, "rtp_send_data:data --> len=%d\n%s", (int)length, lmsg);
 	// free(lmsg);
@@ -188,7 +188,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
 
         memcpy(rdata + 1 + sizeof(struct RTPHeader), data, length);
 
-		LOGGER_WARNING(log, "rtp_send_data (1 piece) --> len=%d", (int)length);
+		LOGGER_DEBUG(log, "rtp_send_data (1 piece) --> len=%d", (int)length);
 
         if (-1 == send_custom_lossless_packet(session->m, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
             LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
@@ -203,14 +203,14 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
         uint16_t sent = 0;
         uint16_t piece = MAX_CRYPTO_DATA_SIZE - (sizeof(struct RTPHeader) + 1);
 
-		LOGGER_WARNING(log, "rtp_send_data (multiple pieces) [S] --> sent=%d piece=%d len=%d", (int)sent, (int)piece, (int)length);
+		LOGGER_DEBUG(log, "rtp_send_data (multiple pieces) [S] --> sent=%d piece=%d len=%d", (int)sent, (int)piece, (int)length);
 
 		long countme = 0;
 
         while ((length - sent) + sizeof(struct RTPHeader) + 1 > MAX_CRYPTO_DATA_SIZE) {
             memcpy(rdata + 1 + sizeof(struct RTPHeader), data + sent, piece);
 
-			LOGGER_WARNING(log, "rtp_send_data (multiple pieces) [%d] --> sent=%d piece=%d len=%d", (int)countme, (int)sent, (int)piece, (int)length);
+			LOGGER_DEBUG(log, "rtp_send_data (multiple pieces) [%d] --> sent=%d piece=%d len=%d", (int)countme, (int)sent, (int)piece, (int)length);
 			countme++;
 
             if (-1 == send_custom_lossless_packet(session->m, session->friend_number,
@@ -229,7 +229,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
         if (piece) {
             memcpy(rdata + 1 + sizeof(struct RTPHeader), data + sent, piece);
 
-			LOGGER_WARNING(log, "rtp_send_data (Send remaining) [%d] --> sent=%d piece=%d len=%d", (int)countme, (int)sent, (int)piece, (int)length);
+			LOGGER_DEBUG(log, "rtp_send_data (Send remaining) [%d] --> sent=%d piece=%d len=%d", (int)countme, (int)sent, (int)piece, (int)length);
 			countme++;
 
             if (-1 == send_custom_lossless_packet(session->m, session->friend_number, rdata,
@@ -294,7 +294,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
 
     RTPSession *session = (RTPSession *)object;
 
-    LOGGER_WARNING(m->log, "incoming: handle_rtp_packet data[0]=%d session->payload_type=%d --> len=%d", (int)data[0], (int)session->payload_type, (int)length);
+    LOGGER_DEBUG(m->log, "incoming: handle_rtp_packet data[0]=%d session->payload_type=%d --> len=%d", (int)data[0], (int)session->payload_type, (int)length);
     data ++;
     length--;
 
@@ -322,14 +322,14 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
     {
         /* The message is sent in single part */
 
-		LOGGER_WARNING(m->log, "The message is sent in single part");
+		LOGGER_DEBUG(m->log, "The message is sent in single part");
 
         /* Only allow messages which have arrived in order;
          * drop late messages
          */
         if (chloss(session, header))
         {
-			LOGGER_WARNING(m->log, "chloss==0");
+			LOGGER_DEBUG(m->log, "chloss==0");
             return 0;
         }
 
@@ -337,17 +337,17 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
         session->rsequnum = net_ntohs(header->sequnum);
         session->rtimestamp = net_ntohl(header->timestamp);
 
-		LOGGER_WARNING(m->log, "session->rsequnum=%d session->rtimestamp=%d", (int)header->sequnum ,(int)header->timestamp);
+		LOGGER_DEBUG(m->log, "session->rsequnum=%d session->rtimestamp=%d", (int)header->sequnum ,(int)header->timestamp);
 
         bwc_add_recv(session->bwc, length);
 
         /* Invoke processing of active multiparted message */
         if (session->mp)
         {
-			LOGGER_WARNING(m->log, "session->mp");
+			LOGGER_DEBUG(m->log, "session->mp");
             if (session->mcb)
             {
-				LOGGER_WARNING(m->log, "session->MCB");
+				LOGGER_DEBUG(m->log, "session->MCB");
                 session->mcb(session->cs, session->mp);
             }
             else
@@ -356,7 +356,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
             }
 
             session->mp = NULL;
-			LOGGER_WARNING(m->log, "session->mp = NULL");
+			LOGGER_DEBUG(m->log, "session->mp = NULL");
 
         }
 
@@ -365,7 +365,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
          */
 
         if (!session->mcb) {
-			LOGGER_WARNING(m->log, "NOT session->mcb");
+			LOGGER_DEBUG(m->log, "NOT session->mcb");
             return 0;
         }
 
@@ -376,7 +376,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
 
     if (session->mp) {
 
-		LOGGER_WARNING(m->log, "The message is sent in multiple parts");
+		LOGGER_DEBUG(m->log, "The message is sent in multiple parts");
 
 
         /* There are 2 possible situations in this case:
@@ -387,13 +387,13 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
          * processing message
          */
 
-		LOGGER_WARNING(m->log, "session->mp->header.sequnum=%d session->mp->header.timestamp=%d", (int)session->mp->header.sequnum ,(int)session->mp->header.timestamp);
+		LOGGER_DEBUG(m->log, "session->mp->header.sequnum=%d session->mp->header.timestamp=%d", (int)session->mp->header.sequnum ,(int)session->mp->header.timestamp);
 
         if (session->mp->header.sequnum == net_ntohs(header->sequnum) &&
                 session->mp->header.timestamp == net_ntohl(header->timestamp))
         {
             /* First case */
-			LOGGER_WARNING(m->log, "++ 1) being that we got the part of already processing message");
+			LOGGER_DEBUG(m->log, "++ 1) being that we got the part of already processing message");
 
             /* Make sure we have enough allocated memory */
             if (session->mp->header.tlen - session->mp->len < length - sizeof(struct RTPHeader) ||
@@ -402,7 +402,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
                 /* There happened to be some corruption on the stream;
                  * continue without this part
                  */
-				LOGGER_WARNING(m->log, "There happened to be some corruption on the stream, continue without this part");
+				LOGGER_DEBUG(m->log, "There happened to be some corruption on the stream, continue without this part");
 
                 return 0;
             }
@@ -417,7 +417,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
             if (session->mp->len == session->mp->header.tlen)
             {
 
-				LOGGER_WARNING(m->log, "Received a full message. session->mp->len=%d", (int)session->mp->len);
+				LOGGER_DEBUG(m->log, "Received a full message. session->mp->len=%d", (int)session->mp->len);
 
                 /* Received a full message; now push it for the further
                  * processing.
@@ -437,12 +437,12 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
         else
         {
             /* Second case */
-			LOGGER_WARNING(m->log, "++ 2) being that we got the part of a new/old message [you have already LOST!]");
+			LOGGER_DEBUG(m->log, "++ 2) being that we got the part of a new/old message [you have already LOST!]");
 
             if (session->mp->header.timestamp > net_ntohl(header->timestamp))
             {
 
-				LOGGER_WARNING(m->log, "The received message part is from the old message. session->mp->header.timestamp=%d", (int)session->mp->header.timestamp);
+				LOGGER_DEBUG(m->log, "The received message part is from the old message. session->mp->header.timestamp=%d", (int)session->mp->header.timestamp);
 
                 /* The received message part is from the old message;
                  * discard it.
@@ -485,7 +485,7 @@ NEW_MULTIPARTED:
          */
         if (chloss(session, header))
         {
-			LOGGER_WARNING(m->log, "(2)chloss==0");
+			LOGGER_DEBUG(m->log, "(2)chloss==0");
             return 0;
         }
 
@@ -493,7 +493,7 @@ NEW_MULTIPARTED:
         session->rsequnum = net_ntohs(header->sequnum);
         session->rtimestamp = net_ntohl(header->timestamp);
 
-		LOGGER_WARNING(m->log, "(2)session->rsequnum=%d session->rtimestamp=%d", (int)header->sequnum ,(int)header->timestamp);
+		LOGGER_DEBUG(m->log, "(2)session->rsequnum=%d session->rtimestamp=%d", (int)header->sequnum ,(int)header->timestamp);
 
         bwc_add_recv(session->bwc, length);
 
