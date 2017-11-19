@@ -442,7 +442,7 @@ void vc_iterate(VCSession *vc)
     if (rb_read((RingBuffer *)vc->vbuf_raw, (void **)&p)) {
         pthread_mutex_unlock(vc->queue_mutex);
 
-        LOGGER_DEBUG(vc->log, "vc_iterate: rb_read p->len=%d", (int)p->len);
+        LOGGER_WARNING(vc->log, "vc_iterate: rb_read p->len=%d", (int)p->len);
 
         // char *lmsg = logger_dumphex((const void*) p->data, (size_t)p->len);
         // LOGGER_WARNING(vc->log, "vc_iterate: rb_read :data --> len=%d\n%s", (int)p->len, lmsg);
