@@ -105,7 +105,7 @@ int global__SEND_VIDEO_VP9_LOSSLESS_QUALITY__prev_value = 0;
 // ---------- dirty hack ----------
 
 
-void vc__init_encoder_cfg(vpx_codec_enc_cfg_t* cfg)
+void vc__init_encoder_cfg(Logger *log, vpx_codec_enc_cfg_t* cfg)
 {
 
 	vpx_codec_err_t rc;
@@ -207,7 +207,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     /* Set encoder to some initial values
      */
     vpx_codec_enc_cfg_t  cfg;
-	vc__init_encoder_cfg(&cfg);
+	vc__init_encoder_cfg(log, &cfg);
 
 	if (global__VPX_ENCODER_USED == 0)
 	{
@@ -503,7 +503,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 
         vpx_codec_ctx_t new_c;
 		vpx_codec_enc_cfg_t  cfg;
-		vc__init_encoder_cfg(&cfg);
+		vc__init_encoder_cfg(vc->log, &cfg);
 
         cfg.rc_target_bitrate = bit_rate;
         cfg.g_w = width;
