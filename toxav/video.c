@@ -359,6 +359,8 @@ void vc_kill(VCSession *vc)
 
 void video_switch_decoder(VCSession *vc)
 {
+        vpx_codec_err_t rc;
+
 		// Zoff --
         if (global__VPX_DECODER_USED == 0)
         {
