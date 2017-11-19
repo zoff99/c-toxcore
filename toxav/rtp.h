@@ -28,7 +28,8 @@
 #include <stdbool.h>
 
 /* Max size of data in packets for VIDEO !! */
-#define MAX_CRYPTO_VIDEO_DATA_SIZE (MAX_CRYPTO_DATA_SIZE / 2)
+// #define MAX_CRYPTO_VIDEO_DATA_SIZE (MAX_CRYPTO_DATA_SIZE / 2)
+#define MAX_CRYPTO_VIDEO_DATA_SIZE (MAX_CRYPTO_DATA_SIZE)
 
 
 /**
