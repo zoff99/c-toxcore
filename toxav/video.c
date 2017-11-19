@@ -495,7 +495,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 		global__VPX_G_LAG_IN_FRAMES__prev_value = global__VPX_G_LAG_IN_FRAMES;
 		global__MAX_ENCODE_TIME_US__prev_value = global__MAX_ENCODE_TIME_US;
 		global__SEND_VIDEO_LOSSLESS__prev_value = global__SEND_VIDEO_LOSSLESS;
-		global__SEND_VIDEO_VP9_LOSSLESS_QUALITY__prev_value = global__SEND_VIDEO_VP9_LOSSLESS_QUALITY
+		global__SEND_VIDEO_VP9_LOSSLESS_QUALITY__prev_value = global__SEND_VIDEO_VP9_LOSSLESS_QUALITY;
 
         LOGGER_DEBUG(vc->log, "Have to reinitialize vpx encoder on session %p", vc);
 
