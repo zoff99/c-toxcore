@@ -846,7 +846,10 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
                             av->m->log
                         );
 
-                LOGGER_WARNING(av->m->log, "FRAME TYPE==%s", keyframe ? "K" : ".");
+                LOGGER_WARNING(av->m->log, "+ sending FRAME TYPE==%s", keyframe ? "K" : ".");
+                LOGGER_WARNING(av->m->log, "+ sending FRAME data size=%d start byte=%d end byte=%d",
+                    (int)pkt->data.frame.sz, (int)pkt->data.frame.buf[0],
+                    (int)pkt->data.frame.buf[pkt->data.frame.sz - 1]);
 
                 if (res < 0)
                 {
