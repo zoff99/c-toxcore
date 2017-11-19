@@ -485,7 +485,7 @@ void vc_iterate(VCSession *vc)
                                   (const uint8_t *)dest->planes[0], (const uint8_t *)dest->planes[1], (const uint8_t *)dest->planes[2],
                                   dest->stride[0], dest->stride[1], dest->stride[2], vc->vcb.second);
                 }
-				vpx_img_free(dest);
+				// vpx_img_free(dest);
 	        }
 
             /* Play decoded images */
@@ -497,7 +497,7 @@ void vc_iterate(VCSession *vc)
                                   (const uint8_t *)dest->planes[0], (const uint8_t *)dest->planes[1], (const uint8_t *)dest->planes[2],
                                   dest->stride[0], dest->stride[1], dest->stride[2], vc->vcb.second);
                 }
-                vpx_img_free(dest);
+                // vpx_img_free(dest);
             }
         }
         else
