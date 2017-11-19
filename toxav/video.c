@@ -359,6 +359,20 @@ void vc_kill(VCSession *vc)
 
 void video_switch_decoder(VCSession *vc)
 {
+
+/*
+vpx_codec_err_t vpx_codec_peek_stream_info 	( 	vpx_codec_iface_t *  	iface,
+		const uint8_t *  	data,
+		unsigned int  	data_sz,
+		vpx_codec_stream_info_t *  	si 
+	) 		
+
+Parse stream info from a buffer.
+Performs high level parsing of the bitstream. Construction of a decoder context is not necessary.
+Can be used to determine if the bitstream is of the proper format, and to extract information from the stream.
+*/
+
+
         vpx_codec_err_t rc;
 
 		// Zoff --
@@ -435,12 +449,8 @@ void vc_iterate(VCSession *vc)
 
             if (rc == 5) // Bitstream not supported by this decoder
             {
-                LOGGER_WARNING(vc->log, "Using(1) %s\n",
-                    vpx_codec_iface_name(vc->decoder->codec_interface()));
                 LOGGER_WARNING(vc->log, "Switching VPX Decoder");
                 video_switch_decoder(vc);
-                LOGGER_WARNING(vc->log, "Using(2) %s\n",
-                    vpx_codec_iface_name(vc->decoder->codec_interface()));
             }
             else
             {
@@ -448,9 +458,10 @@ void vc_iterate(VCSession *vc)
             }
 
             rc = vpx_codec_decode(vc->decoder, p->data, p->len, NULL, global__MAX_DECODE_TIME_US);
-            LOGGER_WARNING(vc->log, "Using(3) %s\n",
-                vpx_codec_iface_name(vc->decoder->codec_interface()));
-            LOGGER_ERROR(vc->log, "There is still an error decoding video: %d %s", (int)rc, vpx_codec_err_to_string(rc));
+			if (rc != 5)
+			{
+				LOGGER_ERROR(vc->log, "There is still an error decoding video: %d %s", (int)rc, vpx_codec_err_to_string(rc));
+			}
         }
 
         if (rc == VPX_CODEC_OK)
@@ -468,18 +479,19 @@ void vc_iterate(VCSession *vc)
                                   (const uint8_t *)dest->planes[0], (const uint8_t *)dest->planes[1], (const uint8_t *)dest->planes[2],
                                   dest->stride[0], dest->stride[1], dest->stride[2], vc->vcb.second);
                 }
-		// vpx_img_free(dest);
+				vpx_img_free(dest);
 	        }
 
             /* Play decoded images */
-            for (; dest; dest = vpx_codec_get_frame(vc->decoder, &iter)) {
-                if (vc->vcb.first) {
+            for (; dest; dest = vpx_codec_get_frame(vc->decoder, &iter))
+			{
+                if (vc->vcb.first)
+				{
                     vc->vcb.first(vc->av, vc->friend_number, dest->d_w, dest->d_h,
                                   (const uint8_t *)dest->planes[0], (const uint8_t *)dest->planes[1], (const uint8_t *)dest->planes[2],
                                   dest->stride[0], dest->stride[1], dest->stride[2], vc->vcb.second);
                 }
-
-                // vpx_img_free(dest);
+                vpx_img_free(dest);
             }
         }
         else
