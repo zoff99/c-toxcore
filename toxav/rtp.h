@@ -32,10 +32,13 @@
 
 /**
  * Payload type identifier. Also used as rtp callback prefix.
+ * audio = 192
+ * video = 193
+ * this is the packet id and the playload type !! (very confusing)
  */
 enum {
     rtp_TypeAudio = 192,
-    rtp_TypeVideo, // 193, this is the packet id and the playload type !! (very confusing)
+    rtp_TypeVideo,
 };
 
 struct RTPHeader {
