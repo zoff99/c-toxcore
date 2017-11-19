@@ -529,7 +529,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 		{
 			vpx_codec_ctx_t new_d;
 
-            LOGGER_WARN(vc->log, "Re-initializing DEcoder to: %d", (int)global__VPX_DECODER_USED);
+            LOGGER_WARNING(vc->log, "Re-initializing DEcoder to: %d", (int)global__VPX_DECODER_USED);
 
 			vpx_codec_dec_cfg_t dec_cfg;
 			dec_cfg.threads = 4; // Maximum number of threads to use
