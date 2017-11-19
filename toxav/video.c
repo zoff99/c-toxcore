@@ -357,6 +357,46 @@ void vc_kill(VCSession *vc)
     free(vc);
 }
 
+void video_switch_decoder(VCSession *vc)
+{
+		// Zoff --
+        if (global__VPX_DECODER_USED == 0)
+        {
+            global__VPX_DECODER_USED = 1;
+		    global__VPX_DECODER_USED__prev_value == global__VPX_DECODER_USED;
+        }
+		// Zoff --
+
+
+			vpx_codec_ctx_t new_d;
+
+            LOGGER_WARNING(vc->log, "Switch:Re-initializing DEcoder to: %d", (int)global__VPX_DECODER_USED);
+
+			vpx_codec_dec_cfg_t dec_cfg;
+			dec_cfg.threads = 4; // Maximum number of threads to use
+			dec_cfg.w = 800;
+			dec_cfg.h = 600;
+
+			if (global__VPX_DECODER_USED == 0)
+			{
+				rc = vpx_codec_dec_init(&new_d, VIDEO_CODEC_DECODER_INTERFACE_VP8, &dec_cfg, VPX_CODEC_USE_FRAME_THREADING);
+			}
+			else
+			{
+				rc = vpx_codec_dec_init(&new_d, VIDEO_CODEC_DECODER_INTERFACE_VP9, &dec_cfg, VPX_CODEC_USE_FRAME_THREADING);
+			}
+
+			if (rc != VPX_CODEC_OK) {
+				LOGGER_ERROR(vc->log, "Failed to Re-initialize decoder: %s", vpx_codec_err_to_string(rc));
+				vpx_codec_destroy(&new_d);
+				return;
+			}
+
+            // now replace the current decoder
+			vpx_codec_destroy(vc->decoder);
+			memcpy(vc->decoder, &new_d, sizeof(new_d));
+}
+
 void vc_iterate(VCSession *vc)
 {
     if (!vc) {
@@ -380,24 +420,40 @@ void vc_iterate(VCSession *vc)
 
 
         rc = vpx_codec_decode(vc->decoder, p->data, p->len, NULL, global__MAX_DECODE_TIME_US);
-        free(p);
 
         if (rc != VPX_CODEC_OK) {
-            LOGGER_ERROR(vc->log, "Error decoding video: %s", vpx_codec_err_to_string(rc));
-        } else {
+
+            if (rc == 99999999)
+            {
+                LOGGER_WARNING(vc->log, "Switching VPX Decoder");
+                video_switch_decoder(vc);
+            }
+            else
+            {
+                LOGGER_ERROR(vc->log, "Error decoding video: %d %s", (int)rc, vpx_codec_err_to_string(rc));
+            }
+
+            rc = vpx_codec_decode(vc->decoder, p->data, p->len, NULL, global__MAX_DECODE_TIME_US);
+            LOGGER_ERROR(vc->log, "There is still an error decoding video: %d %s", (int)rc, vpx_codec_err_to_string(rc));
+        }
+
+        if (rc == VPX_CODEC_OK)
+        {
+            free(p);
+
             vpx_codec_iter_t iter = NULL;
             vpx_image_t *dest = vpx_codec_get_frame(vc->decoder, &iter);
             LOGGER_DEBUG(vc->log, "vpx_codec_get_frame=%p", dest);
 
             if (dest != NULL)
-	    {
+	        {
                 if (vc->vcb.first) {
                     vc->vcb.first(vc->av, vc->friend_number, dest->d_w, dest->d_h,
                                   (const uint8_t *)dest->planes[0], (const uint8_t *)dest->planes[1], (const uint8_t *)dest->planes[2],
                                   dest->stride[0], dest->stride[1], dest->stride[2], vc->vcb.second);
                 }
 		// vpx_img_free(dest);
-	    }
+	        }
 
             /* Play decoded images */
             for (; dest; dest = vpx_codec_get_frame(vc->decoder, &iter)) {
@@ -409,6 +465,10 @@ void vc_iterate(VCSession *vc)
 
                 // vpx_img_free(dest);
             }
+        }
+        else
+        {
+            free(p);
         }
 
         return;
