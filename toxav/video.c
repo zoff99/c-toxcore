@@ -452,6 +452,12 @@ void vc_iterate(VCSession *vc)
                 LOGGER_WARNING(vc->log, "Switching VPX Decoder");
                 video_switch_decoder(vc);
             }
+            else if (rc == 7)
+            {
+                LOGGER_WARNING(vc->log, "Corrupt frame detected: data size=%d start byte=%d end byte=%d",
+                    (int)p->len, (int)p->data[0], (int)p->data[p->len - 1]);
+                video_switch_decoder(vc);
+            }
             else
             {
                 LOGGER_ERROR(vc->log, "Error decoding video: %d %s", (int)rc, vpx_codec_err_to_string(rc));
