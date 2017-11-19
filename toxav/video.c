@@ -86,16 +86,74 @@ int global__VPX_END_USAGE = VPX_VBR;
 int global__VPX_KF_MAX_DIST = 12;
 int global__VPX_G_LAG_IN_FRAMES = 0;
 extern int global__MAX_ENCODE_TIME_US;
+int global__VPX_ENCODER_USED = 0; // 0 -> VP8, 1 -> VP9
+int global__VPX_DECODER_USED = 0; // 0 -> VP8, 1 -> VP9
+int global__SEND_VIDEO_LOSSLESS = 0; // 0 -> NO, 1 -> YES
+int global__SEND_VIDEO_VP9_LOSSLESS_QUALITY = 0; // 0 -> NO, 1 -> YES
 
 int global__VP8E_SET_CPUUSED_VALUE__prev_value = VP8E_SET_CPUUSED_VALUE;
 int global__VPX_END_USAGE__prev_value = VPX_VBR;
 int global__VPX_KF_MAX_DIST__prev_value = 12;
 int global__VPX_G_LAG_IN_FRAMES__prev_value = 0;
 extern int global__MAX_ENCODE_TIME_US__prev_value;
+int global__VPX_ENCODER_USED__prev_value = 0;
+int global__VPX_DECODER_USED__prev_value = 0;
+int global__SEND_VIDEO_LOSSLESS__prev_value = 0;
+int global__SEND_VIDEO_VP9_LOSSLESS_QUALITY__prev_value = 0;
 // ---------- dirty hack ----------
 // ---------- dirty hack ----------
 // ---------- dirty hack ----------
 
+
+void vc__init_encoder_cfg(vpx_codec_enc_cfg_t* cfg)
+{
+	if (global__VPX_ENCODER_USED == 0)
+	{
+		rc = vpx_codec_enc_config_default(VIDEO_CODEC_ENCODER_INTERFACE_VP8, cfg, 0);
+	}
+	else
+	{
+		rc = vpx_codec_enc_config_default(VIDEO_CODEC_ENCODER_INTERFACE_VP9, cfg, 0);
+	}
+
+    if (rc != VPX_CODEC_OK) {
+        LOGGER_ERROR(log, "vc__init_encoder_cfg:Failed to get config: %s", vpx_codec_err_to_string(rc));
+    }
+
+    cfg->rc_target_bitrate = VIDEO_BITRATE_INITIAL_VALUE; /* Target bandwidth to use for this stream, in kilobits per second */
+    cfg->g_w = 800;
+    cfg->g_h = 600;
+    cfg->g_pass = VPX_RC_ONE_PASS;
+
+
+
+    /* zoff (in 2017) */
+    cfg->g_error_resilient = VPX_ERROR_RESILIENT_DEFAULT | VPX_ERROR_RESILIENT_PARTITIONS;
+    cfg->g_lag_in_frames = global__VPX_G_LAG_IN_FRAMES;
+  /* Allow lagged encoding
+   *
+   * If set, this value allows the encoder to consume a number of input
+   * frames before producing output frames. This allows the encoder to
+   * base decisions for the current frame on future frames. This does
+   * increase the latency of the encoding pipeline, so it is not appropriate
+   * in all situations (ex: realtime encoding).
+   *
+   * Note that this is a maximum value -- the encoder may produce frames
+   * sooner than the given limit. Set this value to 0 to disable this
+   * feature.
+   */
+    cfg->kf_min_dist = 0;
+    cfg->kf_mode = VPX_KF_AUTO; // Encoder determines optimal placement automatically
+    cfg->rc_end_usage = global__VPX_END_USAGE; // what quality mode?
+    /*
+     VPX_VBR 	Variable Bit Rate (VBR) mode
+     VPX_CBR 	Constant Bit Rate (CBR) mode
+     VPX_CQ 	Constrained Quality (CQ) mode -> give codec a hint that we may be on low bandwidth connection
+     VPX_Q 	  Constant Quality (Q) mode 
+     */
+    cfg->kf_max_dist = global__VPX_KF_MAX_DIST; // a full frame every x frames minimum (can be more often, codec decides automatically)
+    cfg->g_threads = 4; // Maximum number of threads to use
+}
 
 VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data)
 {
@@ -128,7 +186,15 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     dec_cfg.threads = 4; // Maximum number of threads to use
     dec_cfg.w = 800;
     dec_cfg.h = 600;
-    rc = vpx_codec_dec_init(vc->decoder, VIDEO_CODEC_DECODER_INTERFACE, &dec_cfg, VPX_CODEC_USE_FRAME_THREADING);
+
+	if (global__VPX_DECODER_USED == 0)
+	{
+		rc = vpx_codec_dec_init(vc->decoder, VIDEO_CODEC_DECODER_INTERFACE_VP8, &dec_cfg, VPX_CODEC_USE_FRAME_THREADING);
+	}
+	else
+	{
+		rc = vpx_codec_dec_init(vc->decoder, VIDEO_CODEC_DECODER_INTERFACE_VP9, &dec_cfg, VPX_CODEC_USE_FRAME_THREADING);
+	}
 
     if (rc != VPX_CODEC_OK) {
         LOGGER_ERROR(log, "Init video_decoder failed: %s", vpx_codec_err_to_string(rc));
@@ -138,51 +204,23 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     /* Set encoder to some initial values
      */
     vpx_codec_enc_cfg_t  cfg;
-    rc = vpx_codec_enc_config_default(VIDEO_CODEC_ENCODER_INTERFACE, &cfg, 0);
+	vc__init_encoder_cfg(&cfg);
 
-    if (rc != VPX_CODEC_OK) {
-        LOGGER_ERROR(log, "Failed to get config: %s", vpx_codec_err_to_string(rc));
-        goto BASE_CLEANUP_1;
-    }
-
-    cfg.rc_target_bitrate = VIDEO_BITRATE_INITIAL_VALUE; /* Target bandwidth to use for this stream, in kilobits per second */
-    cfg.g_w = 800;
-    cfg.g_h = 600;
-    cfg.g_pass = VPX_RC_ONE_PASS;
-
-    /* zoff (in 2017) */
-    cfg.g_error_resilient = VPX_ERROR_RESILIENT_DEFAULT | VPX_ERROR_RESILIENT_PARTITIONS;
-    cfg.g_lag_in_frames = global__VPX_G_LAG_IN_FRAMES;
-  /* Allow lagged encoding
-   *
-   * If set, this value allows the encoder to consume a number of input
-   * frames before producing output frames. This allows the encoder to
-   * base decisions for the current frame on future frames. This does
-   * increase the latency of the encoding pipeline, so it is not appropriate
-   * in all situations (ex: realtime encoding).
-   *
-   * Note that this is a maximum value -- the encoder may produce frames
-   * sooner than the given limit. Set this value to 0 to disable this
-   * feature.
-   */
-    cfg.kf_min_dist = 0;
-    cfg.kf_mode = VPX_KF_AUTO; // Encoder determines optimal placement automatically
-    cfg.rc_end_usage = global__VPX_END_USAGE; // what quality mode?
-    /*
-     VPX_VBR 	Variable Bit Rate (VBR) mode
-     VPX_CBR 	Constant Bit Rate (CBR) mode
-     VPX_CQ 	Constrained Quality (CQ) mode -> give codec a hint that we may be on low bandwidth connection
-     VPX_Q 	  Constant Quality (Q) mode 
-     */
-    cfg.kf_max_dist = global__VPX_KF_MAX_DIST; // a full frame every x frames minimum (can be more often, codec decides automatically)
-    cfg.g_threads = 4; // Maximum number of threads to use
-
-    rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, VPX_CODEC_USE_FRAME_THREADING);
+	if (global__VPX_ENCODER_USED == 0)
+	{
+		rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE_VP8, &cfg, VPX_CODEC_USE_FRAME_THREADING);
+	}
+	else
+	{
+		rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE_VP9, &cfg, VPX_CODEC_USE_FRAME_THREADING);
+	}
 
     if (rc != VPX_CODEC_OK) {
         LOGGER_ERROR(log, "Failed to initialize encoder: %s", vpx_codec_err_to_string(rc));
         goto BASE_CLEANUP_1;
     }
+
+
 
     /*
     Codec control function to set encoder internal speed settings.
@@ -193,6 +231,15 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
       Valid range for VP8: -16..16 
       Valid range for VP9: -8..8
     */
+
+	if (global__VPX_ENCODER_USED == 1)
+	{
+		if ((global__VP8E_SET_CPUUSED_VALUE < -8)||(global__VP8E_SET_CPUUSED_VALUE > 8))
+		{
+			global__VP8E_SET_CPUUSED_VALUE = 8; // set to default (fastest) value
+		}
+	}
+
     rc = vpx_codec_control(vc->encoder, VP8E_SET_CPUUSED, global__VP8E_SET_CPUUSED_VALUE);
 
     if (rc != VPX_CODEC_OK) {
@@ -220,25 +267,32 @@ By default, the value is 0, i.e. one single column tile for entire image.
 Supported in codecs: VP9 
  */
 
-/*
-    rc = vpx_codec_control(vc->encoder, VP9E_SET_TILE_COLUMNS, 2);
+	if (global__VPX_ENCODER_USED == 1)
+	{
+		rc = vpx_codec_control(vc->encoder, VP9E_SET_TILE_COLUMNS, 2);
 
-    if (rc != VPX_CODEC_OK) {
-        LOGGER_ERROR(log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
-        vpx_codec_destroy(vc->encoder);
-        goto BASE_CLEANUP_1;
-    }
-*/
+		if (rc != VPX_CODEC_OK) {
+			LOGGER_ERROR(log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
+			vpx_codec_destroy(vc->encoder);
+			goto BASE_CLEANUP_1;
+		}
+	}
 
-/*
-    rc = vpx_codec_control(vc->encoder, VP9E_SET_LOSSLESS, 1);
 
-    if (rc != VPX_CODEC_OK) {
-        LOGGER_ERROR(log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
-        vpx_codec_destroy(vc->encoder);
-        goto BASE_CLEANUP_1;
-    }
-*/
+	if (global__VPX_ENCODER_USED == 1)
+	{
+		if (global__SEND_VIDEO_VP9_LOSSLESS_QUALITY == 1)
+		{
+			rc = vpx_codec_control(vc->encoder, VP9E_SET_LOSSLESS, 1);
+
+			if (rc != VPX_CODEC_OK) {
+				LOGGER_ERROR(log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
+				vpx_codec_destroy(vc->encoder);
+				goto BASE_CLEANUP_1;
+			}
+		}
+	}
+
 
 
   /*
@@ -255,6 +309,7 @@ Supported in codecs: VP9
         goto BASE_CLEANUP_1;
     }
    */
+
 
     vc->linfts = current_time_monotonic();
     vc->lcfd = 60;
@@ -274,6 +329,8 @@ BASE_CLEANUP:
     free(vc);
     return NULL;
 }
+
+
 void vc_kill(VCSession *vc)
 {
     if (!vc) {
@@ -411,7 +468,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
         return -1;
     }
 
-    vpx_codec_enc_cfg_t cfg = *vc->encoder->config.enc;
+    // vpx_codec_enc_cfg_t cfg = *vc->encoder->config.enc;
     vpx_codec_err_t rc;
 
     if ((cfg.rc_target_bitrate == bit_rate && cfg.g_w == width && cfg.g_h == height)
@@ -420,6 +477,11 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 		&& (global__VPX_KF_MAX_DIST__prev_value == global__VPX_KF_MAX_DIST)
 		&& (global__VPX_G_LAG_IN_FRAMES__prev_value == global__VPX_G_LAG_IN_FRAMES)
 		&& (global__MAX_ENCODE_TIME_US__prev_value == global__MAX_ENCODE_TIME_US)
+
+		&& (global__VPX_ENCODER_USED__prev_value == global__VPX_ENCODER_USED)
+		&& (global__VPX_DECODER_USED__prev_value == global__VPX_DECODER_USED)
+		&& (global__SEND_VIDEO_LOSSLESS__prev_value == global__SEND_VIDEO_LOSSLESS)
+		&& (global__SEND_VIDEO_VP9_LOSSLESS_QUALITY__prev_value == global__SEND_VIDEO_VP9_LOSSLESS_QUALITY)
 		) {
         return 0; /* Nothing changed */
     }
@@ -429,35 +491,77 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 		global__VPX_KF_MAX_DIST__prev_value = global__VPX_KF_MAX_DIST;
 		global__VPX_G_LAG_IN_FRAMES__prev_value = global__VPX_G_LAG_IN_FRAMES;
 		global__MAX_ENCODE_TIME_US__prev_value = global__MAX_ENCODE_TIME_US;
+		global__SEND_VIDEO_LOSSLESS__prev_value = global__SEND_VIDEO_LOSSLESS;
+		global__SEND_VIDEO_VP9_LOSSLESS_QUALITY__prev_value = global__SEND_VIDEO_VP9_LOSSLESS_QUALITY
 
         LOGGER_DEBUG(vc->log, "Have to reinitialize vpx encoder on session %p", vc);
+
+        LOGGER_DEBUG(vc->log, "encoder: global__VPX_END_USAGE=%d, global__VP8E_SET_CPUUSED_VALUE=%d", (int)global__VPX_END_USAGE, (int)global__VP8E_SET_CPUUSED_VALUE);
+
+        vpx_codec_ctx_t new_c;
+		vpx_codec_enc_cfg_t  cfg;
+		vc__init_encoder_cfg(&cfg, &new_c);
 
         cfg.rc_target_bitrate = bit_rate;
         cfg.g_w = width;
         cfg.g_h = height;
 
-		cfg.rc_end_usage = global__VPX_END_USAGE; // what quality mode?
-		/*
-		VPX_VBR 	Variable Bit Rate (VBR) mode
-		VPX_CBR 	Constant Bit Rate (CBR) mode
-		VPX_CQ 	Constrained Quality (CQ) mode -> give codec a hint that we may be on low bandwidth connection
-		VPX_Q 	  Constant Quality (Q) mode 
-		*/
 
-		cfg.kf_max_dist = global__VPX_KF_MAX_DIST;
-		cfg.g_lag_in_frames = global__VPX_G_LAG_IN_FRAMES;
-
-
-        LOGGER_DEBUG(vc->log, "encoder: global__VPX_END_USAGE=%d, global__VP8E_SET_CPUUSED_VALUE=%d", (int)global__VPX_END_USAGE, (int)global__VP8E_SET_CPUUSED_VALUE);
-
-        vpx_codec_ctx_t new_c;
-
-        rc = vpx_codec_enc_init(&new_c, VIDEO_CODEC_ENCODER_INTERFACE, &cfg, VPX_CODEC_USE_FRAME_THREADING);
+		if (global__VPX_ENCODER_USED == 0)
+		{
+			rc = vpx_codec_enc_init(&new_c, VIDEO_CODEC_ENCODER_INTERFACE_VP8, &cfg, VPX_CODEC_USE_FRAME_THREADING);
+		}
+		else
+		{
+			rc = vpx_codec_enc_init(&new_c, VIDEO_CODEC_ENCODER_INTERFACE_VP9, &cfg, VPX_CODEC_USE_FRAME_THREADING);
+		}
 
         if (rc != VPX_CODEC_OK) {
             LOGGER_ERROR(vc->log, "Failed to initialize encoder: %s", vpx_codec_err_to_string(rc));
             return -1;
         }
+
+
+		if (global__VPX_DECODER_USED__prev_value != global__VPX_DECODER_USED)
+		{
+			vpx_codec_ctx_t new_d;
+
+			vpx_codec_dec_cfg_t dec_cfg;
+			dec_cfg.threads = 4; // Maximum number of threads to use
+			dec_cfg.w = 800;
+			dec_cfg.h = 600;
+
+			if (global__VPX_DECODER_USED == 0)
+			{
+				rc = vpx_codec_dec_init(&new_d, VIDEO_CODEC_DECODER_INTERFACE_VP8, &dec_cfg, VPX_CODEC_USE_FRAME_THREADING);
+			}
+			else
+			{
+				rc = vpx_codec_dec_init(&new_d, VIDEO_CODEC_DECODER_INTERFACE_VP9, &dec_cfg, VPX_CODEC_USE_FRAME_THREADING);
+			}
+
+			if (rc != VPX_CODEC_OK) {
+				LOGGER_ERROR(vc->log, "Failed to initialize decoder: %s", vpx_codec_err_to_string(rc));
+				vpx_codec_destroy(&new_d);
+				return -1;
+			}
+
+			vpx_codec_destroy(vc->decoder);
+			memcpy(vc->decoder, &new_d, sizeof(new_d));
+		}
+
+		// Zoff --
+		global__VPX_ENCODER_USED__prev_value == global__VPX_ENCODER_USED;
+		global__VPX_DECODER_USED__prev_value == global__VPX_DECODER_USED;
+		// Zoff --
+
+		if (global__VPX_ENCODER_USED == 1)
+		{
+			if ((global__VP8E_SET_CPUUSED_VALUE < -8)||(global__VP8E_SET_CPUUSED_VALUE > 8))
+			{
+				global__VP8E_SET_CPUUSED_VALUE = 8; // set to default (fastest) value
+			}
+		}
 
         rc = vpx_codec_control(&new_c, VP8E_SET_CPUUSED, global__VP8E_SET_CPUUSED_VALUE);
 
@@ -466,6 +570,32 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
             vpx_codec_destroy(&new_c);
             return -1;
         }
+
+		if (global__VPX_ENCODER_USED == 1)
+		{
+			rc = vpx_codec_control(&new_c, VP9E_SET_TILE_COLUMNS, 2);
+
+			if (rc != VPX_CODEC_OK) {
+				LOGGER_ERROR(log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
+				vpx_codec_destroy(&new_c);
+				return -1;
+			}
+		}
+
+		if (global__VPX_ENCODER_USED == 1)
+		{
+			if (global__SEND_VIDEO_VP9_LOSSLESS_QUALITY == 1)
+			{
+				rc = vpx_codec_control(&new_c, VP9E_SET_LOSSLESS, 1);
+
+				if (rc != VPX_CODEC_OK) {
+					LOGGER_ERROR(log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
+					vpx_codec_destroy(&new_c);
+					return -1;
+				}
+			}
+		}
+
 
         vpx_codec_destroy(vc->encoder);
         memcpy(vc->encoder, &new_c, sizeof(new_c));

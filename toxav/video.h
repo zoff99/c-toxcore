@@ -31,19 +31,25 @@
 
 #include <vpx/vp8cx.h>
 #include <vpx/vp8dx.h>
-// #include <vp9/common/vp9_common.h>
 
-#if 1
 // use VP8 codec ----------------
-#define VIDEO_CODEC_DECODER_INTERFACE (vpx_codec_vp8_dx())
-#define VIDEO_CODEC_ENCODER_INTERFACE (vpx_codec_vp8_cx())
+// #define VIDEO_CODEC_DECODER_INTERFACE (vpx_codec_vp8_dx())
+// #define VIDEO_CODEC_ENCODER_INTERFACE (vpx_codec_vp8_cx())
 // use VP8 codec ----------------
-#else
 // use VP9 codec ----------------
-#define VIDEO_CODEC_DECODER_INTERFACE (vpx_codec_vp9_dx())
-#define VIDEO_CODEC_ENCODER_INTERFACE (vpx_codec_vp9_cx())
+// #define VIDEO_CODEC_DECODER_INTERFACE (vpx_codec_vp9_dx())
+// #define VIDEO_CODEC_ENCODER_INTERFACE (vpx_codec_vp9_cx())
 // use VP9 codec ----------------
-#endif
+
+// Zoff --
+// -- VP8 codec ----------------
+#define VIDEO_CODEC_DECODER_INTERFACE_VP8 (vpx_codec_vp8_dx())
+#define VIDEO_CODEC_ENCODER_INTERFACE_VP8 (vpx_codec_vp8_cx())
+// -- VP9 codec ----------------
+#define VIDEO_CODEC_DECODER_INTERFACE_VP9 (vpx_codec_vp9_dx())
+#define VIDEO_CODEC_ENCODER_INTERFACE_VP9 (vpx_codec_vp9_cx())
+// Zoff --
+
 
 
 #include <pthread.h>

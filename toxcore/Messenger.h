@@ -69,6 +69,10 @@ enum {
 #define PACKET_ID_LOSSLESS_RANGE_SIZE 32
 #define PACKET_LOSSY_AV_RESERVED 8 /* Number of lossy packet types at start of range reserved for A/V. */
 
+// Zoff --
+#define PACKET_LOSSLESS_VIDEO 171
+// Zoff --
+
 typedef struct {
     uint8_t ipv6enabled;
     uint8_t udp_disabled;

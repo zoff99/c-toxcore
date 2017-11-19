@@ -1801,7 +1801,7 @@ int m_callback_rtp_packet(Messenger *m, int32_t friendnumber, uint8_t byte, int 
 
 
 // Zoff ----
-    if (byte == 171) {
+    if (byte == PACKET_LOSSLESS_VIDEO) {
 	    m->friendlist[friendnumber].lossy_rtp_packethandlers[5].function =
 	        packet_handler_callback;
 	    m->friendlist[friendnumber].lossy_rtp_packethandlers[5].object = object;
@@ -1866,7 +1866,7 @@ static int handle_custom_lossless_packet(void *object, int friend_num, const uin
     LOGGER_INFO(m->log, "handle_custom_lossless_packet: packet[0]=%d\n", (int) packet[0]);
 
 // Zoff ---
-    if (packet[0] == (171)) {
+    if (packet[0] == (PACKET_LOSSLESS_VIDEO)) {
 
     LOGGER_INFO(m->log, "handle_custom_lossless_packet.1: packet[0]=%d\n", (int) packet[0]);
 
