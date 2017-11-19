@@ -626,7 +626,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
             return -1;
         }
 
-
+#if 0
 		if (global__VPX_DECODER_USED__prev_value != global__VPX_DECODER_USED)
 		{
 			vpx_codec_ctx_t new_d;
@@ -656,6 +656,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 			vpx_codec_destroy(vc->decoder);
 			memcpy(vc->decoder, &new_d, sizeof(new_d));
 		}
+#endif
 
 		// Zoff --
 		global__VPX_ENCODER_USED__prev_value == global__VPX_ENCODER_USED;
