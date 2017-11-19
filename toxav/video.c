@@ -579,7 +579,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 			rc = vpx_codec_control(&new_c, VP9E_SET_TILE_COLUMNS, 2);
 
 			if (rc != VPX_CODEC_OK) {
-				LOGGER_ERROR(log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
+				LOGGER_ERROR(vc->log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
 				vpx_codec_destroy(&new_c);
 				return -1;
 			}
@@ -592,7 +592,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 				rc = vpx_codec_control(&new_c, VP9E_SET_LOSSLESS, 1);
 
 				if (rc != VPX_CODEC_OK) {
-					LOGGER_ERROR(log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
+					LOGGER_ERROR(vc->log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
 					vpx_codec_destroy(&new_c);
 					return -1;
 				}
