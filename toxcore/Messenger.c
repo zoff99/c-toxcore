@@ -1797,7 +1797,7 @@ int m_callback_rtp_packet(Messenger *m, int32_t friendnumber, uint8_t byte, int 
         return -1;
     }
 
-    LOGGER_INFO(m->log, "m_callback_rtp_packet: packet id=%d\n", (int) byte);
+    LOGGER_DEBUG(m->log, "m_callback_rtp_packet: packet id=%d\n", (int) byte);
 
 
 // Zoff ----
@@ -1863,16 +1863,16 @@ static int handle_custom_lossless_packet(void *object, int friend_num, const uin
         return -1;
     }
 
-    LOGGER_INFO(m->log, "handle_custom_lossless_packet: packet[0]=%d\n", (int) packet[0]);
+    LOGGER_DEBUG(m->log, "handle_custom_lossless_packet: packet[0]=%d\n", (int) packet[0]);
 
 // Zoff ---
     if (packet[0] == (PACKET_LOSSLESS_VIDEO)) {
 
-    LOGGER_INFO(m->log, "handle_custom_lossless_packet.1: packet[0]=%d\n", (int) packet[0]);
+    LOGGER_DEBUG(m->log, "handle_custom_lossless_packet.1: packet[0]=%d\n", (int) packet[0]);
 
         if (m->friendlist[friend_num].lossy_rtp_packethandlers[5].function) {
 
-    LOGGER_INFO(m->log, "handle_custom_lossless_packet.2: packet[0]=%d\n", (int) packet[0]);
+    LOGGER_DEBUG(m->log, "handle_custom_lossless_packet.2: packet[0]=%d\n", (int) packet[0]);
 
             return m->friendlist[friend_num].lossy_rtp_packethandlers[5].function(
                        m, friend_num, packet, length, m->friendlist[friend_num].lossy_rtp_packethandlers[5].object);
