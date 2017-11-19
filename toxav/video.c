@@ -107,6 +107,9 @@ int global__SEND_VIDEO_VP9_LOSSLESS_QUALITY__prev_value = 0;
 
 void vc__init_encoder_cfg(vpx_codec_enc_cfg_t* cfg)
 {
+
+	vpx_codec_err_t rc;
+
 	if (global__VPX_ENCODER_USED == 0)
 	{
 		rc = vpx_codec_enc_config_default(VIDEO_CODEC_ENCODER_INTERFACE_VP8, cfg, 0);
@@ -468,10 +471,10 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
         return -1;
     }
 
-    // vpx_codec_enc_cfg_t cfg = *vc->encoder->config.enc;
+    vpx_codec_enc_cfg_t cfg2 = *vc->encoder->config.enc;
     vpx_codec_err_t rc;
 
-    if ((cfg.rc_target_bitrate == bit_rate && cfg.g_w == width && cfg.g_h == height)
+    if ((cfg2.rc_target_bitrate == bit_rate && cfg2.g_w == width && cfg2.g_h == height)
 		&& (global__VP8E_SET_CPUUSED_VALUE__prev_value == global__VP8E_SET_CPUUSED_VALUE)
 		&& (global__VPX_END_USAGE__prev_value == global__VPX_END_USAGE)
 		&& (global__VPX_KF_MAX_DIST__prev_value == global__VPX_KF_MAX_DIST)
@@ -500,7 +503,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 
         vpx_codec_ctx_t new_c;
 		vpx_codec_enc_cfg_t  cfg;
-		vc__init_encoder_cfg(&cfg, &new_c);
+		vc__init_encoder_cfg(&cfg);
 
         cfg.rc_target_bitrate = bit_rate;
         cfg.g_w = width;
