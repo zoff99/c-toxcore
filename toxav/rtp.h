@@ -27,12 +27,16 @@
 
 #include <stdbool.h>
 
+/* Max size of data in packets for VIDEO !! */
+#define MAX_CRYPTO_VIDEO_DATA_SIZE (MAX_CRYPTO_DATA_SIZE / 2)
+
+
 /**
  * Payload type identifier. Also used as rtp callback prefix.
  */
 enum {
     rtp_TypeAudio = 192,
-    rtp_TypeVideo,
+    rtp_TypeVideo, // 193, this is the packet id and the playload type !! (very confusing)
 };
 
 struct RTPHeader {

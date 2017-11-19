@@ -182,7 +182,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
 
 
 
-    if (MAX_CRYPTO_DATA_SIZE > length + sizeof(struct RTPHeader) + 1) {
+    if (MAX_CRYPTO_VIDEO_DATA_SIZE > length + sizeof(struct RTPHeader) + 1) {
 
         /**
          * The length is less than the maximum allowed length (including header)
@@ -213,13 +213,13 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
          */
 
         uint16_t sent = 0;
-        uint16_t piece = MAX_CRYPTO_DATA_SIZE - (sizeof(struct RTPHeader) + 1);
+        uint16_t piece = MAX_CRYPTO_VIDEO_DATA_SIZE - (sizeof(struct RTPHeader) + 1);
 
 		LOGGER_DEBUG(log, "rtp_send_data (multiple pieces) [S] --> sent=%d piece=%d len=%d", (int)sent, (int)piece, (int)length);
 
 		long countme = 0;
 
-        while ((length - sent) + sizeof(struct RTPHeader) + 1 > MAX_CRYPTO_DATA_SIZE)
+        while ((length - sent) + sizeof(struct RTPHeader) + 1 > MAX_CRYPTO_VIDEO_DATA_SIZE)
         {
             memcpy(rdata + 1 + sizeof(struct RTPHeader), data + sent, piece);
 
@@ -493,7 +493,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
 
                          /* Must account sizes of rtp headers too */
                          ((session->mp->header.tlen - session->mp->len) /
-                          MAX_CRYPTO_DATA_SIZE) * sizeof(struct RTPHeader));
+                          MAX_CRYPTO_VIDEO_DATA_SIZE) * sizeof(struct RTPHeader));
 
             /* Push the previous message for processing */
             if (session->mcb)
