@@ -456,7 +456,7 @@ void vc_iterate(VCSession *vc)
             {
                 LOGGER_WARNING(vc->log, "Corrupt frame detected: data size=%d start byte=%d end byte=%d",
                     (int)p->len, (int)p->data[0], (int)p->data[p->len - 1]);
-                video_switch_decoder(vc);
+                // video_switch_decoder(vc);
             }
             else
             {
