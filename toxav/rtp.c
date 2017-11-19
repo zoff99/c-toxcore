@@ -75,6 +75,7 @@ RTPSession *rtp_new(int payload_type, Messenger *m, uint32_t friendnumber,
 
     return retu;
 }
+
 void rtp_kill(RTPSession *session)
 {
     if (!session) {
@@ -86,6 +87,7 @@ void rtp_kill(RTPSession *session)
     rtp_stop_receiving(session);
     free(session);
 }
+
 int rtp_allow_receiving(RTPSession *session)
 {
     if (session == NULL) {
@@ -115,6 +117,7 @@ int rtp_allow_receiving(RTPSession *session)
     LOGGER_DEBUG(session->m->log, "Started receiving on session: %p", session);
     return 0;
 }
+
 int rtp_stop_receiving(RTPSession *session)
 {
     if (session == NULL) {
@@ -128,13 +131,15 @@ int rtp_stop_receiving(RTPSession *session)
 
 	if (session->payload_type == 193)
 	{
-    m_callback_rtp_packet(session->m, session->friend_number, PACKET_LOSSLESS_VIDEO, NULL, NULL);
+        m_callback_rtp_packet(session->m, session->friend_number, PACKET_LOSSLESS_VIDEO, NULL, NULL);
 	}
 // Zoff --
 
     LOGGER_DEBUG(session->m->log, "Stopped receiving on session: %p", session);
     return 0;
 }
+
+
 int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Logger *log)
 {
     if (!session) {
@@ -164,7 +169,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
 
     header->ma = 0;
     header->pt = session->payload_type % 128;
-    LOGGER_DEBUG(log, "header->pt = %d, session->payload_type=%d", (int)header->pt, (int)session->payload_type);
+    LOGGER_WARNING(log, "header->pt = %d, session->payload_type=%d", (int)header->pt, (int)session->payload_type);
 
     header->sequnum = net_htons(session->sequnum);
     LOGGER_DEBUG(log, "header->sequnum = %d", (int)header->sequnum);
@@ -175,7 +180,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
     header->cpart = 0;
     header->tlen = net_htons(length);
 
-    LOGGER_DEBUG(log, "rtp_send_data --> len=%d", (int)length);
+    LOGGER_WARNING(log, "rtp_send_data --> len=%d", (int)length);
     // char *lmsg = logger_dumphex((const void*) data, (size_t)length);
     // LOGGER_WARNING(log, "rtp_send_data:data --> len=%d\n%s", (int)length, lmsg);
 	// free(lmsg);
@@ -191,7 +196,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
 
         memcpy(rdata + 1 + sizeof(struct RTPHeader), data, length);
 
-		LOGGER_DEBUG(log, "rtp_send_data (1 piece) --> len=%d", (int)length);
+		LOGGER_WARNING(log, "rtp_send_data (1 piece) --> len=%d", (int)length);
 
 		if ((session->payload_type == 193) && (global__SEND_VIDEO_LOSSLESS == 1))
 		{
@@ -215,7 +220,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
         uint16_t sent = 0;
         uint16_t piece = MAX_CRYPTO_VIDEO_DATA_SIZE - (sizeof(struct RTPHeader) + 1);
 
-		LOGGER_DEBUG(log, "rtp_send_data (multiple pieces) [S] --> sent=%d piece=%d len=%d", (int)sent, (int)piece, (int)length);
+		LOGGER_WARNING(log, "rtp_send_data (multiple pieces) [S] --> sent=%d piece=%d len=%d", (int)sent, (int)piece, (int)length);
 
 		long countme = 0;
 
@@ -223,7 +228,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
         {
             memcpy(rdata + 1 + sizeof(struct RTPHeader), data + sent, piece);
 
-			LOGGER_DEBUG(log, "rtp_send_data (multiple pieces) [%d] --> sent=%d piece=%d len=%d", (int)countme, (int)sent, (int)piece, (int)length);
+			LOGGER_WARNING(log, "rtp_send_data (multiple pieces) [%d] --> sent=%d piece=%d len=%d", (int)countme, (int)sent, (int)piece, (int)length);
 			countme++;
 
 
@@ -254,7 +259,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
         if (piece) {
             memcpy(rdata + 1 + sizeof(struct RTPHeader), data + sent, piece);
 
-			LOGGER_DEBUG(log, "rtp_send_data (Send remaining) [%d] --> sent=%d piece=%d len=%d", (int)countme, (int)sent, (int)piece, (int)length);
+			LOGGER_WARNING(log, "rtp_send_data (Send remaining) [%d] --> sent=%d piece=%d len=%d", (int)countme, (int)sent, (int)piece, (int)length);
 			countme++;
 
 			if ((session->payload_type == 193) && (global__SEND_VIDEO_LOSSLESS == 1))

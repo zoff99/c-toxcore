@@ -112,10 +112,12 @@ void vc__init_encoder_cfg(Logger *log, vpx_codec_enc_cfg_t* cfg)
 
 	if (global__VPX_ENCODER_USED == 0)
 	{
+        LOGGER_WARNING(log, "Using VP8 codec for encoder (1)");
 		rc = vpx_codec_enc_config_default(VIDEO_CODEC_ENCODER_INTERFACE_VP8, cfg, 0);
 	}
 	else
 	{
+        LOGGER_WARNING(log, "Using VP9 codec for encoder (1)");
 		rc = vpx_codec_enc_config_default(VIDEO_CODEC_ENCODER_INTERFACE_VP9, cfg, 0);
 	}
 
@@ -192,10 +194,12 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
 
 	if (global__VPX_DECODER_USED == 0)
 	{
+        LOGGER_WARNING(log, "Using VP8 codec for encoder (0)");
 		rc = vpx_codec_dec_init(vc->decoder, VIDEO_CODEC_DECODER_INTERFACE_VP8, &dec_cfg, VPX_CODEC_USE_FRAME_THREADING);
 	}
 	else
 	{
+        LOGGER_WARNING(log, "Using VP9 codec for encoder (0)");
 		rc = vpx_codec_dec_init(vc->decoder, VIDEO_CODEC_DECODER_INTERFACE_VP9, &dec_cfg, VPX_CODEC_USE_FRAME_THREADING);
 	}
 
@@ -211,10 +215,12 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
 
 	if (global__VPX_ENCODER_USED == 0)
 	{
+        LOGGER_WARNING(log, "Using VP8 codec for encoder (0.1)");
 		rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE_VP8, &cfg, VPX_CODEC_USE_FRAME_THREADING);
 	}
 	else
 	{
+        LOGGER_WARNING(log, "Using VP9 codec for encoder (0.1)");
 		rc = vpx_codec_enc_init(vc->encoder, VIDEO_CODEC_ENCODER_INTERFACE_VP9, &cfg, VPX_CODEC_USE_FRAME_THREADING);
 	}
 
@@ -606,10 +612,12 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 
 		if (global__VPX_ENCODER_USED == 0)
 		{
+            LOGGER_WARNING(vc->log, "Using VP8 codec for encoder");
 			rc = vpx_codec_enc_init(&new_c, VIDEO_CODEC_ENCODER_INTERFACE_VP8, &cfg, VPX_CODEC_USE_FRAME_THREADING);
 		}
 		else
 		{
+            LOGGER_WARNING(vc->log, "Using VP9 codec for encoder");
 			rc = vpx_codec_enc_init(&new_c, VIDEO_CODEC_ENCODER_INTERFACE_VP9, &cfg, VPX_CODEC_USE_FRAME_THREADING);
 		}
 
@@ -659,6 +667,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 			if ((global__VP8E_SET_CPUUSED_VALUE < -8)||(global__VP8E_SET_CPUUSED_VALUE > 8))
 			{
 				global__VP8E_SET_CPUUSED_VALUE = 8; // set to default (fastest) value
+                LOGGER_WARNING(vc->log, "value out of range. setting cpu used value to: %d", (int)global__VP8E_SET_CPUUSED_VALUE);
 			}
 		}
 
@@ -685,6 +694,8 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 		{
 			if (global__SEND_VIDEO_VP9_LOSSLESS_QUALITY == 1)
 			{
+                LOGGER_WARNING(vc->log, "setting VP9 lossless video quality: ON");
+
 				rc = vpx_codec_control(&new_c, VP9E_SET_LOSSLESS, 1);
 
 				if (rc != VPX_CODEC_OK) {
