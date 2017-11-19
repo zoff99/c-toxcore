@@ -529,10 +529,12 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 		{
 			vpx_codec_ctx_t new_d;
 
+            LOGGER_WARN(vc->log, "Re-initializing DEcoder to: %d", (int)global__VPX_DECODER_USED);
+
 			vpx_codec_dec_cfg_t dec_cfg;
 			dec_cfg.threads = 4; // Maximum number of threads to use
-			dec_cfg.w = 800;
-			dec_cfg.h = 600;
+			dec_cfg.w = width;
+			dec_cfg.h = height;
 
 			if (global__VPX_DECODER_USED == 0)
 			{
@@ -544,7 +546,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 			}
 
 			if (rc != VPX_CODEC_OK) {
-				LOGGER_ERROR(vc->log, "Failed to initialize decoder: %s", vpx_codec_err_to_string(rc));
+				LOGGER_ERROR(vc->log, "Failed to Re-initialize decoder: %s", vpx_codec_err_to_string(rc));
 				vpx_codec_destroy(&new_d);
 				return -1;
 			}
