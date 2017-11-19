@@ -28,8 +28,7 @@
 #include <stdbool.h>
 
 /* Max size of data in packets for VIDEO !! */
-// #define MAX_CRYPTO_VIDEO_DATA_SIZE (MAX_CRYPTO_DATA_SIZE / 2)
-#define MAX_CRYPTO_VIDEO_DATA_SIZE (MAX_CRYPTO_DATA_SIZE)
+#define MAX_CRYPTO_VIDEO_DATA_SIZE MAX_CRYPTO_DATA_SIZE
 
 /**
  * Payload type identifier. Also used as rtp callback prefix.
