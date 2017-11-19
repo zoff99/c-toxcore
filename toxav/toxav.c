@@ -836,7 +836,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
             if (pkt->kind == VPX_CODEC_CX_FRAME_PKT)
             {
  
-                const int keyframe = (pkt->data.frame.flags & VPX_FRAME_IS_KEY) != 0;
+                // const int keyframe = (pkt->data.frame.flags & VPX_FRAME_IS_KEY) != 0;
 
                 int res = rtp_send_data
                         (
@@ -846,12 +846,11 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
                             av->m->log
                         );
 
-                LOGGER_WARNING(av->m->log, "+ sending FRAME TYPE==%s", keyframe ? "K" : ".");
-
-				const uint8_t *temp_buf = (const uint8_t *)pkt->data.frame.buf;
-                LOGGER_WARNING(av->m->log, "+ sending FRAME data size=%d start byte=%d end byte=%d",
-                    (int)pkt->data.frame.sz, (int)temp_buf[0],
-                    (int)temp_buf[(int)pkt->data.frame.sz - 1]);
+                // LOGGER_WARNING(av->m->log, "+ sending FRAME TYPE==%s", keyframe ? "K" : ".");
+				// const uint8_t *temp_buf = (const uint8_t *)pkt->data.frame.buf;
+                // LOGGER_WARNING(av->m->log, "+ sending FRAME data size=%d start byte=%d end byte=%d",
+                //     (int)pkt->data.frame.sz, (int)temp_buf[0],
+                //     (int)temp_buf[(int)pkt->data.frame.sz - 1]);
 
                 if (res < 0)
                 {
