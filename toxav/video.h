@@ -50,7 +50,8 @@
 #define VIDEO_CODEC_ENCODER_INTERFACE_VP9 (vpx_codec_vp9_cx())
 // Zoff --
 
-
+#define VIDEO_CODEC_DECODER_MAX_WIDTH (16384)
+#define VIDEO_CODEC_DECODER_MAX_HEIGHT (16384)
 
 #include <pthread.h>
 

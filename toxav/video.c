@@ -126,8 +126,8 @@ void vc__init_encoder_cfg(Logger *log, vpx_codec_enc_cfg_t* cfg)
     }
 
     cfg->rc_target_bitrate = VIDEO_BITRATE_INITIAL_VALUE; /* Target bandwidth to use for this stream, in kilobits per second */
-    cfg->g_w = 800;
-    cfg->g_h = 600;
+    cfg->g_w = VIDEO_CODEC_DECODER_MAX_WIDTH;
+    cfg->g_h = VIDEO_CODEC_DECODER_MAX_HEIGHT;
     cfg->g_pass = VPX_RC_ONE_PASS;
 
 
@@ -189,8 +189,8 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     */
     vpx_codec_dec_cfg_t  dec_cfg;
     dec_cfg.threads = 4; // Maximum number of threads to use
-    dec_cfg.w = 800;
-    dec_cfg.h = 600;
+    dec_cfg.w = VIDEO_CODEC_DECODER_MAX_WIDTH;
+    dec_cfg.h = VIDEO_CODEC_DECODER_MAX_HEIGHT;
 
 	if (global__VPX_DECODER_USED == 0)
 	{
@@ -401,8 +401,8 @@ Can be used to determine if the bitstream is of the proper format, and to extrac
 
 			vpx_codec_dec_cfg_t dec_cfg;
 			dec_cfg.threads = 4; // Maximum number of threads to use
-			dec_cfg.w = 800;
-			dec_cfg.h = 600;
+			dec_cfg.w = VIDEO_CODEC_DECODER_MAX_WIDTH;
+			dec_cfg.h = VIDEO_CODEC_DECODER_MAX_HEIGHT;
 
 			if (global__VPX_DECODER_USED == 0)
 			{
