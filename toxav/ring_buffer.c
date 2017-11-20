@@ -65,7 +65,7 @@ void *rb_write(RingBuffer *b, void *p, uint8_t data_type_)
     return rc;
 }
 
-bool rb_read(RingBuffer *b, void **p, uint_8 *data_type_)
+bool rb_read(RingBuffer *b, void **p, uint8_t *data_type_)
 {
     if (b->end == b->start) { /* Empty */
         *p = NULL;
