@@ -278,6 +278,7 @@ void toxav_iterate(ToxAV *av)
         av->dmsst = 0;
     }
 }
+
 bool toxav_call(ToxAV *av, uint32_t friend_number, uint32_t audio_bit_rate, uint32_t video_bit_rate,
                 TOXAV_ERR_CALL *error)
 {
@@ -1201,6 +1202,7 @@ CLEAR:
 
     return NULL;
 }
+
 bool call_prepare_transmission(ToxAVCall *call)
 {
     /* Assumes mutex locked */
@@ -1248,7 +1250,7 @@ bool call_prepare_transmission(ToxAVCall *call)
                                     call->audio.second, ac_queue_message);
 
         if (!call->audio.first) {
-            LOGGER_ERROR(av->m->log, "Failed to create audio rtp session");;
+            LOGGER_ERROR(av->m->log, "Failed to create audio rtp session");
             goto FAILURE;
         }
     }

@@ -35,6 +35,7 @@
 
 // -- hack --
 extern int global__SEND_VIDEO_LOSSLESS;
+extern int global__SEND_VIDEO_RAW_YUV;
 // -- hack --
 
 int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object);
@@ -44,6 +45,15 @@ RTPSession *rtp_new(int payload_type, Messenger *m, uint32_t friendnumber,
                     BWController *bwc, void *cs,
                     int (*mcb)(void *, struct RTPMessage *))
 {
+    /*
+     *
+     * --> mcb == vc_queue_message() // this function is called from here! arrgh **
+     * --> cs == call->video.second // == VCSession created by vc_new() call!
+     *
+     * next time please make it even more confusing!?!? arrgh **
+     *
+     */
+
     assert(mcb);
     assert(cs);
     assert(m);
@@ -101,8 +111,14 @@ int rtp_allow_receiving(RTPSession *session)
 	{
 	    if (m_callback_rtp_packet(session->m, session->friend_number, PACKET_LOSSLESS_VIDEO,
 		                      handle_rtp_packet, session) == -1) {
-		LOGGER_DEBUG(session->m->log, "Failed to register rtp receive handler");
-		return -1;
+    		LOGGER_DEBUG(session->m->log, "Failed to register rtp receive handler");
+    		return -1;
+	    }
+
+	    if (m_callback_rtp_packet(session->m, session->friend_number, PACKET_LOSSY_RAW_YUV_VIDEO,
+		                      handle_rtp_packet, session) == -1) {
+    		LOGGER_DEBUG(session->m->log, "Failed to register rtp receive handler");
+    		return -1;
 	    }
 	}
 // Zoff --
@@ -132,6 +148,7 @@ int rtp_stop_receiving(RTPSession *session)
 	if (session->payload_type == 193)
 	{
         m_callback_rtp_packet(session->m, session->friend_number, PACKET_LOSSLESS_VIDEO, NULL, NULL);
+        m_callback_rtp_packet(session->m, session->friend_number, PACKET_LOSSY_RAW_YUV_VIDEO, NULL, NULL);
 	}
 // Zoff --
 
@@ -153,11 +170,22 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
     rdata[0] = session->payload_type;
 
 // Zoff --
-    if ((session->payload_type == 193) && (global__SEND_VIDEO_LOSSLESS == 1))
-	{
-		// video payload
-		rdata[0] = PACKET_LOSSLESS_VIDEO; // rewrite to lossless!
-	}
+    if (session->payload_type == 193)
+    {
+        if (global__SEND_VIDEO_LOSSLESS == 1)
+	    {
+	    	// video payload
+		    rdata[0] = PACKET_LOSSLESS_VIDEO; // rewrite to lossless!
+	    }
+        else
+        {
+            if (global__SEND_VIDEO_RAW_YUV == 1)
+            {
+    	    	// video payload
+    		    rdata[0] = PACKET_LOSSY_RAW_YUV_VIDEO; // rewrite to raw yuv!
+            }
+        }
+    }
 // Zoff --
 
     struct RTPHeader *header = (struct RTPHeader *)(rdata + 1);
@@ -310,6 +338,8 @@ static bool chloss(const RTPSession *session, const struct RTPHeader *header)
 
     return false;
 }
+
+
 static struct RTPMessage *new_message(size_t allocate_len, const uint8_t *data, uint16_t data_length)
 {
     assert(allocate_len >= data_length);
@@ -329,12 +359,26 @@ static struct RTPMessage *new_message(size_t allocate_len, const uint8_t *data, 
 
     return msg;
 }
+
+
+/*
+ *  here: data[0] == Packet ID !!
+ */
 int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object)
 {
     (void) m;
     (void) friendnumber;
 
     RTPSession *session = (RTPSession *)object;
+
+    /*
+     *
+     * session->mcb == vc_queue_message() // this function is called from here! arrgh **
+     * session->cs == call->video.second // == VCSession created by vc_new() call!
+     *
+     * next time please make it even more confusing!?!? arrgh **
+     *
+     */
 
     LOGGER_DEBUG(m->log, "incoming: handle_rtp_packet data[0]=%d session->payload_type=%d --> len=%d", (int)data[0], (int)session->payload_type, (int)length);
     data ++;
@@ -345,6 +389,9 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
         return -1;
     }
 
+    // this can't be correct?
+    // on sending there is 1 byte before the RTPHeader in the data
+    // where is this byte vanished to?
     const struct RTPHeader *header = (const struct RTPHeader *) data;
 
     if (header->pt != session->payload_type % 128) {
@@ -545,7 +592,7 @@ NEW_MULTIPARTED:
         {
             session->mp = new_message(net_ntohs(header->tlen) + sizeof(struct RTPHeader), data, length);
 
-            /* Reposition data if necessary */
+            /* Reposition data if necessary */ // WTF? what is this doing??
             if (net_ntohs(header->cpart))
             {
                 ;

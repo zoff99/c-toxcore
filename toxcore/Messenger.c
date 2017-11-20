@@ -1766,6 +1766,23 @@ static int m_handle_custom_lossy_packet(void *object, int friend_num, const uint
         return 1;
     }
 
+// Zoff ---
+    if (packet[0] == (PACKET_LOSSY_RAW_YUV_VIDEO)) {
+
+    LOGGER_DEBUG(m->log, "m_handle_custom_lossy_packet.1: packet[0]=%d\n", (int) packet[0]);
+
+        if (m->friendlist[friend_num].lossy_rtp_packethandlers[6].function) {
+
+    LOGGER_DEBUG(m->log, "m_handle_custom_lossy_packet.2: packet[0]=%d\n", (int) packet[0]);
+
+            return m->friendlist[friend_num].lossy_rtp_packethandlers[6].function(
+                       m, friend_num, packet, length, m->friendlist[friend_num].lossy_rtp_packethandlers[6].object);
+        }
+
+        return 1;
+    }
+// Zoff ---
+
 
     if (packet[0] < (PACKET_ID_LOSSY_RANGE_START + PACKET_LOSSY_AV_RESERVED)) {
         if (m->friendlist[friend_num].lossy_rtp_packethandlers[packet[0] % PACKET_LOSSY_AV_RESERVED].function) {
@@ -1790,6 +1807,9 @@ void custom_lossy_packet_registerhandler(Messenger *m, void (*packet_handler_cal
     m->lossy_packethandler = packet_handler_callback;
 }
 
+//
+// this doesn't seem to care if packets incoming are lossy or lossless
+//
 int m_callback_rtp_packet(Messenger *m, int32_t friendnumber, uint8_t byte, int (*packet_handler_callback)(Messenger *m,
                           uint32_t friendnumber, const uint8_t *data, uint16_t len, void *object), void *object)
 {
@@ -1805,6 +1825,13 @@ int m_callback_rtp_packet(Messenger *m, int32_t friendnumber, uint8_t byte, int 
 	    m->friendlist[friendnumber].lossy_rtp_packethandlers[5].function =
 	        packet_handler_callback;
 	    m->friendlist[friendnumber].lossy_rtp_packethandlers[5].object = object;
+	    return 0;
+    }
+
+    if (byte == PACKET_LOSSY_RAW_YUV_VIDEO) {
+	    m->friendlist[friendnumber].lossy_rtp_packethandlers[6].function =
+	        packet_handler_callback;
+	    m->friendlist[friendnumber].lossy_rtp_packethandlers[6].object = object;
 	    return 0;
     }
 // Zoff ----

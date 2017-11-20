@@ -90,6 +90,7 @@ int global__VPX_ENCODER_USED = 0; // 0 -> VP8, 1 -> VP9
 int global__VPX_DECODER_USED = 0; // 0 -> VP8, 1 -> VP9
 int global__SEND_VIDEO_LOSSLESS = 0; // 0 -> NO, 1 -> YES
 int global__SEND_VIDEO_VP9_LOSSLESS_QUALITY = 0; // 0 -> NO, 1 -> YES
+int global__SEND_VIDEO_RAW_YUV = 0; // 0 -> NO, 1 -> YES
 
 int global__VP8E_SET_CPUUSED_VALUE__prev_value = VP8E_SET_CPUUSED_VALUE;
 int global__VPX_END_USAGE__prev_value = VPX_VBR;
@@ -100,6 +101,7 @@ int global__VPX_ENCODER_USED__prev_value = 0;
 int global__VPX_DECODER_USED__prev_value = 0;
 int global__SEND_VIDEO_LOSSLESS__prev_value = 0;
 int global__SEND_VIDEO_VP9_LOSSLESS_QUALITY__prev_value = 0;
+int global__SEND_VIDEO_RAW_YUV__prev_value = 0;
 // ---------- dirty hack ----------
 // ---------- dirty hack ----------
 // ---------- dirty hack ----------
@@ -350,8 +352,10 @@ void vc_kill(VCSession *vc)
     vpx_codec_destroy(vc->decoder);
 
     void *p;
+    uint8_t data_type;
 
-    while (rb_read((RingBuffer *)vc->vbuf_raw, &p)) {
+    while (rb_read((RingBuffer *)vc->vbuf_raw, &p, &data_type))
+    {
         free(p);
     }
 
@@ -361,6 +365,10 @@ void vc_kill(VCSession *vc)
 
     LOGGER_DEBUG(vc->log, "Terminated video handler: %p", vc);
     free(vc);
+}
+
+void video_switch_encoder(VCSession *vc)
+{
 }
 
 void video_switch_decoder(VCSession *vc)
@@ -427,6 +435,10 @@ Can be used to determine if the bitstream is of the proper format, and to extrac
 
 }
 
+static void vc_iterate_raw_yuv(VCSession *vc, struct RTPMessage *p)
+{
+}
+
 void vc_iterate(VCSession *vc)
 {
     if (!vc) {
@@ -434,15 +446,23 @@ void vc_iterate(VCSession *vc)
     }
 
     struct RTPMessage *p;
+    uint8_t data_type;
 
     vpx_codec_err_t rc;
 
     pthread_mutex_lock(vc->queue_mutex);
 
-    if (rb_read((RingBuffer *)vc->vbuf_raw, (void **)&p)) {
+    if (rb_read((RingBuffer *)vc->vbuf_raw, (void **)&p, &data_type)) {
         pthread_mutex_unlock(vc->queue_mutex);
 
-        LOGGER_WARNING(vc->log, "vc_iterate: rb_read p->len=%d", (int)p->len);
+        LOGGER_WARNING(vc->log, "vc_iterate: rb_read p->len=%d data_type=%d", (int)p->len, (int)data_type);
+
+        if (data_type == PACKET_LOSSY_RAW_YUV_VIDEO)
+        {
+            vc_iterate_raw_yuv(vc, p);
+            free(p);
+            return;
+        }
 
         // char *lmsg = logger_dumphex((const void*) p->data, (size_t)p->len);
         // LOGGER_WARNING(vc->log, "vc_iterate: rb_read :data --> len=%d\n%s", (int)p->len, lmsg);
@@ -526,7 +546,17 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
     /* This function does the reconstruction of video packets.
      * See more info about video splitting in docs
      */
-    if (!vcp || !msg) {
+
+   /*
+    *
+    * vcp == call->video.second // == VCSession created by vc_new() call!
+    *
+    * next time please make it even more confusing!?!? arrgh **
+    *
+    */
+
+    if (!vcp || !msg)
+    {
         return -1;
     }
 

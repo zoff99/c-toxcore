@@ -82,7 +82,7 @@ BWController *bwc_new(Messenger *m, uint32_t friendnumber,
     int i = 0;
 
     for (; i < BWC_AVG_PKT_COUNT; i ++) {
-        rb_write(retu->rcvpkt.rb, retu->rcvpkt.rb_s + i);
+        rb_write(retu->rcvpkt.rb, retu->rcvpkt.rb_s + i, 0);
     }
 
     m_callback_rtp_packet(m, friendnumber, BWC_PACKET_ID, bwc_handle_data, retu);
@@ -103,9 +103,10 @@ void bwc_kill(BWController *bwc)
 void bwc_feed_avg(BWController *bwc, uint32_t bytes)
 {
     uint32_t *p;
+    uint_8 data_type;
 
-    rb_read(bwc->rcvpkt.rb, (void **) &p);
-    rb_write(bwc->rcvpkt.rb, p);
+    rb_read(bwc->rcvpkt.rb, (void **) &p, &data_type);
+    rb_write(bwc->rcvpkt.rb, p, data_type);
 
     *p = bytes;
 }
