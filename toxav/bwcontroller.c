@@ -103,7 +103,7 @@ void bwc_kill(BWController *bwc)
 void bwc_feed_avg(BWController *bwc, uint32_t bytes)
 {
     uint32_t *p;
-    uint_8 data_type;
+    uint8_t data_type;
 
     rb_read(bwc->rcvpkt.rb, (void **) &p, &data_type);
     rb_write(bwc->rcvpkt.rb, p, data_type);

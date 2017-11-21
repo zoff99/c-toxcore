@@ -29,7 +29,7 @@
 typedef struct RingBuffer RingBuffer;
 bool rb_full(const RingBuffer *b);
 bool rb_empty(const RingBuffer *b);
-void *rb_write(RingBuffer *b, void *p, uint8_t data_type_)
+void *rb_write(RingBuffer *b, void *p, uint8_t data_type_);
 bool rb_read(RingBuffer *b, void **p, uint8_t *data_type_);
 RingBuffer *rb_new(int size);
 void rb_kill(RingBuffer *b);
