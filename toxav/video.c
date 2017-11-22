@@ -438,7 +438,6 @@ Can be used to determine if the bitstream is of the proper format, and to extrac
 
 static void vc_iterate_raw_yuv(VCSession *vc, struct RTPMessage *p)
 {
-    // TODO: write me
     LOGGER_WARNING(vc->log, "vc_iterate_raw_yuv");
 
     if (vc->vcb.first)
@@ -783,3 +782,6 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 
     return 0;
 }
+
+
+

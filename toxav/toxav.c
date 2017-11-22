@@ -753,6 +753,7 @@ END:
 
     return rc == TOXAV_ERR_SEND_FRAME_OK;
 }
+
 bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height, const uint8_t *y,
                             const uint8_t *u, const uint8_t *v, TOXAV_ERR_SEND_FRAME *error)
 {
@@ -794,11 +795,68 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         goto END;
     }
 
+
+
+
+    if (global__SEND_VIDEO_RAW_YUV == 1)
+    {
+        ++call->video.second->frame_counter;
+
+/*
+struct raw_yuv_data {
+    uint16_t width;
+    uint16_t height;
+    uint32_t yuv_buffer_len;
+    uint32_t u_buffer_offset;
+    uint32_t v_buffer_offset;
+    uint8_t data[];
+} __attribute__((packed));
+*/
+
+        uint32_t yuv_buf_len = (width * height) + 2 * ((width / 2) * (height / 2));
+        size_t full_data_len = yuv_buf_len + sizeof(uint16_t)*2 + sizeof(uint32_t)*3;
+        (void *)buf = calloc(1, full_data_len);
+        struct raw_yuv_data *yuv_send = (void *)buf;
+        yuv_send->width = width;
+        yuv_send->height = height;
+        yuv_send->yuv_buffer_len = yuv_buf_len;
+        yuv_send->u_buffer_offset = (width * height);
+        yuv_send->v_buffer_offset = (width / 2) * (height / 2);
+        uint8_t *yuv_raw_data_start = yuv_send->data;
+
+        memcpy(yuv_raw_data_start, y, width * height);
+        memcpy(yuv_raw_data_start + yuv_send->u_buffer_offset, u, (width / 2) * (height / 2));
+        memcpy(yuv_raw_data_start + yuv_send->v_buffer_offset, v, (width / 2) * (height / 2));
+
+        int res = rtp_send_data
+            (
+                call->video.first,
+                (const uint8_t *)buf,
+                full_data_len,
+                av->m->log
+            );
+
+        free(buf);
+
+        pthread_mutex_unlock(call->mutex_video);
+
+        return TOXAV_ERR_SEND_FRAME_OK;
+    }
+
+
+
+
+
+
+
+
     if (vc_reconfigure_encoder(call->video.second, call->video_bit_rate * 1000, width, height) != 0) {
         pthread_mutex_unlock(call->mutex_video);
         rc = TOXAV_ERR_SEND_FRAME_INVALID;
         goto END;
     }
+
+
 
     { /* Encode */
         vpx_image_t img;
@@ -824,6 +882,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
             goto END;
         }
     }
+
 
     ++call->video.second->frame_counter;
 
@@ -863,6 +922,14 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
             }
         }
     //}
+
+
+
+
+
+
+
+
 
     pthread_mutex_unlock(call->mutex_video);
 
