@@ -373,7 +373,7 @@ int sendpacket(Networking_Core *net, IP_Port ip_port, const uint8_t *data, uint1
 
 	LOGGER_TRACE(net->log, "sendpacket:len=%d data[0]=%d", length, (int)data[0]);
 
-    if (((int)data[0] == 193) || ((int)data[0] == PACKET_LOSSY_RAW_YUV_VIDEO))
+    if (((int)data[0] == 193) || ((int)data[0] == 172))
     {
 	    LOGGER_DEBUG(net->log, "sendpacket:len=%d data[0]=%d", length, (int)data[0]);
     }
@@ -455,7 +455,7 @@ static int receivepacket(Logger *log, Socket sock, IP_Port *ip_port, uint8_t *da
 
 	LOGGER_TRACE(log, "recvfrom:fail_or_len=%d data[0]=%d", fail_or_len, (int)data[0]);
 
-    if (((int)data[0] == 193) || ((int)data[0] == PACKET_LOSSY_RAW_YUV_VIDEO))
+    if (((int)data[0] == 193) || ((int)data[0] == 172))
     {
     	LOGGER_DEBUG(log, "recvfrom:fail_or_len=%d data[0]=%d", fail_or_len, (int)data[0]);
     }

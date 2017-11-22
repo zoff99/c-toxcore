@@ -439,7 +439,7 @@ Can be used to determine if the bitstream is of the proper format, and to extrac
 static void vc_iterate_raw_yuv(VCSession *vc, struct RTPMessage *p)
 {
     // TODO: write me
-    LOGGER_WARNING(vc->log, "vc_iterate_raw_yuv";
+    LOGGER_WARNING(vc->log, "vc_iterate_raw_yuv");
 }
 
 void vc_iterate(VCSession *vc)
