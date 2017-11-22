@@ -62,7 +62,9 @@ struct RingBuffer;
 struct raw_yuv_data {
     uint16_t width;
     uint16_t height;
-    uint16_t yuv_buffer_len;
+    uint32_t yuv_buffer_len;
+    uint32_t u_buffer_offset;
+    uint32_t v_buffer_offset;
     uint8_t data[];
 } __attribute__((packed));
 // Zoff --

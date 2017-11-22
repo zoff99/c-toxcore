@@ -443,6 +443,28 @@ static void vc_iterate_raw_yuv(VCSession *vc, struct RTPMessage *p)
 
     if (vc->vcb.first)
 	{
+
+/*
+struct RTPMessage {
+    uint16_t len;
+// Zoff --
+    uint8_t dummy; // alignment checked below!!
+    uint8_t orig_packet_id;
+// Zoff --
+    struct RTPHeader header;
+    uint8_t data[];
+} __attribute__((packed));
+
+struct raw_yuv_data {
+    uint16_t width;
+    uint16_t height;
+    uint32_t yuv_buffer_len;
+    uint32_t u_buffer_offset;
+    uint32_t v_buffer_offset;
+    uint8_t data[];
+} __attribute__((packed));
+*/
+
         struct *raw_yuv_data yuv = (struct *raw_yuv_data)p->data;
         (const uint8_t *)y_plane = (const uint8_t *)raw_yuv_data->data;
         (const uint8_t *)u_plane = y_plane + u_buffer_offset;
