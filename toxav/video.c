@@ -466,9 +466,9 @@ struct raw_yuv_data {
 */
 
         struct raw_yuv_data *yuv = (void *)p->data;
-        (const uint8_t *)y_plane = (const uint8_t *)raw_yuv_data->data;
-        (const uint8_t *)u_plane = y_plane + yuv->u_buffer_offset;
-        (const uint8_t *)v_plane = y_plane + yuv->v_buffer_offset;
+        const uint8_t *y_plane = (const uint8_t *)raw_yuv_data->data;
+        const uint8_t *u_plane = y_plane + yuv->u_buffer_offset;
+        const uint8_t *v_plane = y_plane + yuv->v_buffer_offset;
         vc->vcb.first(vc->av, vc->friend_number, yuv->width, yuv->height,
                       y_plane, u_plane, v_plane,
                       0, 0, 0, vc->vcb.second);
