@@ -442,7 +442,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
 			LOGGER_DEBUG(m->log, "session->mp");
             if (session->mcb)
             {
-				LOGGER_DEBUG(m->log, "session->MCB");
+				LOGGER_DEBUG(m->log, "session->MCB, session->mp->orig_packet_id=%d", session->mp->orig_packet_id);
                 session->mcb(session->cs, session->mp);
             }
             else
@@ -464,7 +464,10 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
             return 0;
         }
 
-        return session->mcb(session->cs, new_message(length, data, length));
+        struct RTPMessage *tmp_mp = new_message(length, data, length);
+        tmp_mp->orig_packet_id = data_orig[0]; // save packet ID
+
+        return session->mcb(session->cs, tmp_mp);
     }
 
     /* The message is sent in multiple parts */
