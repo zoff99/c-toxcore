@@ -581,7 +581,7 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
 
     pthread_mutex_lock(vc->queue_mutex);
     void *ret = rb_write((RingBuffer *)vc->vbuf_raw, msg, msg->orig_packet_id);
-    LOGGER_DEBUG(vc->log, "vc_queue_message:rb_write ret=%p orig_packet_id=%d --> len=%d", ret, (int)orig_packet_id, (int)msg->len);
+    LOGGER_DEBUG(vc->log, "vc_queue_message:rb_write ret=%p orig_packet_id=%d --> len=%d", ret, (int)msg->orig_packet_id, (int)msg->len);
     // char *lmsg = logger_dumphex((const void*) msg->data, (size_t)msg->len);
     // LOGGER_WARNING(vc->log, "vc_queue_message:rb_write:data --> len=%d\n%s", (int)msg->len, lmsg);
 	// free(lmsg);
