@@ -369,6 +369,7 @@ void vc_kill(VCSession *vc)
 
 void video_switch_encoder(VCSession *vc)
 {
+    // TODO: write me
 }
 
 void video_switch_decoder(VCSession *vc)
