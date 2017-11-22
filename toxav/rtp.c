@@ -199,6 +199,10 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
     header->pt = session->payload_type % 128;
     LOGGER_WARNING(log, "header->pt = %d, session->payload_type=%d", (int)header->pt, (int)session->payload_type);
 
+    uint8_t *header_raw_data = (uint8_t *)header;
+    LOGGER_WARNING(log, "rdata[0]=%d, rdata[1]=%d, header[0]=%d, session->payload_type=%d", (int)rdata[0], (int)rdata[1], (int)header_raw_data[0], (int)session->payload_type);
+
+
     header->sequnum = net_htons(session->sequnum);
     LOGGER_DEBUG(log, "header->sequnum = %d", (int)header->sequnum);
 
@@ -381,7 +385,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
      */
 
     LOGGER_DEBUG(m->log, "incoming: handle_rtp_packet data[0]=%d session->payload_type=%d --> len=%d", (int)data[0], (int)session->payload_type, (int)length);
-    data ++;
+    data++;
     length--;
 
     if (!session || length < sizeof(struct RTPHeader)) {
