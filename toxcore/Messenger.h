@@ -71,7 +71,7 @@ enum {
 
 // Zoff --
 #define PACKET_LOSSLESS_VIDEO 171
-#define PACKET_LOSSY_RAW_YUV_VIDEO 172
+#define PACKET_LOSSY_RAW_YUV_VIDEO 194
 // Zoff --
 
 typedef struct {
