@@ -385,6 +385,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
      *
      */
 
+    if (data[0]!=192)
     LOGGER_DEBUG(m->log, "incoming: handle_rtp_packet data[0]=%d, data[1]=%d, session->payload_type=%d --> len=%d", (int)data[0], (int)data[1], (int)session->payload_type, (int)length);
 
     // here the magical packet ID byte gets stripped, why? -----------
@@ -416,6 +417,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
     {
         /* The message is sent in single part */
 
+    if (data_orig[0]!=192)
 		LOGGER_DEBUG(m->log, "The message is sent in single part");
 
         /* Only allow messages which have arrived in order;
@@ -423,6 +425,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
          */
         if (chloss(session, header))
         {
+    if (data_orig[0]!=192)
 			LOGGER_DEBUG(m->log, "chloss==0");
             return 0;
         }
@@ -431,6 +434,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
         session->rsequnum = net_ntohs(header->sequnum);
         session->rtimestamp = net_ntohl(header->timestamp);
 
+    if (data_orig[0]!=192)
 		LOGGER_DEBUG(m->log, "session->rsequnum=%d session->rtimestamp=%d", (int)header->sequnum ,(int)header->timestamp);
 
         bwc_add_recv(session->bwc, length);
@@ -439,9 +443,11 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
         if (session->mp)
         {
             session->mp->orig_packet_id = data_orig[0]; // save packet ID
+    if (data_orig[0]!=192)
 			LOGGER_DEBUG(m->log, "session->mp");
             if (session->mcb)
             {
+    if (data_orig[0]!=192)
 				LOGGER_DEBUG(m->log, "session->MCB, session->mp->orig_packet_id=%d", session->mp->orig_packet_id);
                 session->mcb(session->cs, session->mp);
             }
@@ -451,6 +457,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
             }
 
             session->mp = NULL;
+    if (data_orig[0]!=192)
 			LOGGER_DEBUG(m->log, "session->mp = NULL");
 
         }
@@ -460,6 +467,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
          */
 
         if (!session->mcb) {
+    if (data_orig[0]!=192)
 			LOGGER_DEBUG(m->log, "NOT session->mcb");
             return 0;
         }
@@ -474,6 +482,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
 
     if (session->mp) {
 
+    if (data_orig[0]!=192)
 		LOGGER_DEBUG(m->log, "The message is sent in multiple parts");
 
         session->mp->orig_packet_id = data_orig[0]; // save packet ID
@@ -486,12 +495,14 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
          * processing message
          */
 
+    if (data_orig[0]!=192)
 		LOGGER_DEBUG(m->log, "session->mp->header.sequnum=%d session->mp->header.timestamp=%d", (int)session->mp->header.sequnum ,(int)session->mp->header.timestamp);
 
         if (session->mp->header.sequnum == net_ntohs(header->sequnum) &&
                 session->mp->header.timestamp == net_ntohl(header->timestamp))
         {
             /* First case */
+    if (data_orig[0]!=192)
 			LOGGER_DEBUG(m->log, "++ 1) being that we got the part of already processing message");
 
             /* Make sure we have enough allocated memory */
@@ -501,6 +512,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
                 /* There happened to be some corruption on the stream;
                  * continue without this part
                  */
+    if (data_orig[0]!=192)
 				LOGGER_DEBUG(m->log, "There happened to be some corruption on the stream, continue without this part");
 
                 return 0;
@@ -516,6 +528,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
             if (session->mp->len == session->mp->header.tlen)
             {
 
+    if (data_orig[0]!=192)
 				LOGGER_DEBUG(m->log, "Received a full message. session->mp->len=%d", (int)session->mp->len);
 
                 /* Received a full message; now push it for the further
@@ -536,11 +549,13 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
         else
         {
             /* Second case */
+    if (data_orig[0]!=192)
 			LOGGER_DEBUG(m->log, "++ 2) being that we got the part of a new/old message [you have already LOST!]");
 
             if (session->mp->header.timestamp > net_ntohl(header->timestamp))
             {
 
+    if (data_orig[0]!=192)
 				LOGGER_DEBUG(m->log, "The received message part is from the old message. session->mp->header.timestamp=%d", (int)session->mp->header.timestamp);
 
                 /* The received message part is from the old message;
@@ -584,6 +599,7 @@ NEW_MULTIPARTED:
          */
         if (chloss(session, header))
         {
+    if (data_orig[0]!=192)
 			LOGGER_DEBUG(m->log, "(2)chloss==0");
             return 0;
         }
@@ -592,6 +608,7 @@ NEW_MULTIPARTED:
         session->rsequnum = net_ntohs(header->sequnum);
         session->rtimestamp = net_ntohl(header->timestamp);
 
+    if (data_orig[0]!=192)
 		LOGGER_DEBUG(m->log, "(2)session->rsequnum=%d session->rtimestamp=%d", (int)header->sequnum ,(int)header->timestamp);
 
         bwc_add_recv(session->bwc, length);

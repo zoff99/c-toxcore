@@ -58,6 +58,16 @@
 struct RTPMessage;
 struct RingBuffer;
 
+// Zoff --
+struct raw_yuv_data {
+    uint16_t width;
+    uint16_t height;
+    uint16_t yuv_buffer_len;
+    uint8_t data[];
+} __attribute__((packed));
+// Zoff --
+
+
 typedef struct VCSession_s {
     /* encoding */
     vpx_codec_ctx_t encoder[1];

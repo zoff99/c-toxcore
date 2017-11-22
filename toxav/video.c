@@ -440,6 +440,18 @@ static void vc_iterate_raw_yuv(VCSession *vc, struct RTPMessage *p)
 {
     // TODO: write me
     LOGGER_WARNING(vc->log, "vc_iterate_raw_yuv");
+
+    if (vc->vcb.first)
+	{
+        struct *raw_yuv_data yuv = (struct *raw_yuv_data)p->data;
+        (const uint8_t *)y_plane = (const uint8_t *)raw_yuv_data->data;
+        (const uint8_t *)u_plane = y_plane + u_buffer_offset;
+        (const uint8_t *)v_plane = y_plane + v_buffer_offset;
+        vc->vcb.first(vc->av, vc->friend_number, yuv->width, yuv->height,
+                      y_plane, u_plane, v_plane,
+                      0, 0, 0, vc->vcb.second);
+    }
+
 }
 
 void vc_iterate(VCSession *vc)
@@ -455,7 +467,8 @@ void vc_iterate(VCSession *vc)
 
     pthread_mutex_lock(vc->queue_mutex);
 
-    if (rb_read((RingBuffer *)vc->vbuf_raw, (void **)&p, &data_type)) {
+    if (rb_read((RingBuffer *)vc->vbuf_raw, (void **)&p, &data_type))
+    {
         pthread_mutex_unlock(vc->queue_mutex);
 
         LOGGER_WARNING(vc->log, "vc_iterate: rb_read p->len=%d data_type=%d", (int)p->len, (int)data_type);
