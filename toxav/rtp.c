@@ -47,7 +47,7 @@ RTPSession *rtp_new(int payload_type, Messenger *m, uint32_t friendnumber,
 {
     /*
      *
-     * --> mcb == vc_queue_message() // this function is called from here! arrgh **
+     * --> mcb == vc_queue_message()
      * --> cs == call->video.second // == VCSession created by vc_new() call!
      *
      * next time please make it even more confusing!?!? arrgh **
@@ -378,31 +378,32 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
     /*
      *
      * session->mcb == vc_queue_message() // this function is called from here! arrgh **
+     * session->mp == struct *RTPMessage
      * session->cs == call->video.second // == VCSession created by vc_new() call!
      *
      * next time please make it even more confusing!?!? arrgh **
      *
      */
 
-    LOGGER_DEBUG(m->log, "incoming: handle_rtp_packet data[0]=%d session->payload_type=%d --> len=%d", (int)data[0], (int)session->payload_type, (int)length);
+    LOGGER_DEBUG(m->log, "incoming: handle_rtp_packet data[0]=%d, data[1]=%d, session->payload_type=%d --> len=%d", (int)data[0], (int)data[1], (int)session->payload_type, (int)length);
+
+    // here the magical packet ID byte gets stripped, why? -----------
+    const uint8_t *data_orig = data;
     data++;
     length--;
+    // here the magical packet ID byte gets stripped, why? -----------
 
     if (!session || length < sizeof(struct RTPHeader)) {
         LOGGER_WARNING(m->log, "No session or invalid length of received buffer!");
         return -1;
     }
 
-    // this can't be correct?
-    // on sending there is 1 byte before the RTPHeader in the data
-    // where is this byte vanished to?
     const struct RTPHeader *header = (const struct RTPHeader *) data;
 
     if (header->pt != session->payload_type % 128) {
         LOGGER_WARNING(m->log, "Invalid payload type with the session");
         return -1;
     }
-
     if (net_ntohs(header->cpart) >= net_ntohs(header->tlen)) {
         /* Never allow this case to happen */
 		LOGGER_WARNING(m->log, "Never allow this case to happen");
@@ -437,6 +438,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
         /* Invoke processing of active multiparted message */
         if (session->mp)
         {
+            session->mp->orig_packet_id = data_orig[0]; // save packet ID
 			LOGGER_DEBUG(m->log, "session->mp");
             if (session->mcb)
             {
@@ -471,6 +473,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
 
 		LOGGER_DEBUG(m->log, "The message is sent in multiple parts");
 
+        session->mp->orig_packet_id = data_orig[0]; // save packet ID
 
         /* There are 2 possible situations in this case:
          *      1) being that we got the part of already processing message.
@@ -595,6 +598,7 @@ NEW_MULTIPARTED:
         if (session->mcb)
         {
             session->mp = new_message(net_ntohs(header->tlen) + sizeof(struct RTPHeader), data, length);
+            session->mp->orig_packet_id = data_orig[0]; // save packet ID
 
             /* Reposition data if necessary */ // WTF? what is this doing??
             if (net_ntohs(header->cpart))
