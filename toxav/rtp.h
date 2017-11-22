@@ -77,6 +77,7 @@ typedef char __fail_if_misaligned_1 [ sizeof(struct RTPHeader) == 80 ? 1 : -1 ];
 struct RTPMessage {
     uint16_t len;
 // Zoff --
+    uint8_t dummy; // this struct must be 2byte aligned!!
     uint8_t orig_packet_id;
 // Zoff --
     struct RTPHeader header;
