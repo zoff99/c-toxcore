@@ -49,6 +49,8 @@ VPX_DL_BEST_QUALITY   (0)       deadline parameter analogous to VPx BEST QUALITY
 int global__MAX_ENCODE_TIME_US = MAX_ENCODE_TIME_US;
 
 int global__MAX_ENCODE_TIME_US__prev_value = MAX_ENCODE_TIME_US;
+
+extern int global__SEND_VIDEO_RAW_YUV;
 // ---------- dirty hack ----------
 // ---------- dirty hack ----------
 // ---------- dirty hack ----------
@@ -815,7 +817,7 @@ struct raw_yuv_data {
 
         uint32_t yuv_buf_len = (width * height) + 2 * ((width / 2) * (height / 2));
         size_t full_data_len = yuv_buf_len + sizeof(uint16_t)*2 + sizeof(uint32_t)*3;
-        (void *)buf = calloc(1, full_data_len);
+        void *buf = calloc(1, full_data_len);
         struct raw_yuv_data *yuv_send = (void *)buf;
         yuv_send->width = width;
         yuv_send->height = height;
