@@ -465,10 +465,10 @@ struct raw_yuv_data {
 } __attribute__((packed));
 */
 
-        struct *raw_yuv_data yuv = (struct *raw_yuv_data)p->data;
+        struct raw_yuv_data *yuv = (struct *raw_yuv_data)p->data;
         (const uint8_t *)y_plane = (const uint8_t *)raw_yuv_data->data;
-        (const uint8_t *)u_plane = y_plane + u_buffer_offset;
-        (const uint8_t *)v_plane = y_plane + v_buffer_offset;
+        (const uint8_t *)u_plane = y_plane + yuv->u_buffer_offset;
+        (const uint8_t *)v_plane = y_plane + yuv->v_buffer_offset;
         vc->vcb.first(vc->av, vc->friend_number, yuv->width, yuv->height,
                       y_plane, u_plane, v_plane,
                       0, 0, 0, vc->vcb.second);
