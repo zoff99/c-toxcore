@@ -465,11 +465,20 @@ struct raw_yuv_data {
     uint8_t data[];
 } __attribute__((packed));
 */
-
         struct raw_yuv_data *yuv = (void *)p->data;
         const uint8_t *y_plane = (const uint8_t *)yuv->data;
         const uint8_t *u_plane = y_plane + yuv->u_buffer_offset;
         const uint8_t *v_plane = y_plane + yuv->v_buffer_offset;
+
+        LOGGER_WARNING(av->m->log, "vc_iterate_raw_yuv:raw-yuv: full_data_len=%d, w=%d, h=%d, yuv buf len=%d, u offset=%d, v offset=%d",
+            (int)p->len,
+            (int)yuv->width,
+            (int)yuv->height,
+            (int)-1,
+            (int)yuv->u_buffer_offset,
+            (int)yuv->v_buffer_offset,
+            );
+
         vc->vcb.first(vc->av, vc->friend_number, yuv->width, yuv->height,
                       y_plane, u_plane, v_plane,
                       0, 0, 0, vc->vcb.second);

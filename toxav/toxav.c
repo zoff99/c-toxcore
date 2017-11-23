@@ -830,6 +830,16 @@ struct raw_yuv_data {
         memcpy(yuv_raw_data_start + yuv_send->u_buffer_offset, u, (width / 2) * (height / 2));
         memcpy(yuv_raw_data_start + yuv_send->v_buffer_offset, v, (width / 2) * (height / 2));
 
+        LOGGER_WARNING(av->m->log, "rtp_send_data:raw-yuv: full_data_len=%d, w=%d, h=%d, yuv buf len=%d, u offset=%d, v offset=%d",
+            (int)full_data_len,
+            (int)width,
+            (int)height,
+            (int)yuv_buf_len,
+            (int)yuv_send->u_buffer_offset,
+            (int)yuv_send->v_buffer_offset,
+            );
+
+
         int res = rtp_send_data
             (
                 call->video.first,
