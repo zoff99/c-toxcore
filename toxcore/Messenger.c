@@ -1811,7 +1811,7 @@ void custom_lossy_packet_registerhandler(Messenger *m, void (*packet_handler_cal
 // this doesn't seem to care if packets incoming are lossy or lossless
 //
 int m_callback_rtp_packet(Messenger *m, int32_t friendnumber, uint8_t byte, int (*packet_handler_callback)(Messenger *m,
-                          uint32_t friendnumber, const uint8_t *data, uint16_t len, void *object), void *object)
+                          uint32_t friendnumber, const uint8_t *data, uint32_t len, void *object), void *object)
 {
     if (friend_not_valid(m, friendnumber)) {
         return -1;
