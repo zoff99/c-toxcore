@@ -476,7 +476,7 @@ struct raw_yuv_data {
             (int)yuv->height,
             (int)-1,
             (int)yuv->u_buffer_offset,
-            (int)yuv->v_buffer_offset,
+            (int)yuv->v_buffer_offset
             );
 
         vc->vcb.first(vc->av, vc->friend_number, yuv->width, yuv->height,
