@@ -296,6 +296,8 @@ Supported in codecs: VP9
 		{
 			rc = vpx_codec_control(vc->encoder, VP9E_SET_LOSSLESS, 1);
 
+			LOGGER_WARNING(log, "setting VP9E_SET_LOSSLESS");
+			
 			if (rc != VPX_CODEC_OK) {
 				LOGGER_ERROR(log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
 				vpx_codec_destroy(vc->encoder);
