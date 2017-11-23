@@ -280,7 +280,7 @@ Supported in codecs: VP9
 
 	if (global__VPX_ENCODER_USED == 1)
 	{
-		rc = vpx_codec_control(vc->encoder, VP9E_SET_TILE_COLUMNS, 2);
+		rc = vpx_codec_control(vc->encoder, VP9E_SET_TILE_COLUMNS, 3);
 
 		if (rc != VPX_CODEC_OK) {
 			LOGGER_ERROR(log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
@@ -753,7 +753,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 
 		if (global__VPX_ENCODER_USED == 1)
 		{
-			rc = vpx_codec_control(&new_c, VP9E_SET_TILE_COLUMNS, 2);
+			rc = vpx_codec_control(&new_c, VP9E_SET_TILE_COLUMNS, 3);
 
 			if (rc != VPX_CODEC_OK) {
 				LOGGER_ERROR(vc->log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
