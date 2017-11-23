@@ -823,7 +823,7 @@ struct raw_yuv_data {
         yuv_send->height = height;
         yuv_send->yuv_buffer_len = yuv_buf_len;
         yuv_send->u_buffer_offset = (width * height);
-        yuv_send->v_buffer_offset = (width / 2) * (height / 2);
+        yuv_send->v_buffer_offset = yuv_send->u_buffer_offset + (width / 2) * (height / 2);
         uint8_t *yuv_raw_data_start = yuv_send->data;
 
         memcpy(yuv_raw_data_start, y, width * height);
