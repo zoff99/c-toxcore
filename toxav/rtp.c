@@ -38,7 +38,7 @@ extern int global__SEND_VIDEO_LOSSLESS;
 extern int global__SEND_VIDEO_RAW_YUV;
 // -- hack --
 
-int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object);
+int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint32_t length, void *object);
 
 
 RTPSession *rtp_new(int payload_type, Messenger *m, uint32_t friendnumber,
@@ -157,7 +157,7 @@ int rtp_stop_receiving(RTPSession *session)
 }
 
 
-int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Logger *log)
+int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, Logger *log)
 {
     if (!session) {
         LOGGER_ERROR(log, "No session!");
@@ -249,7 +249,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
          * Send the packet in multiple pieces.
          */
 
-        uint16_t sent = 0;
+        uint32_t sent = 0;
         uint16_t piece = MAX_CRYPTO_VIDEO_DATA_SIZE - (sizeof(struct RTPHeader) + 1);
 
 		LOGGER_WARNING(log, "rtp_send_data (multiple pieces) [S] --> sent=%d piece=%d len=%d", (int)sent, (int)piece, (int)length);
@@ -282,7 +282,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Log
 			}
 
             sent += piece;
-            header->cpart = net_htons(sent);
+            header->cpart = net_htonl(sent);
         }
 
         /* Send remaining */
@@ -344,7 +344,7 @@ static bool chloss(const RTPSession *session, const struct RTPHeader *header)
 }
 
 
-static struct RTPMessage *new_message(size_t allocate_len, const uint8_t *data, uint16_t data_length)
+static struct RTPMessage *new_message(size_t allocate_len, const uint8_t *data, uint32_t data_length)
 {
     assert(allocate_len >= data_length);
 
@@ -358,8 +358,8 @@ static struct RTPMessage *new_message(size_t allocate_len, const uint8_t *data, 
     msg->header.timestamp = net_ntohl(msg->header.timestamp);
     msg->header.ssrc = net_ntohl(msg->header.ssrc);
 
-    msg->header.cpart = net_ntohs(msg->header.cpart);
-    msg->header.tlen = net_ntohs(msg->header.tlen);
+    msg->header.cpart = net_htonl(msg->header.cpart);
+    msg->header.tlen = net_htonl(msg->header.tlen);
 
     return msg;
 }
@@ -368,7 +368,7 @@ static struct RTPMessage *new_message(size_t allocate_len, const uint8_t *data, 
 /*
  *  here: data[0] == Packet ID !!
  */
-int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object)
+int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint32_t length, void *object)
 {
     (void) m;
     (void) friendnumber;
@@ -405,7 +405,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
         LOGGER_WARNING(m->log, "Invalid payload type with the session");
         return -1;
     }
-    if (net_ntohs(header->cpart) >= net_ntohs(header->tlen)) {
+    if (net_htonl(header->cpart) >= net_htonl(header->tlen)) {
         /* Never allow this case to happen */
 		LOGGER_WARNING(m->log, "Never allow this case to happen");
         return -1;
@@ -413,7 +413,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
 
     bwc_feed_avg(session->bwc, length);
 
-    if (net_ntohs(header->tlen) == length - sizeof(struct RTPHeader))
+    if (net_htonl(header->tlen) == length - sizeof(struct RTPHeader))
     {
         /* The message is sent in single part */
 
@@ -507,7 +507,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
 
             /* Make sure we have enough allocated memory */
             if (session->mp->header.tlen - session->mp->len < length - sizeof(struct RTPHeader) ||
-                    session->mp->header.tlen <= net_ntohs(header->cpart))
+                    session->mp->header.tlen <= net_htonl(header->cpart))
             {
                 /* There happened to be some corruption on the stream;
                  * continue without this part
@@ -518,7 +518,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
                 return 0;
             }
 
-            memcpy(session->mp->data + net_ntohs(header->cpart), data + sizeof(struct RTPHeader),
+            memcpy(session->mp->data + net_htonl(header->cpart), data + sizeof(struct RTPHeader),
                    length - sizeof(struct RTPHeader));
 
             session->mp->len += length - sizeof(struct RTPHeader);
@@ -617,16 +617,16 @@ NEW_MULTIPARTED:
          */
         if (session->mcb)
         {
-            session->mp = new_message(net_ntohs(header->tlen) + sizeof(struct RTPHeader), data, length);
+            session->mp = new_message(net_htonl(header->tlen) + sizeof(struct RTPHeader), data, length);
             session->mp->orig_packet_id = data_orig[0]; // save packet ID
 
             /* Reposition data if necessary */ // WTF? what is this doing??
-            if (net_ntohs(header->cpart))
+            if (net_htonl(header->cpart))
             {
                 ;
             }
 
-            memmove(session->mp->data + net_ntohs(header->cpart), session->mp->data, session->mp->len);
+            memmove(session->mp->data + net_htonl(header->cpart), session->mp->data, session->mp->len);
         }
     }
 

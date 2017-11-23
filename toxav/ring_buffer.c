@@ -24,12 +24,12 @@
 #include <stdlib.h>
 
 struct RingBuffer {
-    uint16_t size; /* Max size */
+    uint32_t size; /* Max size */
 // Zoff --
     uint8_t data_type; /* 1 -> raw yuv data struct,  0 -> all other data */
 // Zoff --
-    uint16_t start;
-    uint16_t end;
+    uint32_t start;
+    uint32_t end;
     void   **data;
 };
 

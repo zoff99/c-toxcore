@@ -67,17 +67,17 @@ struct RTPHeader {
     uint32_t csrc[16];
 
     /* Non-standard TOX-specific fields */
-    uint16_t cpart;/* Data offset of the current part */
-    uint16_t tlen; /* Total message lenght */
+    uint32_t cpart;/* Data offset of the current part */
+    uint32_t tlen; /* Total message lenght */
 } __attribute__((packed));
 
 /* Check alignment */
-typedef char __fail_if_misaligned_1 [ sizeof(struct RTPHeader) == 80 ? 1 : -1 ];
+// Zoff // ** // typedef char __fail_if_misaligned_1 [ sizeof(struct RTPHeader) == 80 ? 1 : -1 ];
 
 struct RTPMessage {
-    uint16_t len;
+    uint32_t len;
 // Zoff --
-    uint8_t dummy; // alignment checked below!!
+    // uint8_t dummy; // alignment checked below!!
     uint8_t orig_packet_id;
 // Zoff --
     struct RTPHeader header;
@@ -85,7 +85,7 @@ struct RTPMessage {
 } __attribute__((packed));
 
 /* Check alignment */
-typedef char __fail_if_misaligned_2 [ sizeof(struct RTPMessage) == 84 ? 1 : -1 ];
+// typedef char __fail_if_misaligned_2 [ sizeof(struct RTPMessage) == 84 ? 1 : -1 ];
 
 /**
  * RTP control session.
@@ -114,6 +114,6 @@ RTPSession *rtp_new(int payload_type, Messenger *m, uint32_t friendnumber,
 void rtp_kill(RTPSession *session);
 int rtp_allow_receiving(RTPSession *session);
 int rtp_stop_receiving(RTPSession *session);
-int rtp_send_data(RTPSession *session, const uint8_t *data, uint16_t length, Logger *log);
+int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, Logger *log);
 
 #endif /* RTP_H */

@@ -530,6 +530,19 @@ void vc_iterate(VCSession *vc)
         // free(lmsg);
 
 
+/*
+vpx_codec_err_t vpx_codec_decode 	( 	vpx_codec_ctx_t *  	ctx,
+		const uint8_t *  	data,
+		unsigned int  	data_sz,
+		void *  	user_priv,
+		long  	deadline 
+	)
+
+here you can cleary see it
+"data_sz" is 32bit unsigned
+*/
+
+
         rc = vpx_codec_decode(vc->decoder, p->data, p->len, NULL, global__MAX_DECODE_TIME_US);
 
         if (rc != VPX_CODEC_OK) {
