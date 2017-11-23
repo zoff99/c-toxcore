@@ -440,7 +440,7 @@ Can be used to determine if the bitstream is of the proper format, and to extrac
 
 static void vc_iterate_raw_yuv(VCSession *vc, struct RTPMessage *p)
 {
-    LOGGER_WARNING(vc->log, "vc_iterate_raw_yuv");
+    // LOGGER_WARNING(vc->log, "vc_iterate_raw_yuv");
 
     if (vc->vcb.first)
 	{
@@ -466,22 +466,35 @@ struct raw_yuv_data {
 } __attribute__((packed));
 */
         struct raw_yuv_data *yuv = (void *)p->data;
-        const uint8_t *y_plane = (const uint8_t *)yuv->data;
-        const uint8_t *u_plane = y_plane + yuv->u_buffer_offset;
-        const uint8_t *v_plane = y_plane + yuv->v_buffer_offset;
 
-        LOGGER_WARNING(vc->log, "vc_iterate_raw_yuv:raw-yuv: full_data_len=%d, w=%d, h=%d, yuv buf len=%d, u offset=%d, v offset=%d",
-            (int)p->len,
-            (int)yuv->width,
-            (int)yuv->height,
-            (int)-1,
-            (int)yuv->u_buffer_offset,
-            (int)yuv->v_buffer_offset
-            );
+        uint32_t yuv_buf_len = (yuv->width * yuv->height) + 2 * ((yuv->width / 2) * (yuv->height / 2));
+        size_t full_data_len = yuv_buf_len + sizeof(uint16_t)*2 + sizeof(uint32_t)*3;
 
-        vc->vcb.first(vc->av, vc->friend_number, yuv->width, yuv->height,
-                      y_plane, u_plane, v_plane,
-                      yuv->width, (yuv->width / 2), (yuv->width / 2), vc->vcb.second);
+        if (p->len == full_data_len)
+        {
+
+            const uint8_t *y_plane = (const uint8_t *)yuv->data;
+            const uint8_t *u_plane = y_plane + yuv->u_buffer_offset;
+            const uint8_t *v_plane = y_plane + yuv->v_buffer_offset;
+
+            LOGGER_WARNING(vc->log, "vc_iterate_raw_yuv:raw-yuv: full_data_len=%d, w=%d, h=%d, yuv buf len=%d, u offset=%d, v offset=%d",
+                (int)p->len,
+                (int)yuv->width,
+                (int)yuv->height,
+                (int)-1,
+                (int)yuv->u_buffer_offset,
+                (int)yuv->v_buffer_offset
+                );
+
+            vc->vcb.first(vc->av, vc->friend_number, yuv->width, yuv->height,
+                          y_plane, u_plane, v_plane,
+                          yuv->width, (yuv->width / 2), (yuv->width / 2), vc->vcb.second);
+
+        }
+        else
+        {
+            LOGGER_WARNING(vc->log, "vc_iterate_raw_yuv:raw-yuv:DATA MISSING:p->len=%d full_data_len=%d", (int)p->len, (int)full_data_len);
+        }
     }
 
 }
