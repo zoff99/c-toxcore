@@ -62,7 +62,7 @@ struct BWController_s {
     } rcvpkt; /* To calculate average received packet */
 };
 
-int bwc_handle_data(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object);
+int bwc_handle_data(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint32_t length, void *object);
 void send_update(BWController *bwc);
 
 BWController *bwc_new(Messenger *m, uint32_t friendnumber,
@@ -206,7 +206,7 @@ static int on_update(BWController *bwc, const struct BWCMessage *msg)
 
     return 0;
 }
-int bwc_handle_data(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object)
+int bwc_handle_data(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint32_t length, void *object)
 {
     if (length - 1 != sizeof(struct BWCMessage)) {
         return -1;
