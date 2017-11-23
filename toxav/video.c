@@ -481,7 +481,7 @@ struct raw_yuv_data {
 
         vc->vcb.first(vc->av, vc->friend_number, yuv->width, yuv->height,
                       y_plane, u_plane, v_plane,
-                      0, 0, 0, vc->vcb.second);
+                      yuv->width, (yuv->width / 2), (yuv->width / 2), vc->vcb.second);
     }
 
 }
