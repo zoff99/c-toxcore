@@ -210,7 +210,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, Log
     header->ssrc = net_htonl(session->ssrc);
 
     header->cpart = 0;
-    header->tlen = net_htons(length);
+    header->tlen = net_htonl(length);
 
     LOGGER_WARNING(log, "rtp_send_data --> len=%d", (int)length);
     // char *lmsg = logger_dumphex((const void*) data, (size_t)length);
