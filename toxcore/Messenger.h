@@ -685,7 +685,7 @@ int m_msi_packet(const Messenger *m, int32_t friendnumber, const uint8_t *data, 
  * return 0 on success.
  */
 int m_callback_rtp_packet(Messenger *m, int32_t friendnumber, uint8_t byte, int (*packet_handler_callback)(Messenger *m,
-                          uint32_t friendnumber, const uint8_t *data, uint16_t len, void *object), void *object);
+                          uint32_t friendnumber, const uint8_t *data, uint32_t len, void *object), void *object);
 
 /**********************************************/
 
