@@ -470,7 +470,7 @@ struct raw_yuv_data {
         const uint8_t *u_plane = y_plane + yuv->u_buffer_offset;
         const uint8_t *v_plane = y_plane + yuv->v_buffer_offset;
 
-        LOGGER_WARNING(av->m->log, "vc_iterate_raw_yuv:raw-yuv: full_data_len=%d, w=%d, h=%d, yuv buf len=%d, u offset=%d, v offset=%d",
+        LOGGER_WARNING(vc->log, "vc_iterate_raw_yuv:raw-yuv: full_data_len=%d, w=%d, h=%d, yuv buf len=%d, u offset=%d, v offset=%d",
             (int)p->len,
             (int)yuv->width,
             (int)yuv->height,
