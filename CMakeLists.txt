@@ -41,9 +41,10 @@ include(AddCompilerFlag)
 include(ApiDsl)
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
-include(CTest)
 include(MacRpath)
 include(StrictAbi)
+
+enable_testing()
 
 set(CMAKE_MACOSX_RPATH ON)
 
@@ -145,6 +146,11 @@ else()
   # Forbid undefined symbols in shared libraries. This is incompatible with
   # asan, so it's in the else branch here.
   add_dllflag("-Wl,-z,defs")
+endif()
+
+option(USE_IPV6 "Use IPv6 in tests" ON)
+if(NOT USE_IPV6)
+  add_definitions(-DUSE_IPV6=0)
 endif()
 
 option(BUILD_TOXAV "Whether to build the tox AV library" ON)

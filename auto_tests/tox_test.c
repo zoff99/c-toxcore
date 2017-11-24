@@ -246,7 +246,7 @@ static void tox_file_chunk_request(Tox *tox, uint32_t friend_number, uint32_t fi
 
     if (position + length > max_sending) {
         if (m_send_reached) {
-            ck_abort_msg("Requested done file tranfer.");
+            ck_abort_msg("Requested done file transfer.");
         }
 
         length = max_sending - position;
@@ -331,19 +331,17 @@ START_TEST(test_few_clients)
 
     {
         TOX_ERR_GET_PORT error;
-        ck_assert_msg(tox_self_get_udp_port(tox1, &error) == 33445, "First Tox instance did not bind to udp port 33445.\n");
+        uint16_t first_port = tox_self_get_udp_port(tox1, &error);
+        ck_assert_msg(33445 <= first_port && first_port <= 33545 - 2,
+                      "First Tox instance did not bind to udp port inside [33445, 33543].\n");
         ck_assert_msg(error == TOX_ERR_GET_PORT_OK, "wrong error");
-    }
 
-    {
-        TOX_ERR_GET_PORT error;
-        ck_assert_msg(tox_self_get_udp_port(tox2, &error) == 33446, "Second Tox instance did not bind to udp port 33446.\n");
+        ck_assert_msg(tox_self_get_udp_port(tox2, &error) == first_port + 1,
+                      "Second Tox instance did not bind to udp port %d.\n", first_port + 1);
         ck_assert_msg(error == TOX_ERR_GET_PORT_OK, "wrong error");
-    }
 
-    {
-        TOX_ERR_GET_PORT error;
-        ck_assert_msg(tox_self_get_udp_port(tox3, &error) == 33447, "Third Tox instance did not bind to udp port 33447.\n");
+        ck_assert_msg(tox_self_get_udp_port(tox3, &error) == first_port + 2,
+                      "Third Tox instance did not bind to udp port %d.\n", first_port + 2);
         ck_assert_msg(error == TOX_ERR_GET_PORT_OK, "wrong error");
     }
 
@@ -408,7 +406,7 @@ START_TEST(test_few_clients)
     printf("tox clients messaging succeeded\n");
 
     unsigned int save_size1 = tox_get_savedata_size(tox2);
-    ck_assert_msg(save_size1 != 0 && save_size1 < 4096, "save is invalid size %u", save_size1);
+    ck_assert_msg(save_size1 != 0, "save is invalid size %u", save_size1);
     printf("%u\n", save_size1);
     VLA(uint8_t, save1, save_size1);
     tox_get_savedata(tox2, save1);

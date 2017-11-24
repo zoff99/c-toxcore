@@ -67,14 +67,17 @@ START_TEST(test_many_clients_tcp)
         TOX_ERR_BOOTSTRAP error = TOX_ERR_BOOTSTRAP_OK;
         ck_assert_msg(tox_add_tcp_relay(toxes[i], TOX_LOCALHOST, TCP_RELAY_PORT, dpk, &error), "add relay error, %i, %i", i,
                       error);
-        ck_assert_msg(tox_bootstrap(toxes[i], TOX_LOCALHOST, 33445, dpk, 0), "Bootstrap error");
+        uint16_t first_port = tox_self_get_udp_port(toxes[0], NULL);
+        ck_assert_msg(tox_bootstrap(toxes[i], TOX_LOCALHOST, first_port, dpk, 0), "Bootstrap error");
 
         tox_options_free(opts);
     }
 
     {
         TOX_ERR_GET_PORT error;
-        ck_assert_msg(tox_self_get_udp_port(toxes[0], &error) == 33445, "First Tox instance did not bind to udp port 33445.\n");
+        uint16_t port = tox_self_get_udp_port(toxes[0], &error);
+        ck_assert_msg(33445 <= port && port <= 33545,
+                      "First Tox instance did not bind to udp port inside [33445, 33545].\n");
         ck_assert_msg(error == TOX_ERR_GET_PORT_OK, "wrong error");
         ck_assert_msg(tox_self_get_tcp_port(toxes[0], &error) == TCP_RELAY_PORT,
                       "First Tox instance did not bind to tcp port %u.\n", TCP_RELAY_PORT);
@@ -169,14 +172,17 @@ START_TEST(test_many_clients_tcp_b)
         ck_assert_msg(tox_add_tcp_relay(toxes[i], TOX_LOCALHOST, TCP_RELAY_PORT + (i % NUM_TCP_RELAYS), dpk, 0),
                       "add relay error");
         tox_self_get_dht_id(toxes[0], dpk);
-        ck_assert_msg(tox_bootstrap(toxes[i], TOX_LOCALHOST, 33445, dpk, 0), "Bootstrap error");
+        uint16_t first_port = tox_self_get_udp_port(toxes[0], NULL);
+        ck_assert_msg(tox_bootstrap(toxes[i], TOX_LOCALHOST, first_port, dpk, 0), "Bootstrap error");
 
         tox_options_free(opts);
     }
 
     {
         TOX_ERR_GET_PORT error;
-        ck_assert_msg(tox_self_get_udp_port(toxes[0], &error) == 33445, "First Tox instance did not bind to udp port 33445.\n");
+        uint16_t port = tox_self_get_udp_port(toxes[0], &error);
+        ck_assert_msg(33445 <= port && port <= 33545,
+                      "First Tox instance did not bind to udp port inside [33445, 33545].\n");
         ck_assert_msg(error == TOX_ERR_GET_PORT_OK, "wrong error");
         ck_assert_msg(tox_self_get_tcp_port(toxes[0], &error) == TCP_RELAY_PORT,
                       "First Tox instance did not bind to tcp port %u.\n", TCP_RELAY_PORT);
