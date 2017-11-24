@@ -155,6 +155,12 @@ struct BWCMessage {
 
 void send_update(BWController *bwc)
 {
+// Zoff ---
+// disable BWC
+return;
+// Zoff ---
+
+
     if (current_time_monotonic() - bwc->cycle.lfu > BWC_REFRESH_INTERVAL_MS) {
 
         bwc->cycle.lost /= 10;
@@ -181,8 +187,15 @@ void send_update(BWController *bwc)
         bwc->cycle.lsu = current_time_monotonic();
     }
 }
+
 static int on_update(BWController *bwc, const struct BWCMessage *msg)
 {
+
+// Zoff ---
+// disable BWC
+return 0;
+// Zoff ---
+
     LOGGER_DEBUG(bwc->m->log, "%p Got update from peer", bwc);
 
     /* Peer must respect time boundary */
@@ -206,6 +219,7 @@ static int on_update(BWController *bwc, const struct BWCMessage *msg)
 
     return 0;
 }
+
 int bwc_handle_data(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint32_t length, void *object)
 {
     if (length - 1 != sizeof(struct BWCMessage)) {
@@ -214,3 +228,4 @@ int bwc_handle_data(Messenger *m, uint32_t friendnumber, const uint8_t *data, ui
 
     return on_update((BWController *)object, (const struct BWCMessage *)(data + 1));
 }
+
