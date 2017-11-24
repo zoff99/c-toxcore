@@ -71,7 +71,7 @@ Note
 Supported in codecs: VP8, VP9 
  */
 
-#define VIDEO_DECODE_BUFFER_SIZE (500) // ORIG VALUE: 20
+#define VIDEO_DECODE_BUFFER_SIZE (1500) // ORIG VALUE: 20
 #define VIDEO_BITRATE_INITIAL_VALUE 2500 // initialize encoder with this value. Target bandwidth to use for this stream, in kilobits per second.
 
 
