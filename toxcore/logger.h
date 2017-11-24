@@ -28,7 +28,7 @@
 #include <stddef.h>
 
 #ifndef MIN_LOGGER_LEVEL
-#define MIN_LOGGER_LEVEL LOG_INFO
+#define MIN_LOGGER_LEVEL LOG_DEBUG
 #endif
 
 #ifndef LOGGER_MAX_MSG_LENGTH
