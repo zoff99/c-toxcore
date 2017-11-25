@@ -516,8 +516,8 @@ void vc_iterate(VCSession *vc)
     {
         pthread_mutex_unlock(vc->queue_mutex);
 
-        LOGGER_WARNING(vc->log, "vc_iterate: rb_read p->len=%d data_type=%d", (int)p->len, (int)data_type);
-        LOGGER_WARNING(vc->log, "vc_iterate: rb_read rb size=%d", (int)rb_size((RingBuffer *)vc->vbuf_raw));
+        LOGGER_DEBUG(vc->log, "vc_iterate: rb_read p->len=%d data_type=%d", (int)p->len, (int)data_type);
+        LOGGER_DEBUG(vc->log, "vc_iterate: rb_read rb size=%d", (int)rb_size((RingBuffer *)vc->vbuf_raw));
 
         if (data_type == PACKET_LOSSY_RAW_YUV_VIDEO)
         {
@@ -654,7 +654,7 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
     pthread_mutex_lock(vc->queue_mutex);
     void *ret = rb_write((RingBuffer *)vc->vbuf_raw, msg, msg->orig_packet_id);
     LOGGER_DEBUG(vc->log, "vc_queue_message:rb_write ret=%p orig_packet_id=%d --> len=%d", ret, (int)msg->orig_packet_id, (int)msg->len);
-    LOGGER_WARNING(vc->log, "vc_queue_message: rb_write rb size=%d", (int)rb_size((RingBuffer *)vc->vbuf_raw));
+    LOGGER_DEBUG(vc->log, "vc_queue_message: rb_write rb size=%d", (int)rb_size((RingBuffer *)vc->vbuf_raw));
     // char *lmsg = logger_dumphex((const void*) msg->data, (size_t)msg->len);
     // LOGGER_WARNING(vc->log, "vc_queue_message:rb_write:data --> len=%d\n%s", (int)msg->len, lmsg);
 	// free(lmsg);
