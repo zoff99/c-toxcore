@@ -62,8 +62,20 @@ struct BWController_s {
     } rcvpkt; /* To calculate average received packet */
 };
 
+
+struct BWCMessage {
+    uint32_t lost;
+    uint32_t recv;
+};
+
+
+
+
 int bwc_handle_data(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint32_t length, void *object);
 void send_update(BWController *bwc);
+
+
+
 
 BWController *bwc_new(Messenger *m, uint32_t friendnumber,
                       void (*mcb)(BWController *, uint32_t, float, void *),
@@ -89,6 +101,8 @@ BWController *bwc_new(Messenger *m, uint32_t friendnumber,
 
     return retu;
 }
+
+
 void bwc_kill(BWController *bwc)
 {
     if (!bwc) {
@@ -100,6 +114,8 @@ void bwc_kill(BWController *bwc)
     rb_kill(bwc->rcvpkt.rb);
     free(bwc);
 }
+
+
 void bwc_feed_avg(BWController *bwc, uint32_t bytes)
 {
     uint32_t *p;
@@ -110,6 +126,8 @@ void bwc_feed_avg(BWController *bwc, uint32_t bytes)
 
     *p = bytes;
 }
+
+
 void bwc_add_lost(BWController *bwc, uint32_t bytes)
 {
     if (!bwc) {
@@ -137,6 +155,8 @@ void bwc_add_lost(BWController *bwc, uint32_t bytes)
     bwc->cycle.lost += bytes;
     send_update(bwc);
 }
+
+
 void bwc_add_recv(BWController *bwc, uint32_t bytes)
 {
     if (!bwc || !bytes) {
@@ -147,11 +167,6 @@ void bwc_add_recv(BWController *bwc, uint32_t bytes)
     send_update(bwc);
 }
 
-
-struct BWCMessage {
-    uint32_t lost;
-    uint32_t recv;
-};
 
 void send_update(BWController *bwc)
 {
@@ -188,6 +203,7 @@ return;
     }
 }
 
+
 static int on_update(BWController *bwc, const struct BWCMessage *msg)
 {
 
@@ -220,6 +236,7 @@ return 0;
     return 0;
 }
 
+
 int bwc_handle_data(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint32_t length, void *object)
 {
     if (length - 1 != sizeof(struct BWCMessage)) {
@@ -228,4 +245,5 @@ int bwc_handle_data(Messenger *m, uint32_t friendnumber, const uint8_t *data, ui
 
     return on_update((BWController *)object, (const struct BWCMessage *)(data + 1));
 }
+
 

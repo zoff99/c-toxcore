@@ -974,6 +974,10 @@ void toxav_callback_video_receive_frame(ToxAV *av, toxav_video_receive_frame_cb 
  * :: Internal
  *
  ******************************************************************************/
+
+/*
+    loss -> [0.0 .. 1.0] how much data is lost (%)
+*/
 void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *user_data)
 {
     /* Callback which is called when the internal measure mechanism reported packet loss.
@@ -1012,6 +1016,8 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
 
     pthread_mutex_unlock(call->av->mutex);
 }
+
+
 int callback_invite(void *toxav_inst, MSICall *call)
 {
     ToxAV *toxav = (ToxAV *)toxav_inst;
