@@ -49,7 +49,7 @@ VPX_DL_BEST_QUALITY   (0)
 deadline parameter analogous to VPx BEST QUALITY mode.
 */
 
-#define VP8E_SET_CPUUSED_VALUE (8)
+#define VP8E_SET_CPUUSED_VALUE (16)
 /*
 Codec control function to set encoder internal speed settings.
 Changes in this value influences, among others, the encoder's selection of motion estimation methods.
@@ -71,7 +71,7 @@ Note
 Supported in codecs: VP8, VP9 
  */
 
-#define VIDEO_DECODE_BUFFER_SIZE (400) // ORIG VALUE: 20
+#define VIDEO_DECODE_BUFFER_SIZE (100) // == Ringbuffer entries, ORIG VALUE: 20
 #define VIDEO_BITRATE_INITIAL_VALUE 2500 // initialize encoder with this value. Target bandwidth to use for this stream, in kilobits per second.
 
 
