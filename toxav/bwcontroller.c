@@ -170,11 +170,12 @@ void bwc_add_recv(BWController *bwc, uint32_t bytes)
 
 void send_update(BWController *bwc)
 {
+#if 0
 // Zoff ---
 // disable BWC
 return;
 // Zoff ---
-
+#endif
 
     if (current_time_monotonic() - bwc->cycle.lfu > BWC_REFRESH_INTERVAL_MS) {
 
@@ -207,10 +208,12 @@ return;
 static int on_update(BWController *bwc, const struct BWCMessage *msg)
 {
 
+#if 0
 // Zoff ---
 // disable BWC
 return 0;
 // Zoff ---
+#endif
 
     LOGGER_DEBUG(bwc->m->log, "%p Got update from peer", bwc);
 
