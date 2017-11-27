@@ -112,7 +112,7 @@ struct RTPHeaderV2_1 {
 
 
 struct RTPMessage {
-    uint32_t len;
+    uint32_t len; // for compatibility. its the lower 16 bits of len!! so don't use anymore!!
 // Zoff --
     // uint8_t dummy; // alignment checked below!!
     uint8_t orig_packet_id;
