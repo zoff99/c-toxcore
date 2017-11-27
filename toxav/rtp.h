@@ -74,6 +74,43 @@ struct RTPHeader {
 /* Check alignment */
 // Zoff // ** // typedef char __fail_if_misaligned_1 [ sizeof(struct RTPHeader) == 80 ? 1 : -1 ];
 
+
+
+
+
+struct RTPHeaderV2_1 {
+#ifndef WORDS_BIGENDIAN
+    uint16_t partnum_lower;
+    uint16_t partnum_upper;
+    uint16_t offset_upper;
+    uint16_t protocol_version; /* Version */
+
+    uint16_t payload_type; /* Payload type */
+    uint16_t tlen_upper;
+#else
+    uint16_t protocol_version; /* Version */
+    uint16_t offset_upper;
+    uint16_t partnum_upper;
+    uint16_t partnum_lower;
+
+    uint16_t data_length_lower;
+    uint16_t payload_type; /* Payload type */
+#endif
+
+    uint16_t sequnum;
+    uint32_t timestamp;
+    uint32_t ssrc;
+    uint32_t csrc[16];
+
+    uint16_t offset_lower;      /* Data offset of the current part */
+    uint16_t data_length_lower; /* data length without header, and without packet id */
+} __attribute__((packed));
+
+
+
+
+
+
 struct RTPMessage {
     uint32_t len;
 // Zoff --
