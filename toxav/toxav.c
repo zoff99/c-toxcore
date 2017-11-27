@@ -908,7 +908,7 @@ struct raw_yuv_data {
             if (pkt->kind == VPX_CODEC_CX_FRAME_PKT)
             {
  
-                // const int keyframe = (pkt->data.frame.flags & VPX_FRAME_IS_KEY) != 0;
+                const int keyframe = (pkt->data.frame.flags & VPX_FRAME_IS_KEY) != 0;
 
                 int res = rtp_send_data
                         (
@@ -918,7 +918,7 @@ struct raw_yuv_data {
                             av->m->log
                         );
 
-                // LOGGER_WARNING(av->m->log, "+ sending FRAME TYPE==%s", keyframe ? "K" : ".");
+                LOGGER_WARNING(av->m->log, "+ _sending_FRAME_TYPE_==%s", keyframe ? "K" : ".");
 				// const uint8_t *temp_buf = (const uint8_t *)pkt->data.frame.buf;
                 // LOGGER_WARNING(av->m->log, "+ sending FRAME data size=%d start byte=%d end byte=%d",
                 //     (int)pkt->data.frame.sz, (int)temp_buf[0],

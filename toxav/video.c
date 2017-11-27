@@ -445,26 +445,6 @@ static void vc_iterate_raw_yuv(VCSession *vc, struct RTPMessage *p)
     if (vc->vcb.first)
 	{
 
-/*
-struct RTPMessage {
-    uint16_t len;
-// Zoff --
-    uint8_t dummy; // alignment checked below!!
-    uint8_t orig_packet_id;
-// Zoff --
-    struct RTPHeader header;
-    uint8_t data[];
-} __attribute__((packed));
-
-struct raw_yuv_data {
-    uint16_t width;
-    uint16_t height;
-    uint32_t yuv_buffer_len;
-    uint32_t u_buffer_offset;
-    uint32_t v_buffer_offset;
-    uint8_t data[];
-} __attribute__((packed));
-*/
         struct raw_yuv_data *yuv = (void *)p->data;
 
         uint32_t yuv_buf_len = (yuv->width * yuv->height) + 2 * ((yuv->width / 2) * (yuv->height / 2));
@@ -519,12 +499,14 @@ void vc_iterate(VCSession *vc)
         LOGGER_DEBUG(vc->log, "vc_iterate: rb_read p->len=%d data_type=%d", (int)p->len, (int)data_type);
         LOGGER_DEBUG(vc->log, "vc_iterate: rb_read rb size=%d", (int)rb_size((RingBuffer *)vc->vbuf_raw));
 
+#if 0
         if (data_type == PACKET_LOSSY_RAW_YUV_VIDEO)
         {
             vc_iterate_raw_yuv(vc, p);
             free(p);
             return;
         }
+#endif
 
         // char *lmsg = logger_dumphex((const void*) p->data, (size_t)p->len);
         // LOGGER_WARNING(vc->log, "vc_iterate: rb_read :data --> len=%d\n%s", (int)p->len, lmsg);
@@ -652,8 +634,8 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
     }
 
     pthread_mutex_lock(vc->queue_mutex);
-    void *ret = rb_write((RingBuffer *)vc->vbuf_raw, msg, msg->orig_packet_id);
-    LOGGER_DEBUG(vc->log, "vc_queue_message:rb_write ret=%p orig_packet_id=%d --> len=%d", ret, (int)msg->orig_packet_id, (int)msg->len);
+    void *ret = rb_write((RingBuffer *)vc->vbuf_raw, msg, 0);
+    LOGGER_DEBUG(vc->log, "vc_queue_message:rb_write ret=%p 0=%d --> len=%d", ret, (int)0, (int)msg->len);
     LOGGER_DEBUG(vc->log, "vc_queue_message: rb_write rb size=%d", (int)rb_size((RingBuffer *)vc->vbuf_raw));
     // char *lmsg = logger_dumphex((const void*) msg->data, (size_t)msg->len);
     // LOGGER_WARNING(vc->log, "vc_queue_message:rb_write:data --> len=%d\n%s", (int)msg->len, lmsg);

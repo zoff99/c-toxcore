@@ -167,7 +167,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, Log
     VLA(uint8_t, rdata, length + sizeof(struct RTPHeader) + 1);
     memset(rdata, 0, SIZEOF_VLA(rdata));
 
-    rdata[0] = session->payload_type;
+    rdata[0] = session->payload_type; // this is actually the packet ID !!!
 
 // Zoff --
     if (session->payload_type == 193)
@@ -189,14 +189,17 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, Log
 // Zoff --
 
     struct RTPHeader *header = (struct RTPHeader *)(rdata + 1);
+    struct RTPHeaderV3 *header_v3 = (void *)header;
 
-    header->ve = 2;
+    header->ve = 2; // version = 2 // TOX RTP V2
     header->pe = 0;
     header->xe = 0;
     header->cc = 0;
 
     header->ma = 0;
-    header->pt = session->payload_type % 128;
+    header->pt = session->payload_type % 128; // this is the real payload_type
+
+
     LOGGER_WARNING(log, "header->pt = %d, session->payload_type=%d", (int)header->pt, (int)session->payload_type);
 
     uint8_t *header_raw_data = (uint8_t *)header;
@@ -210,7 +213,27 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, Log
     header->ssrc = net_htonl(session->ssrc);
 
     header->cpart = 0;
-    header->tlen = net_htonl(length);
+    header->tlen = net_htons(length);
+
+// Zoff -- new stuff --
+
+    header_v3->protocol_version = 3; // TOX RTP V3
+
+    uint16_t length_safe = (uint16_t)(length && 0xFFFF);
+    if (length > UINT16_MAX)
+    {
+        length_safe = UINT16_MAX;
+    }
+    header_v3->data_length_lower = net_htons(length_safe);
+    header_v3->data_length_full = net_htonl(length);
+
+    header_v3->offset_lower = net_htons((uint16_t)(0 && 0xFFFF));
+    header_v3->offset_full = net_htonl(0);
+    // TODO: bigendian: ??
+
+// Zoff -- new stuff --
+
+
 
     LOGGER_WARNING(log, "rtp_send_data --> len=%d", (int)length);
     // char *lmsg = logger_dumphex((const void*) data, (size_t)length);
@@ -282,7 +305,22 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, Log
 			}
 
             sent += piece;
-            header->cpart = net_htonl(sent);
+            if (sent > UINT16_MAX)
+            {
+                header->cpart = net_htons(UINT16_MAX);
+            }
+            else
+            {
+                header->cpart = net_htons(sent);
+            }
+
+// Zoff -- new stuff --
+
+            header_v3->offset_full = net_htonl(sent);
+            // TODO: bigendian: ??
+
+// Zoff -- new stuff --
+
         }
 
         /* Send remaining */
@@ -344,7 +382,7 @@ static bool chloss(const RTPSession *session, const struct RTPHeader *header)
 }
 
 
-static struct RTPMessage *new_message(size_t allocate_len, const uint8_t *data, uint32_t data_length)
+static struct RTPMessage *new_message(size_t allocate_len, const uint8_t *data, uint32_t data_length, uint8_t header_version)
 {
     assert(allocate_len >= data_length);
 
@@ -358,11 +396,281 @@ static struct RTPMessage *new_message(size_t allocate_len, const uint8_t *data, 
     msg->header.timestamp = net_ntohl(msg->header.timestamp);
     msg->header.ssrc = net_ntohl(msg->header.ssrc);
 
-    msg->header.cpart = net_htonl(msg->header.cpart);
-    msg->header.tlen = net_htonl(msg->header.tlen);
+    msg->header.cpart = net_ntohs(msg->header.cpart);
+    msg->header.tlen = net_ntohs(msg->header.tlen);
+
+    if (header_version == 3)
+    {
+        struct RTPHeaderV3 *header_v3 = (void *)(&(msg->header));
+
+        header_v3->offset_full = net_ntohl(header_v3->offset_full);
+        header_v3->data_length_full = net_ntohl(header_v3->data_length_full);
+        header_v3->handled_length_full = data_length - sizeof(struct RTPHeader);
+    }
 
     return msg;
 }
+
+int handle_rtp_packet_v3(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint32_t length, void *object)
+{
+    (void) m;
+    (void) friendnumber;
+
+    RTPSession *session = (RTPSession *)object;
+
+    /*
+     *
+     * session->mcb == vc_queue_message() // this function is called from here! arrgh **
+     * session->mp == struct *RTPMessage
+     * session->cs == call->video.second // == VCSession created by vc_new() call!
+     *
+     * next time please make it even more confusing!?!? arrgh **
+     *
+     */
+
+    // here the magical packet ID byte gets stripped, why? -----------
+    const uint8_t *data_orig = data;
+    data++;
+    length--;
+    // here the magical packet ID byte gets stripped, why? -----------
+
+
+    const struct RTPHeaderV3 *header_v3 = (void *)data;
+
+
+    LOGGER_WARNING(m->log, "-- handle_rtp_packet_v3 -- full len=%d", (int)net_htonl(header_v3->data_length_full));
+
+    if (net_htonl(header_v3->offset_full) >= net_htonl(header_v3->data_length_full)) {
+        /* Never allow this case to happen */
+		LOGGER_WARNING(m->log, "Never allow this case to happen");
+        return -1;
+    }
+
+    bwc_feed_avg(session->bwc, length);
+
+    if (net_htonl(header_v3->data_length_full) == (length - sizeof(struct RTPHeaderV3)))
+    {
+        /* The message is sent in single part */
+
+        if (data_orig[0]!=192)
+    		LOGGER_DEBUG(m->log, "The message is sent in single part");
+
+        /* Only allow messages which have arrived in order;
+         * drop late messages
+         */
+        if (chloss(session, (void *)header_v3))
+        {
+            if (data_orig[0]!=192)
+    			LOGGER_DEBUG(m->log, "chloss==0");
+            return 0;
+        }
+
+        /* Message is not late; pick up the latest parameters */
+        session->rsequnum = net_ntohs(header_v3->sequnum);
+        session->rtimestamp = net_ntohl(header_v3->timestamp);
+
+        if (data_orig[0]!=192)
+		    LOGGER_DEBUG(m->log, "session->rsequnum=%d session->rtimestamp=%d", (int)header_v3->sequnum ,(int)header_v3->timestamp);
+
+        bwc_add_recv(session->bwc, length);
+
+        /* Invoke processing of active multiparted message */
+        if (session->mp)
+        {
+            if (session->mcb)
+            {
+                session->mcb(session->cs, session->mp);
+            }
+            else
+            {
+                free(session->mp);
+            }
+
+            session->mp = NULL;
+
+            if (data_orig[0]!=192)
+			    LOGGER_DEBUG(m->log, "session->mp = NULL");
+
+        }
+
+        /* The message came in the allowed time;
+         * process it only if handler for the session is present.
+         */
+
+        if (!session->mcb) {
+            if (data_orig[0]!=192)
+    			LOGGER_DEBUG(m->log, "NOT session->mcb");
+            return 0;
+        }
+
+        struct RTPMessage *tmp_mp = new_message(length, data, length, 3);
+        return session->mcb(session->cs, tmp_mp);
+    }
+
+    /* The message is sent in multiple parts */
+
+    if (session->mp) {
+
+        if (data_orig[0]!=192)
+    		LOGGER_DEBUG(m->log, "The message is sent in multiple parts");
+
+        /* There are 2 possible situations in this case:
+         *      1) being that we got the part of already processing message.
+         *      2) being that we got the part of a new/old message.
+         *
+         * We handle them differently as we only allow a single multiparted
+         * processing message
+         */
+
+        if (data_orig[0]!=192)
+    		LOGGER_DEBUG(m->log, "session->mp->header.sequnum=%d session->mp->header.timestamp=%d", (int)session->mp->header.sequnum ,(int)session->mp->header.timestamp);
+
+        if (session->mp->header.sequnum == net_ntohs(header_v3->sequnum) &&
+                session->mp->header.timestamp == net_ntohl(header_v3->timestamp))
+        {
+            /* First case */
+            if (data_orig[0]!=192)
+			    LOGGER_DEBUG(m->log, "++ 1) being that we got the part of already processing message");
+
+            /* Make sure we have enough allocated memory */
+
+            const struct RTPHeaderV3 *mp_header_v3 = (void *)(&(session->mp->header));
+
+            if (mp_header_v3->data_length_full - mp_header_v3->handled_length_full < length - sizeof(struct RTPHeaderV3) ||
+                    mp_header_v3->data_length_full <= net_htonl(header_v3->offset_full))
+            {
+                /* There happened to be some corruption on the stream;
+                 * continue without this part
+                 */
+                if (data_orig[0]!=192)
+				    LOGGER_DEBUG(m->log, "There happened to be some corruption on the stream, continue without this part");
+
+                return 0;
+            }
+
+            memcpy(session->mp->data + net_htonl(header_v3->offset_full), data + sizeof(struct RTPHeaderV3),
+                   length - sizeof(struct RTPHeaderV3));
+
+            struct RTPHeaderV3 *mp_header_v3_write = (void *)(&(session->mp->header));
+            mp_header_v3_write->handled_length_full += length - sizeof(struct RTPHeaderV3);
+
+            bwc_add_recv(session->bwc, length);
+
+            if (mp_header_v3->handled_length_full == mp_header_v3->data_length_full)
+            {
+
+                if (data_orig[0]!=192)
+				    LOGGER_DEBUG(m->log, "Received a full message. session->mp->len=%d", (int)session->mp->len);
+
+                /* Received a full message; now push it for the further
+                 * processing.
+                 */
+                if (session->mcb)
+                {
+                    session->mcb(session->cs, session->mp);
+                }
+                else
+                {
+                    free(session->mp);
+                }
+
+                session->mp = NULL;
+            }
+        }
+        else
+        {
+            /* Second case */
+            if (data_orig[0]!=192)
+			    LOGGER_DEBUG(m->log, "++ 2) being that we got the part of a new/old message [you have already LOST!]");
+
+            if (session->mp->header.timestamp > net_ntohl(header_v3->timestamp))
+            {
+
+                if (data_orig[0]!=192)
+				    LOGGER_DEBUG(m->log, "The received message part is from the old message. session->mp->header.timestamp=%d", (int)session->mp->header.timestamp);
+
+                /* The received message part is from the old message;
+                 * discard it.
+                 */
+                return 0;
+            }
+
+            const struct RTPHeaderV3 *mp_header_v3 = (void *)(&(session->mp->header));
+
+            /* Measure missing parts of the old message */
+            bwc_add_lost(session->bwc,
+                         (mp_header_v3->data_length_full - mp_header_v3->handled_length_full) +
+
+                         /* Must account sizes of rtp headers too */
+                         ((mp_header_v3->data_length_full - mp_header_v3->handled_length_full) /
+                          MAX_CRYPTO_VIDEO_DATA_SIZE) * sizeof(struct RTPHeaderV3));
+
+            /* Push the previous message for processing */
+            if (session->mcb)
+            {
+                session->mcb(session->cs, session->mp);
+            }
+            else
+            {
+                free(session->mp);
+            }
+
+            session->mp = NULL;
+            goto NEW_MULTIPARTED;
+        }
+    }
+    else
+    {
+        /* In this case threat the message as if it was received in order
+         */
+
+        /* This is also a point for new multiparted messages */
+NEW_MULTIPARTED:
+
+        /* Only allow messages which have arrived in order;
+         * drop late messages
+         */
+        if (chloss(session, (void *)header_v3))
+        {
+            if (data_orig[0]!=192)
+    			LOGGER_DEBUG(m->log, "(2)chloss==0");
+            return 0;
+        }
+
+        /* Message is not late; pick up the latest parameters */
+        session->rsequnum = net_ntohs(header_v3->sequnum);
+        session->rtimestamp = net_ntohl(header_v3->timestamp);
+
+        if (data_orig[0]!=192)
+    		LOGGER_DEBUG(m->log, "(2)session->rsequnum=%d session->rtimestamp=%d", (int)header_v3->sequnum ,(int)header_v3->timestamp);
+
+        bwc_add_recv(session->bwc, length);
+
+        /* Again, only store message if handler is present
+         */
+        if (session->mcb)
+        {
+            session->mp = new_message(net_htonl(header_v3->data_length_full) + sizeof(struct RTPHeaderV3), data, length, 3);
+
+#if 0
+            /* Reposition data if necessary */ // WTF? what is this doing??
+            if (net_htonl(header_v3->cpart))
+            {
+                ;
+            }
+#endif
+
+            const struct RTPHeaderV3 *mp_header_v3 = (void *)(&(session->mp->header));
+            memmove(session->mp->data + net_htonl(header_v3->offset_full), session->mp->data, mp_header_v3->handled_length_full);
+        }
+    }
+
+    return 0;
+
+}
+
+
+
 
 
 /*
@@ -390,6 +698,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
 
     // here the magical packet ID byte gets stripped, why? -----------
     const uint8_t *data_orig = data;
+    const uint32_t length_orig = length;
     data++;
     length--;
     // here the magical packet ID byte gets stripped, why? -----------
@@ -400,11 +709,32 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
     }
 
     const struct RTPHeader *header = (const struct RTPHeader *) data;
+    const struct RTPHeaderV3 *header_v3 = (void *)header;
+
+    // check if we have protocol version 3
+    uint8_t rtp_protocol_version = header_v3->protocol_version;
 
     if (header->pt != session->payload_type % 128) {
         LOGGER_WARNING(m->log, "Invalid payload type with the session");
         return -1;
     }
+
+
+    if (rtp_protocol_version == 3)
+    {
+        data = data_orig;
+        length = length_orig;
+
+        return handle_rtp_packet_v3(m, friendnumber, data, length, object);
+    }
+
+
+
+
+    // everything below here is protocol version 2 ------------------
+    // everything below here is protocol version 2 ------------------
+    // everything below here is protocol version 2 ------------------
+
     if (net_htonl(header->cpart) >= net_htonl(header->tlen)) {
         /* Never allow this case to happen */
 		LOGGER_WARNING(m->log, "Never allow this case to happen");
@@ -442,13 +772,8 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
         /* Invoke processing of active multiparted message */
         if (session->mp)
         {
-            session->mp->orig_packet_id = data_orig[0]; // save packet ID
-    if (data_orig[0]!=192)
-			LOGGER_DEBUG(m->log, "session->mp");
             if (session->mcb)
             {
-    if (data_orig[0]!=192)
-				LOGGER_DEBUG(m->log, "session->MCB, session->mp->orig_packet_id=%d", session->mp->orig_packet_id);
                 session->mcb(session->cs, session->mp);
             }
             else
@@ -472,8 +797,7 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
             return 0;
         }
 
-        struct RTPMessage *tmp_mp = new_message(length, data, length);
-        tmp_mp->orig_packet_id = data_orig[0]; // save packet ID
+        struct RTPMessage *tmp_mp = new_message(length, data, length, 2);
 
         return session->mcb(session->cs, tmp_mp);
     }
@@ -484,8 +808,6 @@ int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, 
 
     if (data_orig[0]!=192)
 		LOGGER_DEBUG(m->log, "The message is sent in multiple parts");
-
-        session->mp->orig_packet_id = data_orig[0]; // save packet ID
 
         /* There are 2 possible situations in this case:
          *      1) being that we got the part of already processing message.
@@ -617,8 +939,7 @@ NEW_MULTIPARTED:
          */
         if (session->mcb)
         {
-            session->mp = new_message(net_htonl(header->tlen) + sizeof(struct RTPHeader), data, length);
-            session->mp->orig_packet_id = data_orig[0]; // save packet ID
+            session->mp = new_message(net_htons(header->tlen) + sizeof(struct RTPHeader), data, length, 2);
 
             /* Reposition data if necessary */ // WTF? what is this doing??
             if (net_htonl(header->cpart))
