@@ -12,28 +12,38 @@
 
 #include <stdbool.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/**
- * RTPHeader serialised size in bytes.
- */
-#define RTP_HEADER_SIZE 80
-
-/**
- * Number of 32 bit padding fields between \ref RTPHeader::offset_lower and
- * everything before it.
- */
-#define RTP_PADDING_FIELDS 11
-
 /**
  * Payload type identifier. Also used as rtp callback prefix.
  */
-typedef enum RTP_Type {
-    RTP_TYPE_AUDIO = 192,
-    RTP_TYPE_VIDEO = 193,
-} RTP_Type;
+enum {
+    rtp_TypeAudio = 192,
+    rtp_TypeVideo,
+};
+
+struct RTPHeader {
+    /* Standard RTP header */
+#ifndef WORDS_BIGENDIAN
+    uint16_t cc: 4; /* Contributing sources count */
+    uint16_t xe: 1; /* Extra header */
+    uint16_t pe: 1; /* Padding */
+    uint16_t ve: 2; /* Version */
+
+    uint16_t pt: 7; /* Payload type */
+    uint16_t ma: 1; /* Marker */
+#else
+    uint16_t ve: 2; /* Version */
+    uint16_t pe: 1; /* Padding */
+    uint16_t xe: 1; /* Extra header */
+    uint16_t cc: 4; /* Contributing sources count */
+
+    uint16_t ma: 1; /* Marker */
+    uint16_t pt: 7; /* Payload type */
+#endif
+
+    uint16_t sequnum;
+    uint32_t timestamp;
+    uint32_t ssrc;
+    uint32_t csrc[16];
 
 #ifndef TOXAV_DEFINED
 #define TOXAV_DEFINED
@@ -57,67 +67,48 @@ typedef enum RTPFlags {
     RTP_KEY_FRAME = 1 << 1,
 } RTPFlags;
 
+/* Check alignment */
+typedef char __fail_if_misaligned_1 [ sizeof(struct RTPHeader) == 80 ? 1 : -1 ];
 
-struct RTPHeader {
-    /* Standard RTP header */
-    unsigned ve: 2; /* Version has only 2 bits! */
-    unsigned pe: 1; /* Padding */
-    unsigned xe: 1; /* Extra header */
-    unsigned cc: 4; /* Contributing sources count */
 
-    unsigned ma: 1; /* Marker */
-    unsigned pt: 7; /* Payload type */
+
+struct RTPHeaderV3 {
+#ifndef WORDS_BIGENDIAN
+    uint16_t cc: 4; /* Contributing sources count */
+    uint16_t xe: 1; /* Extra header */
+    uint16_t pe: 1; /* Padding */
+    uint16_t protocol_version: 2; /* Version has only 2 bits! */
+
+    uint16_t pt: 7; /* Payload type */
+    uint16_t ma: 1; /* Marker */
+#else
+    uint16_t protocol_version: 2; /* Version has only 2 bits! */
+    uint16_t pe: 1; /* Padding */
+    uint16_t xe: 1; /* Extra header */
+    uint16_t cc: 4; /* Contributing sources count */
+
+    uint16_t ma: 1; /* Marker */
+    uint16_t pt: 7; /* Payload type */
+#endif
 
     uint16_t sequnum;
     uint32_t timestamp;
     uint32_t ssrc;
+    uint32_t offset_full; /* Data offset of the current part */
+    uint32_t data_length_full; /* data length without header, and without packet id */
+    uint32_t handled_length_full; /* only the receiver uses this field */
+    uint32_t csrc[13];
 
-    /* Non-standard Tox-specific fields */
+    uint16_t offset_lower;      /* Data offset of the current part */
+    uint16_t data_length_lower; /* data length without header, and without packet id */
+} __attribute__((packed));
 
-    /**
-     * Bit mask of \ref RTPFlags setting features of the current frame.
-     */
-    uint64_t flags;
-
-    /**
-     * The full 32 bit data offset of the current data chunk. The \ref
-     * offset_lower data member contains the lower 16 bits of this value. For
-     * frames smaller than 64KiB, \ref offset_full and \ref offset_lower are
-     * equal.
-     */
-    uint32_t offset_full;
-    /**
-     * The full 32 bit payload length without header and packet id.
-     */
-    uint32_t data_length_full;
-    /**
-     * Only the receiver uses this field (why do we have this?).
-     */
-    uint32_t received_length_full;
-
-    /**
-     * Data offset of the current part (lower bits).
-     */
-    uint16_t offset_lower;
-    /**
-     * Total message length (lower bits).
-     */
-    uint16_t data_length_lower;
-};
+/* Check struct size */
+typedef char __fail_if_size_wrong_1 [ sizeof(struct RTPHeaderV3) == 80 ? 1 : -1 ];
 
 
-struct RTPMessage {
-    /**
-     * This is used in the old code that doesn't deal with large frames, i.e.
-     * the audio code or receiving code for old 16 bit messages. We use it to
-     * record the number of bytes received so far in a multi-part message. The
-     * multi-part message in the old code is stored in \ref RTPSession::mp.
-     */
-    uint16_t len;
-
-    struct RTPHeader header;
-    uint8_t data[];
-};
+/* Check that V3 header is the same size as previous header */
+typedef char __fail_if_size_wrong_2 [ sizeof(struct RTPHeader) == sizeof(struct RTPHeaderV3) ? 1 : -1 ];
 
 
 #define USED_RTP_WORKBUFFER_COUNT 3
@@ -144,30 +135,35 @@ struct RTPWorkBuffer {
     struct RTPMessage *buf;
 };
 
-struct RTPWorkBufferList {
-    int8_t next_free_entry;
-    struct RTPWorkBuffer work_buffer[USED_RTP_WORKBUFFER_COUNT];
-};
+struct RTPMessage {
+    uint16_t len; // Zoff: this is actually only the length of the current part of this message!
 
-#define DISMISS_FIRST_LOST_VIDEO_PACKET_COUNT 10
+    struct RTPHeader header;
+    uint8_t data[];
+} __attribute__((packed));
+
+/* Check alignment */
+typedef char __fail_if_misaligned_2 [ sizeof(struct RTPMessage) == 82 ? 1 : -1 ];
 
 typedef int rtp_m_cb(Mono_Time *mono_time, void *cs, struct RTPMessage *msg);
 
 /**
  * RTP control session.
  */
-typedef struct RTPSession {
+typedef struct {
     uint8_t  payload_type;
     uint16_t sequnum;      /* Sending sequence number */
     uint16_t rsequnum;     /* Receiving sequence number */
     uint32_t rtimestamp;
-    uint32_t ssrc; //  this seems to be unused!?
+    uint32_t ssrc;
+
     struct RTPMessage *mp; /* Expected parted message */
     struct RTPWorkBufferList *work_buffer_list;
     uint8_t  first_packets_counter; /* dismiss first few lost video packets */
     Tox *tox;
     ToxAV *toxav;
     uint32_t friend_number;
+
     BWController *bwc;
     void *cs;
     rtp_m_cb *mcb;
