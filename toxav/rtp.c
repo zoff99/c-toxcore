@@ -223,6 +223,35 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length_v3, 
         return nullptr;
     }
 
+    uint8_t is_keyframe = 0;
+    uint8_t is_video_payload = 0;
+
+    if (session->payload_type == rtp_TypeVideo)
+    {
+        is_video_payload = 1;
+    }
+
+    if (is_video_payload == 1)
+    {
+        // TOX RTP V3 --- hack to get frame type ---
+        //
+        // use the highest bit (bit 31) to spec. keyframe = 1 / no keyframe = 0
+        // if length(31 bits) > 1FFFFFFF then use all bits for length
+        // and assume its a keyframe (most likely is anyway)
+
+        if (LOWER_31_BITS(length_v3) > 0x1FFFFFFF)
+        {
+            is_keyframe = 1;
+        }
+        else
+        {
+            is_keyframe = (length_v3 & (1 << 31)) != 0; // 1-> is keyframe, 0-> no keyframe
+            length_v3 = LOWER_31_BITS(length_v3);
+        }
+
+        // TOX RTP V3 --- hack to get frame type ---
+    }
+
     VLA(uint8_t, rdata, length_v3 + sizeof(struct RTPHeader) + 1);
     memset(rdata, 0, SIZEOF_VLA(rdata));
 
@@ -296,6 +325,8 @@ static bool fill_data_into_slot(Tox *tox, struct RTPWorkBufferList *wkbl, const 
 
     // header_v3->offset_lower = net_htons((uint16_t)(0 && 0xFFFF));
     header_v3->offset_full = net_htonl(0);
+
+    header_v3->is_keyframe = is_keyframe;
     // TODO: bigendian ??
 
 // Zoff -- new stuff --
@@ -881,3 +912,5 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
 
     return 0;
 }
+
+
