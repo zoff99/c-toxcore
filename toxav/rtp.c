@@ -159,6 +159,7 @@ static int8_t get_slot(Tox *tox, struct RTPWorkBufferList *wkbl, bool is_keyfram
 
     return retu;
 }
+
 void rtp_kill(RTPSession *session)
 {
     if (!session) {
@@ -170,6 +171,7 @@ void rtp_kill(RTPSession *session)
     rtp_stop_receiving(session);
     free(session);
 }
+
 int rtp_allow_receiving(RTPSession *session)
 {
     if (session == NULL) {
@@ -185,6 +187,7 @@ int rtp_allow_receiving(RTPSession *session)
     LOGGER_DEBUG(session->m->log, "Started receiving on session: %p", session);
     return 0;
 }
+
 int rtp_stop_receiving(RTPSession *session)
 {
     if (session == NULL) {
