@@ -148,7 +148,22 @@ struct RTPMessage {
 /* Check alignment */
 typedef char __fail_if_misaligned_2 [ sizeof(struct RTPMessage) == 82 ? 1 : -1 ];
 
-typedef int rtp_m_cb(Mono_Time *mono_time, void *cs, struct RTPMessage *msg);
+
+#define USED_RTP_WORKBUFFER_COUNT (3)
+
+struct RTPWorkBuffer {
+    uint8_t frame_type;
+    uint32_t received_len;
+    uint32_t data_len;
+    uint32_t timestamp;
+    uint8_t *buf;
+};
+
+struct RTPWorkBufferList {
+    uint8_t in_progress_count;
+    struct RTPWorkBuffer work_buffer[USED_RTP_WORKBUFFER_COUNT];
+};
+
 
 /**
  * RTP control session.
@@ -214,4 +229,6 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
 }  // extern "C"
 #endif
 
-#endif // C_TOXCORE_TOXAV_RTP_H
+#endif /* RTP_H */
+
+

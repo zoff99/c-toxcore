@@ -5,12 +5,13 @@
  */
 #include "ring_buffer.h"
 
-#include "../toxcore/ccompat.h"
-
 #include <stdlib.h>
 
 struct RingBuffer {
     uint16_t size; /* Max size */
+// Zoff --
+    uint8_t data_type;
+// Zoff --
     uint16_t start;
     uint16_t end;
     void   **data;
@@ -28,15 +29,19 @@ bool rb_empty(const RingBuffer *b)
 
 /*
  * returns: NULL on success
- *          input value "p" on FAILURE -> caller can free on failed rb_write
+            start address of ?? on FAILURE
  */
-void *rb_write(RingBuffer *b, void *p)
+void *rb_write(RingBuffer *b, void *p, uint8_t data_type_)
 {
-    void *rc = nullptr;
+    void *rc = NULL;
 
     if ((b->end + 1) % b->size == b->start) { /* full */
         rc = b->data[b->start];
     }
+
+// Zoff --
+    b->data_type = data_type_;
+// Zoff --
 
     b->data[b->end] = p;
     b->end = (b->end + 1) % b->size;
@@ -48,14 +53,19 @@ void *rb_write(RingBuffer *b, void *p)
     return rc;
 }
 
-bool rb_read(RingBuffer *b, void **p)
+bool rb_read(RingBuffer *b, void **p, uint8_t *data_type_)
 {
     if (b->end == b->start) { /* Empty */
-        *p = nullptr;
+        *p = NULL;
         return false;
     }
 
     *p = b->data[b->start];
+ 
+// Zoff --
+    *data_type_ = b->data_type;
+// Zoff --
+
     b->start = (b->start + 1) % b->size;
     return true;
 }
@@ -65,7 +75,7 @@ RingBuffer *rb_new(int size)
     RingBuffer *buf = (RingBuffer *)calloc(sizeof(RingBuffer), 1);
 
     if (!buf) {
-        return nullptr;
+        return NULL;
     }
 
     buf->size = size + 1; /* include empty elem */
@@ -73,7 +83,7 @@ RingBuffer *rb_new(int size)
 
     if (!buf->data) {
         free(buf);
-        return nullptr;
+        return NULL;
     }
 
     return buf;
@@ -109,3 +119,6 @@ uint16_t rb_data(const RingBuffer *b, void **dest)
 
     return i;
 }
+
+
+
