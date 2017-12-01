@@ -169,6 +169,23 @@ void rtp_kill(RTPSession *session)
     LOGGER_DEBUG(session->m->log, "Terminated RTP session: %p", session);
 
     rtp_stop_receiving(session);
+
+    RTPSessionV3 *session_v3 = (RTPSessionV3 *)session;
+
+    LOGGER_DEBUG(session->m->log, "Terminated RTP session V3 work_buffer_list: %p", session_v3->work_buffer_list);
+
+    if (session_v3->work_buffer_list)
+    {
+        LOGGER_DEBUG(session->m->log, "Terminated RTP session V3 in_progress_count: %d", (int)session_v3->work_buffer_list->in_progress_count);
+
+        if (session_v3->work_buffer_list->in_progress_count > 0)
+        {
+        }
+
+        free(session_v3->work_buffer_list);
+        session_v3->work_buffer_list = NULL;
+    }
+
     free(session);
 }
 
@@ -318,15 +335,15 @@ static bool fill_data_into_slot(Tox *tox, struct RTPWorkBufferList *wkbl, const 
 
     header_v3->protocol_version = 3; // TOX RTP V3
 
-    uint16_t length_safe = (uint16_t)(length_v3 && 0xFFFF);
+    uint16_t length_safe = (uint16_t)(length_v3);
     if (length > UINT16_MAX)
     {
         length_safe = UINT16_MAX;
     }
     // header_v3->data_length_lower = net_htons(length_safe);
-    header_v3->data_length_full = net_htonl(length_v3);
+    header_v3->data_length_full = net_htonl(length_v3); // without header
 
-    // header_v3->offset_lower = net_htons((uint16_t)(0 && 0xFFFF));
+    // header_v3->offset_lower = net_htons((uint16_t)(0));
     header_v3->offset_full = net_htonl(0);
 
     header_v3->is_keyframe = is_keyframe;
