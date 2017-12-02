@@ -176,9 +176,9 @@ void rtp_kill(RTPSession *session)
 
     if (session_v3->work_buffer_list)
     {
-        LOGGER_DEBUG(session->m->log, "Terminated RTP session V3 in_progress_count: %d", (int)session_v3->work_buffer_list->in_progress_count);
+        LOGGER_DEBUG(session->m->log, "Terminated RTP session V3 next_free_entry: %d", (int)session_v3->work_buffer_list->next_free_entry);
 
-        if (session_v3->work_buffer_list->in_progress_count > 0)
+        if (session_v3->work_buffer_list->next_free_entry > 0)
         {
         }
 
@@ -229,6 +229,9 @@ static struct RTPMessage *process_frame(Tox *tox, struct RTPWorkBufferList *wkbl
 {
     assert(wkbl->next_free_entry >= 0);
 
+/*
+ * input is raw vpx data. length_v3 is the length of the raw data
+ */
 int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length_v3, Logger *log)
 {
     if (!session) {
@@ -422,7 +425,7 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
     int8_t slot_id = get_slot(session->tox, session->work_buffer_list, is_keyframe, header, is_multipart);
     LOGGER_API_DEBUG(session->tox, "slot num=%d", slot_id);
 
-            header_v3->offset_full = net_htonl(sent);
+            header_v3->offset_full = net_htonl(sent); // raw data offset, without any header
             // TODO: bigendian ??
 
     // get_slot said there is no free slot.
