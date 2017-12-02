@@ -150,6 +150,7 @@ typedef char __fail_if_misaligned_2 [ sizeof(struct RTPMessage) == 82 ? 1 : -1 ]
 
 
 #define USED_RTP_WORKBUFFER_COUNT (3)
+#define FLAG_USE_VP8_DECODER (8)
 
 struct RTPWorkBuffer {
     uint8_t frame_type;
@@ -174,7 +175,7 @@ typedef struct {
     uint16_t sequnum;      /* Sending sequence number */
     uint16_t rsequnum;     /* Receiving sequence number */
     uint32_t rtimestamp;
-    uint32_t ssrc;
+    uint32_t ssrc; //  this seems to be unused!?
 
     struct RTPMessage *mp; /* Expected parted message */
     struct RTPWorkBufferList *work_buffer_list;

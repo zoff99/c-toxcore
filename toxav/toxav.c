@@ -923,7 +923,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         goto RETURN;
     }
 
-    if (vc_reconfigure_encoder(call->video.second, call->video_bit_rate * 1000, width, height) != 0) {
+    if (vc_reconfigure_encoder(call->video.second, call->video_bit_rate * 1000, width, height, -1) != 0) {
         pthread_mutex_unlock(call->mutex_video);
         rc = TOXAV_ERR_SEND_FRAME_INVALID;
         goto RETURN;
@@ -1027,6 +1027,26 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
                     rc = TOXAV_ERR_SEND_FRAME_RTP_FAILED;
                     goto END;
                 }
+                else
+                {
+#if 0
+
+                    // TODO: this makes the video stop for a moment. its not yet ready to use
+
+                    if (call->video.first->ssrc < VIDEO_SEND_X_KEYFRAMES_FIRST)
+                    {
+                        call->video.first->ssrc++;
+                        LOGGER_ERROR(av->m->log, "I_FRAME_FLAG:%d", call->video.first->ssrc);
+                    }
+                    else if (call->video.first->ssrc == VIDEO_SEND_X_KEYFRAMES_FIRST)
+                    {
+                        call->video.first->ssrc++;
+                        LOGGER_ERROR(av->m->log, "I_FRAME_FLAG:%d reconfigure encoder", call->video.first->ssrc);
+                        vc_reconfigure_encoder(call->video.second, call->video_bit_rate * 1000, width, height, 48);
+                    }
+                    // we start with I-frames (full frames) and then switch to normal mode later
+#endif
+                }
             }
         }
     }
@@ -1044,6 +1064,9 @@ RETURN:
 
     return rc == TOXAV_ERR_SEND_FRAME_OK;
 }
+
+
+
 void toxav_callback_audio_receive_frame(ToxAV *av, toxav_audio_receive_frame_cb *callback, void *user_data)
 {
     pthread_mutex_lock(av->mutex);
