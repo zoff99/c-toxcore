@@ -67,7 +67,14 @@ static struct RTPMessage *new_message(Tox *tox, const struct RTPHeader *header, 
         return NULL;
     }
 
-    retu->ssrc = random_int();
+    if (payload_type == rtp_TypeVideo)
+    {
+        retu->ssrc = 0;
+    }
+    else
+    {
+        retu->ssrc = random_int();
+    }
     retu->payload_type = payload_type;
 
     retu->m = m;
