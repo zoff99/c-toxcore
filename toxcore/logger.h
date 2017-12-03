@@ -38,7 +38,7 @@ int my_pthread_mutex_unlock(pthread_mutex_t *mutex, const char *mutex_name, cons
 
 
 #ifndef MIN_LOGGER_LEVEL
-#define MIN_LOGGER_LEVEL LOGGER_LEVEL_INFO
+#define MIN_LOGGER_LEVEL LOG_DEBUG
 #endif
 
 // NOTE: Don't forget to update build system files after modifying the enum.
