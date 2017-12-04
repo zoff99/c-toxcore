@@ -143,7 +143,7 @@ static void vc_init_encoder_cfg(const Logger *log, vpx_codec_enc_cfg_t *cfg, int
   Soft deadline the decoder should attempt to meet, in us (microseconds). Set to zero for unlimited.
   By convention, the value 1 is used to mean "return as fast as possible."
 */
-#define MAX_DECODE_TIME_US VPX_DL_GOOD_QUALITY
+#define MAX_DECODE_TIME_US VPX_DL_REALTIME
 /*
 VPX_DL_REALTIME       (1)
 deadline parameter analogous to VPx REALTIME mode.
@@ -238,6 +238,9 @@ void vc__init_encoder_cfg(Logger *log, vpx_codec_enc_cfg_t* cfg, int16_t kf_max_
     }
  
     cfg->g_threads = VPX_MAX_ENCODER_THREADS; // Maximum number of threads to use
+
+
+	cfg->rc_resize_allowed = 1; // allow encoder to resize to smaller resolution
 
 #if 0
  /* Highest-resolution encoder settings */
