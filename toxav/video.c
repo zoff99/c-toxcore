@@ -483,6 +483,7 @@ void vc_iterate(VCSession *vc)
         LOGGER_DEBUG(vc->log, "vc_iterate: rb_read rb size=%d", (int)rb_size((RingBuffer *)vc->vbuf_raw));
 
         rc = vpx_codec_decode(vc->decoder, p->data, full_data_len, NULL, MAX_DECODE_TIME_US);
+
         if (rc != VPX_CODEC_OK)
         {
             if (rc == 5) // Bitstream not supported by this decoder
@@ -505,30 +506,15 @@ void vc_iterate(VCSession *vc)
 			{
 				LOGGER_ERROR(vc->log, "There is still an error decoding video: %d %s", (int)rc, vpx_codec_err_to_string(rc));
 			}
+
         }
-
-        if (rc == VPX_CODEC_OK)
+		else // (rc == VPX_CODEC_OK)
         {
-            free(p);
-
-            vpx_codec_iter_t iter = NULL;
-            vpx_image_t *dest = vpx_codec_get_frame(vc->decoder, &iter);
-            LOGGER_DEBUG(vc->log, "vpx_codec_get_frame=%p", dest);
-
-#if 1
-            if (dest != NULL)
-	        {
-                if (vc->vcb.first) {
-                    vc->vcb.first(vc->av, vc->friend_number, dest->d_w, dest->d_h,
-                                  (const uint8_t *)dest->planes[0], (const uint8_t *)dest->planes[1], (const uint8_t *)dest->planes[2],
-                                  dest->stride[0], dest->stride[1], dest->stride[2], vc->vcb.second);
-                }
-				// vpx_img_free(dest);
-	        }
-#endif
-
             /* Play decoded images */
-            for (; dest; dest = vpx_codec_get_frame(vc->decoder, &iter))
+            vpx_codec_iter_t iter = NULL;
+            vpx_image_t *dest = NULL;
+
+			while ((dest = vpx_codec_get_frame(vc->decoder, &iter)) != NULL)
 			{
                 if (vc->vcb.first)
 				{
@@ -536,20 +522,21 @@ void vc_iterate(VCSession *vc)
                                   (const uint8_t *)dest->planes[0], (const uint8_t *)dest->planes[1], (const uint8_t *)dest->planes[2],
                                   dest->stride[0], dest->stride[1], dest->stride[2], vc->vcb.second);
                 }
-                // vpx_img_free(dest);
+
+				// this is not in any of the samples, is it needed?
+				// https://www.webmproject.org/docs/webm-sdk/example_simple_decoder.html
+                vpx_img_free(dest);
             }
+
         }
-        else
-        {
-            free(p);
-        }
+
+		free(p);
 
         return;
     }
     else
     {
-        // no frame data available
-        // LOGGER_WARNING(vc->log, "Error decoding video: rb_read");
+        // LOGGER_DEBUG(vc->log, "Error decoding video: no frame data available");
     }
 
     pthread_mutex_unlock(vc->queue_mutex);
