@@ -638,9 +638,41 @@ void vc_iterate(VCSession *vc)
 			}
         }
 
-    LOGGER_DEBUG(vc->log, "vc_iterate: rb_read p->len=%d p->header.xe=%d", (int)full_data_len, p->header.xe);
-    LOGGER_DEBUG(vc->log, "vc_iterate: rb_read rb size=%d", (int)log_rb_size);
-    const vpx_codec_err_t rc = vpx_codec_decode(vc->decoder, p->data, full_data_len, nullptr, MAX_DECODE_TIME_US);
+        if (rc == VPX_CODEC_OK)
+        {
+            free(p);
+
+            vpx_codec_iter_t iter = NULL;
+            vpx_image_t *dest = vpx_codec_get_frame(vc->decoder, &iter);
+            LOGGER_DEBUG(vc->log, "vpx_codec_get_frame=%p", dest);
+
+            if (dest != NULL)
+	        {
+                if (vc->vcb.first) {
+                    vc->vcb.first(vc->av, vc->friend_number, dest->d_w, dest->d_h,
+                                  (const uint8_t *)dest->planes[0], (const uint8_t *)dest->planes[1], (const uint8_t *)dest->planes[2],
+                                  dest->stride[0], dest->stride[1], dest->stride[2], vc->vcb.second);
+                }
+				// vpx_img_free(dest);
+	        }
+
+
+            /* Play decoded images */
+            for (; dest; dest = vpx_codec_get_frame(vc->decoder, &iter))
+			{
+                if (vc->vcb.first)
+				{
+                    vc->vcb.first(vc->av, vc->friend_number, dest->d_w, dest->d_h,
+                                  (const uint8_t *)dest->planes[0], (const uint8_t *)dest->planes[1], (const uint8_t *)dest->planes[2],
+                                  dest->stride[0], dest->stride[1], dest->stride[2], vc->vcb.second);
+                }
+                // vpx_img_free(dest);
+            }
+        }
+        else
+        {
+            free(p);
+        }
 
     free(p);
         return;
