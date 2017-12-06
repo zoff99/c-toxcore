@@ -116,6 +116,7 @@ BWController *bwc_new(Tox *t, uint32_t friendnumber, m_cb *mcb, void *mcb_user_d
     //*PP*// m_callback_rtp_packet(m, friendnumber, BWC_PACKET_ID, bwc_handle_data, retu);
     return retu;
 }
+
 void bwc_kill(BWController *bwc)
 {
     if (!bwc) {
@@ -126,16 +127,17 @@ void bwc_kill(BWController *bwc)
     rb_kill(bwc->rcvpkt.rb);
     free(bwc);
 }
+
 void bwc_feed_avg(BWController *bwc, uint32_t bytes)
 {
     uint32_t *p;
     uint8_t dummy;
 
     rb_read(bwc->rcvpkt.rb, (void **) &p, &dummy);
-    rb_write(bwc->rcvpkt.rb, p, 0);
-
     *p = bytes;
+    rb_write(bwc->rcvpkt.rb, p, 0);
 }
+
 void bwc_add_lost(BWController *bwc, uint32_t bytes)
 {
     if (!bwc) {
@@ -163,6 +165,7 @@ void bwc_add_lost(BWController *bwc, uint32_t bytes)
     bwc->cycle.lost += bytes;
     send_update(bwc);
 }
+
 void bwc_add_recv(BWController *bwc, uint32_t bytes)
 {
     if (!bwc || !bytes) {
@@ -230,6 +233,9 @@ static int on_update(BWController *bwc, const struct BWCMessage *msg)
     LOGGER_DEBUG(bwc->m->log, "recved: %u lost: %u", recv, lost);
 
     if (lost && bwc->mcb) {
+
+        LOGGER_DEBUG(bwc->m->log, "recved: %u lost: %u percentage: %f %", recv, lost, (float)( ((float) lost / (recv + lost)) * 100.0f) );
+
         bwc->mcb(bwc, bwc->friend_number,
                  ((float) lost / (recv + lost)),
                  bwc->mcb_user_data);
