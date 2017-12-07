@@ -41,7 +41,10 @@ int my_pthread_mutex_unlock(pthread_mutex_t *mutex, const char *mutex_name, cons
 #define MIN_LOGGER_LEVEL LOG_INFO
 #endif
 
-// NOTE: Don't forget to update build system files after modifying the enum.
+#ifndef LOGGER_MAX_MSG_LENGTH
+#define LOGGER_MAX_MSG_LENGTH (4096) // ORIG 1024
+#endif
+
 typedef enum Logger_Level {
     LOGGER_LEVEL_TRACE,
     LOGGER_LEVEL_DEBUG,
