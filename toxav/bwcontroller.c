@@ -210,7 +210,7 @@ static int on_update(BWController *bwc, const struct BWCMessage *msg)
 
     /* Peer must respect time boundary */
     if (current_time_monotonic() < bwc->cycle.lru + BWC_SEND_INTERVAL_MS) {
-        LOGGER_DEBUG(bwc->m->log, "%p Rejecting extra update", bwc);
+        LOGGER_INFO(bwc->m->log, "%p Rejecting extra update", bwc);
         return -1;
     }
 
@@ -219,11 +219,11 @@ static int on_update(BWController *bwc, const struct BWCMessage *msg)
     const uint32_t recv = msg->recv;
     const uint32_t lost = msg->lost;
 
-    LOGGER_DEBUG(bwc->m->log, "recved: %u lost: %u", recv, lost);
+    LOGGER_INFO(bwc->m->log, "recved: %u lost: %u", recv, lost);
 
     if (lost && bwc->mcb) {
 
-        LOGGER_DEBUG(bwc->m->log, "recved: %u lost: %u percentage: %f %", recv, lost, (float)( ((float) lost / (recv + lost)) * 100.0f) );
+        LOGGER_INFO(bwc->m->log, "recved: %u lost: %u percentage: %f %", recv, lost, (float)( ((float) lost / (recv + lost)) * 100.0f) );
 
         bwc->mcb(bwc, bwc->friend_number,
                  ((float) lost / (recv + lost)),
