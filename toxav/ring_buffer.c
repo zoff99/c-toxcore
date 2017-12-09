@@ -61,7 +61,7 @@ bool rb_read(RingBuffer *b, void **p, uint8_t *data_type_)
     }
 
     *p = b->data[b->start];
- 
+
 // Zoff --
     *data_type_ = b->data_type;
 // Zoff --
