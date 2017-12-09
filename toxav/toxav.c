@@ -981,10 +981,8 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         vpx_codec_iter_t iter = NULL;
         const vpx_codec_cx_pkt_t *pkt;
 
-        while ((pkt = vpx_codec_get_cx_data(call->video.second->encoder, &iter)) != NULL)
-        {
-            if (pkt->kind == VPX_CODEC_CX_FRAME_PKT)
-            {
+        while ((pkt = vpx_codec_get_cx_data(call->video.second->encoder, &iter)) != NULL) {
+            if (pkt->kind == VPX_CODEC_CX_FRAME_PKT) {
                 const int keyframe = (pkt->data.frame.flags & VPX_FRAME_IS_KEY) != 0;
 
                 // TOX RTP V3 --- hack to give frame type to function ---
@@ -996,13 +994,10 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
                 // https://www.webmproject.org/docs/webm-sdk/structvpx__codec__cx__pkt.html
                 // pkt->data.frame.sz -> size_t
                 uint32_t frame_length_in_bytes = pkt->data.frame.sz;
-                if (LOWER_31_BITS(frame_length_in_bytes) > 0x1FFFFFFF)
-                {
-                }
-                else
-                {
-                    if (keyframe == 1)
-                    {
+
+                if (LOWER_31_BITS(frame_length_in_bytes) > 0x1FFFFFFF) {
+                } else {
+                    if (keyframe == 1) {
                         frame_length_in_bytes = (uint32_t)(1L << 31) | LOWER_31_BITS(frame_length_in_bytes);
                     }
                 }
@@ -1011,25 +1006,24 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
 
 
                 int res = rtp_send_data
-                        (
-                            call->video.first,
-                            (const uint8_t *)pkt->data.frame.buf,
-                            frame_length_in_bytes,
-                            av->m->log
-                        );
+                          (
+                              call->video.first,
+                              (const uint8_t *)pkt->data.frame.buf,
+                              frame_length_in_bytes,
+                              av->m->log
+                          );
 
-                LOGGER_DEBUG(av->m->log, "+ _sending_FRAME_TYPE_==%s bytes=%d frame_len=%d", keyframe ? "K" : ".", (int)pkt->data.frame.sz, (int)frame_length_in_bytes);
-                LOGGER_DEBUG(av->m->log, "+ _sending_FRAME_ b0=%d b1=%d", ((const uint8_t *)pkt->data.frame.buf)[0] , ((const uint8_t *)pkt->data.frame.buf)[1]);
+                LOGGER_DEBUG(av->m->log, "+ _sending_FRAME_TYPE_==%s bytes=%d frame_len=%d", keyframe ? "K" : ".",
+                             (int)pkt->data.frame.sz, (int)frame_length_in_bytes);
+                LOGGER_DEBUG(av->m->log, "+ _sending_FRAME_ b0=%d b1=%d", ((const uint8_t *)pkt->data.frame.buf)[0] ,
+                             ((const uint8_t *)pkt->data.frame.buf)[1]);
 
-                if (res < 0)
-                {
+                if (res < 0) {
                     pthread_mutex_unlock(call->mutex_video);
                     LOGGER_WARNING(av->m->log, "Could not send video frame: %s", strerror(errno));
                     rc = TOXAV_ERR_SEND_FRAME_RTP_FAILED;
                     goto END;
-                }
-                else
-                {
+                } else {
                 }
             }
         }

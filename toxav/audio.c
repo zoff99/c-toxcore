@@ -179,15 +179,15 @@ void ac_iterate(ACSession *ac)
                 continue;
             }
 
-          /*
-          frame_size = opus_decode(dec, packet, len, decoded, max_size, 0);
-            where
-          packet is the byte array containing the compressed data
-          len is the exact number of bytes contained in the packet
-          decoded is the decoded audio data in opus_int16 (or float for opus_decode_float())
-          max_size is the max duration of the frame in samples (per channel) that can fit
-          into the decoded_frame array
-           */
+            /*
+            frame_size = opus_decode(dec, packet, len, decoded, max_size, 0);
+              where
+            packet is the byte array containing the compressed data
+            len is the exact number of bytes contained in the packet
+            decoded is the decoded audio data in opus_int16 (or float for opus_decode_float())
+            max_size is the max duration of the frame in samples (per channel) that can fit
+            into the decoded_frame array
+             */
             rc = opus_decode(ac->decoder, msg->data + 4, msg->len - 4, temp_audio_buffer, 5760, 0);
             free(msg);
         }
@@ -379,11 +379,11 @@ static OpusEncoder *create_audio_encoder(const Logger *log, int32_t bit_rate, in
 {
     int status = OPUS_OK;
 
-/*  
-    OPUS_APPLICATION_VOIP Process signal for improved speech intelligibility
-    OPUS_APPLICATION_AUDIO Favor faithfulness to the original input
-    OPUS_APPLICATION_RESTRICTED_LOWDELAY Configure the minimum possible coding delay
-*/
+    /*
+        OPUS_APPLICATION_VOIP Process signal for improved speech intelligibility
+        OPUS_APPLICATION_AUDIO Favor faithfulness to the original input
+        OPUS_APPLICATION_RESTRICTED_LOWDELAY Configure the minimum possible coding delay
+    */
     OpusEncoder *rc = opus_encoder_create(sampling_rate, channel_count, OPUS_APPLICATION_VOIP, &status);
 
     if (status != OPUS_OK) {

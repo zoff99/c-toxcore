@@ -67,14 +67,12 @@ static struct RTPMessage *new_message(Tox *tox, const struct RTPHeader *header, 
         return NULL;
     }
 
-    if (payload_type == rtp_TypeVideo)
-    {
+    if (payload_type == rtp_TypeVideo) {
         retu->ssrc = 0;
-    }
-    else
-    {
+    } else {
         retu->ssrc = random_int();
     }
+
     retu->payload_type = payload_type;
 
     retu->m = m;
@@ -181,12 +179,11 @@ void rtp_kill(RTPSession *session)
 
     LOGGER_DEBUG(session->m->log, "Terminated RTP session V3 work_buffer_list: %p", session_v3->work_buffer_list);
 
-    if (session_v3->work_buffer_list)
-    {
-        LOGGER_DEBUG(session->m->log, "Terminated RTP session V3 next_free_entry: %d", (int)session_v3->work_buffer_list->next_free_entry);
+    if (session_v3->work_buffer_list) {
+        LOGGER_DEBUG(session->m->log, "Terminated RTP session V3 next_free_entry: %d",
+                     (int)session_v3->work_buffer_list->next_free_entry);
 
-        if (session_v3->work_buffer_list->next_free_entry > 0)
-        {
+        if (session_v3->work_buffer_list->next_free_entry > 0) {
         }
 
         free(session_v3->work_buffer_list);
@@ -256,25 +253,20 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length_v3, 
     uint8_t is_keyframe = 0;
     uint8_t is_video_payload = 0;
 
-    if (session->payload_type == rtp_TypeVideo)
-    {
+    if (session->payload_type == rtp_TypeVideo) {
         is_video_payload = 1;
     }
 
-    if (is_video_payload == 1)
-    {
+    if (is_video_payload == 1) {
         // TOX RTP V3 --- hack to get frame type ---
         //
         // use the highest bit (bit 31) to spec. keyframe = 1 / no keyframe = 0
         // if length(31 bits) > 1FFFFFFF then use all bits for length
         // and assume its a keyframe (most likely is anyway)
 
-        if (LOWER_31_BITS(length_v3) > 0x1FFFFFFF)
-        {
+        if (LOWER_31_BITS(length_v3) > 0x1FFFFFFF) {
             is_keyframe = 1;
-        }
-        else
-        {
+        } else {
             is_keyframe = (length_v3 & (uint32_t)(1L << 31)) != 0; // 1-> is keyframe, 0-> no keyframe
             length_v3 = LOWER_31_BITS(length_v3);
         }
@@ -346,10 +338,11 @@ static bool fill_data_into_slot(Tox *tox, struct RTPWorkBufferList *wkbl, const 
     header_v3->protocol_version = 3; // TOX RTP V3
 
     uint16_t length_safe = (uint16_t)(length_v3);
-    if (length_v3 > UINT16_MAX)
-    {
+
+    if (length_v3 > UINT16_MAX) {
         length_safe = UINT16_MAX;
     }
+
     header_v3->data_length_lower = net_htons(length_safe);
     header_v3->data_length_full = net_htonl(length_v3); // without header
 
