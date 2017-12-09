@@ -144,7 +144,7 @@ static void vc_init_encoder_cfg(const Logger *log, vpx_codec_enc_cfg_t *cfg, int
   By convention, the value 1 is used to mean "return as fast as possible."
 */
 // TODO: don't hardcode this, let the application choose it
-#define WANTED_MAX_DECODER_FPS (100)
+#define WANTED_MAX_DECODER_FPS (40)
 #define MAX_DECODE_TIME_US (1000000 / WANTED_MAX_DECODER_FPS) // to allow x fps
 /*
 VPX_DL_REALTIME       (1)
