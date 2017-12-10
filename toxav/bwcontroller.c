@@ -32,9 +32,10 @@
 #include <errno.h>
 
 #define BWC_PACKET_ID 196
-#define BWC_SEND_INTERVAL_MS (1000)     /* 1s  */
-#define BWC_REFRESH_INTERVAL_MS (2000) /* 2s */
+#define BWC_SEND_INTERVAL_MS (950)     /* 0.95s  */
+#define BWC_REFRESH_INTERVAL_MS (2000) /* 2.00s */
 #define BWC_AVG_PKT_COUNT 20
+#define BWC_AVG_LOSS_OVER_CYCLES_COUNT 30
 
 /**
  *
@@ -74,6 +75,8 @@ struct BWController_s {
         uint32_t packet_length_array[BWC_AVG_PKT_COUNT];
         RingBuffer *rb;
     } rcvpkt; /* To calculate average received packet (this means split parts, not the full message!) */
+
+    uint32_t packet_loss_counted_cycles;
 };
 
 struct BWCMessage {
@@ -87,6 +90,7 @@ void send_update(BWController *bwc);
 
 BWController *bwc_new(Messenger *m, uint32_t friendnumber, m_cb *mcb, void *mcb_user_data)
 {
+    int i = 0;
     BWController *retu = (BWController *)calloc(sizeof(struct BWController_s), 1);
 
     LOGGER_WARNING(m->log, "BWC: new");
@@ -100,10 +104,9 @@ BWController *bwc_new(Messenger *m, uint32_t friendnumber, m_cb *mcb, void *mcb_
 
     retu->cycle.lost = 0;
     retu->cycle.recv = 0;
+    retu->packet_loss_counted_cycles = 0;
 
     /* Fill with zeros */
-    int i = 0;
-
     for (i = 0; i < BWC_AVG_PKT_COUNT; i++) {
         uint32_t *j = (retu->rcvpkt.packet_length_array + i);
         *j = 0;
@@ -205,6 +208,7 @@ void bwc_add_recv(BWController *bwc, uint32_t recv_bytes)
 
     // LOGGER_WARNING(bwc->m->log, "BWC recv: %d", (int)recv_bytes);
 
+    bwc->packet_loss_counted_cycles++;
     bwc->cycle.recv = bwc->cycle.recv + recv_bytes;
     send_update(bwc);
 }
@@ -212,32 +216,46 @@ void bwc_add_recv(BWController *bwc, uint32_t recv_bytes)
 
 void send_update(BWController *bwc)
 {
+
+#if 0
     if (current_time_monotonic() - bwc->cycle.last_refresh_timestamp > BWC_REFRESH_INTERVAL_MS) {
 
         bwc->cycle.lost /= 10;
         bwc->cycle.recv /= 10;
         bwc->cycle.last_refresh_timestamp = current_time_monotonic();
 
-    } else if (current_time_monotonic() - bwc->cycle.last_sent_timestamp > BWC_SEND_INTERVAL_MS) {
+    }
+#endif
 
-        if (bwc->cycle.lost) {
-            LOGGER_INFO(bwc->m->log, "%p Sent update rcv: %u lost: %u percent: %f %%",
-                        bwc, bwc->cycle.recv, bwc->cycle.lost,
-                        (float)(((float) bwc->cycle.lost / (bwc->cycle.recv + bwc->cycle.lost)) * 100.0f));
+    //if (current_time_monotonic() - bwc->cycle.last_sent_timestamp > BWC_SEND_INTERVAL_MS) {
+    if (bwc->packet_loss_counted_cycles > BWC_AVG_LOSS_OVER_CYCLES_COUNT)
+    {
+        if (current_time_monotonic() - bwc->cycle.last_sent_timestamp > BWC_SEND_INTERVAL_MS)
+        {
+            bwc->packet_loss_counted_cycles = 0;
 
-            uint8_t bwc_packet[sizeof(struct BWCMessage) + 1];
-            struct BWCMessage *msg = (struct BWCMessage *)(bwc_packet + 1);
+            if (bwc->cycle.lost) {
+                LOGGER_INFO(bwc->m->log, "%p Sent update rcv: %u lost: %u percent: %f %%",
+                            bwc, bwc->cycle.recv, bwc->cycle.lost,
+                            (float)(((float) bwc->cycle.lost / (bwc->cycle.recv + bwc->cycle.lost)) * 100.0f));
 
-            bwc_packet[0] = BWC_PACKET_ID; // set packet ID
-            msg->lost = net_htonl(bwc->cycle.lost);
-            msg->recv = net_htonl(bwc->cycle.recv);
+                uint8_t bwc_packet[sizeof(struct BWCMessage) + 1];
+                struct BWCMessage *msg = (struct BWCMessage *)(bwc_packet + 1);
 
-            if (-1 == m_send_custom_lossy_packet(bwc->m, bwc->friend_number, bwc_packet, sizeof(bwc_packet))) {
-                LOGGER_WARNING(bwc->m->log, "BWC send failed (len: %d)! std error: %s", sizeof(bwc_packet), strerror(errno));
+                bwc_packet[0] = BWC_PACKET_ID; // set packet ID
+                msg->lost = net_htonl(bwc->cycle.lost);
+                msg->recv = net_htonl(bwc->cycle.recv);
+
+                if (-1 == m_send_custom_lossy_packet(bwc->m, bwc->friend_number, bwc_packet, sizeof(bwc_packet))) {
+                    LOGGER_WARNING(bwc->m->log, "BWC send failed (len: %d)! std error: %s", sizeof(bwc_packet), strerror(errno));
+                }
             }
-        }
 
-        bwc->cycle.last_sent_timestamp = current_time_monotonic();
+            bwc->cycle.last_sent_timestamp = current_time_monotonic();
+
+            bwc->cycle.lost = 0;
+            bwc->cycle.recv = 0;
+        }
     }
 }
 
