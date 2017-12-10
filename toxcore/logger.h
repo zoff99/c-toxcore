@@ -42,7 +42,7 @@ int my_pthread_mutex_unlock(pthread_mutex_t *mutex, const char *mutex_name, cons
 #endif
 
 #ifndef LOGGER_MAX_MSG_LENGTH
-#define LOGGER_MAX_MSG_LENGTH (4096) // ORIG 1024
+#define LOGGER_MAX_MSG_LENGTH (2048) // ORIG 1024
 #endif
 
 typedef enum Logger_Level {
