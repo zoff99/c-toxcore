@@ -333,7 +333,7 @@ static bool fill_data_into_slot(Tox *tox, struct RTPWorkBufferList *wkbl, const 
 
 // Zoff -- new stuff --
 
-    struct RTPHeaderV3 *header_v3 = (void *)header;
+    struct RTPHeaderV3 *header_v3 = (struct RTPHeaderV3 *)header;
 
     header_v3->protocol_version = 3; // TOX RTP V3
 
