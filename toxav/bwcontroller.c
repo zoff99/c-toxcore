@@ -26,9 +26,10 @@ static void dummy()
 // #define LOGGER_INFO(log, ...) dummy()
 
 #define BWC_PACKET_ID 196
-#define BWC_SEND_INTERVAL_MS (1000)     /* 1s  */
-#define BWC_REFRESH_INTERVAL_MS (2000) /* 2s */
+#define BWC_SEND_INTERVAL_MS (950)     /* 0.95s  */
+#define BWC_REFRESH_INTERVAL_MS (2000) /* 2.00s */
 #define BWC_AVG_PKT_COUNT 20
+#define BWC_AVG_LOSS_OVER_CYCLES_COUNT 30
 
 /**
  *
@@ -95,6 +96,7 @@ int bwc_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *
 
 BWController *bwc_new(Tox *t, uint32_t friendnumber, m_cb *mcb, void *mcb_user_data, Mono_Time *toxav_given_mono_time)
 {
+    int i = 0;
     BWController *retu = (BWController *)calloc(sizeof(struct BWController_s), 1);
 
     LOGGER_WARNING(m->log, "BWC: new");
@@ -110,10 +112,9 @@ BWController *bwc_new(Tox *t, uint32_t friendnumber, m_cb *mcb, void *mcb_user_d
 
     retu->cycle.lost = 0;
     retu->cycle.recv = 0;
+    retu->packet_loss_counted_cycles = 0;
 
     /* Fill with zeros */
-    int i = 0;
-
     for (i = 0; i < BWC_AVG_PKT_COUNT; i++) {
         uint32_t *j = (retu->rcvpkt.packet_length_array + i);
         *j = 0;
@@ -218,9 +219,7 @@ static void send_update(BWController *bwc)
             uint8_t bwc_packet[sizeof(struct BWCMessage) + 1];
             struct BWCMessage *msg = (struct BWCMessage *)(bwc_packet + 1);
 
-            bwc_packet[0] = BWC_PACKET_ID; // set packet ID
-            msg->lost = net_htonl(bwc->cycle.lost);
-            msg->recv = net_htonl(bwc->cycle.recv);
+            bwc->cycle.last_sent_timestamp = current_time_monotonic();
 
 #if 0
 
