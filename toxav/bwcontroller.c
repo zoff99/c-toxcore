@@ -27,7 +27,7 @@ static void dummy()
 
 #define BWC_PACKET_ID 196
 #define BWC_SEND_INTERVAL_MS (1000)     /* 1s  */
-#define BWC_REFRESH_INTERVAL_MS (10000) /* 10s */
+#define BWC_REFRESH_INTERVAL_MS (2000) /* 2s */
 #define BWC_AVG_PKT_COUNT 20
 
 /**
