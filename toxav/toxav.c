@@ -1080,7 +1080,8 @@ static void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, 
 
     LOGGER_API_DEBUG(call->av->tox, "Reported loss of %f%%", (double)loss * 100);
 
-    if (loss < .01f) {
+	/* if less than 10% data loss we do nothing! */
+    if (loss < 0.1f) {
         return;
     }
 
