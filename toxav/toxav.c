@@ -40,12 +40,23 @@
 // VPX Info: Time to spend encoding, in microseconds (it's a *soft* deadline)
 #define WANTED_MAX_ENCODER_FPS (40)
 #define MAX_ENCODE_TIME_US (1000000 / WANTED_MAX_ENCODER_FPS) // to allow x fps
-
 /*
 VPX_DL_REALTIME       (1)       deadline parameter analogous to VPx REALTIME mode.
 VPX_DL_GOOD_QUALITY   (1000000) deadline parameter analogous to VPx GOOD QUALITY mode.
 VPX_DL_BEST_QUALITY   (0)       deadline parameter analogous to VPx BEST QUALITY mode.
 */
+
+
+
+/*
+ * ON THE FLY VALUES 
+ */
+extern int global__MAX_ENCODE_TIME_US; // defined in video.h
+/*
+ * ON THE FLY VALUES 
+ */
+
+
 
 typedef struct ToxAVCall_s {
     ToxAV *av;
@@ -838,8 +849,17 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         memcpy(img.planes[VPX_PLANE_U], u, (width / 2) * (height / 2));
         memcpy(img.planes[VPX_PLANE_V], v, (width / 2) * (height / 2));
 
+        // vpx_codec_err_t vrc = vpx_codec_encode(call->video.second->encoder, &img,
+        //                                       call->video.second->frame_counter, 1, vpx_encode_flags, MAX_ENCODE_TIME_US);
+/*
+ * ON THE FLY VALUES 
+ */
         vpx_codec_err_t vrc = vpx_codec_encode(call->video.second->encoder, &img,
-                                               call->video.second->frame_counter, 1, vpx_encode_flags, MAX_ENCODE_TIME_US);
+                                               call->video.second->frame_counter, 1, vpx_encode_flags, global__MAX_ENCODE_TIME_US);
+/*
+ * ON THE FLY VALUES 
+ */
+
 
         vpx_img_free(&img);
 

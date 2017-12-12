@@ -68,6 +68,23 @@ Note
 #define VIDEO_DECODE_BUFFER_SIZE 5 // this buffer has normally max. 1 entry
 
 
+/*
+ * ON THE FLY VALUES 
+ */
+int global__ON_THE_FLY_CHANGES = 0;
+int global__VPX_RESIZE_ALLOWED = 1;
+int global__VPX_DROPFRAME_THRESH = 0;
+int global__VPX_END_RESIZE_UP_THRESH = 50;
+int global__VPX_END_RESIZE_DOWN_THRESH = 5;
+int global__MAX_DECODE_TIME_US = (1000000 / 40);
+int global__MAX_ENCODE_TIME_US = (1000000 / 40);
+int global__VP8E_SET_CPUUSED_VALUE = 16;
+int global__VPX_END_USAGE = VPX_VBR;
+/*
+ * ON THE FLY VALUES 
+ */
+
+
 
 
 void vc__init_encoder_cfg(Logger *log, vpx_codec_enc_cfg_t *cfg, int16_t kf_max_dist)
@@ -113,13 +130,21 @@ void vc__init_encoder_cfg(Logger *log, vpx_codec_enc_cfg_t *cfg, int16_t kf_max_
     cfg->kf_min_dist = 0;
     cfg->kf_mode = VPX_KF_AUTO; // Encoder determines optimal placement automatically
     cfg->rc_end_usage = VPX_VBR; // what quality mode?
-
     /*
      VPX_VBR    Variable Bit Rate (VBR) mode
      VPX_CBR    Constant Bit Rate (CBR) mode
      VPX_CQ     Constrained Quality (CQ) mode -> give codec a hint that we may be on low bandwidth connection
      VPX_Q    Constant Quality (Q) mode
      */
+
+/*
+ * ON THE FLY VALUES 
+ */
+    cfg->rc_end_usage = global__VPX_END_USAGE;
+/*
+ * ON THE FLY VALUES 
+ */
+
     if (kf_max_dist > 1) {
         cfg->kf_max_dist = kf_max_dist; // a full frame every x frames minimum (can be more often, codec decides automatically)
         LOGGER_WARNING(log, "kf_max_dist=%d (1)", cfg->kf_max_dist);
@@ -156,6 +181,20 @@ void vc__init_encoder_cfg(Logger *log, vpx_codec_enc_cfg_t *cfg, int16_t kf_max_
     cfg->rc_buf_optimal_sz = 600;
     cfg->rc_buf_sz = 1000;
 #endif
+
+
+/*
+ * ON THE FLY VALUES 
+ */
+    cfg->rc_resize_allowed = global__VPX_RESIZE_ALLOWED;
+    cfg->rc_dropframe_thresh = global__VPX_DROPFRAME_THRESH;
+    cfg->rc_resize_up_thresh = global__VPX_END_RESIZE_UP_THRESH;
+    cfg->rc_resize_down_thresh = global__VPX_END_RESIZE_DOWN_THRESH;
+/*
+ * ON THE FLY VALUES 
+ */
+
+
 
 }
 
@@ -542,7 +581,15 @@ void vc_iterate(VCSession *vc)
         LOGGER_DEBUG(vc->log, "vc_iterate: rb_read rb size=%d", (int)rb_size((RingBuffer *)vc->vbuf_raw));
 
 
-        rc = vpx_codec_decode(vc->decoder, p->data, full_data_len, NULL, MAX_DECODE_TIME_US);
+        // rc = vpx_codec_decode(vc->decoder, p->data, full_data_len, NULL, MAX_DECODE_TIME_US);
+/*
+ * ON THE FLY VALUES 
+ */
+        rc = vpx_codec_decode(vc->decoder, p->data, full_data_len, NULL, global__MAX_DECODE_TIME_US);
+/*
+ * ON THE FLY VALUES 
+ */
+
 
         if (rc != VPX_CODEC_OK) {
             if (rc == 5) { // Bitstream not supported by this decoder
@@ -555,7 +602,15 @@ void vc_iterate(VCSession *vc)
                 LOGGER_ERROR(vc->log, "Error decoding video: %d %s", (int)rc, vpx_codec_err_to_string(rc));
             }
 
-            rc = vpx_codec_decode(vc->decoder, p->data, full_data_len, NULL, MAX_DECODE_TIME_US);
+            // rc = vpx_codec_decode(vc->decoder, p->data, full_data_len, NULL, MAX_DECODE_TIME_US);
+/*
+ * ON THE FLY VALUES 
+ */
+			rc = vpx_codec_decode(vc->decoder, p->data, full_data_len, NULL, global__MAX_DECODE_TIME_US);
+/*
+ * ON THE FLY VALUES 
+ */
+
 
             if (rc != 5) {
                 LOGGER_ERROR(vc->log, "There is still an error decoding video: %d %s", (int)rc, vpx_codec_err_to_string(rc));
@@ -651,11 +706,12 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
     vpx_codec_enc_cfg_t cfg2 = *vc->encoder->config.enc;
     vpx_codec_err_t rc;
 
-    if (cfg2.rc_target_bitrate == bit_rate && cfg2.g_w == width && cfg2.g_h == height && kf_max_dist == -1) {
+    if (cfg2.rc_target_bitrate == bit_rate && cfg2.g_w == width && cfg2.g_h == height && kf_max_dist == -1 && global__ON_THE_FLY_CHANGES == 0) {
         return 0; /* Nothing changed */
     }
 
-    if (cfg2.g_w == width && cfg2.g_h == height && kf_max_dist == -1) {
+
+    if (cfg2.g_w == width && cfg2.g_h == height && kf_max_dist == -1 && global__ON_THE_FLY_CHANGES == 0) {
         /* Only bit rate changed */
 
         LOGGER_INFO(vc->log, "bitrate change from: %u to: %u", (uint32_t)cfg2.rc_target_bitrate, (uint32_t)bit_rate);
@@ -675,10 +731,17 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 
         LOGGER_DEBUG(vc->log, "Have to reinitialize vpx encoder on session %p", vc);
 
-
         vpx_codec_ctx_t new_c;
         vpx_codec_enc_cfg_t  cfg;
         vc__init_encoder_cfg(vc->log, &cfg, kf_max_dist);
+
+/*
+ * ON THE FLY VALUES 
+ */
+		global__ON_THE_FLY_CHANGES = 0;
+/*
+ * ON THE FLY VALUES 
+ */
 
         cfg.rc_target_bitrate = bit_rate;
         cfg.g_w = width;
@@ -700,6 +763,14 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 
 
         int cpu_used_value = VP8E_SET_CPUUSED_VALUE;
+
+/*
+ * ON THE FLY VALUES 
+ */
+        cpu_used_value = global__VP8E_SET_CPUUSED_VALUE;
+/*
+ * ON THE FLY VALUES 
+ */
 
         if (VPX_ENCODER_USED == VPX_VP9_CODEC) {
             if ((cpu_used_value < -8) || (cpu_used_value > 8)) {

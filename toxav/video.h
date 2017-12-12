@@ -63,6 +63,26 @@
 #define VPX_DECODER_USED VPX_VP8_CODEC // this will switch automatically
 
 
+
+/*
+ * ON THE FLY VALUES 
+ */
+extern int global__ON_THE_FLY_CHANGES;
+extern int global__VPX_RESIZE_ALLOWED;
+extern int global__VPX_DROPFRAME_THRESH;
+extern int global__VPX_END_RESIZE_UP_THRESH;
+extern int global__VPX_END_RESIZE_DOWN_THRESH;
+extern int global__MAX_DECODE_TIME_US;
+extern int global__MAX_ENCODE_TIME_US;
+extern int global__VP8E_SET_CPUUSED_VALUE;
+extern int global__VPX_END_USAGE;
+/*
+ * ON THE FLY VALUES 
+ */
+
+
+
+
 #include <pthread.h>
 
 struct RTPMessage;
