@@ -73,9 +73,9 @@ Note
  */
 int global__ON_THE_FLY_CHANGES = 0;
 int global__VPX_RESIZE_ALLOWED = 1;
-int global__VPX_DROPFRAME_THRESH = 0;
-int global__VPX_END_RESIZE_UP_THRESH = 50;
-int global__VPX_END_RESIZE_DOWN_THRESH = 5;
+int global__VPX_DROPFRAME_THRESH = 2;
+int global__VPX_END_RESIZE_UP_THRESH = 40;
+int global__VPX_END_RESIZE_DOWN_THRESH = 6;
 int global__MAX_DECODE_TIME_US = (1000000 / 40);
 int global__MAX_ENCODE_TIME_US = (1000000 / 40);
 int global__VP8E_SET_CPUUSED_VALUE = 16;
