@@ -78,7 +78,7 @@ int global__VPX_DROPFRAME_THRESH = 2;
 int global__VPX_END_RESIZE_UP_THRESH = 40;
 int global__VPX_END_RESIZE_DOWN_THRESH = 6;
 int global__MAX_DECODE_TIME_US = (1000000 / 40);
-int global__MAX_ENCODE_TIME_US = (1000000 / 40);
+int global__MAX_ENCODE_TIME_US = (1000000 / 24);
 int global__VP8E_SET_CPUUSED_VALUE = 10;
 int global__VPX_END_USAGE = VPX_VBR;
 /*
