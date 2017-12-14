@@ -38,7 +38,7 @@
 
 // TODO: don't hardcode this, let the application choose it
 // VPX Info: Time to spend encoding, in microseconds (it's a *soft* deadline)
-#define WANTED_MAX_ENCODER_FPS (24)
+#define WANTED_MAX_ENCODER_FPS (40)
 #define MAX_ENCODE_TIME_US (1000000 / WANTED_MAX_ENCODER_FPS) // to allow x fps
 /*
 VPX_DL_REALTIME       (1)       deadline parameter analogous to VPx REALTIME mode.
@@ -977,8 +977,8 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
 
     LOGGER_DEBUG(call->av->m->log, "Reported loss of %f%%", loss * 100);
 
-    /* if less than 10% data loss we do nothing! */
-    if (loss < 0.1f) {
+    /* if less than 8% data loss we do nothing! */
+    if (loss < 0.08f) {
         return;
     }
 

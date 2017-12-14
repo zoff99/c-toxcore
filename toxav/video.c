@@ -51,7 +51,7 @@ VPX_DL_BEST_QUALITY   (0)
 deadline parameter analogous to VPx BEST QUALITY mode.
 */
 
-#define VP8E_SET_CPUUSED_VALUE (10)
+#define VP8E_SET_CPUUSED_VALUE (16)
 /*
 Codec control function to set encoder internal speed settings.
 Changes in this value influences, among others, the encoder's selection of motion estimation methods.
@@ -65,21 +65,21 @@ Note
 // #define VIDEO_BITRATE_INITIAL_VALUE 5000 // initialize encoder with this value. Target bandwidth to use for this stream, in kilobits per second.
 
 
-#define VIDEO_DECODE_BUFFER_SIZE 5 // this buffer has normally max. 1 entry
+#define VIDEO_DECODE_BUFFER_SIZE 4 // this buffer has normally max. 1 entry
 
 
 /*
  * ON THE FLY VALUES ---------
  */
-#define VIDEO_BITRATE_INITIAL_VALUE 20000
+#define VIDEO_BITRATE_INITIAL_VALUE 5000
 int global__ON_THE_FLY_CHANGES = 0;
 int global__VPX_RESIZE_ALLOWED = 1;
 int global__VPX_DROPFRAME_THRESH = 2;
-int global__VPX_END_RESIZE_UP_THRESH = 40;
+int global__VPX_END_RESIZE_UP_THRESH = 50;
 int global__VPX_END_RESIZE_DOWN_THRESH = 6;
 int global__MAX_DECODE_TIME_US = (1000000 / 40);
-int global__MAX_ENCODE_TIME_US = (1000000 / 24);
-int global__VP8E_SET_CPUUSED_VALUE = 10;
+int global__MAX_ENCODE_TIME_US = (1000000 / 40);
+int global__VP8E_SET_CPUUSED_VALUE = 16;
 int global__VPX_END_USAGE = VPX_VBR;
 /*
  * ON THE FLY VALUES ---------
