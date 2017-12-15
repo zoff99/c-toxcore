@@ -227,6 +227,12 @@ uint32_t toxav_iteration_interval(const ToxAV *av)
     /* If no call is active interval is 200 */
     return av->calls ? av->interval : 200;
 }
+
+static void *video_play(void *data)
+{
+    vc_iterate((VCSession *)data);
+}
+
 void toxav_iterate(ToxAV *av)
 {
     pthread_mutex_lock(av->mutex);
@@ -246,8 +252,26 @@ void toxav_iterate(ToxAV *av)
             pthread_mutex_lock(i->mutex);
             pthread_mutex_unlock(av->mutex);
 
+
+
+            // ------- multithreaded av_iterate -------
+			pthread_t video_play_thread;
+            if (pthread_create(&video_play_thread, NULL, video_play, (void *)(i->video.second)))
+            {
+                LOGGER_WARNING(av->m->log, "error creating video play thread");
+            }
+
             ac_iterate(i->audio.second);
-            vc_iterate(i->video.second);
+            
+            while (pthread_tryjoin_np(video_play_thread, NULL) != 0)
+            {
+                /* video thread still running, let's do some more audio */
+                LOGGER_TRACE(av->m->log, "do some more audio iterate");
+                ac_iterate(i->audio.second);
+            }
+            // ------- multithreaded av_iterate -------
+
+
 
             if (i->msi_call->self_capabilities & msi_CapRAudio &&
                     i->msi_call->peer_capabilities & msi_CapSAudio) {
@@ -258,6 +282,8 @@ void toxav_iterate(ToxAV *av)
                     i->msi_call->peer_capabilities & msi_CapSVideo) {
                 rc = MIN(i->video.second->lcfd, (uint32_t) rc);
             }
+
+            // LOGGER_TRACE(av->m->log, "lcfd=%u", (uint32_t)i->video.second->lcfd);
 
             uint32_t fid = i->friend_number;
 

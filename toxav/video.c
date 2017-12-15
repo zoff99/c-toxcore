@@ -412,7 +412,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
 
 
     vc->linfts = current_time_monotonic();
-    vc->lcfd = 60;
+    vc->lcfd = 10; // initial values in ms for av_iterate sleep ?
     vc->vcb.first = cb;
     vc->vcb.second = cb_data;
     vc->friend_number = friend_number;
