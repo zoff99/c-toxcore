@@ -65,9 +65,6 @@ Note
 // #define VIDEO_BITRATE_INITIAL_VALUE 5000 // initialize encoder with this value. Target bandwidth to use for this stream, in kilobits per second.
 
 
-#define VIDEO_DECODE_BUFFER_SIZE 4 // this buffer has normally max. 1 entry
-
-
 /*
  * ON THE FLY VALUES ---------
  */
@@ -217,7 +214,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
         return NULL;
     }
 
-    if (!(vc->vbuf_raw = rb_new(VIDEO_DECODE_BUFFER_SIZE))) {
+    if (!(vc->vbuf_raw = rb_new(VIDEO_RINGBUFFER_BUFFER_ELEMENTS))) {
         goto BASE_CLEANUP;
     }
 
@@ -578,10 +575,17 @@ void vc_iterate(VCSession *vc)
             LOGGER_DEBUG(vc->log, "vc_iterate:002");
         }
 
-        LOGGER_DEBUG(vc->log, "vc_iterate: rb_read p->len=%d data_type=%d", (int)full_data_len, (int)data_type);
-        LOGGER_DEBUG(vc->log, "vc_iterate: rb_read rb size=%d", (int)rb_size((RingBuffer *)vc->vbuf_raw));
+        LOGGER_INFO(vc->log, "vc_iterate: rb_read p->len=%d data_type=%d", (int)full_data_len, (int)data_type);
+        LOGGER_INFO(vc->log, "vc_iterate: rb_read rb size=%d", (int)rb_size((RingBuffer *)vc->vbuf_raw));
 
 
+
+		if ((int)rb_size((RingBuffer *)vc->vbuf_raw) > VIDEO_RINGBUFFER_FILL_THRESHOLD)
+		{
+			rc = vpx_codec_decode(vc->decoder, p->data, full_data_len, NULL, VPX_DL_REALTIME);
+		}
+		else
+		{
         // rc = vpx_codec_decode(vc->decoder, p->data, full_data_len, NULL, MAX_DECODE_TIME_US);
 /*
  * ON THE FLY VALUES 
@@ -590,7 +594,7 @@ void vc_iterate(VCSession *vc)
 /*
  * ON THE FLY VALUES 
  */
-
+		}
 
         if (rc != VPX_CODEC_OK) {
             if (rc == 5) { // Bitstream not supported by this decoder
