@@ -253,6 +253,7 @@ void toxav_iterate(ToxAV *av)
             pthread_mutex_unlock(av->mutex);
 
 
+            ac_iterate(i->audio.second);
 
             // ------- multithreaded av_iterate -------
 			pthread_t video_play_thread;
@@ -260,8 +261,6 @@ void toxav_iterate(ToxAV *av)
             {
                 LOGGER_WARNING(av->m->log, "error creating video play thread");
             }
-
-            ac_iterate(i->audio.second);
             
             while (pthread_tryjoin_np(video_play_thread, NULL) != 0)
             {
