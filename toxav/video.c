@@ -74,7 +74,7 @@ Note
 #define VIDEO_BITRATE_INITIAL_VALUE 5000
 int global__ON_THE_FLY_CHANGES = 0;
 int global__VPX_RESIZE_ALLOWED = 1;
-int global__VPX_DROPFRAME_THRESH = 2;
+int global__VPX_DROPFRAME_THRESH = 0;
 int global__VPX_END_RESIZE_UP_THRESH = 50;
 int global__VPX_END_RESIZE_DOWN_THRESH = 6;
 int global__MAX_DECODE_TIME_US = (1000000 / 40);
@@ -165,10 +165,10 @@ void vc__init_encoder_cfg(Logger *log, vpx_codec_enc_cfg_t *cfg, int16_t kf_max_
     // cfg->g_timebase.den = 60; // 60 fps
 
     cfg->rc_resize_allowed = 1; // allow encoder to resize to smaller resolution
-    // cfg->rc_dropframe_thresh = 10;
+    // cfg->rc_dropframe_thresh = 0;
 
-    cfg->rc_resize_up_thresh = 40;
-    cfg->rc_resize_down_thresh = 5;
+    cfg->rc_resize_up_thresh = 50;
+    cfg->rc_resize_down_thresh = 6;
 
 #if 0
     /* Highest-resolution encoder settings */
