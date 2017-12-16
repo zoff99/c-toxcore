@@ -39,6 +39,9 @@
  * VPX_DL_BEST_QUALITY   (0)       deadline parameter analogous to VPx BEST QUALITY mode.
  */
 
+#define VIDEO_ACCEPTABLE_LOSS (0.08f) /* if loss is less than this (8%), then don't do anything */
+
+
 typedef struct ToxAVCall_s {
     ToxAV *av;
 
@@ -255,7 +258,8 @@ void toxav_kill(ToxAV *av)
 
 Tox *toxav_get_tox(const ToxAV *av)
 {
-    return av->tox;
+    return (Tox *) av->m;
+
 }
 
 uint32_t toxav_iteration_interval(const ToxAV *av)
@@ -1080,8 +1084,8 @@ static void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, 
 
     LOGGER_API_DEBUG(call->av->tox, "Reported loss of %f%%", (double)loss * 100);
 
-    /* if less than 10% data loss we do nothing! */
-    if (loss < 0.1f) {
+    /* if less than x% data loss we do nothing! */
+    if (loss < VIDEO_ACCEPTABLE_LOSS) {
         return;
     }
 
