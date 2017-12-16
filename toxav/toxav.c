@@ -40,6 +40,7 @@ VPX_DL_BEST_QUALITY   (0)       deadline parameter analogous to VPx BEST QUALITY
 */
 
 #define VIDEO_ACCEPTABLE_LOSS (0.08f) /* if loss is less than this (8%), then don't do anything */
+#define AUDIO_ITERATATIONS_WHILE_VIDEO (10)
 
 
 typedef struct ToxAVCall_s {
@@ -54,6 +55,8 @@ typedef struct ToxAVCall_s {
     VCSession *video;
 
     BWController *bwc;
+
+    uint8_t skip_video_flag;
 
     bool active;
     MSICall *msi_call;
@@ -259,7 +262,6 @@ void toxav_kill(ToxAV *av)
 Tox *toxav_get_tox(const ToxAV *av)
 {
     return (Tox *) av->m;
-
 }
 
 uint32_t toxav_iteration_interval(const ToxAV *av)
@@ -279,10 +281,14 @@ void toxav_iterate(ToxAV *av)
 
     uint64_t start = current_time_monotonic(av->toxav_mono_time);
     int32_t rc = 500;
+    uint32_t audio_iterations = 0;
 
     ToxAVCall *i = av->calls[av->calls_head];
 
     for (; i; i = i->next) {
+ 
+        audio_iterations = 0;
+ 
         if (i->active) {
             pthread_mutex_lock(i->mutex);
             pthread_mutex_unlock(av->mutex);

@@ -235,6 +235,7 @@ static struct RTPMessage *process_frame(Tox *tox, struct RTPWorkBufferList *wkbl
 
 /*
  * input is raw vpx data. length_v3 is the length of the raw data
+ * HINT: this function must be thread safe!
  */
 int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length_v3, Logger *log)
 {
