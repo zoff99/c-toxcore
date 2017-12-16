@@ -34,7 +34,6 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 
 
 // TODO: don't hardcode this, let the application choose it
@@ -256,6 +255,11 @@ void toxav_iterate(ToxAV *av)
 
             ac_iterate(i->audio.second);
 
+#if defined(__MINGW32__) || defined(_WIN32) || defined(WIN32)
+	    /* TODO: Zoff (2017): can not get uTox for windows compiled with "pthread_tryjoin_np" */
+	    pthread_join(video_play_thread, NULL);
+#else
+		
             // ------- multithreaded av_iterate -------
 			pthread_t video_play_thread;
             if (pthread_create(&video_play_thread, NULL, video_play, (void *)(i->video.second)))
@@ -270,7 +274,7 @@ void toxav_iterate(ToxAV *av)
                 ac_iterate(i->audio.second);
             }
             // ------- multithreaded av_iterate -------
-
+#endif
 
 
             if (i->msi_call->self_capabilities & msi_CapRAudio &&
