@@ -252,30 +252,29 @@ void toxav_iterate(ToxAV *av)
             pthread_mutex_lock(i->mutex);
             pthread_mutex_unlock(av->mutex);
 
-
+            // ------- av_iterate for audio -------
             ac_iterate(i->audio.second);
+            // ------- av_iterate for audio -------
 
-#if defined(__MINGW32__) || defined(_WIN32) || defined(WIN32)
-	    /* TODO: Zoff (2017): can not get uTox for windows compiled with "pthread_tryjoin_np" */
-	    pthread_join(video_play_thread, NULL);
-#else
-		
-            // ------- multithreaded av_iterate -------
-			pthread_t video_play_thread;
+            // ------- multithreaded av_iterate for video -------
+	    pthread_t video_play_thread;
             if (pthread_create(&video_play_thread, NULL, video_play, (void *)(i->video.second)))
             {
                 LOGGER_WARNING(av->m->log, "error creating video play thread");
             }
-            
+
+#if defined(__MINGW32__) || defined(_WIN32) || defined(WIN32)
+	    /* TODO: Zoff (2017): can not get uTox for windows compiled with "pthread_tryjoin_np" */
+	    pthread_join(video_play_thread, NULL);
+#else       
             while (pthread_tryjoin_np(video_play_thread, NULL) != 0)
             {
                 /* video thread still running, let's do some more audio */
                 LOGGER_TRACE(av->m->log, "do some more audio iterate");
                 ac_iterate(i->audio.second);
             }
-            // ------- multithreaded av_iterate -------
+            // ------- multithreaded av_iterate for video -------
 #endif
-
 
             if (i->msi_call->self_capabilities & msi_CapRAudio &&
                     i->msi_call->peer_capabilities & msi_CapSAudio) {
