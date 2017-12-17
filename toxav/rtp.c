@@ -578,7 +578,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
 	if ((uint8_t)header->pt == (rtp_TypeAudio % 128))
 	{
-        LOGGER_WARNING(ac->log, "incoming audio data packet");
+        LOGGER_WARNING(m->log, "incoming audio data packet");
 	}
 
 
@@ -593,7 +593,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         if (chloss(session, header)) {
 			if ((uint8_t)header->pt == (rtp_TypeAudio % 128))
 			{
-					LOGGER_WARNING(ac->log, "drop late audio messages (1)");
+					LOGGER_WARNING(m->log, "drop late audio messages (1)");
 			}
 
             return 0;
