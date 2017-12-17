@@ -129,7 +129,7 @@ void ac_kill(ACSession *ac)
 
 static inline struct RTPMessage *jbuf_read(Logger *log, struct RingBuffer *q, int32_t *success)
 {
-	struct RTPMessage *ret = NULL;
+	void *ret = NULL;
 	uint8_t dummy;
 	*success = 0;
 
@@ -142,7 +142,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct RingBuffer *q, in
 
 	/* TODO: return (NULL, *success=2) on packet lost */
 
-	return ret;
+	return (struct RTPMessage *)ret;
 }
 
 static inline bool jbuf_is_empty(struct RingBuffer *q)
@@ -322,7 +322,7 @@ static struct RingBuffer *jbuf_new(int size)
 
 static void jbuf_clear(struct RingBuffer *q)
 {
-    void *dummy_;
+    void *dummy_p;
     uint8_t dummy_i;
 
 	while(rb_read(q, &dummy_p, &dummy_i))
