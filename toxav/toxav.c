@@ -41,7 +41,12 @@ VPX_DL_BEST_QUALITY   (0)       deadline parameter analogous to VPx BEST QUALITY
 */
 
 #define VIDEO_ACCEPTABLE_LOSS (0.08f) /* if loss is less than this (8%), then don't do anything */
-#define AUDIO_ITERATATIONS_WHILE_VIDEO (10)
+#define AUDIO_ITERATATIONS_WHILE_VIDEO (5)
+
+#if defined(AUDIO_DEBUGGING_SKIP_FRAMES)
+uint32_t _debug_count_sent_audio_frames = 0;
+uint32_t _debug_skip_every_x_audio_frame = 10;
+#endif
 
 
 typedef struct ToxAVCall_s {
@@ -822,6 +827,7 @@ bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pc
     { /* Encode and send */
         if (ac_reconfigure_encoder(call->audio, call->audio_bit_rate * 1000, sampling_rate, channels) != 0) {
             pthread_mutex_unlock(call->mutex_audio);
+            LOGGER_WARNING(av->m->log, "Failed reconfigure audio encoder");
             rc = TOXAV_ERR_SEND_FRAME_INVALID;
             goto RETURN;
         }
@@ -844,6 +850,8 @@ bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pc
             LOGGER_API_WARNING(av->tox, "Failed to send audio packet");
             rc = TOXAV_ERR_SEND_FRAME_RTP_FAILED;
         }
+#endif
+
     }
 
 
