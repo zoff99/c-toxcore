@@ -575,6 +575,13 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         return;
     }
 
+
+	if ((uint8_t)header->pt == (rtp_TypeAudio % 128))
+	{
+        LOGGER_WARNING(ac->log, "incoming audio data packet");
+	}
+
+
     bwc_feed_avg(session->bwc, length);
 
     if (net_ntohs(header->tlen) == length - sizeof(struct RTPHeader)) {
@@ -584,6 +591,11 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
          * drop late messages
          */
         if (chloss(session, header)) {
+			if ((uint8_t)header->pt == (rtp_TypeAudio % 128))
+			{
+					LOGGER_WARNING(ac->log, "drop late audio messages (1)");
+			}
+
             return 0;
         }
 
@@ -876,9 +888,8 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
     header.offset_lower = 0;
     header.offset_full = 0;
 
-    if (is_keyframe) {
-        header.flags |= RTP_KEY_FRAME;
-    }
+            return 0;
+        }
 
         /* Message is not late; pick up the latest parameters */
         session->rsequnum = net_ntohs(header->sequnum);
