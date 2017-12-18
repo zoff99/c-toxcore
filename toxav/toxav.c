@@ -71,11 +71,11 @@ typedef struct ToxAVCall_s {
     uint32_t audio_bit_rate; /* Sending audio bit rate */
     uint32_t video_bit_rate; /* Sending video bit rate */
     
-    int64_t last_incoming_video_frame_rtimestamp;
-    int64_t last_incoming_video_frame_ltimestamp;
+    uint64_t last_incoming_video_frame_rtimestamp;
+    uint64_t last_incoming_video_frame_ltimestamp;
 
-    int64_t last_incoming_audio_frame_rtimestamp;
-    int64_t last_incoming_audio_frame_ltimestamp;
+    uint64_t last_incoming_audio_frame_rtimestamp;
+    uint64_t last_incoming_audio_frame_ltimestamp;
 
     /** Required for monitoring changes in states */
     uint8_t previous_self_capabilities;
@@ -331,19 +331,20 @@ void toxav_iterate(ToxAV *av)
                 break;
             }
 
-            if ((i->last_incoming_audio_frame_ltimestamp != -1)
+            if ((i->last_incoming_audio_frame_ltimestamp != 0)
             &&
-            (i->last_incoming_video_frame_ltimestamp != -1))
+            (i->last_incoming_video_frame_ltimestamp != 0))
             {
                 int64_t latency_ms = (
                 i->last_incoming_video_frame_rtimestamp -
                 (i->last_incoming_video_frame_ltimestamp - i->last_incoming_audio_frame_ltimestamp) -
                 i->last_incoming_audio_frame_rtimestamp
                 );
+
                 LOGGER_INFO(av->m->log, "AUDIO (to video):latency in ms=%lld", (long long)latency_ms);
 
-                LOGGER_INFO(av->m->log, "AUDIO (to video)A:latency in ms=%lld", (long long)(i->last_incoming_video_frame_ltimestamp - i->last_incoming_audio_frame_ltimestamp));
-                LOGGER_INFO(av->m->log, "AUDIO (to video)B:latency in ms=%lld", (long long)(i->last_incoming_video_frame_rtimestamp - i->last_incoming_audio_frame_rtimestamp));
+                LOGGER_INFO(av->m->log, "VIDEO latency in ms=%lld", (long long)(i->last_incoming_video_frame_ltimestamp - i->last_incoming_video_frame_rtimestamp));
+                LOGGER_INFO(av->m->log, "AUDIO latency in ms=%lld", (long long)(i->last_incoming_audio_frame_ltimestamp - i->last_incoming_audio_frame_rtimestamp));
 
                 LOGGER_INFO(av->m->log, "AUDIO (to video):latency in a=%lld b=%lld c=%lld d=%lld",
                 (long long)i->last_incoming_video_frame_rtimestamp,
@@ -1052,12 +1053,14 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
 
                 // TOX RTP V3 --- hack to give frame type to function ---
 
+                LOGGER_DEBUG(av->m->log, "video packet record time: %llu", video_frame_record_timestamp);
 
                 int res = rtp_send_data
                           (
                               call->video.first,
                               (const uint8_t *)pkt->data.frame.buf,
                               frame_length_in_bytes,
+                              video_frame_record_timestamp,
                               av->m->log
                           );
 
@@ -1065,6 +1068,8 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
                              (int)pkt->data.frame.sz, (int)frame_length_in_bytes);
                 LOGGER_DEBUG(av->m->log, "+ _sending_FRAME_ b0=%d b1=%d", ((const uint8_t *)pkt->data.frame.buf)[0] ,
                              ((const uint8_t *)pkt->data.frame.buf)[1]);
+
+                video_frame_record_timestamp++;
 
                 if (res < 0) {
                     pthread_mutex_unlock(call->mutex_video);
@@ -1327,11 +1332,11 @@ static ToxAVCall *call_new(ToxAV *av, uint32_t friend_number, Toxav_Err_Call *er
 
     call = (ToxAVCall *)calloc(sizeof(ToxAVCall), 1);
 
-    call->last_incoming_video_frame_rtimestamp = -1;
-    call->last_incoming_video_frame_ltimestamp = -1;
+    call->last_incoming_video_frame_rtimestamp = 0;
+    call->last_incoming_video_frame_ltimestamp = 0;
 
-    call->last_incoming_audio_frame_rtimestamp = -1;
-    call->last_incoming_audio_frame_ltimestamp = -1;
+    call->last_incoming_audio_frame_rtimestamp = 0;
+    call->last_incoming_audio_frame_ltimestamp = 0;
 
     if (call == NULL) {
         rc = TOXAV_ERR_CALL_MALLOC;
