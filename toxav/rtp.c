@@ -237,7 +237,7 @@ static struct RTPMessage *process_frame(Tox *tox, struct RTPWorkBufferList *wkbl
  * input is raw vpx data. length_v3 is the length of the raw data
  * HINT: this function must be thread safe!
  */
-int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length_v3, Logger *log)
+int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length_v3, uint64_t frame_record_timestamp, Logger *log)
 {
     if (!session) {
         LOGGER_ERROR(log, "No session!");
@@ -291,8 +291,13 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length_v3, 
     header->pt = session->payload_type % 128;
 
     header->sequnum = net_htons(session->sequnum);
+
+    // this can not work! putting a uint64_t into a uint32_t field in the header!
     header->timestamp = net_htonl(current_time_monotonic());
-    
+    LOGGER_WARNING(session->m->log, "TT:1:%llu", current_time_monotonic());
+    LOGGER_WARNING(session->m->log, "TT:2:%llu", header->timestamp);
+    LOGGER_WARNING(session->m->log, "TT:2b:%llu", net_ntohl(header->timestamp));
+
     header->ssrc = net_htonl(session->ssrc);
 
     header->cpart = 0;
@@ -350,6 +355,12 @@ static bool fill_data_into_slot(Tox *tox, struct RTPWorkBufferList *wkbl, const 
 
     header_v3->offset_lower = net_htons((uint16_t)(0));
     header_v3->offset_full = net_htonl(0);
+
+	header_v3->frame_record_timestamp = htonll(frame_record_timestamp);
+    LOGGER_WARNING(session->m->log, "TT:3:%llu", frame_record_timestamp);
+    LOGGER_WARNING(session->m->log, "TT:4:%llu", header_v3->frame_record_timestamp);
+    LOGGER_WARNING(session->m->log, "TT:4b:%llu", ntohll(header_v3->frame_record_timestamp));
+
 
     header_v3->is_keyframe = is_keyframe;
     // TODO: bigendian ??
