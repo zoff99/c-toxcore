@@ -303,6 +303,12 @@ int addr_resolve_or_parse_ip(const char *address, IP *to, IP *extra);
 typedef int (*packet_handler_callback)(void *object, IP_Port ip_port, const uint8_t *data, uint16_t len,
                                        void *userdata);
 
+// 64 bit hton and ntoh functions ------
+#define htonll(x) ((1==htonl(1)) ? (x) : ((uint64_t)htonl((x) & 0xFFFFFFFF) << 32) | htonl((x) >> 32))
+#define ntohll(x) ((1==ntohl(1)) ? (x) : ((uint64_t)ntohl((x) & 0xFFFFFFFF) << 32) | ntohl((x) >> 32))
+// 64 bit hton and ntoh functions ------
+
+
 typedef struct {
     packet_handler_callback function;
     void *object;
