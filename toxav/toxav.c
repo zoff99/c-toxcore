@@ -336,15 +336,16 @@ void toxav_iterate(ToxAV *av)
             (i->last_incoming_video_frame_ltimestamp != 0))
             {
                 int64_t latency_ms = (
-                i->last_incoming_video_frame_rtimestamp -
-                (i->last_incoming_video_frame_ltimestamp - i->last_incoming_audio_frame_ltimestamp) -
-                i->last_incoming_audio_frame_rtimestamp
+                (i->last_incoming_video_frame_rtimestamp - i->last_incoming_audio_frame_rtimestamp) -
+                (i->last_incoming_video_frame_ltimestamp - i->last_incoming_audio_frame_ltimestamp)
                 );
 
-                LOGGER_INFO(av->m->log, "AUDIO (to video):latency in ms=%lld", (long long)latency_ms);
+                LOGGER_INFO(av->m->log, "VIDEO:1-latency-in-ms=%lld", (long long)latency_ms);
 
                 LOGGER_INFO(av->m->log, "VIDEO latency in ms=%lld", (long long)(i->last_incoming_video_frame_ltimestamp - i->last_incoming_video_frame_rtimestamp));
                 LOGGER_INFO(av->m->log, "AUDIO latency in ms=%lld", (long long)(i->last_incoming_audio_frame_ltimestamp - i->last_incoming_audio_frame_rtimestamp));
+
+                LOGGER_INFO(av->m->log, "VIDEO:3-latency-in-ms=%lld", (long long)(i->last_incoming_audio_frame_rtimestamp - i->last_incoming_video_frame_rtimestamp));
 
                 LOGGER_INFO(av->m->log, "AUDIO (to video):latency in a=%lld b=%lld c=%lld d=%lld",
                 (long long)i->last_incoming_video_frame_rtimestamp,
