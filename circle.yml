@@ -31,8 +31,8 @@ compile:
   ### ----- check code style ------
   - cd .. ; cp -av c-toxcore ./astyle_check/
   - cd ../astyle_check/ ; ls -al other/astyle/astylerc
-  # - cd ../astyle_check/ ; astyle --options=./other/astyle/astylerc ./toxcore/*.c ./toxcore/*.h ./toxav/*.c ./toxav/*.h ; exit 0
-  - cd ../astyle_check/ ; SOURCES=`find . -name "*.[ch]" -and -not -name "*.api.h" -and -not -wholename "*crypto_pwhash*" -and -not -wholename "./super_donators/*"`;
+  - cd ../astyle_check/ ;
+    SOURCES=`find . -name "*.[ch]" -and -not -name "*.api.h" -and -not -wholename "*crypto_pwhash*" -and -not -wholename "./super_donators/* -and -not -wholename "./testing/* -and -not -wholename "./toxcore/*"`;
     astyle -n --options=other/astyle/astylerc $SOURCES ; exit 0
   - cd ../astyle_check/ ; git --no-pager diff
   - cd ../astyle_check/ ; git diff | cat > $CIRCLE_ARTIFACTS/astyle_check.patch 2>&1
