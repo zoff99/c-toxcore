@@ -30,7 +30,7 @@ compile:
   override:
   ### ----- check code style ------
   - mkdir astyle_check
-  - cp -av rsync ./toxcore/*.c ./toxcore/*.h ./toxav/*.c ./toxav/*.h ./astyle_check/
+  - rsync -av ./toxcore/*.c ./toxcore/*.h ./toxav/*.c ./toxav/*.h ./astyle_check/
   - cd ./astyle_check/ ; FILES=`ls -1 ./toxcore/*.c ./toxcore/*.h ./toxav/*.c ./toxav/*.h`;
     for FILE in $FILES; do
     astyle --options=./other/astyle/astylerc < $FILE | cmp -s $FILE - ;
