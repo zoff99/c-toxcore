@@ -31,8 +31,8 @@ compile:
   ### ----- check code style ------
   - cd .. ; cp -av c-toxcore ./astyle_check/
   - cd ../astyle_check/ ; astyle --options=./other/astyle/astylerc ./toxcore/*.c ./toxcore/*.h ./toxav/*.c ./toxav/*.h ; exit 0
-  - cd ../astyle_check/ ; git diff
-  - cd ../astyle_check/ ; git diff > $CIRCLE_ARTIFACTS/astyle_check.patch 2>&1
+  - cd ../astyle_check/ ; git --no-pager diff
+  - cd ../astyle_check/ ; git --no-pager diff > $CIRCLE_ARTIFACTS/astyle_check.patch 2>&1
   ### ----- check code style ------
 
   ### ------- get libsodium -------
