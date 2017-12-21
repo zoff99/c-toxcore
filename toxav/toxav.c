@@ -86,10 +86,6 @@ typedef struct ToxAVCall_s {
     struct ToxAVCall_s *next;
 } ToxAVCall;
 
-struct vpx_frame_user_data {
-	uint64_t record_timestamp;
-};
-
 struct ToxAV {
     Tox *tox;
     MSISession *msi;
