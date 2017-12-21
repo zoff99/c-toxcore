@@ -13,6 +13,7 @@ dependencies:
   pre:
   - sudo apt-get update
   - sudo apt-get install clang
+  - sudo apt-get install astyle ; exit 0
   - sudo apt-get install build-essential libtool autotools-dev automake checkinstall check git yasm
   - sudo apt-get install libopus-dev libvpx-dev pkg-config
 
@@ -23,9 +24,14 @@ dependencies:
   - java -version ; exit 0
   - gcc --version ; exit 0
   - clang --version ; exit 0
+  - astyle --version ; exit 0
 
 compile:
   override:
+  ### ----- check code style ------
+  - astyle --options=./other/astyle/astylerc ./toxcore/*.c ./toxcore/*.h ./toxdns/*.c ./toxdns/*.h ./testing/*.c ./toxav/*.c ./toxav/*.h ./other/*.c ./other/bootstrap_daemon/*.c ./toxencryptsave/*.c ./toxencryptsave/*.h ./auto_tests/*.c ; exit 0
+  ### ----- check code style ------
+
   ### ------- get libsodium -------
   - mkdir ~/libsodium
   - cd ~/libsodium/ ; git clone https://github.com/jedisct1/libsodium.git
