@@ -29,7 +29,12 @@ dependencies:
 compile:
   override:
   ### ----- check code style ------
-  - astyle --options=./other/astyle/astylerc ./toxcore/*.c ./toxcore/*.h ./toxdns/*.c ./toxdns/*.h ./testing/*.c ./toxav/*.c ./toxav/*.h ./other/*.c ./other/bootstrap_daemon/*.c ./toxencryptsave/*.c ./toxencryptsave/*.h ./auto_tests/*.c ; exit 0
+  - mkdir astyle_check
+  - cp -av rsync ./toxcore/*.c ./toxcore/*.h ./toxav/*.c ./toxav/*.h ./astyle_check/
+  - cd ./astyle_check/ ; FILES=`ls -1 ./toxcore/*.c ./toxcore/*.h ./toxav/*.c ./toxav/*.h`;
+    for FILE in $FILES; do
+    astyle --options=./other/astyle/astylerc < $FILE | cmp -s $FILE - ;
+    done
   ### ----- check code style ------
 
   ### ------- get libsodium -------
