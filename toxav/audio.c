@@ -323,7 +323,7 @@ int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
     pthread_mutex_lock(ac->queue_mutex);
 
     const struct RTPHeaderV3 *header_v3 = (void *) & (msg->header);
-    LOGGER_WARNING(ac->log, "TT:queue:A:%llu", header_v3->frame_record_timestamp);
+    // LOGGER_WARNING(ac->log, "TT:queue:A:%llu", header_v3->frame_record_timestamp);
 
     int rc = jbuf_write(ac->log, ac, (struct RingBuffer *)ac->j_buf, msg);
     pthread_mutex_unlock(ac->queue_mutex);
