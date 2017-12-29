@@ -316,6 +316,8 @@ void toxav_iterate(ToxAV *av)
             vc_iterate(i->video);
 
 
+
+
             if (i->msi_call->self_capabilities & msi_CapRAudio &&
                     i->msi_call->peer_capabilities & msi_CapSAudio) {
                 rc = MIN(i->audio.second->lp_frame_duration, rc);
