@@ -1033,7 +1033,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         memcpy(img.planes[VPX_PLANE_V], v, (width / 2) * (height / 2));
 
         vpx_codec_err_t vrc = vpx_codec_encode(call->video.second->encoder, &img,
-                                               (int64_t)video_frame_record_timestamp, 1, vpx_encode_flags, MAX_ENCODE_TIME_US);
+            (int64_t)video_frame_record_timestamp, 1, vpx_encode_flags, max_encode_time_in_us);
 
         vpx_img_free(&img);
 
@@ -1057,8 +1057,8 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
             if (pkt->kind == VPX_CODEC_CX_FRAME_PKT) {
                 const int keyframe = (pkt->data.frame.flags & VPX_FRAME_IS_KEY) != 0;
 		    
-		// use the record timestamp that was actually used for this frame
-		video_frame_record_timestamp = pkt->data.frame.pts;
+                // use the record timestamp that was actually used for this frame
+                video_frame_record_timestamp = pkt->data.frame.pts;
 
                 // TOX RTP V3 --- hack to give frame type to function ---
                 //
