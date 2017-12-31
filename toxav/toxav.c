@@ -1047,6 +1047,8 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
 
     ++call->video.second->frame_counter;
 
+    LOGGER_ERROR(av->m->log, "VPXENC:======================\n");
+    LOGGER_ERROR(av->m->log, "VPXENC:frame num=%ld\n", (long)call->video.second->frame_counter);
 
 
     { /* Send frames */
@@ -1056,7 +1058,17 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         while ((pkt = vpx_codec_get_cx_data(call->video.second->encoder, &iter)) != NULL) {
             if (pkt->kind == VPX_CODEC_CX_FRAME_PKT) {
                 const int keyframe = (pkt->data.frame.flags & VPX_FRAME_IS_KEY) != 0;
-		    
+                if ((pkt->data.frame.flags & VPX_FRAME_IS_KEY) != 0)
+                {
+                    LOGGER_WARNING(av->m->log, "VPXENC:VPX_FRAME_IS_FRAGMENT:*yes* size=%lld pid=%d\n",
+                     (long long)pkt->data.frame.sz, (int)pkt->data.frame.partition_id);
+                }
+                else
+                {
+                    LOGGER_WARNING(av->m->log, "VPXENC:VPX_FRAME_IS_FRAGMENT:-no- size=%lld pid=%d\n",
+                     (long long)pkt->data.frame.sz, (int)pkt->data.frame.partition_id);
+                }
+
                 // use the record timestamp that was actually used for this frame
                 video_frame_record_timestamp = pkt->data.frame.pts;
 
