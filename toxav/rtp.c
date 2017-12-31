@@ -237,7 +237,8 @@ static struct RTPMessage *process_frame(Tox *tox, struct RTPWorkBufferList *wkbl
  * input is raw vpx data. length_v3 is the length of the raw data
  * HINT: this function must be thread safe!
  */
-int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length_v3, uint64_t frame_record_timestamp, Logger *log)
+int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length_v3,
+	uint64_t frame_record_timestamp, int32_t fragment_num, Logger *log)
 {
     if (!session) {
         LOGGER_ERROR(log, "No session!");
@@ -357,14 +358,15 @@ static bool fill_data_into_slot(Tox *tox, struct RTPWorkBufferList *wkbl, const 
 
     header_v3->data_length_lower = net_htons(length_safe);
     header_v3->data_length_full = net_htonl(length_v3); // without header
+    header_v3->fragment_num = net_htonl(fragment_num);
 
     header_v3->offset_lower = net_htons((uint16_t)(0));
     header_v3->offset_full = net_htonl(0);
 
 	header_v3->frame_record_timestamp = htonll(frame_record_timestamp);
-    LOGGER_WARNING(session->m->log, "TT:3:%llu", frame_record_timestamp);
-    LOGGER_WARNING(session->m->log, "TT:4:%llu", header_v3->frame_record_timestamp);
-    LOGGER_WARNING(session->m->log, "TT:4b:%llu", ntohll(header_v3->frame_record_timestamp));
+    LOGGER_DEBUG(session->m->log, "TT:3:%llu", frame_record_timestamp);
+    LOGGER_DEBUG(session->m->log, "TT:4:%llu", header_v3->frame_record_timestamp);
+    LOGGER_DEBUG(session->m->log, "TT:4b:%llu", ntohll(header_v3->frame_record_timestamp));
 
 
     header_v3->is_keyframe = is_keyframe;

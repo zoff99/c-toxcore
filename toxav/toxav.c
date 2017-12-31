@@ -1058,7 +1058,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         while ((pkt = vpx_codec_get_cx_data(call->video.second->encoder, &iter)) != NULL) {
             if (pkt->kind == VPX_CODEC_CX_FRAME_PKT) {
                 const int keyframe = (pkt->data.frame.flags & VPX_FRAME_IS_KEY) != 0;
-                if ((pkt->data.frame.flags & VPX_FRAME_IS_KEY) != 0)
+                if ((pkt->data.frame.flags & VPX_FRAME_IS_FRAGMENT) != 0)
                 {
                     LOGGER_WARNING(av->m->log, "VPXENC:VPX_FRAME_IS_FRAGMENT:*yes* size=%lld pid=%d\n",
                      (long long)pkt->data.frame.sz, (int)pkt->data.frame.partition_id);
@@ -1099,6 +1099,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
                               (const uint8_t *)pkt->data.frame.buf,
                               frame_length_in_bytes,
                               video_frame_record_timestamp,
+                              (int32_t)pkt->data.frame.partition_id,
                               av->m->log
                           );
 

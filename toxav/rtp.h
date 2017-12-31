@@ -28,6 +28,7 @@ enum {
 
 #define VIDEO_KEEP_KEYFRAME_IN_BUFFER_FOR_MS (20)
 #define USED_RTP_WORKBUFFER_COUNT (5)
+#define VIDEO_FRAGMENT_NUM_NO_FRAG (-1)
 
 struct RTPHeader {
     /* Standard RTP header */
@@ -110,7 +111,9 @@ struct RTPHeaderV3 {
     uint32_t data_length_full; /* data length without header, and without packet id */
     uint32_t received_length_full; /* only the receiver uses this field */
     uint64_t frame_record_timestamp; /* when was this frame actually recorded (this is a relative value!) */
-    uint32_t csrc[11];
+    int32_t  fragment_num; /* if using fragments, this is the fragment/partition number */
+    uint32_t real_frame_num; /* unused for now */
+    uint32_t csrc[9];
 
     uint16_t offset_lower;      /* Data offset of the current part */
     uint16_t data_length_lower; /* data length without header, and without packet id */
@@ -167,6 +170,7 @@ struct RTPWorkBuffer {
     uint32_t timestamp;
     // uint64_t timestamp_v3;
     uint16_t sequnum;
+    int32_t  fragment_num;
     uint8_t *buf;
 };
 
