@@ -70,7 +70,7 @@ typedef struct ToxAVCall_s {
 
     uint32_t audio_bit_rate; /* Sending audio bit rate */
     uint32_t video_bit_rate; /* Sending video bit rate */
-    
+
     uint64_t last_incoming_video_frame_rtimestamp;
     uint64_t last_incoming_video_frame_ltimestamp;
 
@@ -995,7 +995,8 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         goto RETURN;
     }
 
-    if (vc_reconfigure_encoder(call->video.second, call->video_bit_rate * 1000, width, height, -1) != 0) {
+    if (vc_reconfigure_encoder(call->video.second, call->video_bit_rate * 1000,
+           width, height, -1) != 0) {
         pthread_mutex_unlock(call->mutex_video);
         rc = TOXAV_ERR_SEND_FRAME_INVALID;
         goto RETURN;
