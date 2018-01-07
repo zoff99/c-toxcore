@@ -294,7 +294,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length_v3,
     header->sequnum = net_htons(session->sequnum);
 
 	if (is_video_payload == 1) {
-		LOGGER_WARNING(session->m->log, "RTP_SEND:seqnum=%ld length=%lld",
+		LOGGER_DEBUG(session->m->log, "RTP_SEND:seqnum=%ld length=%lld",
 				(long)session->sequnum, (long long)length_v3);
 	}
 
@@ -612,7 +612,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         if (chloss(session, header)) {
 			if ((uint8_t)header->pt == (rtp_TypeAudio % 128))
 			{
-					LOGGER_WARNING(m->log, "drop late audio messages (1)");
+					LOGGER_DEBUG(m->log, "drop late audio messages (1)");
 			}
 
             return 0;
