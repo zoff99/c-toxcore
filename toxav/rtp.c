@@ -206,7 +206,7 @@ static bool chloss(const RTPSession *session, const struct RTPHeader *header)
         fprintf(stderr, "Lost packet\n");
 
         while (lost --) {
-            bwc_add_lost(session->bwc , 0);
+            bwc_add_lost(session->bwc, 0);
         }
 
         return true;
@@ -395,12 +395,6 @@ NEW_MULTIPARTED:
          */
         if (session->mcb) {
             session->mp = new_message(net_ntohs(header->tlen) + sizeof(struct RTPHeader), data, length);
-
-            /* Reposition data if necessary */
-            if (net_ntohs(header->cpart)) {
-                ;
-            }
-
             memmove(session->mp->data + net_ntohs(header->cpart), session->mp->data, session->mp->len);
         }
     }

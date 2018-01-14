@@ -68,7 +68,6 @@
 int id_closest(const uint8_t *pk, const uint8_t *pk1, const uint8_t *pk2)
 {
     for (size_t i = 0; i < CRYPTO_PUBLIC_KEY_SIZE; ++i) {
-
         uint8_t distance1 = pk[i] ^ pk1[i];
         uint8_t distance2 = pk[i] ^ pk2[i];
 
@@ -1180,9 +1179,9 @@ static int getnodes(DHT *dht, IP_Port ip_port, const uint8_t *public_key, const 
 
     if (sendback_node != NULL) {
         memcpy(plain_message + sizeof(receiver), sendback_node, sizeof(Node_format));
-        ping_id = ping_array_add(&dht->dht_harden_ping_array, plain_message, sizeof(plain_message));
+        ping_id = ping_array_add(dht->dht_harden_ping_array, plain_message, sizeof(plain_message));
     } else {
-        ping_id = ping_array_add(&dht->dht_ping_array, plain_message, sizeof(receiver));
+        ping_id = ping_array_add(dht->dht_ping_array, plain_message, sizeof(receiver));
     }
 
     if (ping_id == 0) {
@@ -1273,11 +1272,12 @@ static int handle_getnodes(void *object, IP_Port source, const uint8_t *packet, 
     uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE];
 
     DHT_get_shared_key_recv(dht, shared_key, packet + 1);
-    int len = decrypt_data_symmetric(shared_key,
-                                     packet + 1 + CRYPTO_PUBLIC_KEY_SIZE,
-                                     packet + 1 + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE,
-                                     CRYPTO_NODE_SIZE + CRYPTO_MAC_SIZE,
-                                     plain);
+    int len = decrypt_data_symmetric(
+                  shared_key,
+                  packet + 1 + CRYPTO_PUBLIC_KEY_SIZE,
+                  packet + 1 + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE,
+                  CRYPTO_NODE_SIZE + CRYPTO_MAC_SIZE,
+                  plain);
 
     if (len != CRYPTO_NODE_SIZE) {
         return 1;
@@ -1296,9 +1296,9 @@ static uint8_t sent_getnode_to_node(DHT *dht, const uint8_t *public_key, IP_Port
 {
     uint8_t data[sizeof(Node_format) * 2];
 
-    if (ping_array_check(data, sizeof(data), &dht->dht_ping_array, ping_id) == sizeof(Node_format)) {
+    if (ping_array_check(dht->dht_ping_array, data, sizeof(data), ping_id) == sizeof(Node_format)) {
         memset(sendback_node, 0, sizeof(Node_format));
-    } else if (ping_array_check(data, sizeof(data), &dht->dht_harden_ping_array, ping_id) == sizeof(data)) {
+    } else if (ping_array_check(dht->dht_harden_ping_array, data, sizeof(data), ping_id) == sizeof(data)) {
         memcpy(sendback_node, data + sizeof(Node_format), sizeof(Node_format));
     } else {
         return 0;
@@ -1763,7 +1763,7 @@ static int friend_iplist(const DHT *dht, IP_Port *ip_portlist, uint16_t friend_n
     int num_ipv6s = 0;
 
     for (size_t i = 0; i < MAX_FRIEND_CLIENTS; ++i) {
-        client = &(dht_friend->client_list[i]);
+        client = &dht_friend->client_list[i];
 
         /* If ip is not zero and node is good. */
         if (ip_isset(&client->assoc4.ret_ip_port.ip) && !is_timeout(client->assoc4.ret_timestamp, BAD_NODE_TIMEOUT)) {
@@ -2578,8 +2578,8 @@ DHT *new_DHT(Logger *log, Networking_Core *net, bool holepunching_enabled)
     new_symmetric_key(dht->secret_symmetric_key);
     crypto_new_keypair(dht->self_public_key, dht->self_secret_key);
 
-    ping_array_init(&dht->dht_ping_array, DHT_PING_ARRAY_SIZE, PING_TIMEOUT);
-    ping_array_init(&dht->dht_harden_ping_array, DHT_PING_ARRAY_SIZE, PING_TIMEOUT);
+    dht->dht_ping_array = ping_array_new(DHT_PING_ARRAY_SIZE, PING_TIMEOUT);
+    dht->dht_harden_ping_array = ping_array_new(DHT_PING_ARRAY_SIZE, PING_TIMEOUT);
 
     for (uint32_t i = 0; i < DHT_FAKE_FRIEND_NUMBER; ++i) {
         uint8_t random_key_bytes[CRYPTO_PUBLIC_KEY_SIZE];
@@ -2622,8 +2622,8 @@ void kill_DHT(DHT *dht)
     networking_registerhandler(dht->net, NET_PACKET_SEND_NODES_IPV6, NULL, NULL);
     cryptopacket_registerhandler(dht, CRYPTO_PACKET_NAT_PING, NULL, NULL);
     cryptopacket_registerhandler(dht, CRYPTO_PACKET_HARDENING, NULL, NULL);
-    ping_array_free_all(&dht->dht_ping_array);
-    ping_array_free_all(&dht->dht_harden_ping_array);
+    ping_array_kill(dht->dht_ping_array);
+    ping_array_kill(dht->dht_harden_ping_array);
     kill_ping(dht->ping);
     free(dht->friends_list);
     free(dht->loaded_nodes_list);

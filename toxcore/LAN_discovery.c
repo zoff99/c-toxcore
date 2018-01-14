@@ -356,7 +356,7 @@ static int handle_LANdiscovery(void *object, IP_Port source, const uint8_t *pack
 
     char ip_str[IP_NTOA_LEN] = { 0 };
     ip_ntoa(&source.ip, ip_str, sizeof(ip_str));
-    LOGGER_INFO(dht->log, "Found node in LAN: %s", ip_str);
+    LOGGER_DEBUG(dht->log, "Found node in LAN: %s", ip_str);
 
     DHT_bootstrap(dht, source, packet + 1);
     return 0;
@@ -376,7 +376,7 @@ int send_LANdiscovery(uint16_t port, DHT *dht)
     ip_port.port = port;
 
     /* IPv6 multicast */
-    if (dht->net->family == TOX_AF_INET6) {
+    if (net_family(dht->net) == TOX_AF_INET6) {
         ip_port.ip = broadcast_ip(TOX_AF_INET6, TOX_AF_INET6);
 
         if (ip_isset(&ip_port.ip)) {
@@ -387,7 +387,7 @@ int send_LANdiscovery(uint16_t port, DHT *dht)
     }
 
     /* IPv4 broadcast (has to be IPv4-in-IPv6 mapping if socket is TOX_AF_INET6 */
-    ip_port.ip = broadcast_ip(dht->net->family, TOX_AF_INET);
+    ip_port.ip = broadcast_ip(net_family(dht->net), TOX_AF_INET);
 
     if (ip_isset(&ip_port.ip)) {
         if (sendpacket(dht->net, ip_port, data, 1 + CRYPTO_PUBLIC_KEY_SIZE)) {

@@ -7,8 +7,10 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <netinet/in.h>
 #include <unistd.h>
 
 #include "driver.h"
@@ -78,7 +80,7 @@ static int write_sample_input(msgpack_object req)
 
     check_return(E_WRITE, ftruncate(fd, 0));
 
-    msgpack_sbuffer sbuf __attribute__((__cleanup__(msgpack_sbuffer_destroy)));
+    msgpack_sbuffer sbuf __attribute__((__cleanup__(msgpack_sbuffer_destroy))) = {0};
     msgpack_sbuffer_init(&sbuf);
 
     msgpack_packer pk;
@@ -87,6 +89,7 @@ static int write_sample_input(msgpack_object req)
     msgpack_pack_object(&pk, req);
 
     check_return(E_WRITE, write(fd, sbuf.data, sbuf.size));
+    check_return(E_WRITE, close(fd));
 
     return E_OK;
 }
@@ -99,7 +102,7 @@ static int handle_request(struct settings cfg, int write_fd, msgpack_object req)
         fprintf(stderr, "\n");
     }
 
-    msgpack_sbuffer sbuf __attribute__((__cleanup__(msgpack_sbuffer_destroy))); /* buffer */
+    msgpack_sbuffer sbuf __attribute__((__cleanup__(msgpack_sbuffer_destroy))) = {0}; /* buffer */
     msgpack_sbuffer_init(&sbuf); /* initialize buffer */
 
     msgpack_packer pk;                                      /* packer */
@@ -184,7 +187,7 @@ int communicate(struct settings cfg, int read_fd, int write_fd)
         memcpy(msgpack_unpacker_buffer(&unp), buf, size);
         msgpack_unpacker_buffer_consumed(&unp, size);
 
-        msgpack_unpacked req __attribute__((__cleanup__(msgpack_unpacked_destroy)));
+        msgpack_unpacked req __attribute__((__cleanup__(msgpack_unpacked_destroy))) = {0};
         msgpack_unpacked_init(&req);
 
         switch (msgpack_unpacker_next(&unp, &req)) {
@@ -223,7 +226,7 @@ static int run_tests(struct settings cfg, int port)
         1
     }, sizeof(int)));
 
-    struct sockaddr_in servaddr;
+    struct sockaddr_in servaddr = {0};
     servaddr.sin_family      = AF_INET;
     servaddr.sin_addr.s_addr = htons(INADDR_ANY);
     servaddr.sin_port        = htons(port);
