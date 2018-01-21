@@ -27,7 +27,6 @@ struct RingBuffer {
     uint16_t  size; /* Max size */
     uint16_t  start;
     uint16_t  end;
-    uint8_t  *type;
     void    **data;
 };
 
@@ -45,7 +44,7 @@ bool rb_empty(const RingBuffer *b)
  * returns: NULL on success
             input value "p" on FAILURE -> caller can free on failed rb_write
  */
-void *rb_write(RingBuffer *b, void *p, uint8_t data_type)
+void *rb_write(RingBuffer *b, void *p)
 {
     void *rc = NULL;
 
@@ -54,7 +53,6 @@ void *rb_write(RingBuffer *b, void *p, uint8_t data_type)
     }
 
     b->data[b->end] = p;
-    b->type[b->end] = data_type;
     b->end = (b->end + 1) % b->size;
 
     if (b->end == b->start) {
@@ -64,7 +62,7 @@ void *rb_write(RingBuffer *b, void *p, uint8_t data_type)
     return rc;
 }
 
-bool rb_read(RingBuffer *b, void **p, uint8_t *data_type)
+bool rb_read(RingBuffer *b, void **p)
 {
     if (b->end == b->start) { /* Empty */
         *p = NULL;
@@ -72,11 +70,6 @@ bool rb_read(RingBuffer *b, void **p, uint8_t *data_type)
     }
 
     *p = b->data[b->start];
-
-    if (data_type != NULL) {
-        *data_type = b->type[b->start];
-    }
-
     b->start = (b->start + 1) % b->size;
     return true;
 }
@@ -96,12 +89,6 @@ RingBuffer *rb_new(int size)
         return NULL;
     }
 
-    if (!(buf->type = (uint8_t *)calloc(buf->size, sizeof(uint8_t)))) {
-        free(buf->data);
-        free(buf);
-        return NULL;
-    }
-
     return buf;
 }
 
@@ -109,7 +96,6 @@ void rb_kill(RingBuffer *b)
 {
     if (b) {
         free(b->data);
-        free(b->type);
         free(b);
     }
 }

@@ -87,9 +87,7 @@ BWController *bwc_new(Messenger *m, uint32_t friendnumber,
 
     /* Fill with zeros */
     for (int i = 0; i < BWC_AVG_PKT_COUNT; i++) {
-        uint32_t *j = (retu->rcvpkt.packet_length_array + i);
-        *j = 0;
-        rb_write(retu->rcvpkt.rb, j, 0);
+        rb_write(retu->rcvpkt.rb, &retu->rcvpkt.packet_length_array[i]);
     }
 
     m_callback_rtp_packet(m, friendnumber, BWC_PACKET_ID, bwc_handle_data, retu);

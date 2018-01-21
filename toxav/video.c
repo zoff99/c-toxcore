@@ -351,9 +351,8 @@ void vc_kill(VCSession *vc)
     vpx_codec_destroy(vc->encoder);
     vpx_codec_destroy(vc->decoder);
     void *p;
-    uint8_t dummy;
 
-    while (rb_read((RingBuffer *)vc->vbuf_raw, &p, &dummy)) {
+    while (rb_read((RingBuffer *)vc->vbuf_raw, &p)) {
         free(p);
     }
 
@@ -437,11 +436,9 @@ void vc_iterate(VCSession *vc)
 
     pthread_mutex_lock(vc->queue_mutex);
 
-    uint8_t data_type;
-
     uint32_t full_data_len;
 
-    if (rb_read((RingBuffer *)vc->vbuf_raw, (void **)&p, &data_type)) {
+    if (rb_read((RingBuffer *)vc->vbuf_raw, (void **)&p)) {
         pthread_mutex_unlock(vc->queue_mutex);
         const struct RTPHeaderV3 *header_v3 = (struct RTPHeaderV3 *)&p->header;
         LOGGER_DEBUG(vc->log, "vc_iterate:00:pv=%d", (uint8_t)header_v3->protocol_version);
@@ -454,7 +451,7 @@ void vc_iterate(VCSession *vc)
             LOGGER_DEBUG(vc->log, "vc_iterate:002");
         }
 
-        LOGGER_DEBUG(vc->log, "vc_iterate: rb_read p->len=%d data_type=%d", (int)full_data_len, (int)data_type);
+        LOGGER_DEBUG(vc->log, "vc_iterate: rb_read p->len=%d p->header.xe=%d", (int)full_data_len, p->header.xe);
         LOGGER_DEBUG(vc->log, "vc_iterate: rb_read rb size=%d", (int)rb_size((RingBuffer *)vc->vbuf_raw));
         rc = vpx_codec_decode(vc->decoder, p->data, full_data_len, NULL, MAX_DECODE_TIME_US);
 
@@ -533,9 +530,9 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
     if ((uint8_t)header_v3->protocol_version == 3 &&
             (uint8_t)header_v3->pt == (rtp_TypeVideo % 128)) {
         LOGGER_DEBUG(vc->log, "rb_write msg->len=%d b0=%d b1=%d", (int)msg->len, (int)msg->data[0], (int)msg->data[1]);
-        free(rb_write((RingBuffer *)vc->vbuf_raw, msg, (uint8_t)header_v3->is_keyframe));
+        free(rb_write((RingBuffer *)vc->vbuf_raw, msg));
     } else {
-        free(rb_write((RingBuffer *)vc->vbuf_raw, msg, 0));
+        free(rb_write((RingBuffer *)vc->vbuf_raw, msg));
     }
 
     /* Calculate time it took for peer to send us this frame */
