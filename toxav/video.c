@@ -161,6 +161,23 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
         return NULL;
     }
 
+    /*
+    Codec control function to set encoder internal speed settings.
+    Changes in this value influences, among others, the encoder's selection of motion estimation methods.
+    Values greater than 0 will increase encoder speed at the expense of quality.
+
+    Note:
+      Valid range for VP8: -16..16
+      Valid range for VP9: -8..8
+    */
+    int cpu_used_value = VP8E_SET_CPUUSED_VALUE;
+
+    if (VPX_ENCODER_USED == VPX_VP9_CODEC) {
+        if ((cpu_used_value < -8) || (cpu_used_value > 8)) {
+            cpu_used_value = 8; // set to default (fastest) value
+        }
+    }
+
     if (!(vc->vbuf_raw = rb_new(VIDEO_DECODE_BUFFER_SIZE))) {
         goto BASE_CLEANUP;
     }
@@ -233,23 +250,6 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     if (rc != VPX_CODEC_OK) {
         LOGGER_ERROR(log, "Failed to initialize encoder: %s", vpx_codec_err_to_string(rc));
         goto BASE_CLEANUP_1;
-    }
-
-    /*
-    Codec control function to set encoder internal speed settings.
-    Changes in this value influences, among others, the encoder's selection of motion estimation methods.
-    Values greater than 0 will increase encoder speed at the expense of quality.
-
-    Note:
-      Valid range for VP8: -16..16
-      Valid range for VP9: -8..8
-    */
-    int cpu_used_value = VP8E_SET_CPUUSED_VALUE;
-
-    if (VPX_ENCODER_USED == VPX_VP9_CODEC) {
-        if ((cpu_used_value < -8) || (cpu_used_value > 8)) {
-            cpu_used_value = 8; // set to default (fastest) value
-        }
     }
 
     rc = vpx_codec_control(vc->encoder, VP8E_SET_CPUUSED, cpu_used_value);
