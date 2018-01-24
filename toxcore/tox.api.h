@@ -182,6 +182,16 @@ const VERSION_MINOR                = 2;
 const VERSION_PATCH                = 0;
 
 /**
+ * The repository this version of toxcore was taken from
+ */
+const TOX_SOURCE_REPOSITORY        = "https://github.com/c-toxcore";
+
+/**
+ * The Hash or Tag or Branch that is used
+ */
+const TOX_SOURCE_HASH              = "master";
+
+/**
  * A macro to check at preprocessing time whether the client code is compatible
  * with the installed version of Tox. Leading zeros in the version number are
  * ignored. E.g. 0.1.5 is to 0.1.4 what 1.5 is to 1.4, that is: it can add new
