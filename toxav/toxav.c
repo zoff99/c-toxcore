@@ -1062,6 +1062,8 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
     ToxAVCall *call;
 
     uint64_t video_frame_record_timestamp = current_time_monotonic();
+    int vpx_encode_flags = 0;
+    unsigned long max_encode_time_in_us = MAX_ENCODE_TIME_US;
 
     if (m_friend_exists(av->m, friend_number) == 0) {
         rc = TOXAV_ERR_SEND_FRAME_FRIEND_NOT_FOUND;
@@ -1104,10 +1106,6 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         rc = TOXAV_ERR_SEND_FRAME_INVALID;
         goto END;
     }
-
-    int vpx_encode_flags = 0;
-    unsigned long max_encode_time_in_us = MAX_ENCODE_TIME_US;
-
 
     if (call->video.first->ssrc < VIDEO_SEND_X_KEYFRAMES_FIRST) {
         //if (call->video.first->ssrc == 0)

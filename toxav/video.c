@@ -159,6 +159,10 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     VCSession *vc = (VCSession *)calloc(sizeof(VCSession), 1);
     vpx_codec_err_t rc;
 
+    int cpu_used_value = vc->video_encoder_cpu_used;
+    uint16_t jk=0;
+
+
     if (!vc) {
         LOGGER_WARNING(log, "Allocation failed! Application might misbehave!");
         return NULL;
@@ -169,11 +173,6 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
         free(vc);
         return NULL;
     }
-
-    if (!(vc->vbuf_raw = rb_new(VIDEO_RINGBUFFER_BUFFER_ELEMENTS))) {
-        goto BASE_CLEANUP;
-    }
-
 
 
 	// options ---
@@ -195,6 +194,10 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     dec_cfg.threads = VPX_MAX_DECODER_THREADS; // Maximum number of threads to use
     dec_cfg.w = VIDEO_CODEC_DECODER_MAX_WIDTH;
     dec_cfg.h = VIDEO_CODEC_DECODER_MAX_HEIGHT;
+
+    if (!(vc->vbuf_raw = rb_new(VIDEO_RINGBUFFER_BUFFER_ELEMENTS))) {
+        goto BASE_CLEANUP;
+    }
 
     if (VPX_DECODER_USED == VPX_VP8_CODEC) {
         LOGGER_WARNING(log, "Using VP8 codec for decoder (0)");
@@ -303,8 +306,6 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
       Valid range for VP8: -16..16
       Valid range for VP9: -8..8
     */
-
-    int cpu_used_value = vc->video_encoder_cpu_used;
 
     if (VPX_ENCODER_USED == VPX_VP9_CODEC) {
         if ((cpu_used_value < -8) || (cpu_used_value > 8)) {
@@ -440,7 +441,6 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     vc->encoder_soft_deadline[2] = 0;
     vc->encoder_soft_deadline_index = 0;
 
-    uint16_t jk=0;
     for(jk=0;jk<(uint16_t)VIDEO_MAX_FRAGMENT_BUFFER_COUNT;jk++)
     {
 		vc->vpx_frames_buf_list[jk] = NULL;
@@ -617,7 +617,7 @@ uint8_t vc_iterate(VCSession *vc, uint8_t skip_video_flag, uint64_t *a_r_timesta
 
     if (rb_read((RingBuffer *)vc->vbuf_raw, (void **)&p, &data_type))
     {
-        const struct RTPHeaderV3 *header_v3_0 = (void *) & (p->header);
+        const struct RTPHeaderV3 *header_v3_0 = (struct RTPHeaderV3 *) & (p->header);
 
 		if (header_v3_0->sequnum < vc->last_seen_fragment_seqnum)
 		{
@@ -673,7 +673,7 @@ uint8_t vc_iterate(VCSession *vc, uint8_t skip_video_flag, uint64_t *a_r_timesta
 
         pthread_mutex_unlock(vc->queue_mutex);
 
-        const struct RTPHeaderV3 *header_v3 = (void *) & (p->header);
+        const struct RTPHeaderV3 *header_v3 = (struct RTPHeaderV3 *) & (p->header);
         LOGGER_DEBUG(vc->log, "vc_iterate:00:pv=%d", (uint8_t)header_v3->protocol_version);
 
         if (((uint8_t)header_v3->protocol_version) == 3) {
@@ -714,7 +714,7 @@ uint8_t vc_iterate(VCSession *vc, uint8_t skip_video_flag, uint64_t *a_r_timesta
 	    {
 #ifdef VIDEO_CODEC_ENCODER_USE_FRAGMENTS
 #else
-			struct vpx_frame_user_data *vpx_u_data = calloc(1, sizeof(struct vpx_frame_user_data));
+			struct vpx_frame_user_data *vpx_u_data = (vpx_frame_user_data *)calloc(1, sizeof(struct vpx_frame_user_data));
 			vpx_u_data->record_timestamp = header_v3->frame_record_timestamp;
 			user_priv = vpx_u_data;
 #endif
@@ -960,8 +960,8 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
 
     VCSession *vc = (VCSession *)vcp;
 
-    // const struct RTPHeader *header = (void *)&(msg->header);
-    const struct RTPHeaderV3 *header_v3 = (void *) & (msg->header);
+    // const struct RTPHeader *header = (struct RTPHeader *)&(msg->header);
+    const struct RTPHeaderV3 *header_v3 = (struct RTPHeaderV3 *) & (msg->header);
 
     if (msg->header.pt == (rtp_TypeVideo + 2) % 128) {
         LOGGER_WARNING(vc->log, "Got dummy!");
