@@ -563,7 +563,7 @@ bool toxav_bit_rate_set(ToxAV *av, uint32_t friend_number, int32_t audio_bit_rat
         if (error_audio != TOXAV_ERR_BIT_RATE_SET_OK) {
             rc = error_audio;
         } else if (error_video != TOXAV_ERR_BIT_RATE_SET_OK) {
-            rc = error_audio;
+            rc = error_video;
         }
     }
 
