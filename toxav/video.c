@@ -297,9 +297,8 @@ void vc_iterate(VCSession *vc)
     if (rb_read((RingBuffer *)vc->vbuf_raw, (void **)&p)) {
         pthread_mutex_unlock(vc->queue_mutex);
         const struct RTPHeader *header_v3 = &p->header;
-        LOGGER_DEBUG(vc->log, "vc_iterate:00:pv=%d", (uint8_t)header_v3->protocol_version);
 
-        if ((uint8_t)header_v3->protocol_version == 3) {
+        if ((uint8_t)((header_v3->flags & RTP_LARGE_FRAME) != 0)) {
             full_data_len = header_v3->data_length_full;
             LOGGER_DEBUG(vc->log, "vc_iterate:001:full_data_len=%d", (int)full_data_len);
         } else {
@@ -365,7 +364,7 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
 
     pthread_mutex_lock(vc->queue_mutex);
 
-    if ((uint8_t)header_v3->protocol_version == 3 &&
+    if ((uint8_t)((header_v3->flags & RTP_LARGE_FRAME) != 0) &&
             (uint8_t)header_v3->pt == (rtp_TypeVideo % 128)) {
         LOGGER_DEBUG(vc->log, "rb_write msg->len=%d b0=%d b1=%d", (int)msg->len, (int)msg->data[0], (int)msg->data[1]);
     }

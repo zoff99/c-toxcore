@@ -60,12 +60,12 @@ struct RTPHeader {
     uint16_t cc: 4; /* Contributing sources count */
     uint16_t xe: 1; /* Extra header */
     uint16_t pe: 1; /* Padding */
-    uint16_t protocol_version: 2; /* Version has only 2 bits! */
+    uint16_t ve: 2; /* Version */
 
     uint16_t pt: 7; /* Payload type */
     uint16_t ma: 1; /* Marker */
 #else
-    uint16_t protocol_version: 2; /* Version has only 2 bits! */
+    uint16_t ve: 2; /* Version */
     uint16_t pe: 1; /* Padding */
     uint16_t xe: 1; /* Extra header */
     uint16_t cc: 4; /* Contributing sources count */

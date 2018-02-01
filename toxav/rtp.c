@@ -148,7 +148,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length_v3,
     memset(rdata, 0, SIZEOF_VLA(rdata));
     rdata[0] = session->payload_type;
     struct RTPHeader *header = (struct RTPHeader *)(rdata + 1);
-    header->protocol_version = 2;
+    header->ve = 2; // this is unsed in toxav
     header->pe = 0;
     header->xe = 0;
     header->cc = 0;
@@ -161,7 +161,6 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length_v3,
     header->data_length_lower = net_htons(length);
     header->flags = RTP_LARGE_FRAME;
 
-    header->protocol_version = 3; // TOX RTP V3
     uint16_t length_safe = (uint16_t)length_v3;
 
     if (length_v3 > UINT16_MAX) {
@@ -292,7 +291,6 @@ static struct RTPMessage *new_message_v3(size_t allocate_len, const uint8_t *dat
         header->flags |= RTP_KEY_FRAME;
     }
 
-    header->protocol_version = 3;
     return msg;
 }
 
@@ -616,13 +614,13 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
     const struct RTPHeader *header = (const struct RTPHeader *)data;
     LOGGER_DEBUG(m->log, "header->pt %d, video %d", (uint8_t)header->pt, (rtp_TypeVideo % 128));
 
-    if ((uint8_t)header->protocol_version == 3 &&
+    if ((uint8_t)((header->flags & RTP_LARGE_FRAME) != 0) &&
             (uint8_t)header->pt == (rtp_TypeVideo % 128)) {
         // use V3 only for Video payload (at the moment)
         return handle_rtp_packet_v3(m, friendnumber, data_orig, length_orig, object);
     }
 
-    // everything below here is protocol version 2 ------------------
+    // everything below here is protocol version V2 ------------------
 
     if (header->pt != session->payload_type % 128) {
         LOGGER_WARNING(m->log, "Invalid payload type with the session");
