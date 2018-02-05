@@ -1539,7 +1539,7 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
             }
         }
 
-        while (ft->status == FILESTATUS_TRANSFERRING && (ft->paused == FILE_PAUSE_NOT)) {
+        if (ft->status == FILESTATUS_TRANSFERRING && (ft->paused == FILE_PAUSE_NOT)) {
             if (max_speed_reached(m->net_crypto, friend_connection_crypt_connection_id(m->fr_c,
                                   m->friendlist[friendnumber].friendcon_id))) {
                 free_slots = 0;
