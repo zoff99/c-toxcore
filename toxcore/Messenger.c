@@ -1514,12 +1514,12 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
         free_slots -= MIN_SLOTS_FREE;
     }
 
-    LOGGER_WARN(m->log, "free_slots start:%d", free_slots);
+    LOGGER_WARNING(m->log, "free_slots start:%d", free_slots);
 
     unsigned int i, num = m->friendlist[friendnumber].num_sending_files;
 
     for (i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
-        LOGGER_WARN(m->log, "FT loop i:%d", (int)i);
+        LOGGER_WARNING(m->log, "FT loop i:%d", (int)i);
         struct File_Transfers *ft = &m->friendlist[friendnumber].file_sending[i];
 
         if (ft->status != FILESTATUS_NONE) {
@@ -1589,9 +1589,9 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
 
         // HINT: if there is more to do, go another round
         if (i == (MAX_CONCURRENT_FILE_PIPES - 1)) {
-            LOGGER_WARN(m->log, "FT loop:LAST");
+            LOGGER_WARNING(m->log, "FT loop:LAST");
             if ((num > 0) && (free_slots > 0)) {
-                LOGGER_WARN(m->log, "FT loop:new loop:num=%d free_slots=%d", (int)num, free_slots);
+                LOGGER_WARNING(m->log, "FT loop:new loop:num=%d free_slots=%d", (int)num, free_slots);
                 num = m->friendlist[friendnumber].num_sending_files;
                 i = 0;
             }
