@@ -1599,7 +1599,7 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
 				if (ft->size == 0)
 				{
 					/* Send 0 data to friend if file is 0 length. */
-					file_data(m, friendnumber, i, 0, nullptr, 0);
+					file_data(m, friendnumber, i, 0, NULL, 0);
 					continue;
 				}
 
