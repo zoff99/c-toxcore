@@ -1531,7 +1531,7 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
 	unsigned int active_fts_in_last_loop = 0;
 	uint32_t loop_counter = 0;
 
-	while (  ((free_slots > 0) || (first_loop == 1))   &&   (no_more_data == 0)  )
+	while (  ((free_slots > 0) || (first_loop == 1))   &&   (no_more_data == 0)   &&   (loop_counter < 4) )
 	{
 		unsigned int i;
 		unsigned int num = m->friendlist[friendnumber].num_sending_files;
