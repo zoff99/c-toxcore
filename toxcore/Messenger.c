@@ -1496,108 +1496,157 @@ uint64_t file_dataremaining(const Messenger *m, int32_t friendnumber, uint8_t fi
            m->friendlist[friendnumber].file_receiving[filenumber].transferred;
 }
 
+
+
+
+
 /*
  * TODO: this functions needs refactoring
  */
 static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdata)
 {
-    if (!m->friendlist[friendnumber].num_sending_files) {
+	// HINT: no files to send
+    if (!m->friendlist[friendnumber].num_sending_files == 0)
+	{
         return;
     }
 
+	// HINT: free slots in sendqueue (??)
     int free_slots = crypto_num_free_sendqueue_slots(m->net_crypto, friend_connection_crypt_connection_id(m->fr_c,
                      m->friendlist[friendnumber].friendcon_id));
 
-    if (free_slots < MIN_SLOTS_FREE) {
+	// HINT: need to keep "MIN_SLOTS_FREE" slots always free
+    if (free_slots < MIN_SLOTS_FREE)
+	{
         free_slots = 0;
-    } else {
-        free_slots -= MIN_SLOTS_FREE;
+    }
+	else
+	{
+        free_slots = free_slots - MIN_SLOTS_FREE;
     }
 
     LOGGER_WARNING(m->log, "free_slots start:%d", free_slots);
+	int first_loop = 1;
+	int no_more_data = 0;
+	unsigned int active_fts_in_last_loop = 0;
+	uint32_t loop_counter = 0;
 
-    unsigned int i, num = m->friendlist[friendnumber].num_sending_files;
+	while (  ((free_slots > 0) || (first_loop == 1))   &&   (no_more_data == 0)  )
+	{
+		unsigned int i;
+		unsigned int num = m->friendlist[friendnumber].num_sending_files;
 
-    for (i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
-        LOGGER_WARNING(m->log, "FT loop i:%d", (int)i);
-        struct File_Transfers *ft = &m->friendlist[friendnumber].file_sending[i];
+		loop_counter++;
+		first_loop = 0;
+		active_fts_in_last_loop = 0;
+		LOGGER_WARNING(m->log, "free_slots while:%d loop:%ld", free_slots, (long int)loop_counter);
 
-        if (ft->status != FILESTATUS_NONE) {
-            --num;
+		// HINT: iterate over all possible FTs
+		for (i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i)
+		{
+			LOGGER_WARNING(m->log, "FT loop i:%d MAX_CONCURRENT_FILE_PIPES=%d", (int)i, (int)MAX_CONCURRENT_FILE_PIPES);
+			struct File_Transfers *ft = &m->friendlist[friendnumber].file_sending[i];
 
-            if (ft->status == FILESTATUS_FINISHED) {
-                /* Check if file was entirely sent. */
-                if (friend_received_packet(m, friendnumber, ft->last_packet_number) == 0) {
-                    if (m->file_reqchunk) {
-                        (*m->file_reqchunk)(m, friendnumber, i, ft->transferred, 0, userdata);
-                    }
+			// HINT: is this an active FT?
+			if (ft->status != FILESTATUS_NONE)
+			{
+				active_fts_in_last_loop++;
+				--num;
 
-                    ft->status = FILESTATUS_NONE;
-                    --m->friendlist[friendnumber].num_sending_files;
-                }
-            }
+				// HINT: is FT complete?
+				if (ft->status == FILESTATUS_FINISHED)
+				{
+					if (friend_received_packet(m, friendnumber, ft->last_packet_number) == 0)
+					{
+						if (m->file_reqchunk)
+						{
+							(*m->file_reqchunk)(m, friendnumber, i, ft->transferred, 0, userdata);
+						}
 
-            /* TODO(irungentoo): if file is too slow, switch to the next. */
-            if (ft->slots_allocated > (unsigned int)free_slots) {
-                free_slots = 0;
-            } else {
-                free_slots -= ft->slots_allocated;
-            }
-        }
+						ft->status = FILESTATUS_NONE;
+						--m->friendlist[friendnumber].num_sending_files;
+					}
+				}
 
-        if (ft->status == FILESTATUS_TRANSFERRING && (ft->paused == FILE_PAUSE_NOT)) {
-            if (max_speed_reached(m->net_crypto, friend_connection_crypt_connection_id(m->fr_c,
-                                  m->friendlist[friendnumber].friendcon_id))) {
-                free_slots = 0;
-            }
+				// HINT: decrease free slots by the number of slots this FT uses
+				/* TODO(irungentoo): if file is too slow, switch to the next. */
+				if (ft->slots_allocated > (unsigned int)free_slots)
+				{
+					free_slots = 0;
+				}
+				else
+				{
+					free_slots = free_slots - ft->slots_allocated;
+				}
+			}
 
-            if (free_slots == 0) {
-                continue;
-            }
+			// HINT: this was the "old" while loop
+			if (ft->status == FILESTATUS_TRANSFERRING && (ft->paused == FILE_PAUSE_NOT))
+			{
+				if (max_speed_reached(m->net_crypto, friend_connection_crypt_connection_id(m->fr_c,
+									  m->friendlist[friendnumber].friendcon_id)))
+				{
+					free_slots = 0;
+				}
 
-            uint16_t length = MAX_FILE_DATA_SIZE;
+				if (free_slots == 0)
+				{
+					continue;
+				}
 
-            if (ft->size == 0) {
-                /* Send 0 data to friend if file is 0 length. */
-                file_data(m, friendnumber, i, 0, 0, 0);
-                continue;
-            }
+				uint16_t length = MAX_FILE_DATA_SIZE;
 
-            if (ft->size == ft->requested) {
-                continue;
-            }
+				if (ft->size == 0)
+				{
+					/* Send 0 data to friend if file is 0 length. */
+					file_data(m, friendnumber, i, 0, nullptr, 0);
+					continue;
+				}
 
-            if (ft->size - ft->requested < length) {
-                length = ft->size - ft->requested;
-            }
+				if (ft->size == ft->requested)
+				{
+					continue;
+				}
 
-            ++ft->slots_allocated;
+				if (ft->size - ft->requested < length)
+				{
+					length = ft->size - ft->requested;
+				}
 
-            uint64_t position = ft->requested;
-            ft->requested += length;
+				ft->slots_allocated++;
 
-            if (m->file_reqchunk) {
-                (*m->file_reqchunk)(m, friendnumber, i, position, length, userdata);
-            }
+				uint64_t position = ft->requested;
+				ft->requested = ft->requested + length;
 
-            --free_slots;
-        }
+				if (m->file_reqchunk)
+				{
+					(*m->file_reqchunk)(m, friendnumber, i, position, length, userdata);
+				}
 
-        if (num == 0) {
-            continue;
-        }
+				free_slots--;
+			}
 
-        // HINT: if there is more to do, go another round
-        if (i == (MAX_CONCURRENT_FILE_PIPES - 1)) {
-            LOGGER_WARNING(m->log, "FT loop:LAST");
-            if ((num > 0) && (free_slots > 0)) {
-                LOGGER_WARNING(m->log, "FT loop:new loop:num=%d free_slots=%d", (int)num, free_slots);
-                num = m->friendlist[friendnumber].num_sending_files;
-                i = 0;
-            }
-        }
-    }
+			if (num == 0)
+			{
+				continue;
+			}
+		}
+
+		if (active_fts_in_last_loop == 0)
+		{
+			no_more_data = 1;
+		}
+
+	}
 }
+
+
+
+
+
+
+
+
 
 /* Run this when the friend disconnects.
  *  Kill all current file transfers.
