@@ -1648,8 +1648,8 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
 
     // What does this outer loop do?
     while (((free_slots > 0) || loop_counter == 0) && any_active_fts && (loop_counter < MAX_FT_LOOPS)) {
-        loop_counter++;
         any_active_fts = do_all_filetransfers(m, friendnumber, userdata, &free_slots);
+        loop_counter++;
     }
 }
 /* Run this when the friend disconnects.
@@ -1660,7 +1660,7 @@ static void break_files(const Messenger *m, int32_t friendnumber)
     uint32_t i;
 
     // TODO(irungentoo): Inform the client which file transfers get killed with a callback?
-    for (i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
+    for (uint32_t = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
         if (m->friendlist[friendnumber].file_sending[i].status != FILESTATUS_NONE) {
             m->friendlist[friendnumber].file_sending[i].status = FILESTATUS_NONE;
         }
