@@ -1597,7 +1597,12 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
             // Allocate 1 slot to this file transfer.
             ft->slots_allocated++;
 
-            const uint16_t length = min_u16(ft->size - ft->requested, MAX_FILE_DATA_SIZE);
+            uint16_t length = MAX_FILE_DATA_SIZE;
+
+            if (ft->size - ft->requested < length) {
+                length = ft->size - ft->requested;
+            }
+
             const uint64_t position = ft->requested;
             ft->requested += length;
 
