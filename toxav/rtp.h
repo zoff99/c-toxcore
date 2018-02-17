@@ -157,9 +157,16 @@ struct RTPHeaderV3 {
     uint32_t received_length_full;
 
 
+    // ---------------------------- //
+    //      custom fields here      //
+    // ---------------------------- //
     uint64_t frame_record_timestamp; /* when was this frame actually recorded (this is a relative value!) */
     int32_t  fragment_num; /* if using fragments, this is the fragment/partition number */
     uint32_t real_frame_num; /* unused for now */
+    // ---------------------------- //
+    //      custom fields here      //
+    // ---------------------------- //
+
 
     // ---------------------------- //
     //    dont change below here    //
