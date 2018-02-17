@@ -427,4 +427,13 @@ Networking_Core *new_networking_ex(Logger *log, IP ip, uint16_t port_from, uint1
 /* Function to cleanup networking stuff (doesn't do much right now). */
 void kill_networking(Networking_Core *net);
 
+
+
+size_t net_pack_u16(uint8_t *bytes, uint16_t v);
+size_t net_pack_u32(uint8_t *bytes, uint32_t v);
+size_t net_pack_u64(uint8_t *bytes, uint64_t v);
+size_t net_unpack_u16(const uint8_t *bytes, uint16_t *v);
+size_t net_unpack_u32(const uint8_t *bytes, uint32_t *v);
+size_t net_unpack_u64(const uint8_t *bytes, uint64_t *v);
+
 #endif
