@@ -1543,13 +1543,14 @@ uint16_t min_u16(uint16_t a, uint16_t b)
  */
 static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userdata, uint32_t *free_slots)
 {
-    unsigned int num = m->friendlist[friendnumber].num_sending_files;
+    Friend *const friendcon = &m->friendlist[friendnumber];
+    uint32_t num = friendcon->num_sending_files;
 
     bool any_active_fts = false;
 
     // HINT: iterate over all possible FTs
-    for (uint8_t i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
-        struct File_Transfers *const ft = &m->friendlist[friendnumber].file_sending[i];
+    for (uint32_t i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
+        struct File_Transfers *const ft = &friendcon->file_sending[i];
 
         // HINT: is this an active FT?
         if (ft->status != FILESTATUS_NONE) {
@@ -1564,7 +1565,7 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
                     }
 
                     ft->status = FILESTATUS_NONE;
-                    --m->friendlist[friendnumber].num_sending_files;
+                    --friendcon->num_sending_files;
                 }
             }
 
@@ -1574,7 +1575,7 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
 
         if (ft->status == FILESTATUS_TRANSFERRING && ft->paused == FILE_PAUSE_NOT) {
             if (max_speed_reached(m->net_crypto, friend_connection_crypt_connection_id(
-                                      m->fr_c, m->friendlist[friendnumber].friendcon_id))) {
+                                      m->fr_c, friendcon->friendcon_id))) {
                 *free_slots = 0;
             }
 
@@ -1593,6 +1594,7 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
                 continue;
             }
 
+            // Allocate 1 slot to this file transfer.
             ft->slots_allocated++;
 
             const uint16_t length = min_u16(ft->size - ft->requested, MAX_FILE_DATA_SIZE);
@@ -1603,6 +1605,7 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
                 m->file_reqchunk(m, friendnumber, i, position, length, userdata);
             }
 
+            // The allocated slot is no longer free.
             --*free_slots;
         }
 
@@ -1613,6 +1616,7 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
 
     return any_active_fts;
 }
+
 
 static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdata)
 {
@@ -1643,7 +1647,6 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
         any_active_fts = do_all_filetransfers(m, friendnumber, userdata, &free_slots);
     }
 }
-
 /* Run this when the friend disconnects.
  *  Kill all current file transfers.
  */
