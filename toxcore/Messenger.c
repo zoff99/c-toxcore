@@ -1569,12 +1569,12 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
             }
 
             // HINT: decrease free slots by the number of slots this FT uses
-            *free_slots = max_s32(0, (int32_t)*free_slots - ft->slots_allocated);
+            *free_slots = max_s32(0, (int32_t) * free_slots - ft->slots_allocated);
         }
 
         if (ft->status == FILESTATUS_TRANSFERRING && ft->paused == FILE_PAUSE_NOT) {
             if (max_speed_reached(m->net_crypto, friend_connection_crypt_connection_id(
-                    m->fr_c, m->friendlist[friendnumber].friendcon_id))) {
+                                      m->fr_c, m->friendlist[friendnumber].friendcon_id))) {
                 *free_slots = 0;
             }
 
@@ -1624,10 +1624,10 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
     // The number of packet slots left in the sendbuffer.
     // This is a per friend count (CRYPTO_PACKET_BUFFER_SIZE).
     uint32_t free_slots = crypto_num_free_sendqueue_slots(
-        m->net_crypto,
-        friend_connection_crypt_connection_id(
-            m->fr_c,
-            m->friendlist[friendnumber].friendcon_id));
+                              m->net_crypto,
+                              friend_connection_crypt_connection_id(
+                                  m->fr_c,
+                                  m->friendlist[friendnumber].friendcon_id));
 
     // HINT: need to keep "MIN_SLOTS_FREE" slots always free
     free_slots = max_s32(0, (int32_t)free_slots - MIN_SLOTS_FREE);
