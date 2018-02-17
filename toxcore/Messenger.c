@@ -1660,7 +1660,7 @@ static void break_files(const Messenger *m, int32_t friendnumber)
     uint32_t i;
 
     // TODO(irungentoo): Inform the client which file transfers get killed with a callback?
-    for (uint32_t = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
+    for (uint32_t i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
         if (m->friendlist[friendnumber].file_sending[i].status != FILESTATUS_NONE) {
             m->friendlist[friendnumber].file_sending[i].status = FILESTATUS_NONE;
         }
