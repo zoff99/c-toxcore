@@ -1086,7 +1086,8 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         memcpy(img.planes[VPX_PLANE_V], v, (width / 2) * (height / 2));
 
         vpx_codec_err_t vrc = vpx_codec_encode(call->video.second->encoder, &img,
-                                               (int64_t)video_frame_record_timestamp, 1, vpx_encode_flags, max_encode_time_in_us);
+                                               (int64_t)video_frame_record_timestamp, 1,
+                                               vpx_encode_flags, max_encode_time_in_us);
 
         vpx_img_free(&img);
 
