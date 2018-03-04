@@ -605,6 +605,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                      (unsigned)header.offset_lower, (unsigned)header.data_length_lower);
         return -1;
     }
+#endif
 
     LOGGER_DEBUG(m->log, "header.pt %d, video %d", (uint8_t)header.pt, (rtp_TypeVideo % 128));
 
