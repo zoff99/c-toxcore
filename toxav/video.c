@@ -168,12 +168,12 @@ struct vpx_frame_user_data {
 
 
 void vc__init_encoder_cfg(Logger *log, vpx_codec_enc_cfg_t *cfg, int16_t kf_max_dist, int32_t quality,
-                          int32_t rc_max_quantizer, int32_t rc_min_quantizer)
+                          int32_t rc_max_quantizer, int32_t rc_min_quantizer, int32_t encoder_codec)
 {
 
     vpx_codec_err_t rc;
 
-    if (VPX_ENCODER_USED == VPX_VP8_CODEC) {
+    if (encoder_codec == TOXAV_ENCODER_CODEC_USED_VP8) {
         LOGGER_WARNING(log, "Using VP8 codec for encoder (1)");
         rc = vpx_codec_enc_config_default(VIDEO_CODEC_ENCODER_INTERFACE_VP8, cfg, 0);
     } else {
@@ -185,7 +185,7 @@ void vc__init_encoder_cfg(Logger *log, vpx_codec_enc_cfg_t *cfg, int16_t kf_max_
         LOGGER_ERROR(log, "vc__init_encoder_cfg:Failed to get config: %s", vpx_codec_err_to_string(rc));
     }
 
-    if (VPX_ENCODER_USED == VPX_VP9_CODEC) {
+    if (encoder_codec == TOXAV_ENCODER_CODEC_USED_VP9) {
         cfg->rc_target_bitrate = VIDEO_BITRATE_INITIAL_VALUE_VP9;
     } else {
         cfg->rc_target_bitrate =
@@ -236,7 +236,7 @@ void vc__init_encoder_cfg(Logger *log, vpx_codec_enc_cfg_t *cfg, int16_t kf_max_
         LOGGER_WARNING(log, "kf_max_dist=%d (2)", cfg->kf_max_dist);
     }
 
-    if (VPX_ENCODER_USED == VPX_VP9_CODEC) {
+    if (encoder_codec == TOXAV_ENCODER_CODEC_USED_VP9) {
         cfg->kf_max_dist = VIDEO__VP9_KF_MAX_DIST;
         LOGGER_WARNING(log, "kf_max_dist=%d (3)", cfg->kf_max_dist);
     }
@@ -246,7 +246,7 @@ void vc__init_encoder_cfg(Logger *log, vpx_codec_enc_cfg_t *cfg, int16_t kf_max_
     cfg->g_timebase.num = 1; // timebase units = 1ms = (1/1000)s
     cfg->g_timebase.den = 1000; // timebase units = 1ms = (1/1000)s
 
-    if (VPX_ENCODER_USED == VPX_VP9_CODEC) {
+    if (encoder_codec == TOXAV_ENCODER_CODEC_USED_VP9) {
         cfg->rc_dropframe_thresh = 5;
         cfg->rc_resize_allowed = 1;
     } else {
@@ -306,8 +306,12 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     vc->video_rc_max_quantizer_prev = vc->video_rc_max_quantizer;
     vc->video_rc_min_quantizer = TOXAV_ENCODER_VP8_RC_MIN_QUANTIZER_NORMAL;
     vc->video_rc_min_quantizer_prev = vc->video_rc_min_quantizer;
+    vc->video_encoder_coded_used = TOXAV_ENCODER_CODEC_USED_VP8;
+    vc->video_encoder_coded_used_prev = vc->video_encoder_coded_used;
+
     vc->video_decoder_error_concealment = VIDEO__VP8_DECODER_ERROR_CONCEALMENT;
     vc->video_decoder_error_concealment_prev = vc->video_decoder_error_concealment;
+    vc->video_decoder_codec_used = TOXAV_ENCODER_CODEC_USED_VP8;
     // options ---
 
 
@@ -323,7 +327,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     dec_cfg.w = VIDEO_CODEC_DECODER_MAX_WIDTH;
     dec_cfg.h = VIDEO_CODEC_DECODER_MAX_HEIGHT;
 
-    if (VPX_DECODER_USED == VPX_VP8_CODEC) {
+    if (VPX_DECODER_USED == TOXAV_ENCODER_CODEC_USED_VP8) {
         LOGGER_WARNING(log, "Using VP8 codec for decoder (0)");
 
         vpx_codec_flags_t dec_flags_ = 0;
@@ -366,7 +370,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     }
 
 
-    if (VPX_DECODER_USED == VPX_VP8_CODEC) {
+    if (VPX_DECODER_USED == TOXAV_ENCODER_CODEC_USED_VP8) {
         if (VIDEO__VP8_DECODER_POST_PROCESSING_ENABLED == 1) {
             LOGGER_WARNING(log, "turn on postproc: OK");
         } else if (VIDEO__VP8_DECODER_POST_PROCESSING_ENABLED == 2) {
@@ -414,9 +418,10 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     vc__init_encoder_cfg(log, &cfg, 1,
                          vc->video_encoder_vp8_quality,
                          vc->video_rc_max_quantizer,
-                         vc->video_rc_min_quantizer);
+                         vc->video_rc_min_quantizer,
+                         vc->video_encoder_coded_used);
 
-    if (VPX_ENCODER_USED == VPX_VP8_CODEC) {
+    if (vc->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8) {
         LOGGER_WARNING(log, "Using VP8 codec for encoder (0.1)");
 
 #ifdef VIDEO_CODEC_ENCODER_USE_FRAGMENTS
@@ -438,7 +443,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     }
 
 
-
+#if 0
     rc = vpx_codec_control(vc->encoder, VP8E_SET_ENABLEAUTOALTREF, 0);
 
     if (rc != VPX_CODEC_OK) {
@@ -450,6 +455,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
         LOGGER_WARNING(log, "set encoder VP8E_SET_ENABLEAUTOALTREF setting: %s value=%d", vpx_codec_err_to_string(rc),
                        (int)1);
     }
+#endif
 
 
 #if 0
@@ -482,7 +488,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
 
     int cpu_used_value = vc->video_encoder_cpu_used;
 
-    if (VPX_ENCODER_USED == VPX_VP9_CODEC) {
+    if (vc->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP9) {
             if (cpu_used_value < -8) {
                 cpu_used_value = -8;
             }
@@ -509,7 +515,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
 
 #ifdef VIDEO_CODEC_ENCODER_USE_FRAGMENTS
 
-    if (VPX_ENCODER_USED == VPX_VP8_CODEC) {
+    if (vc->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8) {
         rc = vpx_codec_control(vc->encoder, VP8E_SET_TOKEN_PARTITIONS, VIDEO_CODEC_FRAGMENT_VPX_NUMS);
 
         if (rc != VPX_CODEC_OK) {
@@ -538,7 +544,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     Supported in codecs: VP9
      */
 
-    if (VPX_ENCODER_USED == VPX_VP9_CODEC) {
+    if (vc->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP9) {
         rc = vpx_codec_control(vc->encoder, VP9E_SET_TILE_COLUMNS, VIDEO__VP9E_SET_TILE_COLUMNS);
 
         if (rc != VPX_CODEC_OK) {
@@ -557,7 +563,8 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     }
 
 
-    if (VPX_ENCODER_USED == VPX_VP9_CODEC) {
+#if 0
+    if (vc->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP9) {
         if (1 == 2) {
             rc = vpx_codec_control(vc->encoder, VP9E_SET_LOSSLESS, 1);
 
@@ -580,7 +587,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
             }
         }
     }
-
+#endif
 
 
     /*
@@ -720,28 +727,28 @@ void video_switch_decoder(VCSession *vc)
     */
 
 
-    vpx_codec_err_t rc;
-
-    // Zoff --
-    if (vc->is_using_vp9 == 1) {
-        vc->is_using_vp9 = 0;
-    } else {
-        vc->is_using_vp9 = 1;
+    // toggle decoder codec between VP8 and VP9
+    // TODO: put codec into header flags at encoder side, then use this at decoder side!
+    if (vc->video_decoder_codec_used == TOXAV_ENCODER_CODEC_USED_VP8)
+    {
+        vc->video_decoder_codec_used = TOXAV_ENCODER_CODEC_USED_VP9;
+    }
+    else
+    {
+        vc->video_decoder_codec_used = TOXAV_ENCODER_CODEC_USED_VP8;
     }
 
-    // Zoff --
-
-
+    vpx_codec_err_t rc;
     vpx_codec_ctx_t new_d;
 
-    LOGGER_WARNING(vc->log, "Switch:Re-initializing DEcoder to: %d", (int)vc->is_using_vp9);
+    LOGGER_WARNING(vc->log, "Switch:Re-initializing DEcoder to: %d", (int)vc->video_decoder_codec_used);
 
     vpx_codec_dec_cfg_t dec_cfg;
     dec_cfg.threads = VPX_MAX_DECODER_THREADS; // Maximum number of threads to use
     dec_cfg.w = VIDEO_CODEC_DECODER_MAX_WIDTH;
     dec_cfg.h = VIDEO_CODEC_DECODER_MAX_HEIGHT;
 
-    if (vc->is_using_vp9 == 0) {
+    if (vc->video_decoder_codec_used == TOXAV_ENCODER_CODEC_USED_VP8) {
 
         vpx_codec_flags_t dec_flags_ = 0;
 
@@ -783,7 +790,7 @@ void video_switch_decoder(VCSession *vc)
     }
 
 
-    if (vc->is_using_vp9 == 0) {
+    if (vc->video_decoder_codec_used == TOXAV_ENCODER_CODEC_USED_VP8) {
         if (VIDEO__VP8_DECODER_POST_PROCESSING_ENABLED == 1) {
             LOGGER_WARNING(vc->log, "turn on postproc: OK");
         } else if (VIDEO__VP8_DECODER_POST_PROCESSING_ENABLED == 2) {
@@ -1023,10 +1030,9 @@ uint8_t vc_iterate(VCSession *vc, uint8_t skip_video_flag, uint64_t *a_r_timesta
 #endif
 
 
-        if (rc != VPX_CODEC_OK) {
 #ifdef VIDEO_DECODER_AUTOSWITCH_CODEC
-
-            if (rc == 5) { // Bitstream not supported by this decoder
+        if (rc != VPX_CODEC_OK) {
+            if ((rc == VPX_CODEC_CORRUPT_FRAME) || (rc == VPX_CODEC_UNSUP_BITSTREAM)) {
                 LOGGER_WARNING(vc->log, "Switching VPX Decoder");
                 video_switch_decoder(vc);
 
@@ -1040,18 +1046,20 @@ uint8_t vc_iterate(VCSession *vc, uint8_t skip_video_flag, uint64_t *a_r_timesta
                         free(user_priv);
                     }
                 }
-
-            } else if (rc == 7) {
+            } else {
+                // LOGGER_ERROR(vc->log, "Error decoding video: err-num=%d err-str=%s", (int)rc, vpx_codec_err_to_string(rc));
+            }
+        }
 #else
-
-            if (rc == 7) {
-#endif
+        if (rc != VPX_CODEC_OK) {
+            if (rc == VPX_CODEC_CORRUPT_FRAME) {
                 LOGGER_WARNING(vc->log, "Corrupt frame detected: data size=%d start byte=%d end byte=%d",
                                (int)full_data_len, (int)p->data[0], (int)p->data[full_data_len - 1]);
             } else {
                 // LOGGER_ERROR(vc->log, "Error decoding video: err-num=%d err-str=%s", (int)rc, vpx_codec_err_to_string(rc));
             }
         }
+#endif
 
         if (rc == VPX_CODEC_OK) {
 
@@ -1251,6 +1259,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
             && vc->video_encoder_vp8_quality == vc->video_encoder_vp8_quality_prev
             && vc->video_rc_max_quantizer == vc->video_rc_max_quantizer_prev
             && vc->video_rc_min_quantizer == vc->video_rc_min_quantizer_prev
+            && vc->video_encoder_coded_used == vc->video_encoder_coded_used_prev
        ) {
         return 0; /* Nothing changed */
     }
@@ -1260,6 +1269,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
             && vc->video_encoder_vp8_quality == vc->video_encoder_vp8_quality_prev
             && vc->video_rc_max_quantizer == vc->video_rc_max_quantizer_prev
             && vc->video_rc_min_quantizer == vc->video_rc_min_quantizer_prev
+            && vc->video_encoder_coded_used == vc->video_encoder_coded_used_prev
        ) {
         /* Only bit rate changed */
 
@@ -1290,8 +1300,10 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
         vc__init_encoder_cfg(vc->log, &cfg, kf_max_dist,
                              vc->video_encoder_vp8_quality,
                              vc->video_rc_max_quantizer,
-                             vc->video_rc_min_quantizer);
+                             vc->video_rc_min_quantizer,
+                             vc->video_encoder_coded_used);
 
+        vc->video_encoder_coded_used_prev = vc->video_encoder_coded_used;
         vc->video_encoder_vp8_quality_prev = vc->video_encoder_vp8_quality;
         vc->video_rc_max_quantizer_prev = vc->video_rc_max_quantizer;
         vc->video_rc_min_quantizer_prev = vc->video_rc_min_quantizer;
@@ -1301,7 +1313,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
         cfg.g_h = height;
 
 
-        if (VPX_ENCODER_USED == VPX_VP8_CODEC) {
+        if (vc->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8) {
             LOGGER_WARNING(vc->log, "Using VP8 codec for encoder");
 
 #ifdef VIDEO_CODEC_ENCODER_USE_FRAGMENTS
@@ -1322,6 +1334,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
         }
 
 
+#if 0
         rc = vpx_codec_control(&new_c, VP8E_SET_ENABLEAUTOALTREF, 0);
 
         if (rc != VPX_CODEC_OK) {
@@ -1334,7 +1347,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
             LOGGER_WARNING(vc->log, "(b)set encoder VP8E_SET_ENABLEAUTOALTREF setting: %s value=%d", vpx_codec_err_to_string(rc),
                            (int)1);
         }
-
+#endif
 
         /*
         encoder->Control(VP8E_SET_ARNR_MAXFRAMES, 7);
@@ -1377,7 +1390,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 
         int cpu_used_value = vc->video_encoder_cpu_used;
 
-        if (VPX_ENCODER_USED == VPX_VP9_CODEC) {
+        if (vc->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP9) {
             if (cpu_used_value < -8) {
                 cpu_used_value = -8;
             }
@@ -1404,7 +1417,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 
 #ifdef VIDEO_CODEC_ENCODER_USE_FRAGMENTS
 
-        if (VPX_ENCODER_USED == VPX_VP8_CODEC) {
+        if (vc->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8) {
             rc = vpx_codec_control(&new_c, VP8E_SET_TOKEN_PARTITIONS, VIDEO_CODEC_FRAGMENT_VPX_NUMS);
 
             if (rc != VPX_CODEC_OK) {
@@ -1414,7 +1427,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 
 #endif
 
-        if (VPX_ENCODER_USED == VPX_VP9_CODEC) {
+        if (vc->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP9) {
             rc = vpx_codec_control(&new_c, VP9E_SET_TILE_COLUMNS, VIDEO__VP9E_SET_TILE_COLUMNS);
 
             if (rc != VPX_CODEC_OK) {
@@ -1432,7 +1445,8 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
             }
         }
 
-        if (VPX_ENCODER_USED == VPX_VP9_CODEC) {
+#if 0
+        if (vc->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP9) {
             if (1 == 2) {
                 LOGGER_WARNING(vc->log, "setting VP9 lossless video quality: ON");
 
@@ -1455,6 +1469,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
                 }
             }
         }
+#endif
 
 
         vpx_codec_destroy(vc->encoder);
