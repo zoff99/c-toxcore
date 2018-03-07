@@ -41,7 +41,7 @@ VPX_DL_BEST_QUALITY   (0)       deadline parameter analogous to VPx BEST QUALITY
 */
 
 #define VIDEO_ACCEPTABLE_LOSS (0.08f) /* if loss is less than this (8%), then don't do anything */
-#define AUDIO_ITERATATIONS_WHILE_VIDEO (2)
+#define AUDIO_ITERATATIONS_WHILE_VIDEO (8)
 
 #if defined(AUDIO_DEBUGGING_SKIP_FRAMES)
 uint32_t _debug_count_sent_audio_frames = 0;
@@ -318,16 +318,18 @@ void toxav_iterate(ToxAV *av)
 
 
 
+            // LOGGER_WARNING(av->m->log, "XXXXXXXXXXXXXXXXXX=================");
             if (i->msi_call->self_capabilities & msi_CapRAudio &&
                     i->msi_call->peer_capabilities & msi_CapSAudio) {
-                rc = MIN(i->audio.second->lp_frame_duration, rc);
+                // use 4ms less than the actual audio frame duration, to have still some time left
+                // LOGGER_WARNING(av->m->log, "lp_frame_duration=%d", (int)i->audio.second->lp_frame_duration);
+                rc = MIN((i->audio.second->lp_frame_duration - 4), rc);
             }
 
-            if (i->msi_call->self_capabilities & MSI_CAP_R_VIDEO &&
-                    i->msi_call->peer_capabilities & MSI_CAP_S_VIDEO) {
-                pthread_mutex_lock(i->video->queue_mutex);
-                rc = min_u32(i->video->lcfd, rc);
-                pthread_mutex_unlock(i->video->queue_mutex);
+            if (i->msi_call->self_capabilities & msi_CapRVideo &&
+                    i->msi_call->peer_capabilities & msi_CapSVideo) {
+                // LOGGER_WARNING(av->m->log, "lcfd=%d", (int)i->video.second->lcfd);
+                rc = MIN(i->video.second->lcfd, (uint32_t) rc);
             }
 
             pthread_mutex_unlock(i->mutex);
