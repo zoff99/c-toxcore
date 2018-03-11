@@ -604,8 +604,16 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         LOGGER_ERROR(m->log, "Invalid old protocol video packet: frame offset (%u) >= full frame length (%u)",
                      (unsigned)header.offset_lower, (unsigned)header.data_length_lower);
         return -1;
-    }
-#endif
+	}
+
+	if (!(header.flags & RTP_LARGE_FRAME))
+	{
+		if (header.offset_lower >= header.data_length_lower) {
+			LOGGER_ERROR(m->log, "Invalid old protocol video packet: frame offset (%u) >= full frame length (%u)",
+						 (unsigned)header.offset_lower, (unsigned)header.data_length_lower);
+			return -1;
+		}
+	}
 
     LOGGER_DEBUG(m->log, "header.pt %d, video %d", (uint8_t)header.pt, (rtp_TypeVideo % 128));
 
