@@ -11,6 +11,7 @@
 
 #include "msi.h"
 #include "rtp.h"
+#include "video.h"
 
 #include "../toxcore/logger.h"
 #include "../toxcore/util.h"
