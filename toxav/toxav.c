@@ -489,6 +489,7 @@ void toxav_callback_call(ToxAV *av, toxav_call_cb *callback, void *user_data)
     av->ccb_user_data = user_data;
     pthread_mutex_unlock(av->mutex);
 }
+
 bool toxav_answer(ToxAV *av, uint32_t friend_number, uint32_t audio_bit_rate, uint32_t video_bit_rate,
                   Toxav_Err_Answer *error)
 {
@@ -1435,6 +1436,7 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
 
     pthread_mutex_unlock(call->av->mutex);
 }
+
 int callback_invite(void *toxav_inst, MSICall *call)
 {
     ToxAV *toxav = (ToxAV *)toxav_inst;
@@ -1463,6 +1465,7 @@ int callback_invite(void *toxav_inst, MSICall *call)
     pthread_mutex_unlock(toxav->mutex);
     return 0;
 }
+
 int callback_start(void *toxav_inst, MSICall *call)
 {
     ToxAV *toxav = (ToxAV *)toxav_inst;
@@ -1491,6 +1494,7 @@ int callback_start(void *toxav_inst, MSICall *call)
     pthread_mutex_unlock(toxav->mutex);
     return 0;
 }
+
 int callback_end(void *toxav_inst, MSICall *call)
 {
     ToxAV *toxav = (ToxAV *)toxav_inst;
