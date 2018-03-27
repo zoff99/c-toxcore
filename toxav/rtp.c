@@ -9,6 +9,7 @@
 #include "rtp.h"
 
 #include "bwcontroller.h"
+#include "video.h"
 
 #include "../toxcore/logger.h"
 #include "../toxcore/util.h"
