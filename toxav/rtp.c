@@ -44,6 +44,9 @@ int rtp_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *
 }
 
 
+int TOXAV_SEND_VIDEO_LOSSLESS_PACKETS = 1;
+
+
 // allocate_len is NOT including header!
 static struct RTPMessage *new_message(Tox *tox, const struct RTPHeader *header, size_t allocate_len,
                                       const uint8_t *data,
@@ -1014,8 +1017,18 @@ RTPSession *rtp_new(int payload_type, Messenger *m, uint32_t friendnumber,
         rtp_header_pack(rdata + 1, &header);
         memcpy(rdata + 1 + RTP_HEADER_SIZE, data, length);
 
-        if (-1 == m_send_custom_lossy_packet(session->m, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
-            LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
+
+		if ((session->payload_type == rtp_TypeVideo) && (TOXAV_SEND_VIDEO_LOSSLESS_PACKETS == 1))
+		{
+            if (-1 == send_custom_lossless_packet(session->m, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
+                LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
+            }
+		}
+		else
+		{
+            if (-1 == m_send_custom_lossy_packet(session->m, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
+                LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
+            }
         }
     } else {
         /**
