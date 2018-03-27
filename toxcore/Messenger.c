@@ -1857,11 +1857,21 @@ void custom_lossy_packet_registerhandler(Messenger *m, void (*packet_handler_cal
     m->lossy_packethandler = packet_handler_callback;
 }
 
+//
+// this doesn't seem to care if packets incoming are lossy or lossless
+//
 int m_callback_rtp_packet(Messenger *m, int32_t friendnumber, uint8_t byte, int (*packet_handler_callback)(Messenger *m,
                           uint32_t friendnumber, const uint8_t *data, uint16_t len, void *object), void *object)
 {
     if (friend_not_valid(m, friendnumber)) {
         return -1;
+    }
+
+    if (byte == PACKET_LOSSLESS_VIDEO) {
+	    m->friendlist[friendnumber].lossy_rtp_packethandlers[5].function =
+	        packet_handler_callback;
+	    m->friendlist[friendnumber].lossy_rtp_packethandlers[5].object = object;
+	    return 0;
     }
 
     if (byte < PACKET_ID_LOSSY_RANGE_START) {
@@ -1917,6 +1927,17 @@ static int handle_custom_lossless_packet(void *object, int friend_num, const uin
     if (friend_not_valid(m, friend_num)) {
         return -1;
     }
+
+    if (packet[0] == (PACKET_LOSSLESS_VIDEO)) {
+        if (m->friendlist[friend_num].lossy_rtp_packethandlers[5].function) {
+            return m->friendlist[friend_num].lossy_rtp_packethandlers[5].function(
+                       m, friend_num, packet, length,
+                       m->friendlist[friend_num].lossy_rtp_packethandlers[5].object);
+        }
+
+        return 1;
+    }
+
 
     if (packet[0] < PACKET_ID_LOSSLESS_RANGE_START) {
         return -1;
