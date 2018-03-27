@@ -158,8 +158,8 @@ void vc__init_encoder_cfg(Logger *log, vpx_codec_enc_cfg_t *cfg, int16_t kf_max_
 
     cfg->g_threads = VPX_MAX_ENCODER_THREADS; // Maximum number of threads to use
 
-    cfg->g_timebase.num = 1; // timebase units = (1/90000)s
-    cfg->g_timebase.den = 90000; // timebase units = (1/90000)s
+    cfg->g_timebase.num = 1; // 0.1 ms = timebase units = (1/10000)s
+    cfg->g_timebase.den = 10000; // 0.1 ms = timebase units = (1/10000)s
 
     if (encoder_codec == TOXAV_ENCODER_CODEC_USED_VP9) {
         cfg->rc_dropframe_thresh = 0;
@@ -840,28 +840,33 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
         if ((int)data_type == (int)video_frame_type_KEYFRAME)
         {
+            int percent_recvd = (int)(((float)header_v3->received_length_full / (float)full_data_len) * 100.0f);
+
             LOGGER_WARNING(vc->log, "RTP_RECV:sn=%ld fn=%ld pct=%d%% *I* len=%ld recv_len=%ld",
                          (long)header_v3->sequnum,
                          (long)header_v3->fragment_num,
-                         (int)(((float)header_v3->received_length_full / (float)full_data_len) * 100.0f),
+                         percent_recvd,
                          (long)full_data_len,
                          (long)header_v3->received_length_full);
 
-            // if keyframe received has less than 100% of the data, request a new keyframe
-            // from the sender
-            uint32_t pkg_buf_len = 2;
-            uint8_t pkg_buf[pkg_buf_len];
-            pkg_buf[0] = PACKET_REQUEST_KEYFRAME;
-            pkg_buf[1] = 0;
-            if (-1 == send_custom_lossless_packet(m, vc->friend_number, pkg_buf, pkg_buf_len))
+            if (percent_recvd < 100)
             {
-                LOGGER_WARNING(vc->log,
-                    "PACKET_REQUEST_KEYFRAME:RTP send failed");
-            }
-            else
-            {
-                LOGGER_WARNING(vc->log,
-                    "PACKET_REQUEST_KEYFRAME:RTP Sent.");
+                // if keyframe received has less than 100% of the data, request a new keyframe
+                // from the sender
+                uint32_t pkg_buf_len = 2;
+                uint8_t pkg_buf[pkg_buf_len];
+                pkg_buf[0] = PACKET_REQUEST_KEYFRAME;
+                pkg_buf[1] = 0;
+                if (-1 == send_custom_lossless_packet(m, vc->friend_number, pkg_buf, pkg_buf_len))
+                {
+                    LOGGER_WARNING(vc->log,
+                        "PACKET_REQUEST_KEYFRAME:RTP send failed");
+                }
+                else
+                {
+                    LOGGER_WARNING(vc->log,
+                        "PACKET_REQUEST_KEYFRAME:RTP Sent.");
+                }
             }
         }
         else
