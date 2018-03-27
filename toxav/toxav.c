@@ -1078,7 +1078,17 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
     if (call->video.second->send_keyframe_request_received == 1)
     {
         vpx_encode_flags |= VPX_EFLAG_FORCE_KF;
+        // vpx_encode_flags |= VP8_EFLAG_FORCE_GF;
+        // vpx_encode_flags |= VP8_EFLAG_FORCE_ARF;
         call->video.second->send_keyframe_request_received = 0;
+    }
+    else
+    {
+        // vpx_encode_flags |= VP8_EFLAG_NO_REF_GF;
+        // vpx_encode_flags |= VP8_EFLAG_NO_REF_ARF;
+        // vpx_encode_flags |= VP8_EFLAG_NO_REF_LAST;
+        // vpx_encode_flags |= VP8_EFLAG_NO_UPD_GF;
+        // vpx_encode_flags |= VP8_EFLAG_NO_UPD_ARF;
     }
 
 
