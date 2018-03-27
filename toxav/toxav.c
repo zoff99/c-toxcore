@@ -1073,9 +1073,14 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         LOGGER_ERROR(av->m->log, "AUTOTUNE:MAX_ENCODE_TIME_US=%ld us = %.1f fps", (long)encode_time_auto_tune, (float)(1000000.0f / encode_time_auto_tune));
 
 
-#ifdef VIDEO_ENCODER_SOFT_DEADLINE_AUTOTUNE
     call->video.second->last_encoded_frame_ts = current_time_monotonic();
-#endif
+
+    if (call->video.second->send_keyframe_request_received == 1)
+    {
+        vpx_encode_flags |= VPX_EFLAG_FORCE_KF;
+        call->video.second->send_keyframe_request_received = 0;
+    }
+
 
     { /* Encode */
         vpx_image_t img;
@@ -1092,7 +1097,11 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         memcpy(img.planes[VPX_PLANE_U], u, (width / 2) * (height / 2));
         memcpy(img.planes[VPX_PLANE_V], v, (width / 2) * (height / 2));
 
-        uint32_t duration = 90000 / 60; // assuming max. 60fps
+        uint32_t duration = (ms_to_last_frame / 10) + 1;
+        if (duration > 10000)
+        {
+            duration = 10000;
+        }
         vpx_codec_err_t vrc = vpx_codec_encode(call->video.second->encoder, &img,
                                                (int64_t)video_frame_record_timestamp, duration,
                                                vpx_encode_flags,
