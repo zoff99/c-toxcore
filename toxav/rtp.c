@@ -45,7 +45,7 @@ int rtp_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *
 }
 
 
-int TOXAV_SEND_VIDEO_LOSSLESS_PACKETS = 1;
+int TOXAV_SEND_VIDEO_LOSSLESS_PACKETS = 0;
 
 
 // allocate_len is NOT including header!
