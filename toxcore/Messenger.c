@@ -1855,6 +1855,9 @@ void custom_lossy_packet_registerhandler(Messenger *m, m_friend_lossy_packet_cb 
     m->lossy_packethandler = lossy_packethandler;
 }
 
+//
+// this doesn't seem to care if packets incoming are lossy or lossless
+//
 int m_callback_rtp_packet(Messenger *m, int32_t friendnumber, uint8_t byte, m_lossy_rtp_packet_cb *function,
                           void *object)
 {
@@ -1862,7 +1865,18 @@ int m_callback_rtp_packet(Messenger *m, int32_t friendnumber, uint8_t byte, m_lo
         return -1;
     }
 
-    if (byte < PACKET_ID_RANGE_LOSSY_AV_START || byte > PACKET_ID_RANGE_LOSSY_AV_END) {
+    if (byte == PACKET_LOSSLESS_VIDEO) {
+	    m->friendlist[friendnumber].lossy_rtp_packethandlers[5].function =
+	        packet_handler_callback;
+	    m->friendlist[friendnumber].lossy_rtp_packethandlers[5].object = object;
+	    return 0;
+    }
+
+    if (byte < PACKET_ID_LOSSY_RANGE_START) {
+        return -1;
+    }
+
+    if (byte >= (PACKET_ID_LOSSY_RANGE_START + PACKET_LOSSY_AV_RESERVED)) {
         return -1;
     }
 
@@ -1915,7 +1929,22 @@ static int handle_custom_lossless_packet(void *object, int friend_num, const uin
         return -1;
     }
 
-    if (packet[0] < PACKET_ID_RANGE_LOSSLESS_CUSTOM_START || packet[0] > PACKET_ID_RANGE_LOSSLESS_CUSTOM_END) {
+    if (packet[0] == (PACKET_LOSSLESS_VIDEO)) {
+        if (m->friendlist[friend_num].lossy_rtp_packethandlers[5].function) {
+            return m->friendlist[friend_num].lossy_rtp_packethandlers[5].function(
+                       m, friend_num, packet, length,
+                       m->friendlist[friend_num].lossy_rtp_packethandlers[5].object);
+        }
+
+        return 1;
+    }
+
+
+    if (packet[0] < PACKET_ID_LOSSLESS_RANGE_START) {
+        return -1;
+    }
+
+    if (packet[0] >= (PACKET_ID_LOSSLESS_RANGE_START + PACKET_ID_LOSSLESS_RANGE_SIZE)) {
         return -1;
     }
 
