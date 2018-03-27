@@ -135,7 +135,7 @@ void vc__init_encoder_cfg(Logger *log, vpx_codec_enc_cfg_t *cfg, int16_t kf_max_
         cfg->kf_mode = VPX_KF_AUTO; // Encoder determines optimal placement automatically
     }
 
-    cfg->rc_end_usage = VPX_CBR; // what quality mode?
+    cfg->rc_end_usage = VPX_VBR; // what quality mode?
     /*
      VPX_VBR    Variable Bit Rate (VBR) mode
      VPX_CBR    Constant Bit Rate (CBR) mode
@@ -237,6 +237,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     vc->video_decoder_codec_used = TOXAV_ENCODER_CODEC_USED_VP8;
     // options ---
 
+    vc->send_keyframe_request_received = 0;
 
     /*
     VPX_CODEC_USE_FRAME_THREADING
@@ -733,7 +734,8 @@ void video_switch_decoder(VCSession *vc)
 }
 
 
-uint8_t vc_iterate(VCSession *vc, uint8_t skip_video_flag, uint64_t *a_r_timestamp, uint64_t *a_l_timestamp,
+uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_t *a_r_timestamp,
+                   uint64_t *a_l_timestamp,
                    uint64_t *v_r_timestamp, uint64_t *v_l_timestamp)
 {
     if (!vc) {
@@ -836,14 +838,34 @@ uint8_t vc_iterate(VCSession *vc, uint8_t skip_video_flag, uint64_t *a_r_timesta
 
 #if 1
 
-        if ((int)data_type == (int)video_frame_type_KEYFRAME) {
+        if ((int)data_type == (int)video_frame_type_KEYFRAME)
+        {
             LOGGER_WARNING(vc->log, "RTP_RECV:sn=%ld fn=%ld pct=%d%% *I* len=%ld recv_len=%ld",
                          (long)header_v3->sequnum,
                          (long)header_v3->fragment_num,
                          (int)(((float)header_v3->received_length_full / (float)full_data_len) * 100.0f),
                          (long)full_data_len,
                          (long)header_v3->received_length_full);
-        } else {
+
+            // if keyframe received has less than 100% of the data, request a new keyframe
+            // from the sender
+            uint32_t pkg_buf_len = 2;
+            uint8_t pkg_buf[pkg_buf_len];
+            pkg_buf[0] = PACKET_REQUEST_KEYFRAME;
+            pkg_buf[1] = 0;
+            if (-1 == send_custom_lossless_packet(m, vc->friend_number, pkg_buf, pkg_buf_len))
+            {
+                LOGGER_WARNING(vc->log,
+                    "PACKET_REQUEST_KEYFRAME:RTP send failed");
+            }
+            else
+            {
+                LOGGER_WARNING(vc->log,
+                    "PACKET_REQUEST_KEYFRAME:RTP Sent.");
+            }
+        }
+        else
+        {
             LOGGER_WARNING(vc->log, "RTP_RECV:sn=%ld fn=%ld pct=%d%% len=%ld recv_len=%ld",
                          (long)header_v3->sequnum,
                          (long)header_v3->fragment_num,
