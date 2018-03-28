@@ -982,6 +982,17 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         goto RETURN;
     }
 
+    uint64_t ms_to_last_frame = 1;
+
+    if (call->video.second)
+    {
+        ms_to_last_frame = current_time_monotonic() - call->video.second->last_encoded_frame_ts;
+        if (call->video.second->last_encoded_frame_ts == 0)
+        {
+            ms_to_last_frame = 1;
+        }
+    }
+
     if (call->video_bit_rate == 0 ||
             !(call->msi_call->self_capabilities & MSI_CAP_S_VIDEO) ||
             !(call->msi_call->peer_capabilities & MSI_CAP_R_VIDEO)) {
