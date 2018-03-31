@@ -764,6 +764,8 @@ int toxav_group_send_audio(Tox *tox, int groupnumber, const int16_t *pcm, unsign
  *
  ******************************************************************************/
 
+#define HAVE_TOXAV_OPTION_SET   1
+
 typedef enum TOXAV_ERR_OPTION_SET {
 
     /**
