@@ -96,7 +96,7 @@ struct Receipts {
 
 /* Status definitions. */
 enum {
-    NOFRIEND,
+    NOFRIEND = 0,
     FRIEND_ADDED,
     FRIEND_REQUESTED,
     FRIEND_CONFIRMED,
