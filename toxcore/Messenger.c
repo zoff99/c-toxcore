@@ -430,7 +430,7 @@ static int do_receipts(Messenger *m, int32_t friendnumber, void *userdata)
     return 0;
 }
 
-int m_delfriend(Messenger *m, int32_t friendnumber)
+int m_delfriend(Messenger *m, uint32_t friendnumber)
 {
     if (!friend_is_valid(m, friendnumber)) {
         return -1;
