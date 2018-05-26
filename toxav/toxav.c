@@ -1010,9 +1010,10 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         goto RETURN;
     }
 
-    if (call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8) {
+    if ((call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8)
+            || (call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP9)) {
 
-        if (vc_reconfigure_encoder(call->video.second, call->video_bit_rate * 1000,
+        if (vc_reconfigure_encoder(av->m->log, call->video.second, call->video_bit_rate * 1000,
                                    width, height, -1) != 0) {
             pthread_mutex_unlock(call->mutex_video);
             rc = TOXAV_ERR_SEND_FRAME_INVALID;
@@ -1020,6 +1021,12 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         }
     } else {
         // HINT: H264
+        if (vc_reconfigure_encoder(av->m->log, call->video.second, call->video_bit_rate * 1000,
+                                   width, height, -1) != 0) {
+            pthread_mutex_unlock(call->mutex_video);
+            rc = TOXAV_ERR_SEND_FRAME_INVALID;
+            goto END;
+        }
     }
 
     if (call->video_rtp->ssrc < VIDEO_SEND_X_KEYFRAMES_FIRST) {
@@ -1114,10 +1121,16 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
     }
 
 
+    // for the H264 encoder -------
+    x264_nal_t *nal;
+    int i_frame_size;
+    // for the H264 encoder -------
+
     { /* Encode */
 
 
-        if (call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8) {
+        if ((call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8)
+                || (call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP9)) {
 
 
             vpx_image_t img;
@@ -1166,7 +1179,8 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
 
     { /* Send frames */
 
-        if (call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8) {
+        if ((call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8)
+                || (call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP9)) {
 
 
             vpx_codec_iter_t iter = NULL;
@@ -1227,6 +1241,38 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
 
         } else {
             // HINT: H264
+
+            if (i_frame_size > 0) {
+
+                // use the record timestamp that was actually used for this frame
+                video_frame_record_timestamp = (uint64_t)call->video.second->h264_in_pic.i_pts;
+                const uint32_t frame_length_in_bytes = i_frame_size;
+                const int keyframe = (int)call->video.second->h264_out_pic.b_keyframe;
+
+                int res = rtp_send_data
+                          (
+                              call->video.first,
+                              (const uint8_t *)nal->p_payload,
+                              frame_length_in_bytes,
+                              keyframe,
+                              video_frame_record_timestamp,
+                              (int32_t)0,
+                              av->m->log
+                          );
+
+                video_frame_record_timestamp++;
+
+                if (res < 0) {
+                    pthread_mutex_unlock(call->mutex_video);
+                    LOGGER_WARNING(av->m->log, "Could not send video frame: %s", strerror(errno));
+                    rc = TOXAV_ERR_SEND_FRAME_RTP_FAILED;
+                    goto END;
+                } else {
+
+
+                }
+
+            }
         }
 
     rc = send_frames(av, call);
