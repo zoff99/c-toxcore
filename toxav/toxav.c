@@ -1122,8 +1122,8 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
 
 
     // for the H264 encoder -------
-    x264_nal_t *nal;
-    int i_frame_size;
+    x264_nal_t *nal = NULL;
+    int i_frame_size = 0;
     // for the H264 encoder -------
 
     { /* Encode */
