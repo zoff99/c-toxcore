@@ -1219,6 +1219,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
                                   keyframe,
                                   video_frame_record_timestamp,
                                   (int32_t)pkt->data.frame.partition_id,
+                                  TOXAV_ENCODER_CODEC_USED_VP8,
                                   av->m->log
                               );
 
@@ -1257,6 +1258,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
                               keyframe,
                               video_frame_record_timestamp,
                               (int32_t)0,
+                              TOXAV_ENCODER_CODEC_USED_H264,
                               av->m->log
                           );
 

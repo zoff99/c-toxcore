@@ -608,16 +608,15 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         LOGGER_ERROR(m->log, "Invalid old protocol video packet: frame offset (%u) >= full frame length (%u)",
                      (unsigned)header.offset_lower, (unsigned)header.data_length_lower);
         return -1;
-	}
+    }
 
-	if (!(header.flags & RTP_LARGE_FRAME))
-	{
-		if (header.offset_lower >= header.data_length_lower) {
-			LOGGER_ERROR(m->log, "Invalid old protocol video packet: frame offset (%u) >= full frame length (%u)",
-						 (unsigned)header.offset_lower, (unsigned)header.data_length_lower);
-			return -1;
-		}
-	}
+    if (!(header.flags & RTP_LARGE_FRAME)) {
+        if (header.offset_lower >= header.data_length_lower) {
+            LOGGER_ERROR(m->log, "Invalid old protocol video packet: frame offset (%u) >= full frame length (%u)",
+                         (unsigned)header.offset_lower, (unsigned)header.data_length_lower);
+            return -1;
+        }
+    }
 
     LOGGER_DEBUG(m->log, "header.pt %d, video %d", (uint8_t)header.pt, (rtp_TypeVideo % 128));
 
@@ -628,6 +627,8 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     }
 
     // everything below here is for the old 16 bit protocol ------------------
+
+    // LOGGER_ERROR(m->log, "**** incoming audio packet ****");
 
     if (header.data_length_lower == length - RTP_HEADER_SIZE) {
         /* The message is sent in single part */
@@ -909,6 +910,11 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
         header.flags = RTP_LARGE_FRAME;
     }
 
+    if ((codec_used == TOXAV_ENCODER_CODEC_USED_H264) &&
+            (is_video_payload == 1)) {
+        header.flags = header.flags | RTP_ENCODER_IS_H264;
+    }
+
     header.frame_record_timestamp = frame_record_timestamp;
 
     header.fragment_num = fragment_num;
@@ -1019,14 +1025,11 @@ RTPSession *rtp_new(int payload_type, Messenger *m, uint32_t friendnumber,
         memcpy(rdata + 1 + RTP_HEADER_SIZE, data, length);
 
 
-		if ((session->payload_type == rtp_TypeVideo) && (TOXAV_SEND_VIDEO_LOSSLESS_PACKETS == 1))
-		{
+        if ((session->payload_type == rtp_TypeVideo) && (TOXAV_SEND_VIDEO_LOSSLESS_PACKETS == 1)) {
             if (-1 == send_custom_lossless_packet(session->m, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
                 LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
             }
-		}
-		else
-		{
+        } else {
             if (-1 == m_send_custom_lossy_packet(session->m, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
                 LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
             }
