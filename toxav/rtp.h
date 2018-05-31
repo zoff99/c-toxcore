@@ -70,6 +70,12 @@ enum RTPFlags {
      * Whether the packet is part of a key frame.
      */
     RTP_KEY_FRAME = 1 << 1,
+
+    /**
+     * Whether H264 codec was used to encode this vide frame
+     */
+    RTP_ENCODER_IS_H264 = 1 << 2,
+
 };
 
 
