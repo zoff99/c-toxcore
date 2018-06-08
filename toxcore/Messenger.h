@@ -71,7 +71,7 @@ typedef struct Messenger_State_Plugin {
 
 /* video via lossless packets */
 #define PACKET_LOSSLESS_VIDEO 171
-#define PACKET_REQUEST_KEYFRAME 172
+#define PACKET_TOXAV_COMM_CHANNEL 172
 
 typedef struct Messenger_Options {
     bool ipv6enabled;
