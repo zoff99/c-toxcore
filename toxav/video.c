@@ -825,6 +825,30 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
         goto BASE_CLEANUP;
     }
 
+    // HINT: tell client what encoder and decoder are in use now -----------
+    if (av->call_comm_cb.first) {
+
+        TOXAV_CALL_COMM_INFO cmi;
+        cmi = TOXAV_CALL_COMM_DECODER_IN_USE_VP8;
+
+        if (vc->video_decoder_codec_used == TOXAV_ENCODER_CODEC_USED_H264) {
+            cmi = TOXAV_CALL_COMM_DECODER_IN_USE_H264;
+        }
+
+        av->call_comm_cb.first(av, friend_number, cmi, av->call_comm_cb.second);
+
+
+        cmi = TOXAV_CALL_COMM_ENCODER_IN_USE_VP8;
+
+        if (vc->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H264) {
+            cmi = TOXAV_CALL_COMM_ENCODER_IN_USE_H264;
+        }
+
+        av->call_comm_cb.first(av, friend_number, cmi, av->call_comm_cb.second);
+    }
+
+    // HINT: tell client what encoder and decoder are in use now -----------
+
     // HINT: initialize the H264 encoder
     vc = vc_new_h264(log, av, friend_number, cb, cb_data, vc);
 

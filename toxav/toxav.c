@@ -16,6 +16,8 @@
 #include "../toxcore/logger.h"
 #include "../toxcore/util.h"
 
+#include "tox_generic.h"
+
 #include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
