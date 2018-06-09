@@ -175,7 +175,7 @@ uint32_t tox_version_patch(void);
 
 
 #define TOX_HAVE_TOXUTIL               1
-
+#define TOX_HAVE_TOXAV_CALLBACKS_002   1
 
 
 /**
