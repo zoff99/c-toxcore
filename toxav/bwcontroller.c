@@ -138,15 +138,6 @@ void bwc_kill(BWController *bwc)
 
 void bwc_feed_avg(BWController *bwc, uint32_t bytes)
 {
-    // DISABLE
-    return;
-
-    uint32_t *packet_length;
-    uint8_t dummy;
-
-    rb_read(bwc->rcvpkt.rb, (void **) &packet_length, &dummy);
-    *packet_length = bytes;
-    rb_write(bwc->rcvpkt.rb, packet_length, 0);
 }
 
 /*
@@ -155,40 +146,6 @@ void bwc_feed_avg(BWController *bwc, uint32_t bytes)
  */
 void bwc_add_lost(BWController *bwc, uint32_t bytes_received_ok)
 {
-    if (!bwc) {
-        return;
-    }
-
-    // DISABLE
-    return;
-
-    if (!bytes_received_ok) {
-        LOGGER_WARNING(bwc->m->log, "BWC lost(1): %d", (int)bytes_received_ok);
-
-        uint32_t *avg_packet_length_array[BWC_AVG_PKT_COUNT];
-        uint32_t count = 1;
-
-        rb_data(bwc->rcvpkt.rb, (void **)avg_packet_length_array);
-
-        int i = 0;
-
-        for (i = 0; i < BWC_AVG_PKT_COUNT; i ++) {
-            bytes_received_ok = bytes_received_ok + *(avg_packet_length_array[i]);
-
-            if (*(avg_packet_length_array[i])) {
-                count++;
-            }
-        }
-
-        LOGGER_WARNING(bwc->m->log, "BWC lost(2): %d count: %d", (int)bytes_received_ok, (int)count);
-
-        bytes_received_ok = bytes_received_ok / count;
-
-        LOGGER_WARNING(bwc->m->log, "BWC lost(3): %d", (int)bytes_received_ok);
-    }
-
-    bwc->cycle.lost = bwc->cycle.lost + bytes_received_ok;
-    send_update(bwc);
 }
 
 void bwc_add_lost_v3(BWController *bwc, uint32_t bytes_lost)
@@ -198,7 +155,7 @@ void bwc_add_lost_v3(BWController *bwc, uint32_t bytes_lost)
     }
 
     if (bytes_lost > 0) {
-        LOGGER_DEBUG(bwc->m->log, "BWC lost(1): %d", (int)bytes_lost);
+        LOGGER_ERROR(bwc->m->log, "BWC lost(1): %d", (int)bytes_lost);
 
         bwc->cycle.lost = bwc->cycle.lost + bytes_lost;
         send_update(bwc);
@@ -242,7 +199,7 @@ static void send_update(BWController *bwc)
 #if 0
 static int on_update(BWController *bwc, const struct BWCMessage *msg)
 {
-    LOGGER_DEBUG(bwc->m->log, "%p Got update from peer", bwc);
+    LOGGER_ERROR(bwc->m->log, "%p Got update from peer", bwc);
 
     /* Peers sent update too soon */
     if (bwc->cycle.last_recv_timestamp + BWC_SEND_INTERVAL_MS > current_time_monotonic(bwc->bwc_mono_time)) {
@@ -257,14 +214,20 @@ static int on_update(BWController *bwc, const struct BWCMessage *msg)
 
     // LOGGER_INFO(bwc->m->log, "recved: %u lost: %u", recv, lost);
 
-    if (lost && bwc->mcb) {
+    if (bwc->mcb) {
 
-        LOGGER_INFO(bwc->m->log, "recved: %u lost: %u percentage: %f %%", recv, lost,
-                    (float)(((float) lost / (recv + lost)) * 100.0f));
+        if ((recv + lost) > 0) {
+            LOGGER_ERROR(bwc->m->log, "recved: %u lost: %u percentage: %f %%", recv, lost,
+                         (float)(((float) lost / (recv + lost)) * 100.0f));
 
-        bwc->mcb(bwc, bwc->friend_number,
-                 ((float) lost / (recv + lost)),
-                 bwc->mcb_user_data);
+            bwc->mcb(bwc, bwc->friend_number,
+                     ((float) lost / (recv + lost)),
+                     bwc->mcb_data);
+        } else {
+            bwc->mcb(bwc, bwc->friend_number,
+                     0,
+                     bwc->mcb_data);
+        }
     }
 
     return 0;
