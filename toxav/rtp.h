@@ -25,7 +25,7 @@ extern "C" {
  * Number of 32 bit padding fields between \ref RTPHeader::offset_lower and
  * everything before it.
  */
-#define RTP_PADDING_FIELDS 7
+#define RTP_PADDING_FIELDS 6
 
 /**
  * Payload type identifier. Also used as rtp callback prefix.
@@ -169,6 +169,7 @@ struct RTPHeaderV3 {
     uint64_t frame_record_timestamp; /* when was this frame actually recorded (this is a relative value!) */
     int32_t  fragment_num; /* if using fragments, this is the fragment/partition number */
     uint32_t real_frame_num; /* unused for now */
+    uint32_t encoder_bit_rate_used; /* what was the encoder bit rate used to encode this frame */
     // ---------------------------- //
     //      custom fields here      //
     // ---------------------------- //
