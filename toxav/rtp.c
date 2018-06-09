@@ -780,6 +780,7 @@ size_t rtp_header_unpack(const uint8_t *data, struct RTPHeader *header)
     p += net_unpack_u64(p, &header->frame_record_timestamp);
     p += net_unpack_u32(p, &header->fragment_num);
     p += net_unpack_u32(p, &header->real_frame_num);
+    p += net_unpack_u32(p, &header->encoder_bit_rate_used);
     // ---------------------------- //
     //      custom fields here      //
     // ---------------------------- //
@@ -920,6 +921,8 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
     header.fragment_num = fragment_num;
 
     header.real_frame_num = 0; // not yet used
+
+    header.encoder_bit_rate_used = bit_rate_used;
 
     uint16_t length_safe = (uint16_t)length;
 
