@@ -170,6 +170,7 @@ typedef struct VCSession_s {
     Logger *log;
     ToxAV *av;
     uint32_t friend_number;
+    uint32_t incoming_video_bitrate_last_changed;
 
     /* Video frame receive callback */
     toxav_video_receive_frame_cb *vcb;
