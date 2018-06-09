@@ -99,7 +99,7 @@ BWController *bwc_new(Tox *t, uint32_t friendnumber, m_cb *mcb, void *mcb_user_d
     int i = 0;
     BWController *retu = (BWController *)calloc(sizeof(struct BWController_s), 1);
 
-    LOGGER_WARNING(m->log, "BWC: new");
+    LOGGER_DEBUG(m->log, "BWC: new");
 
     retu->mcb = mcb;
     retu->mcb_user_data = mcb_user_data;
@@ -156,7 +156,7 @@ void bwc_add_lost_v3(BWController *bwc, uint32_t bytes_lost)
     }
 
     if (bytes_lost > 0) {
-        LOGGER_ERROR(bwc->m->log, "BWC lost(1): %d", (int)bytes_lost);
+        LOGGER_DEBUG(bwc->m->log, "BWC lost(1): %d", (int)bytes_lost);
 
         bwc->cycle.lost = bwc->cycle.lost + bytes_lost;
         send_update(bwc);
@@ -200,7 +200,7 @@ static void send_update(BWController *bwc)
 #if 0
 static int on_update(BWController *bwc, const struct BWCMessage *msg)
 {
-    LOGGER_ERROR(bwc->m->log, "%p Got update from peer", bwc);
+    LOGGER_DEBUG(bwc->m->log, "%p Got update from peer", bwc);
 
     /* Peers sent update too soon */
     if (bwc->cycle.last_recv_timestamp + BWC_SEND_INTERVAL_MS > current_time_monotonic(bwc->bwc_mono_time)) {
@@ -218,8 +218,8 @@ static int on_update(BWController *bwc, const struct BWCMessage *msg)
     if (bwc->mcb) {
 
         if ((recv + lost) > 0) {
-            LOGGER_ERROR(bwc->m->log, "recved: %u lost: %u percentage: %f %%", recv, lost,
-                         (float)(((float) lost / (recv + lost)) * 100.0f));
+            LOGGER_INFO(bwc->m->log, "recved: %u lost: %u percentage: %f %%", recv, lost,
+                        (float)(((float) lost / (recv + lost)) * 100.0f));
 
             bwc->mcb(bwc, bwc->friend_number,
                      ((float) lost / (recv + lost)),
