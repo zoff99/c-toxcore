@@ -1051,6 +1051,14 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
 
     }
 
+    // --- STAY on VP8 ENCODE !! ----
+    // --- STAY on VP8 ENCODE !! ----
+    // --- STAY on VP8 ENCODE !! ----
+    // call->video.second->video_encoder_coded_used = TOXAV_ENCODER_CODEC_USED_VP8;
+    // --- STAY on VP8 ENCODE !! ----
+    // --- STAY on VP8 ENCODE !! ----
+    // --- STAY on VP8 ENCODE !! ----
+
     // HINT: auto switch encoder, if we got capabilities packet from friend ------
 
     if ((call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8)
@@ -1175,11 +1183,13 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
 
         if ((call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8)
                 || (call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP9)) {
-
+            // HINT: vp8
             uint32_t result = encode_frame_vpx(av, friend_number, width, height,
                                                y, u, v, call,
                                                &video_frame_record_timestamp,
                                                vpx_encode_flags,
+                                               &nal,
+                                               &i_frame_size,
                                                error);
 
 #else
