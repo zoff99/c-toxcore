@@ -1332,6 +1332,11 @@ RETURN:
 
     return rc == TOXAV_ERR_SEND_FRAME_OK;
 }
+/* --- VIDEO EN-CODING happens here --- */
+/* --- VIDEO EN-CODING happens here --- */
+/* --- VIDEO EN-CODING happens here --- */
+
+
 
 
 
@@ -1342,6 +1347,7 @@ void toxav_callback_audio_receive_frame(ToxAV *av, toxav_audio_receive_frame_cb 
     av->acb_user_data = user_data;
     pthread_mutex_unlock(av->mutex);
 }
+
 void toxav_callback_video_receive_frame(ToxAV *av, toxav_video_receive_frame_cb *callback, void *user_data)
 {
     pthread_mutex_lock(av->mutex);
