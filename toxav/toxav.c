@@ -1035,6 +1035,9 @@ RETURN:
 }
 
 
+/* --- VIDEO EN-CODING happens here --- */
+/* --- VIDEO EN-CODING happens here --- */
+/* --- VIDEO EN-CODING happens here --- */
 bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height, const uint8_t *y,
                             const uint8_t *u, const uint8_t *v, Toxav_Err_Send_Frame *error)
 {
