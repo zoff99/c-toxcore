@@ -113,6 +113,12 @@ typedef enum PACKET_TOXAV_COMM_CHANNEL_FUNCTION {
 
 #include <pthread.h>
 
+struct RTPMessage;
+struct RingBuffer;
+
+
+struct OMXContext;
+
 typedef struct VCSession_s {
     /* encoding */
     vpx_codec_ctx_t encoder[1];
@@ -123,6 +129,10 @@ typedef struct VCSession_s {
     int h264_enc_width;
     int h264_enc_height;
     uint32_t h264_enc_bitrate;
+
+#ifdef RASPBERRY_PI_OMX
+    struct OMXContext *omx_ctx;
+#endif
 
     /* decoding */
     vpx_codec_ctx_t decoder[1];
