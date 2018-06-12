@@ -155,12 +155,10 @@ void bwc_add_lost_v3(BWController *bwc, uint32_t bytes_lost)
         return;
     }
 
-    if (bytes_lost > 0) {
-        LOGGER_DEBUG(bwc->m->log, "BWC lost(1): %d", (int)bytes_lost);
+    LOGGER_DEBUG(bwc->m->log, "BWC lost(1): %d", (int)bytes_lost);
 
-        bwc->cycle.lost = bwc->cycle.lost + bytes_lost;
-        send_update(bwc);
-    }
+    bwc->cycle.lost = bwc->cycle.lost + bytes_lost;
+    send_update(bwc);
 }
 
 static void send_update(BWController *bwc)
@@ -213,7 +211,7 @@ static int on_update(BWController *bwc, const struct BWCMessage *msg)
     const uint32_t recv = msg->recv;
     const uint32_t lost = msg->lost;
 
-    // LOGGER_INFO(bwc->m->log, "recved: %u lost: %u", recv, lost);
+    LOGGER_ERROR(bwc->m->log, "recved: %u lost: %u", recv, lost);
 
     if (bwc->mcb) {
 
