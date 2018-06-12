@@ -1045,7 +1045,15 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         force_reinit_encoder = -2;
 
         if (av->call_comm_cb.first) {
-            av->call_comm_cb.first(av, friend_number, TOXAV_CALL_COMM_ENCODER_IN_USE_H264,
+
+            TOXAV_CALL_COMM_INFO cmi;
+            cmi = TOXAV_CALL_COMM_ENCODER_IN_USE_H264;
+
+            if (call->video.second->video_encoder_coded_used_hw_accel == TOXAV_ENCODER_CODEC_HW_ACCEL_OMX_PI) {
+                cmi = TOXAV_CALL_COMM_ENCODER_IN_USE_H264_OMX_PI;
+            }
+
+            av->call_comm_cb.first(av, friend_number, cmi,
                                    0, av->call_comm_cb.second);
         }
 
@@ -1195,6 +1203,8 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
             // set to hardcoded 24fps (this is only for vpx internal calculations!!)
             uint32_t duration = (41 * 10); // HINT: 24fps ~= 41ms
 #endif
+            LOGGER_DEBUG(av->m->log, "encode_frame_h264_omx_raspi:099");
+
 
             vpx_codec_err_t vrc = vpx_codec_encode(call->video.second->encoder, &img,
                                                    (int64_t)video_frame_record_timestamp, duration,
@@ -1238,6 +1248,8 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         } else {
             // HINT: H264
 #ifdef RASPBERRY_PI_OMX
+            LOGGER_DEBUG(av->m->log, "send_frames_h264_omx_raspi:001");
+
             uint32_t result = send_frames_h264_omx_raspi(av, friend_number, width, height,
                               y, u, v, call,
                               &video_frame_record_timestamp,
@@ -1245,6 +1257,9 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
                               &nal,
                               &i_frame_size,
                               &rc);
+
+            LOGGER_DEBUG(av->m->log, "send_frames_h264_omx_raspi:002:res=%d", (int)result);
+
 #else
             uint32_t result = send_frames_h264(av, friend_number, width, height,
                                                y, u, v, call,
