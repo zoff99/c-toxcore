@@ -211,7 +211,7 @@ static int on_update(BWController *bwc, const struct BWCMessage *msg)
     const uint32_t recv = msg->recv;
     const uint32_t lost = msg->lost;
 
-    LOGGER_ERROR(bwc->m->log, "recved: %u lost: %u", recv, lost);
+    LOGGER_DEBUG(bwc->m->log, "recved: %u lost: %u", recv, lost);
 
     if (bwc->mcb) {
 
