@@ -1084,6 +1084,6 @@ RTPSession *rtp_new(int payload_type, Messenger *m, uint32_t friendnumber,
         }
     }
 
-    session->sequnum ++;
+    session->sequnum++;
     return 0;
 }
