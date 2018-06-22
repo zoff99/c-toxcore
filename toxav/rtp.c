@@ -97,6 +97,14 @@ static struct RTPMessage *new_message(Tox *tox, const struct RTPHeader *header, 
 static int8_t get_slot(Tox *tox, struct RTPWorkBufferList *wkbl, bool is_keyframe,
                        const struct RTPHeader *header, bool is_multipart)
 {
+
+    if (wkbl->next_free_entry == 0) {
+        // the work buffer is completely empty
+        // just return the first slot then
+        LOGGER_DEBUG(log, "get_slot:work buffer empty");
+        return 0;
+    }
+
     if (is_multipart) {
         // This RTP message is part of a multipart frame, so we try to find an
         // existing slot with the previous parts of the frame in it.
@@ -110,6 +118,7 @@ static int8_t get_slot(Tox *tox, struct RTPWorkBufferList *wkbl, bool is_keyfram
                 // In reality, these will almost certainly either both match or
                 // both not match. Only if somehow there were 65535 frames
                 // between, the timestamp will matter.
+                LOGGER_DEBUG(log, "get_slot:found slot num %d", (int)i);
                 return i;
             }
         }
@@ -254,6 +263,8 @@ static int8_t get_slot(Logger *log, struct RTPWorkBufferList *wkbl, bool is_keyf
         LOGGER_ERROR(log, "No session!");
         return -1;
     }
+
+#if 0
 
     // Slot 0 contains a key frame, slot_id points at an interframe that is
     // relative to that key frame, so we don't use it yet.
@@ -482,8 +493,11 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
         // or get told to drop the incoming packet if it's too old.
         slot_id = get_slot(session->tox, session->work_buffer_list, is_keyframe, header, /* is_multipart */false);
 
+        LOGGER_DEBUG(log, "II:9.0:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
+
         if (slot_id == GET_SLOT_RESULT_DROP_INCOMING) {
             // The incoming frame is too old, so we drop it.
+            LOGGER_DEBUG(log, "II:9:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
             return -1;
         }
     }
@@ -503,6 +517,9 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
                 incoming_data,
                 incoming_data_length)) {
         // Memory allocation failed. Return error.
+
+        LOGGER_DEBUG(log, "II:10:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
+
         return -1;
     }
 
