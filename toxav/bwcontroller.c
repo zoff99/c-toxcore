@@ -149,7 +149,7 @@ void bwc_add_lost(BWController *bwc, uint32_t bytes_received_ok)
 {
 }
 
-void bwc_add_lost_v3(BWController *bwc, uint32_t bytes_lost)
+void bwc_add_lost_v3(BWController *bwc, uint32_t bytes_lost, bool force_update_now)
 {
     if (!bwc) {
         return;
@@ -158,7 +158,7 @@ void bwc_add_lost_v3(BWController *bwc, uint32_t bytes_lost)
     LOGGER_DEBUG(bwc->m->log, "BWC lost(1): %d", (int)bytes_lost);
 
     bwc->cycle.lost = bwc->cycle.lost + bytes_lost;
-    send_update(bwc);
+    send_update(bwc, force_update_now);
 }
 
 static void send_update(BWController *bwc)
@@ -199,6 +199,8 @@ static void send_update(BWController *bwc)
 static int on_update(BWController *bwc, const struct BWCMessage *msg)
 {
     LOGGER_DEBUG(bwc->m->log, "%p Got update from peer", bwc);
+
+#if 0
 
     /* Peers sent update too soon */
     if (bwc->cycle.last_recv_timestamp + BWC_SEND_INTERVAL_MS > current_time_monotonic(bwc->bwc_mono_time)) {
