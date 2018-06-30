@@ -1359,6 +1359,11 @@ static void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, 
             return;
         }
 
+        if (call->video.second->video_bitrate_autoset == 0) {
+            // HINT: client does not want bitrate autoset
+            return;
+        }
+
         pthread_mutex_lock(call->av->mutex);
 
         // HINT: on high bitrates we lower the bitrate even on small data loss
