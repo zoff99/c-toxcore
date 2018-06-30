@@ -257,6 +257,7 @@ struct RTPWorkBufferList {
 };
 
 #define DISMISS_FIRST_LOST_VIDEO_PACKET_COUNT 10
+#define INCOMING_PACKETS_TS_ENTRIES 10
 
 /**
  * RTP control session.
