@@ -21,6 +21,8 @@ libtoxav_la_SOURCES = ../toxav/rtp.h \
                     ../toxav/toxav.h \
                     ../toxav/toxav.c \
                     ../toxav/toxav_old.c \
+                    ../toxav/ts_buffer.c \
+                    ../toxav/dummy_ntp.c \
                     ../toxav/codecs/vpx/codec.c
 
 if ON_RASPI
