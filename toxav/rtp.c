@@ -10,6 +10,7 @@
 
 #include "bwcontroller.h"
 #include "video.h"
+#include "dummy_ntp.h"
 
 #include "../toxcore/logger.h"
 #include "../toxcore/util.h"
@@ -639,6 +640,37 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     LOGGER_DEBUG(m->log, "header.pt %d, video %d", (uint8_t)header.pt, (rtp_TypeVideo % 128));
 
     LOGGER_DEBUG(m->log, "rtp packet record time: %llu", header.frame_record_timestamp);
+
+
+
+
+    // HINT: ask sender for dummy ntp values -------------
+    if (
+        (
+            ((header.sequnum % 100) == 0)
+            ||
+            (header.sequnum < 30)
+        )
+        && (header.offset_lower == 0)) {
+        uint32_t pkg_buf_len = (sizeof(uint32_t) * 3) + 2;
+        uint8_t pkg_buf[pkg_buf_len];
+        pkg_buf[0] = PACKET_TOXAV_COMM_CHANNEL;
+        pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_REQUEST;
+        uint32_t tmp = current_time_monotonic();
+        pkg_buf[2] = tmp >> 24 & 0xFF;
+        pkg_buf[3] = tmp >> 16 & 0xFF;
+        pkg_buf[4] = tmp >> 8  & 0xFF;
+        pkg_buf[5] = tmp       & 0xFF;
+
+        int result = send_custom_lossless_packet(m, friendnumber, pkg_buf, pkg_buf_len);
+    }
+
+    // HINT: ask sender for dummy ntp values -------------
+
+
+
+
+
 
 
     // The sender uses the new large-frame capable protocol and is sending a
