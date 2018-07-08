@@ -504,11 +504,11 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
         // or get told to drop the incoming packet if it's too old.
         slot_id = get_slot(session->tox, session->work_buffer_list, is_keyframe, header, /* is_multipart */false);
 
-        LOGGER_WARNING(log, "FPATH:9.0:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
+        LOGGER_DEBUG(log, "FPATH:9.0:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
 
         if (slot_id == GET_SLOT_RESULT_DROP_INCOMING) {
             // The incoming frame is too old, so we drop it.
-            LOGGER_WARNING(log, "FPATH:9:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
+            LOGGER_DEBUG(log, "FPATH:9:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
             return -1;
         }
     }
@@ -528,12 +528,12 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
                 incoming_data,
                 incoming_data_length)) {
 
-        LOGGER_WARNING(log, "FPATH:10:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
+        LOGGER_DEBUG(log, "FPATH:10:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
 
         return -1;
     } else {
-        LOGGER_WARNING(log, "FPATH:10c:slot num=%d:VSEQ:%d *message_complete*",
-                       slot_id, (int)header->sequnum);
+        LOGGER_DEBUG(log, "FPATH:10c:slot num=%d:VSEQ:%d *message_complete*",
+                     slot_id, (int)header->sequnum);
     }
 
     if (slot_id > 0) {
@@ -548,12 +548,12 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
 
         if ((m_new0) && (m_new2)) {
             if ((m_new0->header.sequnum + 2) < m_new2->header.sequnum) {
-                LOGGER_WARNING(log, "kick out:m_new0 seq#=%d", (int)m_new0->header.sequnum);
+                LOGGER_DEBUG(log, "kick out:m_new0 seq#=%d", (int)m_new0->header.sequnum);
                 // change slot_id to "0" to process oldest frame in buffer instead of current one
                 struct RTPMessage *m_new = process_frame(log, session->work_buffer_list, slot_id);
 
                 if (m_new) {
-                    LOGGER_WARNING(log, "FPATH:11x:slot num=%d:VSEQ:%d", slot_id, (int)m_new->header.sequnum);
+                    LOGGER_DEBUG(log, "FPATH:11x:slot num=%d:VSEQ:%d", slot_id, (int)m_new->header.sequnum);
                     session->mcb(session->cs, m_new);
                     m_new = NULL;
                 }
