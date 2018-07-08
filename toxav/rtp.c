@@ -162,12 +162,16 @@ static int8_t get_slot(Tox *tox, struct RTPWorkBufferList *wkbl, bool is_keyfram
             // Get the most recently filled slot.
             const struct RTPWorkBuffer *slot = &wkbl->work_buffer[wkbl->next_free_entry - 1];
 
+#if 0
+
             // If the incoming packet is older than our newest slot, drop it.
             // This is the first situation in the above diagram.
             if (slot->buf->header.timestamp > header->timestamp) {
                 LOGGER_API_DEBUG(tox, "workbuffer:2:timestamp too old");
                 return GET_SLOT_RESULT_DROP_INCOMING;
             }
+
+#endif
         }
 
     if (msg == NULL) {
@@ -227,10 +231,16 @@ int rtp_stop_receiving(RTPSession *session)
         return -1;
     }
 
+#endif
+
+#if 0
     // This is a key frame, it's not too old yet, so we keep it in its slot for
     // a little longer.
     LOGGER_API_INFO(tox, "keep KEYFRAME in workbuffer");
     return GET_SLOT_RESULT_DROP_INCOMING;
+#endif
+
+    return GET_SLOT_RESULT_DROP_OLDEST_SLOT;
 }
 
 /**
@@ -457,7 +467,7 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
     const uint32_t full_frame_length = header->data_length_full;
 
     // The sender tells us whether this is a key frame.
-    const bool is_keyframe = (header->flags & RTP_KEY_FRAME) != 0;
+    const bool is_keyframe = 0; // (header->flags & RTP_KEY_FRAME) != 0;
 
     LOGGER_API_DEBUG(session->tox, "wkbl->next_free_entry:003=%d", session->work_buffer_list->next_free_entry);
 
@@ -494,11 +504,11 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
         // or get told to drop the incoming packet if it's too old.
         slot_id = get_slot(session->tox, session->work_buffer_list, is_keyframe, header, /* is_multipart */false);
 
-        LOGGER_DEBUG(log, "II:9.0:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
+        LOGGER_WARNING(log, "FPATH:9.0:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
 
         if (slot_id == GET_SLOT_RESULT_DROP_INCOMING) {
             // The incoming frame is too old, so we drop it.
-            LOGGER_DEBUG(log, "II:9:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
+            LOGGER_WARNING(log, "FPATH:9:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
             return -1;
         }
     }
@@ -517,11 +527,30 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
                 header,
                 incoming_data,
                 incoming_data_length)) {
-        // Memory allocation failed. Return error.
 
-        LOGGER_DEBUG(log, "II:10:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
+        LOGGER_WARNING(log, "FPATH:10:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
 
         return -1;
+    } else {
+        LOGGER_WARNING(log, "FPATH:10c:slot num=%d:VSEQ:%d *message_complete*",
+                       slot_id, (int)header->sequnum);
+    }
+
+    if (slot_id > 0) {
+        // check if there are old messages lingering in the buffer
+        struct RTPWorkBufferList *wkbl = session->work_buffer_list;
+        struct RTPWorkBuffer *const slot0 = &wkbl->work_buffer[0];
+        struct RTPMessage *const m_new0 = slot0->buf;
+        struct RTPWorkBuffer *const slot2 = &wkbl->work_buffer[slot_id];
+        struct RTPMessage *const m_new2 = slot2->buf;
+
+        if ((m_new0) && (m_new2)) {
+            if ((m_new0->header.sequnum + 1) < m_new2->header.sequnum) {
+                LOGGER_WARNING(log, "kick out:m_new0 seq#=%d", (int)m_new0->header.sequnum);
+                // change slot_id to "0" to process oldest frame in buffer instead of current one
+                slot_id = 0;
+            }
+        }
     }
 
     struct RTPMessage *m_new = process_frame(session->tox, session->work_buffer_list, slot_id);
