@@ -1082,14 +1082,6 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
 
     }
 
-    // --- STAY on VP8 ENCODE !! ----
-    // --- STAY on VP8 ENCODE !! ----
-    // --- STAY on VP8 ENCODE !! ----
-    // call->video.second->video_encoder_coded_used = TOXAV_ENCODER_CODEC_USED_VP8;
-    // --- STAY on VP8 ENCODE !! ----
-    // --- STAY on VP8 ENCODE !! ----
-    // --- STAY on VP8 ENCODE !! ----
-
     // HINT: auto switch encoder, if we got capabilities packet from friend ------
 
     if ((call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8)
@@ -1362,7 +1354,7 @@ static void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, 
 
     LOGGER_API_DEBUG(call->av->tox, "Reported loss of %f%%", (double)loss * 100);
 
-    if (call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H264) {
+    if (1 == 1) { // (call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H264) {
 
         if (call->video_bit_rate == 0) {
             // HINT: video is turned off -> just do nothing
@@ -1450,10 +1442,19 @@ static void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, 
         }
 
         // HINT: sanity check --------------
-        if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
-            call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
-        } else if (call->video_bit_rate > VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
-            call->video_bit_rate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264;
+
+        if (call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H264) {
+            if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
+                call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
+            } else if (call->video_bit_rate > VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
+                call->video_bit_rate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264;
+            }
+        } else {
+            if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_VP8) {
+                call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_VP8;
+            } else if (call->video_bit_rate > VIDEO_BITRATE_MAX_AUTO_VALUE_VP8) {
+                call->video_bit_rate = VIDEO_BITRATE_MAX_AUTO_VALUE_VP8;
+            }
         }
 
         // HINT: sanity check --------------
