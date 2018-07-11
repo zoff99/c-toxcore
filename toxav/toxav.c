@@ -1386,6 +1386,10 @@ static void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, 
                     call->video_bit_rate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264;
                 }
 
+                if (call->video_bit_rate > (uint32_t)call->video.second->video_max_bitrate) {
+                    call->video_bit_rate = (uint32_t)call->video.second->video_max_bitrate;
+                }
+
                 // HINT: sanity check --------------
 
                 LOGGER_ERROR(call->av->m->log, "callback_bwc:DEC:1:H:vb=%d loss=%d", (int)call->video_bit_rate, (int)(loss * 100));
@@ -1413,6 +1417,10 @@ static void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, 
                     call->video_bit_rate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264;
                 }
 
+                if (call->video_bit_rate > (uint32_t)call->video.second->video_max_bitrate) {
+                    call->video_bit_rate = (uint32_t)call->video.second->video_max_bitrate;
+                }
+
                 // HINT: sanity check --------------
 
                 LOGGER_DEBUG(call->av->m->log, "callback_bwc:INC:vb=%d loss=%d", (int)call->video_bit_rate, (int)(loss * 100));
@@ -1433,6 +1441,10 @@ static void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, 
                     call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
                 } else if (call->video_bit_rate > VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
                     call->video_bit_rate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264;
+                }
+
+                if (call->video_bit_rate > (uint32_t)call->video.second->video_max_bitrate) {
+                    call->video_bit_rate = (uint32_t)call->video.second->video_max_bitrate;
                 }
 
                 // HINT: sanity check --------------
@@ -1462,6 +1474,10 @@ static void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, 
                 call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_VP8;
             }
 
+        }
+
+        if (call->video_bit_rate > (uint32_t)call->video.second->video_max_bitrate) {
+            call->video_bit_rate = (uint32_t)call->video.second->video_max_bitrate;
         }
 
         // HINT: sanity check --------------
