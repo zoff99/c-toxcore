@@ -17,13 +17,13 @@
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "audio.h"
-#include "video.h"
-#include "msi.h"
-#include "ring_buffer.h"
-#include "rtp.h"
-#include "tox_generic.h"
-#include "codecs/toxav_codecs.h"
+#include "../../audio.h"
+#include "../../video.h"
+#include "../../msi.h"
+#include "../../ring_buffer.h"
+#include "../../rtp.h"
+#include "../../tox_generic.h"
+#include "../toxav_codecs.h"
 
 
 VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data,

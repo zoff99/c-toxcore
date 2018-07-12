@@ -17,13 +17,13 @@
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "audio.h"
-#include "video.h"
-#include "msi.h"
-#include "ring_buffer.h"
-#include "rtp.h"
-#include "tox_generic.h"
-#include "codecs/toxav_codecs.h"
+#include "../../audio.h"
+#include "../../video.h"
+#include "../../msi.h"
+#include "../../ring_buffer.h"
+#include "../../rtp.h"
+#include "../../tox_generic.h"
+#include "../toxav_codecs.h"
 
 
 static uint32_t MaxIntraTarget(uint32_t optimalBuffersize)

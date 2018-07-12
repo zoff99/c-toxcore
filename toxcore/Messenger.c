@@ -437,7 +437,7 @@ int m_delfriend(Messenger *m, uint32_t friendnumber)
     }
 
     clear_receipts(m, friendnumber);
-    remove_request_received(&(m->fr), m->friendlist[friendnumber].real_pk);
+    remove_request_received(m->fr, m->friendlist[friendnumber].real_pk);
     friend_connection_callbacks(m->fr_c, m->friendlist[friendnumber].friendcon_id, MESSENGER_CALLBACK_INDEX, nullptr,
                                 nullptr, nullptr, nullptr, 0);
 
