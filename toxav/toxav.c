@@ -324,6 +324,7 @@ void toxav_iterate(ToxAV *av)
 
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
+
             // LOGGER_WARNING(av->m->log, "XXXXXXXXXXXXXXXXXX=================");
             if (i->msi_call->self_capabilities & msi_CapRAudio &&
                     i->msi_call->peer_capabilities & msi_CapSAudio) {
