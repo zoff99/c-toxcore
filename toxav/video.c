@@ -299,7 +299,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
     tsb_get_range_in_buffer((TSBuffer *)vc->vbuf_raw, &timestamp_min, &timestamp_max);
 
 #define MIN_AV_BUFFERING_MS 250
-#define AV_ADJUSTMENT_BASE_MS 100
+#define AV_ADJUSTMENT_BASE_MS 170
 
     if (vc->rountrip_time_ms > (-vc->timestamp_difference_adjustment - AV_ADJUSTMENT_BASE_MS)) {
         // drift
