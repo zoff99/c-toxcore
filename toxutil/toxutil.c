@@ -32,6 +32,9 @@
 #include "toxutil.h"
 
 #include <assert.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 
 #define CAP_PACKET_ID 170
