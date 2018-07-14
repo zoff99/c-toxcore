@@ -80,7 +80,7 @@ typedef struct ACSession_s {
     int32_t ld_sample_rate; /* Last decoder sample rate */
     int32_t ld_channel_count; /* Last decoder channel count */
     uint64_t ldrts; /* Last decoder reconfiguration time stamp */
-    int32_t lp_seqnum; /* last incoming packet sequence number */
+    int32_t lp_seqnum_new; /* last incoming packet sequence number */
     void *j_buf; /* it's a Ringbuffer now */
 
     int64_t timestamp_difference_to_sender;

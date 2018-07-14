@@ -98,7 +98,7 @@ ACSession *ac_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_audio_re
     ac->ld_sample_rate = AUDIO_DECODER__START_CHANNEL_COUNT;
     ac->ldrts = 0; /* Make it possible to reconfigure straight away */
 
-    ac->lp_seqnum = -1;
+    ac->lp_seqnum_new = -1;
 
     ac->last_incoming_frame_ts = 0;
     ac->timestamp_difference_to_sender = 0; // no difference to sender as start value
@@ -158,7 +158,8 @@ void ac_kill(ACSession *ac)
 static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int32_t *success,
         int64_t timestamp_difference_adjustment_,
         int64_t timestamp_difference_to_sender_,
-        uint8_t encoder_frame_has_record_timestamp)
+        uint8_t encoder_frame_has_record_timestamp,
+        ACSession *ac)
 {
 #define AUDIO_CURRENT_TS_SPAN_MS 60
 // #define AUDIO_AHEAD_OF_VIDEO_MS 20
@@ -189,11 +190,33 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
                         tsb_range_ms,
                         &removed_entries);
 
-    LOGGER_DEBUG(log, "jbuf_read:lost_frame=%d", (int)lost_frame);
-
     if (res == true) {
         *success = 1;
+
+
+        struct RTPMessage *m = (struct RTPMessage *)ret;
+
+
+        if (ac->lp_seqnum_new == -1) {
+            ac->lp_seqnum_new = m->header.sequnum;
+        } else {
+            if (
+                ((m->header.sequnum > 8) && (ac->lp_seqnum_new < (UINT16_MAX - 7)))
+            ) {
+                LOGGER_DEBUG(log, "AudioFramesIN:2: %d %d", (int)ac->lp_seqnum_new, (int)m->header.sequnum);
+                int64_t diff = (m->header.sequnum - ac->lp_seqnum_new);
+
+                if (diff > 1) {
+                    LOGGER_WARNING(log, "AudioFramesIN: missing %d audio frames", (int)(diff - 1));
+                    lost_frame = 1;
+                }
+            }
+
+            ac->lp_seqnum_new = m->header.sequnum;
+        }
     }
+
+    LOGGER_DEBUG(log, "jbuf_read:lost_frame=%d", (int)lost_frame);
 
     if (lost_frame == 1) {
         *success = AUDIO_LOST_FRAME_INDICATOR;
@@ -210,7 +233,8 @@ static inline bool jbuf_is_empty(struct TSBuffer *q)
 static inline struct RTPMessage *jbuf_read(Logger *log, struct RingBuffer *q, int32_t *success,
         int64_t timestamp_difference_adjustment_,
         int64_t timestamp_difference_to_sender_,
-        uint8_t encoder_frame_has_record_timestamp)
+        uint8_t encoder_frame_has_record_timestamp,
+        ACSession *ac)
 {
     void *ret = NULL;
     uint64_t lost_frame = 0;
@@ -274,7 +298,7 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
     while ((msg = jbuf_read(ac->log, jbuffer, &rc,
                             *timestamp_difference_adjustment_,
                             *timestamp_difference_to_sender_,
-                            ac->encoder_frame_has_record_timestamp))
+                            ac->encoder_frame_has_record_timestamp, ac))
             || rc == AUDIO_LOST_FRAME_INDICATOR) {
         pthread_mutex_unlock(ac->queue_mutex);
 
@@ -333,6 +357,8 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
              */
             rc = opus_decode(ac->decoder, msg->data + 4, msg->len - 4, temp_audio_buffer, 5760, use_fec);
 
+#if 0
+
             if (rc >= 0) {
                 // what is the audio to video latency?
                 const struct RTPHeader *header_v3 = (void *) & (msg->header);
@@ -349,6 +375,8 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
                     }
                 }
             }
+
+#endif
 
             // what is the audio to video latency?
 
@@ -519,26 +547,6 @@ static struct RTPMessage *new_empty_message(size_t allocate_len, const uint8_t *
 #ifdef USE_TS_BUFFER_FOR_VIDEO
 static int jbuf_write(Logger *log, ACSession *ac, struct TSBuffer *q, struct RTPMessage *m)
 {
-
-    if (ac->lp_seqnum == -1) {
-        ac->lp_seqnum = m->header.sequnum;
-    } else {
-        // m->header.seqnum is of size "uint16_t"
-        if (
-            ((int32_t)m->header.sequnum > ac->lp_seqnum)
-            ||
-            ((m->header.sequnum < 8) && (ac->lp_seqnum > (UINT16_MAX - 7)))
-        ) {
-            // int64_t diff = (m->header.sequnum - ac->lp_seqnum);
-            ac->lp_seqnum = m->header.sequnum;
-        } else {
-            LOGGER_DEBUG(log, "AADEBUG:AudioFramesIN: old audio frames received hseqnum=%d, lpseqnum=%d",
-                         (int)m->header.sequnum,
-                         (int)ac->lp_seqnum);
-            return -1;
-        }
-    }
-
     void *tmp_buf2 = tsb_write(q, (void *)m, 0, (uint32_t)m->header.frame_record_timestamp);
 
     if (tmp_buf2 != NULL) {
@@ -546,7 +554,6 @@ static int jbuf_write(Logger *log, ACSession *ac, struct TSBuffer *q, struct RTP
         free(tmp_buf2);
         return -1;
     }
-
 
     return 0;
 }
