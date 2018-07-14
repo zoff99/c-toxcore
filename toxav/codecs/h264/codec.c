@@ -23,6 +23,7 @@
 #include "../../ring_buffer.h"
 #include "../../rtp.h"
 #include "../../tox_generic.h"
+#include "../../../toxcore/mono_time.h"
 #include "../toxav_codecs.h"
 
 
