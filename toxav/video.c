@@ -384,35 +384,35 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
 
 #if 1
-        LOGGER_WARNING(vc->log, "rtt:drift:1:%d %d %d", (int)(vc->rountrip_time_ms),
-                       (int)(-vc->timestamp_difference_adjustment),
-                       (int)AV_ADJUSTMENT_BASE_MS);
+        LOGGER_DEBUG(vc->log, "rtt:drift:1:%d %d %d", (int)(vc->rountrip_time_ms),
+                     (int)(-vc->timestamp_difference_adjustment),
+                     (int)AV_ADJUSTMENT_BASE_MS);
 
         if (vc->rountrip_time_ms > (-vc->timestamp_difference_adjustment - AV_ADJUSTMENT_BASE_MS)) {
             // drift
-            LOGGER_WARNING(vc->log, "rtt:drift:2:%d > %d", (int)(vc->rountrip_time_ms),
-                           (int)(-vc->timestamp_difference_adjustment - AV_ADJUSTMENT_BASE_MS));
+            LOGGER_DEBUG(vc->log, "rtt:drift:2:%d > %d", (int)(vc->rountrip_time_ms),
+                         (int)(-vc->timestamp_difference_adjustment - AV_ADJUSTMENT_BASE_MS));
 
-            LOGGER_WARNING(vc->log, "rtt:drift:3:%d < %d", (int)(vc->timestamp_difference_adjustment),
-                           (int)(-MIN_AV_BUFFERING_MS));
+            LOGGER_DEBUG(vc->log, "rtt:drift:3:%d < %d", (int)(vc->timestamp_difference_adjustment),
+                         (int)(-MIN_AV_BUFFERING_MS));
 
             if (tsb_size((TSBuffer *)vc->vbuf_raw) < 10) {
                 vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment - 1;
-                LOGGER_WARNING(vc->log, "rtt:drift:4:---1:%d", (int)(vc->timestamp_difference_adjustment));
+                LOGGER_DEBUG(vc->log, "rtt:drift:4:---1:%d", (int)(vc->timestamp_difference_adjustment));
             } else {
                 vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment + 1;
             }
         } else if (vc->rountrip_time_ms < (-vc->timestamp_difference_adjustment - AV_ADJUSTMENT_BASE_MS)) {
             // drift
-            LOGGER_WARNING(vc->log, "rtt:drift:5:%d << %d", (int)(vc->rountrip_time_ms),
-                           (int)(-vc->timestamp_difference_adjustment - AV_ADJUSTMENT_BASE_MS));
+            LOGGER_DEBUG(vc->log, "rtt:drift:5:%d << %d", (int)(vc->rountrip_time_ms),
+                         (int)(-vc->timestamp_difference_adjustment - AV_ADJUSTMENT_BASE_MS));
 
             if (vc->timestamp_difference_adjustment <= -MIN_AV_BUFFERING_MS) {
-                LOGGER_WARNING(vc->log, "rtt:drift:6:%d < %d", (int)(vc->timestamp_difference_adjustment),
-                               (int)(-MIN_AV_BUFFERING_MS));
+                LOGGER_DEBUG(vc->log, "rtt:drift:6:%d < %d", (int)(vc->timestamp_difference_adjustment),
+                             (int)(-MIN_AV_BUFFERING_MS));
 
                 vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment + 1;
-                LOGGER_WARNING(vc->log, "rtt:drift:7:+1:%d", (int)(vc->timestamp_difference_adjustment));
+                LOGGER_DEBUG(vc->log, "rtt:drift:7:+1:%d", (int)(vc->timestamp_difference_adjustment));
             }
         }
 
