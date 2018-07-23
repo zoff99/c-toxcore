@@ -1530,7 +1530,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
         //             (int)h264_encoded_video_frame,
         //             (int)vc->video_decoder_codec_used);
 
-        if (DISABLE_H264_ENCODER_FEATURE == 0) {
+        if (DISABLE_H264_DECODER_FEATURE == 0) {
 
             if ((vc->video_decoder_codec_used != TOXAV_ENCODER_CODEC_USED_H264)
                     && (h264_encoded_video_frame == 1)) {
