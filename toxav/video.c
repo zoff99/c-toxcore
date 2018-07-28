@@ -1484,7 +1484,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                                         &ret_value);
 #else
 
-            uint32_t start_time_ms = current_time_monotonic();
+            // uint32_t start_time_ms = current_time_monotonic();
 
             decode_frame_h264(vc, m, skip_video_flag, a_r_timestamp,
                               a_l_timestamp,
@@ -1493,8 +1493,8 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                               rc, full_data_len,
                               &ret_value);
 
-            uint32_t end_time_ms = current_time_monotonic();
-            LOGGER_WARNING(vc->log, "decode_frame_h264: %d ms", (int)(end_time_ms - start_time_ms));
+            // uint32_t end_time_ms = current_time_monotonic();
+            // LOGGER_WARNING(vc->log, "decode_frame_h264: %d ms", (int)(end_time_ms - start_time_ms));
 #endif
         }
 
