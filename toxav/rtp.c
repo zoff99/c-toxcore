@@ -616,7 +616,7 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
                         ((VCSession *)(session->cs))->skip_fps = data[2];
                     }
 
-                    ((VCSession *)(session->cs))->skip_fps_release_counter = TOXAV_SKIP_FPS_RELEASE_AFTER_FRAMES;
+                    ((VCSession *)(session->cs))->skip_fps_duration_until_ts = current_time_monotonic() + TOXAV_SKIP_FPS_RELEASE_AFTER_MS;
                 }
             } else if (data[1] == PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_REQUEST) {
 

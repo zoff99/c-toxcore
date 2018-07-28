@@ -34,6 +34,7 @@ struct TSBuffer {
     uint16_t  end;
     uint64_t  *type; /* used by caller anyway the caller wants, or dont use it at all */
     uint32_t  *timestamp; /* these dont need to be unix timestamp, they can be nummbers of a counter */
+    uint32_t  last_timestamp_out; /* timestamp of the last read entry */
     void    **data;
 };
 
@@ -146,6 +147,8 @@ static uint16_t tsb_delete_old_entries(TSBuffer *b, Logger *log, const uint32_t 
     }
 
     uint16_t removed_entries = 0;
+    uint16_t removed_entries_before_last_out =
+        0; /* entries removed discarding those between threshold and last read entry */
     uint16_t start_entry = b->start;
     uint16_t current_element;
     // iterate all entries
@@ -166,13 +169,18 @@ static uint16_t tsb_delete_old_entries(TSBuffer *b, Logger *log, const uint32_t 
             }
 
             tsb_close_hole(b, log, start_entry, current_element);
+
+            if (b->timestamp[current_element] < b->last_timestamp_out) {
+                removed_entries_before_last_out++;
+            }
+
             removed_entries++;
         }
     }
 
     b->start = (b->start + removed_entries) % b->size;
 
-    return removed_entries;
+    return removed_entries_before_last_out;
 }
 
 void tsb_get_range_in_buffer(TSBuffer *b, uint32_t *timestamp_min, uint32_t *timestamp_max)
@@ -308,12 +316,19 @@ static bool tsb_return_oldest_entry_in_range(TSBuffer *b, Logger *log, void **p,
 
 bool tsb_read(TSBuffer *b, Logger *log, void **p, uint64_t *data_type, uint32_t *timestamp_out,
               const uint32_t timestamp_in, const uint32_t timestamp_range,
-              uint16_t *removed_entries_back)
+              uint16_t *removed_entries_back, uint16_t *is_skipping)
 {
+    *is_skipping = 0;
+
     if (tsb_empty(b) == true) {
         *removed_entries_back = 0;
         *p = NULL;
         return false;
+    }
+
+    if (b->last_timestamp_out < (timestamp_in - timestamp_range)) {
+        /* caller is missing a time range, either call more often, or incread range */
+        *is_skipping = 1;
     }
 
     bool have_found_element = tsb_return_oldest_entry_in_range(b, log, p, data_type,
@@ -325,6 +340,9 @@ bool tsb_read(TSBuffer *b, Logger *log, void **p, uint64_t *data_type, uint32_t 
         // only delete old entries if we found a "wanted" entry
         uint16_t removed_entries = tsb_delete_old_entries(b, log, (timestamp_in - timestamp_range));
         *removed_entries_back = removed_entries;
+
+        // save the timestamp of the last read entry
+        b->last_timestamp_out = *timestamp_out;
     } else {
         *removed_entries_back = 0;
     }
@@ -362,6 +380,8 @@ TSBuffer *tsb_new(const int size)
         return NULL;
     }
 
+    buf->last_timestamp_out = 0;
+
     return buf;
 }
 
@@ -372,10 +392,13 @@ void tsb_drain(TSBuffer *b)
         uint64_t dt;
         uint32_t to;
         uint16_t reb;
+        uint16_t skip;
 
-        while (tsb_read(b, NULL, &dummy, &dt, &to, UINT32_MAX, 0, &reb) == true) {
+        while (tsb_read(b, NULL, &dummy, &dt, &to, UINT32_MAX, 0, &reb, &skip) == true) {
             free(dummy);
         }
+
+        b->last_timestamp_out = 0;
     }
 }
 
@@ -464,6 +487,7 @@ void unit_test()
     uint32_t ti = 3000;
     uint32_t tr = 400;
     uint16_t reb = 0;
+    uint16_t skip = 0;
     bool res1;
 
     bool loop = true;
@@ -472,7 +496,7 @@ void unit_test()
         loop = false;
         ti = rand() % 4999 + 1000;
         tr = rand() % 100 + 1;
-        res1 = tsb_read(b1, NULL, &ptr, &dt, &to, ti, tr, &reb);
+        res1 = tsb_read(b1, NULL, &ptr, &dt, &to, ti, tr, &reb, &skip);
         printf("ti=%d,tr=%d\n", (int)ti, (int)tr);
 
         if (res1 == true) {
