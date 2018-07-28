@@ -304,36 +304,6 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 #define MIN_AV_BUFFERING_MS (250) // ORIG: 250
 #define AV_ADJUSTMENT_BASE_MS (120)
 
-#if 0
-    LOGGER_WARNING(vc->log, "rtt:drift:1:%d %d %d", (int)(vc->rountrip_time_ms),
-                   (int)(-vc->timestamp_difference_adjustment),
-                   (int)AV_ADJUSTMENT_BASE_MS);
-
-    if (vc->rountrip_time_ms > (-vc->timestamp_difference_adjustment - AV_ADJUSTMENT_BASE_MS)) {
-        // drift
-        LOGGER_WARNING(vc->log, "rtt:drift:2:%d > %d", (int)(vc->rountrip_time_ms),
-                       (int)(-vc->timestamp_difference_adjustment - AV_ADJUSTMENT_BASE_MS));
-
-        if (vc->timestamp_difference_adjustment <= -MIN_AV_BUFFERING_MS) {
-            LOGGER_WARNING(vc->log, "rtt:drift:3:%d < %d", (int)(vc->timestamp_difference_adjustment),
-                           (int)(-MIN_AV_BUFFERING_MS));
-
-            vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment - 1;
-            LOGGER_WARNING(vc->log, "rtt:drift:4:---1:%d", (int)(vc->timestamp_difference_adjustment));
-        }
-    } else if (vc->rountrip_time_ms < (-vc->timestamp_difference_adjustment - AV_ADJUSTMENT_BASE_MS)) {
-        // drift
-        LOGGER_WARNING(vc->log, "rtt:drift:5:%d << %d", (int)(vc->rountrip_time_ms),
-                       (int)(-vc->timestamp_difference_adjustment - AV_ADJUSTMENT_BASE_MS));
-
-        LOGGER_WARNING(vc->log, "rtt:drift:6:%d < %d", (int)(vc->timestamp_difference_adjustment),
-                       (int)(-MIN_AV_BUFFERING_MS));
-
-        vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment + 1;
-        LOGGER_WARNING(vc->log, "rtt:drift:7:+1:%d", (int)(vc->timestamp_difference_adjustment));
-    }
-
-#endif
 
     int64_t want_remote_video_ts = (current_time_monotonic() + vc->timestamp_difference_to_sender +
                                     vc->timestamp_difference_adjustment);
@@ -414,7 +384,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
 #if 1
 
-        if (is_skipping == 1) {
+        if ((is_skipping > 0) && (removed_entries > 0)) {
             if ((vc->last_requested_lower_fps_ts + 10000) < current_time_monotonic()) {
 
 
@@ -435,7 +405,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
                 vc->last_requested_lower_fps_ts = current_time_monotonic();
 
-                LOGGER_WARNING(vc->log, "request lower FPS from sender: skip every %d", (int)pkg_buf[2]);
+                LOGGER_WARNING(vc->log, "request lower FPS from sender: %d ms : skip every %d", (int)is_skipping, (int)pkg_buf[2]);
             }
         }
 
@@ -511,54 +481,6 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
         uint16_t buf_size = tsb_size((TSBuffer *)vc->vbuf_raw);
         int32_t diff_want_to_got = (int)timestamp_want_get - (int)timestamp_out_;
 
-#if 0
-
-        if (buf_size < 4) {
-            vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment - 10;
-            LOGGER_DEBUG(vc->log, " ---- B");
-        } else if (buf_size > 4) {
-            vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment + 10;
-            LOGGER_DEBUG(vc->log, " +++++++ B");
-        }
-
-#endif
-
-#if 0
-
-        if (diff_want_to_got > 0) {
-            vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment - 40;
-            LOGGER_DEBUG(vc->log, " ----- Diff");
-        } else if (diff_want_to_got < 0) {
-            vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment + 40;
-            LOGGER_DEBUG(vc->log, " +++++++ Diff");
-        }
-
-#endif
-
-#if 0
-
-        if ((removed_entries > 0) && (removed_entries < 4)) {
-            vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment - (removed_entries * 10);
-            vc->tsb_range_ms = vc->tsb_range_ms + (removed_entries * 10);
-
-            if (vc->tsb_range_ms > 380) {
-                vc->tsb_range_ms = 380;
-            }
-
-            LOGGER_DEBUG(vc->log, " +++++++++++ drift rm=%d %d", (int)removed_entries, (int)vc->tsb_range_ms);
-        } else if (removed_entries == 0) {
-            vc->tsb_range_ms = vc->tsb_range_ms - 1;
-
-            if (vc->tsb_range_ms < 180) {
-                vc->tsb_range_ms = 180;
-            }
-
-            LOGGER_DEBUG(vc->log, " --------- drift rm=%d %d", (int)removed_entries, (int)vc->tsb_range_ms);
-        }
-
-#endif
-
-
 
         LOGGER_DEBUG(vc->log, "values:diff_to_sender=%d adj=%d tsb_range=%d bufsize=%d",
                      (int)vc->timestamp_difference_to_sender, (int)vc->timestamp_difference_adjustment,
@@ -566,80 +488,11 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                      (int)buf_size);
 
 
-
-
-
-
-#if 0
-
-        if ((int)timestamp_max > (int)timestamp_want_get) {
-            if (((int)timestamp_max - (int)timestamp_want_get) > 120) {
-                // more than 80ms delay for video stream, hmm lets drift the timestamp a bit
-                vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment +
-                                                      (((int)timestamp_max - (int)timestamp_want_get) - 50);
-                LOGGER_DEBUG(vc->log, " +++++++ LARGE");
-            } else if (((int)timestamp_max - (int)timestamp_want_get) > 90) {
-                // more than 80ms delay for video stream, hmm lets drift the timestamp a bit
-                vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment + 8;
-                LOGGER_DEBUG(vc->log, " +++++ small");
-            }
-        } else if ((int)timestamp_max < (int)timestamp_want_get) {
-            if (((int)timestamp_want_get - (int)timestamp_max) > 1) {
-                // more than 80ms delay for video stream, hmm lets drift the timestamp a bit
-                vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment +
-                                                      (((int)timestamp_want_get - (int)timestamp_max) - 1);
-                LOGGER_DEBUG(vc->log, " ------- LARGE");
-            }
-        }
-
-#endif
-
-#if 0
-
-        if (removed_entries > 0) {
-            vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment - (10 * removed_entries);
-            LOGGER_DEBUG(vc->log, " ------- 10*x");
-        }
-
-#endif
-
-#if 0
-
-        if ((int)timestamp_want_get > (int)timestamp_out_) {
-            if (vc->startup_video_timespan == 0) {
-                vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment -
-                                                      ((int)timestamp_want_get - (int)timestamp_out_);
-            } else {
-                vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment - 3;
-            }
-
-            LOGGER_DEBUG(vc->log, " ---");
-        } else if ((int)timestamp_want_get < (int)timestamp_out_) {
-            if (vc->startup_video_timespan == 0) {
-                vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment +
-                                                      ((int)timestamp_out_ - (int)timestamp_want_get);
-            } else {
-                vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment + 2;
-            }
-
-            LOGGER_DEBUG(vc->log, " +++");
-        }
-
-#endif
-
         if (vc->startup_video_timespan > 0) {
             vc->startup_video_timespan = 0;
         }
 
-#if 0
 
-        // Hard limit ----------
-        if (vc->timestamp_difference_adjustment > -500) {
-            vc->timestamp_difference_adjustment = -500;
-        }
-
-        // Hard limit ----------
-#endif
 
         // TODO: make it available to the audio session
         // bad hack -> make better!
@@ -664,12 +517,6 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
             if ((int32_t)(header_v3_0->sequnum + 1) != (int32_t)vc->last_seen_fragment_seqnum) {
                 // TODO: check why we often get exactly the previous video frame here?!?!
-
-#if 0
-                // HINT: give feedback that we lost some bytes
-                bwc_add_lost_v3(bwc, header_v3_0->data_length_full, false);
-                // LOGGER_ERROR(vc->log, "BWC:lost:001");
-#endif
             }
 
             if (vc->count_old_video_frames_seen > 6) {
@@ -678,10 +525,6 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                 vc->last_seen_fragment_seqnum = (int32_t)header_v3_0->sequnum;
                 vc->count_old_video_frames_seen = 0;
             }
-
-            // if (vc->video_decoder_codec_used != TOXAV_ENCODER_CODEC_USED_H264) {
-            // rc = vpx_codec_decode(vc->decoder, NULL, 0, NULL, VPX_DL_REALTIME);
-            // }
 
             free(p);
             pthread_mutex_unlock(vc->queue_mutex);
@@ -701,7 +544,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
             int32_t missing_frame_tolerance = NORMAL_MISSING_FRAME_COUNT_TOLERANCE;
 
-            if (is_skipping == 1) {
+            if (is_skipping > 0) {
                 // HINT: workaround, if we are skipping frames because client is too slow
                 //       we assume the missing frames here are the skipped ones
                 missing_frame_tolerance = WHEN_SKIPPING_MISSING_FRAME_COUNT_TOLERANCE;
@@ -774,12 +617,12 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
         // LOGGER_DEBUG(vc->log, "vc_iterate: rb_read p->len=%d data_type=%d", (int)full_data_len, (int)data_type);
         // LOGGER_DEBUG(vc->log, "vc_iterate: rb_read rb size=%d", (int)rb_size((RingBuffer *)vc->vbuf_raw));
 
-#if 1
+
 
         // HINT: give feedback that we lost some bytes
         if (header_v3->received_length_full < full_data_len) {
-            const Messenger *mm = (Messenger *)(vc->av->m);
-            const Messenger_Options *mo = (Messenger_Options *) & (mm->options);
+            // const Messenger *mm = (Messenger *)(vc->av->m);
+            // const Messenger_Options *mo = (Messenger_Options *) & (mm->options);
 
             bwc_add_lost_v3(bwc, (full_data_len - header_v3->received_length_full), false);
             LOGGER_ERROR(vc->log, "BWC:lost:004:lost bytes=%d", (int)(full_data_len - header_v3->received_length_full));
@@ -787,7 +630,10 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
 
         if ((int)data_type == (int)video_frame_type_KEYFRAME) {
+
             int percent_recvd = (int)(((float)header_v3->received_length_full / (float)full_data_len) * 100.0f);
+
+#if 0
 
             if (percent_recvd < 100) {
                 LOGGER_DEBUG(vc->log, "RTP_RECV:sn=%ld fn=%ld pct=%d%% *I* len=%ld recv_len=%ld",
@@ -804,6 +650,8 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                              (long)full_data_len,
                              (long)header_v3->received_length_full);
             }
+
+#endif
 
             if ((percent_recvd < 100) && (have_requested_index_frame == false)) {
                 if ((vc->last_requested_keyframe_ts + VIDEO_MIN_REQUEST_KEYFRAME_INTERVAL_MS_FOR_KF)
@@ -833,8 +681,6 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                          (long)full_data_len,
                          (long)header_v3->received_length_full);
         }
-
-#endif
 
 
         // LOGGER_ERROR(vc->log, "h264_encoded_video_frame=%d vc->video_decoder_codec_used=%d",
