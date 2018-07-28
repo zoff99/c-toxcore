@@ -328,7 +328,7 @@ bool tsb_read(TSBuffer *b, Logger *log, void **p, uint64_t *data_type, uint32_t 
 
     if (b->last_timestamp_out < (timestamp_in - timestamp_range)) {
         /* caller is missing a time range, either call more often, or incread range */
-        *is_skipping = 1;
+        *is_skipping = (timestamp_in - timestamp_range) - b->last_timestamp_out;
     }
 
     bool have_found_element = tsb_return_oldest_entry_in_range(b, log, p, data_type,
