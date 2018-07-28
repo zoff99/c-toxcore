@@ -33,7 +33,7 @@ void tsb_get_range_in_buffer(TSBuffer *b, uint32_t *timestamp_min, uint32_t *tim
 void *tsb_write(TSBuffer *b, void *p, const uint64_t data_type, const uint32_t timestamp);
 bool tsb_read(TSBuffer *b, Logger *log, void **p, uint64_t *data_type, uint32_t *timestamp_out,
               const uint32_t timestamp_in, const uint32_t timestamp_range,
-              uint16_t *removed_entries_back);
+              uint16_t *removed_entries_back, uint16_t *is_skipping);
 TSBuffer *tsb_new(const int size);
 void tsb_kill(TSBuffer *b);
 void tsb_drain(TSBuffer *b);
