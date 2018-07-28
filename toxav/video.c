@@ -351,7 +351,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
     // HINT: compensate for older clients ----------------
 
-#if 1
+#if 0
 
     if ((int)tsb_size((TSBuffer *)vc->vbuf_raw) > 0) {
         LOGGER_ERROR(vc->log, "FC:%d min=%ld max=%ld want=%d diff=%d adj=%d roundtrip=%d",
@@ -494,19 +494,19 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
         vc->video_play_delay = ((current_time_monotonic() + vc->timestamp_difference_to_sender) - timestamp_out_);
         vc->video_frame_buffer_entries = (uint32_t)tsb_size((TSBuffer *)vc->vbuf_raw);
 
-        LOGGER_WARNING(vc->log, "seq:%d FC:%d min=%ld max=%ld want=%d got=%d diff=%d rm=%d pdelay=%d adj=%d dts=%d rtt=%d",
-                       (int)header_v3_0->sequnum,
-                       (int)tsb_size((TSBuffer *)vc->vbuf_raw),
-                       timestamp_min,
-                       timestamp_max,
-                       (int)timestamp_want_get,
-                       (int)timestamp_out_,
-                       ((int)timestamp_want_get - (int)timestamp_out_),
-                       (int)removed_entries,
-                       (int)vc->video_play_delay,
-                       (int)vc->timestamp_difference_adjustment,
-                       (int)vc->timestamp_difference_to_sender,
-                       (int)vc->rountrip_time_ms);
+        LOGGER_DEBUG(vc->log, "seq:%d FC:%d min=%ld max=%ld want=%d got=%d diff=%d rm=%d pdelay=%d adj=%d dts=%d rtt=%d",
+                     (int)header_v3_0->sequnum,
+                     (int)tsb_size((TSBuffer *)vc->vbuf_raw),
+                     timestamp_min,
+                     timestamp_max,
+                     (int)timestamp_want_get,
+                     (int)timestamp_out_,
+                     ((int)timestamp_want_get - (int)timestamp_out_),
+                     (int)removed_entries,
+                     (int)vc->video_play_delay,
+                     (int)vc->timestamp_difference_adjustment,
+                     (int)vc->timestamp_difference_to_sender,
+                     (int)vc->rountrip_time_ms);
 
         uint16_t buf_size = tsb_size((TSBuffer *)vc->vbuf_raw);
         int32_t diff_want_to_got = (int)timestamp_want_get - (int)timestamp_out_;
