@@ -301,7 +301,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
     tsb_get_range_in_buffer((TSBuffer *)vc->vbuf_raw, &timestamp_min, &timestamp_max);
 
-#define MIN_AV_BUFFERING_MS (250)
+#define MIN_AV_BUFFERING_MS (250) // ORIG: 250
 #define AV_ADJUSTMENT_BASE_MS (120)
 
 #if 0
@@ -368,7 +368,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
 
     uint16_t removed_entries;
-    uint16_t is_skipping;
+    uint16_t is_skipping = 0;
 
     // HINT: give me video frames that happend "now" minus some diff
     if (tsb_read((TSBuffer *)vc->vbuf_raw, vc->log, (void **)&p, &frame_flags,
@@ -466,18 +466,19 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
         vc->video_play_delay = ((current_time_monotonic() + vc->timestamp_difference_to_sender) - timestamp_out_);
         vc->video_frame_buffer_entries = (uint32_t)tsb_size((TSBuffer *)vc->vbuf_raw);
 
-        LOGGER_DEBUG(vc->log, "seq:%d FC:%d min=%ld max=%ld want=%d got=%d diff=%d rm=%d pdelay=%d adj=%d rtt=%d",
-                     (int)header_v3_0->sequnum,
-                     (int)tsb_size((TSBuffer *)vc->vbuf_raw),
-                     timestamp_min,
-                     timestamp_max,
-                     (int)timestamp_want_get,
-                     (int)timestamp_out_,
-                     ((int)timestamp_want_get - (int)timestamp_out_),
-                     (int)removed_entries,
-                     (int)vc->video_play_delay,
-                     (int)vc->timestamp_difference_adjustment,
-                     (int)vc->rountrip_time_ms);
+        LOGGER_WARNING(vc->log, "seq:%d FC:%d min=%ld max=%ld want=%d got=%d diff=%d rm=%d pdelay=%d adj=%d dts=%d rtt=%d",
+                       (int)header_v3_0->sequnum,
+                       (int)tsb_size((TSBuffer *)vc->vbuf_raw),
+                       timestamp_min,
+                       timestamp_max,
+                       (int)timestamp_want_get,
+                       (int)timestamp_out_,
+                       ((int)timestamp_want_get - (int)timestamp_out_),
+                       (int)removed_entries,
+                       (int)vc->video_play_delay,
+                       (int)vc->timestamp_difference_adjustment,
+                       (int)vc->timestamp_difference_to_sender,
+                       (int)vc->rountrip_time_ms);
 
         uint16_t buf_size = tsb_size((TSBuffer *)vc->vbuf_raw);
         int32_t diff_want_to_got = (int)timestamp_want_get - (int)timestamp_out_;
@@ -602,6 +603,16 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
             vc->startup_video_timespan = 0;
         }
 
+#if 0
+
+        // Hard limit ----------
+        if (vc->timestamp_difference_adjustment > -500) {
+            vc->timestamp_difference_adjustment = -500;
+        }
+
+        // Hard limit ----------
+#endif
+
         // TODO: make it available to the audio session
         // bad hack -> make better!
         *timestamp_difference_adjustment_ = vc->timestamp_difference_adjustment;
@@ -657,8 +668,18 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
             const Messenger *mm = (Messenger *)(vc->av->m);
             const Messenger_Options *mo = (Messenger_Options *) & (mm->options);
 
+#define NORMAL_MISSING_FRAME_COUNT_TOLERANCE 0
+#define WHEN_SKIPPING_MISSING_FRAME_COUNT_TOLERANCE 2
 
-            if (missing_frames_count > 0) {
+            int32_t missing_frame_tolerance = NORMAL_MISSING_FRAME_COUNT_TOLERANCE;
+
+            if (is_skipping == 1) {
+                // HINT: workaround, if we are skipping frames because client is too slow
+                //       we assume the missing frames here are the skipped ones
+                missing_frame_tolerance = WHEN_SKIPPING_MISSING_FRAME_COUNT_TOLERANCE;
+            }
+
+            if (missing_frames_count > missing_frame_tolerance) {
 
                 // HINT: if whole video frames are missing here, they most likely have been
                 //       kicked out of the ringbuffer because the sender is sending at too much FPS
@@ -678,31 +699,6 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                 // HINT: give feedback that we lost some bytes (based on the size of this frame)
                 bwc_add_lost_v3(bwc, (uint32_t)(header_v3_0->data_length_full * missing_frames_count), true);
                 LOGGER_ERROR(vc->log, "BWC:lost:002:missing count=%d", (int)missing_frames_count);
-
-#if 0
-
-                if (missing_frames_count > 5) {
-                    if ((vc->last_requested_keyframe_ts + VIDEO_MIN_REQUEST_KEYFRAME_INTERVAL_MS_FOR_NF)
-                            < current_time_monotonic()) {
-                        uint32_t pkg_buf_len = 2;
-                        uint8_t pkg_buf[pkg_buf_len];
-                        pkg_buf[0] = PACKET_TOXAV_COMM_CHANNEL;
-                        pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_REQUEST_KEYFRAME;
-
-                        if (-1 == send_custom_lossless_packet(m, vc->friend_number, pkg_buf, pkg_buf_len)) {
-                            LOGGER_WARNING(vc->log,
-                                           "PACKET_TOXAV_COMM_CHANNEL:RTP send failed (2)");
-                        } else {
-                            LOGGER_WARNING(vc->log,
-                                           "PACKET_TOXAV_COMM_CHANNEL:RTP Sent. (2)");
-                            have_requested_index_frame = true;
-                            vc->last_requested_keyframe_ts = current_time_monotonic();
-                        }
-                    }
-                }
-
-#endif
-
             }
         }
 
