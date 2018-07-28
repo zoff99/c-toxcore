@@ -321,10 +321,22 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
     compr_data->data = tmp_buf; // p->data;
     compr_data->size = (int)full_data_len; // hmm, "int" again
 
-    uint32_t start_time_ms = current_time_monotonic();
+    /* ------------------------------------------------------- */
+    /* ------------------------------------------------------- */
+    /* HINT: this is the only part that takes all the time !!! */
+    /* HINT: this is the only part that takes all the time !!! */
+    /* HINT: this is the only part that takes all the time !!! */
+
+    // uint32_t start_time_ms = current_time_monotonic();
     avcodec_send_packet(vc->h264_decoder, compr_data);
-    uint32_t end_time_ms = current_time_monotonic();
-    LOGGER_WARNING(vc->log, "decode_frame_h264:002: %d ms", (int)(end_time_ms - start_time_ms));
+    // uint32_t end_time_ms = current_time_monotonic();
+    // LOGGER_WARNING(vc->log, "decode_frame_h264:002: %d ms", (int)(end_time_ms - start_time_ms));
+
+    /* HINT: this is the only part that takes all the time !!! */
+    /* HINT: this is the only part that takes all the time !!! */
+    /* HINT: this is the only part that takes all the time !!! */
+    /* ------------------------------------------------------- */
+    /* ------------------------------------------------------- */
 
 
     int ret_ = 0;
