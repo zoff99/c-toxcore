@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <unistd.h>
 
 /*
  * Zoff: disable logging in ToxAV for now
@@ -1003,12 +1004,11 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
 
     if (call->video.second->skip_fps != 0) {
         call->video.second->skip_fps_counter++;
-        call->video.second->skip_fps_release_counter--;
 
-        if (call->video.second->skip_fps_release_counter == 0) {
+        if (call->video.second->skip_fps_duration_until_ts > current_time_monotonic()) {
             // HINT: ok stop skipping frames now, and reset the values
             call->video.second->skip_fps = 0;
-            call->video.second->skip_fps_counter = 0;
+            call->video.second->skip_fps_duration_until_ts = 0;
         } else {
 
             if (call->video.second->skip_fps_counter == call->video.second->skip_fps) {

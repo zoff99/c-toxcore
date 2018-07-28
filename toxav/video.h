@@ -171,6 +171,7 @@ typedef struct VCSession_s {
     uint8_t h264_video_capabilities_received;
     uint8_t skip_fps;
     uint8_t skip_fps_release_counter;
+    uint32_t skip_fps_duration_until_ts;
     uint8_t skip_fps_counter;
 
     int64_t timestamp_difference_to_sender;
@@ -217,6 +218,7 @@ typedef struct VCSession_s {
     uint32_t incoming_video_bitrate_last_changed;
     uint32_t incoming_video_bitrate_last_cb_ts;
     uint32_t network_round_trip_time_last_cb_ts;
+    uint32_t last_requested_lower_fps_ts;
 
     /* Video frame receive callback */
     toxav_video_receive_frame_cb *vcb;

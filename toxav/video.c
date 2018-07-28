@@ -851,6 +851,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     vc->incoming_video_bitrate_last_changed = 0;
     vc->network_round_trip_time_last_cb_ts = 0;
     vc->incoming_video_bitrate_last_cb_ts = 0;
+    vc->last_requested_lower_fps_ts = 0;
     vc->encoder_frame_has_record_timestamp = 1;
     vc->video_max_bitrate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264; // HINT: should probably be set to a higher value
     // options ---
@@ -1113,18 +1114,50 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
 
     uint16_t removed_entries;
+    uint16_t is_skipping;
 
     // HINT: give me video frames that happend "now" minus some diff
     if (tsb_read((TSBuffer *)vc->vbuf_raw, vc->log, (void **)&p, &frame_flags,
                  &timestamp_out_,
                  timestamp_want_get,
                  vc->tsb_range_ms + vc->startup_video_timespan,
-                 &removed_entries)) {
+                 &removed_entries,
+                 &is_skipping)) {
 #else
 
     if (rb_read((RingBuffer *)vc->vbuf_raw, (void **)&p, &frame_flags)) {
 #endif
 
+
+
+#if 1
+
+        if (is_skipping == 1) {
+            if ((vc->last_requested_lower_fps_ts + 10000) < current_time_monotonic()) {
+
+
+                // HINT: tell sender to turn down video FPS -------------
+                uint32_t pkg_buf_len = 3;
+                uint8_t pkg_buf[pkg_buf_len];
+                pkg_buf[0] = PACKET_TOXAV_COMM_CHANNEL;
+                pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_LESS_VIDEO_FPS;
+
+                if ((vc->last_requested_lower_fps_ts + 12000) < current_time_monotonic()) {
+                    pkg_buf[2] = 2;
+                } else {
+                    pkg_buf[2] = 3; // skip every 3rd video frame and dont encode and dont sent it
+                }
+
+                int result = send_custom_lossless_packet(vc->av->m, vc->friend_number, pkg_buf, pkg_buf_len);
+                // HINT: tell sender to turn down video FPS -------------
+
+                vc->last_requested_lower_fps_ts = current_time_monotonic();
+
+                LOGGER_WARNING(vc->log, "request lower FPS from sender: skip every %d", (int)pkg_buf[2]);
+            }
+        }
+
+#endif
 
 
 
@@ -1470,8 +1503,8 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
             const Messenger *mm = (Messenger *)(vc->av->m);
             const Messenger_Options *mo = (Messenger_Options *) & (mm->options);
 
-            bwc_add_lost_v3(bwc, (header_v3->received_length_full - full_data_len), false);
-            LOGGER_ERROR(vc->log, "BWC:lost:004");
+            bwc_add_lost_v3(bwc, (full_data_len - header_v3->received_length_full), false);
+            LOGGER_ERROR(vc->log, "BWC:lost:004:lost bytes=%d", (int)(full_data_len - header_v3->received_length_full));
         }
 
 

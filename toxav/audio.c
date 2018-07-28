@@ -179,12 +179,13 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
 
     // HINT: compensate for older clients ----------------
 
-
+    uint16_t is_skipping;
     bool res = tsb_read(q, log, &ret, &lost_frame,
                         &timestamp_out_,
                         want_remote_video_ts,
                         tsb_range_ms,
-                        &removed_entries);
+                        &removed_entries,
+                        &is_skipping);
 
     if (res == true) {
         *success = 1;
