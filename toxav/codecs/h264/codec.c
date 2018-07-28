@@ -27,7 +27,7 @@
 #include "../toxav_codecs.h"
 
 
-#define H264_DECODER_THREADS 4
+#define H264_DECODER_THREADS 3
 #define X264_ENCODER_THREADS 3
 
 VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data,
