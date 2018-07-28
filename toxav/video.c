@@ -351,7 +351,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
     // HINT: compensate for older clients ----------------
 
-#if 0
+#if 1
 
     if ((int)tsb_size((TSBuffer *)vc->vbuf_raw) > 0) {
         LOGGER_ERROR(vc->log, "FC:%d min=%ld max=%ld want=%d diff=%d adj=%d roundtrip=%d",
@@ -366,6 +366,34 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
 #endif
 
+    // HINT: correct for very false values ------------
+    if ((int)tsb_size((TSBuffer *)vc->vbuf_raw) > (VIDEO_RINGBUFFER_BUFFER_ELEMENTS - 2)) {
+        // HINT: buffer with incoming video frames is very full
+        if (timestamp_want_get > (timestamp_max + 100)) {
+            // we wont get a frame like this
+            vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment -
+                                                  (timestamp_want_get - timestamp_max) - 10;
+
+            LOGGER_ERROR(vc->log, "DEFF_CORR:--:%d", (int)((timestamp_want_get - timestamp_max) - 10));
+
+            want_remote_video_ts = (current_time_monotonic() + vc->timestamp_difference_to_sender +
+                                    vc->timestamp_difference_adjustment);
+
+            timestamp_want_get = (uint32_t)want_remote_video_ts;
+        } else if ((timestamp_want_get + 100) < timestamp_min) {
+            vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment +
+                                                  (timestamp_min - timestamp_want_get) + 10;
+
+            LOGGER_ERROR(vc->log, "DEFF_CORR:++++:%d", (int)((timestamp_min - timestamp_want_get) + 10));
+
+            want_remote_video_ts = (current_time_monotonic() + vc->timestamp_difference_to_sender +
+                                    vc->timestamp_difference_adjustment);
+
+            timestamp_want_get = (uint32_t)want_remote_video_ts;
+        }
+    }
+
+    // HINT: correct for very false values ------------
 
     uint16_t removed_entries;
     uint16_t is_skipping = 0;
