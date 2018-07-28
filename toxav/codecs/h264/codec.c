@@ -27,6 +27,9 @@
 #include "../toxav_codecs.h"
 
 
+#define H264_DECODER_THREADS 4
+#define X264_ENCODER_THREADS 3
+
 VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data,
                        VCSession *vc)
 {
@@ -45,7 +48,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     param.i_height = 1080;
     vc->h264_enc_width = param.i_width;
     vc->h264_enc_height = param.i_height;
-    param.i_threads = 3;
+    param.i_threads = X264_ENCODER_THREADS;
     param.b_deterministic = 0;
     param.b_intra_refresh = 1;
     // param.b_open_gop = 20;
@@ -114,6 +117,18 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     if (codec->capabilities & CODEC_CAP_TRUNCATED) {
         vc->h264_decoder->flags |= CODEC_FLAG_TRUNCATED; /* we do not send complete frames */
+    }
+
+    if (codec->capabilities & AV_CODEC_FLAG_LOW_DELAY) {
+        vc->h264_decoder->flags |= CODEC_FLAG_LOW_DELAY;
+    }
+
+    vc->h264_decoder->flags |= CODEC_FLAG2_FAST;
+
+    if (codec->capabilities & CODEC_CAP_SLICE_THREADS) {
+        vc->h264_decoder->thread_count = H264_DECODER_THREADS;
+        vc->h264_decoder->thread_type = FF_THREAD_SLICE;
+        vc->h264_decoder->active_thread_type = FF_THREAD_SLICE;
     }
 
     vc->h264_decoder->refcounted_frames = 0;
@@ -191,7 +206,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             param.i_height = height;
             vc->h264_enc_width = param.i_width;
             vc->h264_enc_height = param.i_height;
-            param.i_threads = 3;
+            param.i_threads = X264_ENCODER_THREADS;
             param.b_deterministic = 0;
             param.b_intra_refresh = 1;
             // param.b_open_gop = 20;
@@ -295,23 +310,36 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
     compr_data->post = -1;
 #endif
 
+    // uint32_t start_time_ms = current_time_monotonic();
     // HINT: dirty hack to add FF_INPUT_BUFFER_PADDING_SIZE bytes!! ----------
     uint8_t *tmp_buf = calloc(1, full_data_len + FF_INPUT_BUFFER_PADDING_SIZE);
     memcpy(tmp_buf, p->data, full_data_len);
     // HINT: dirty hack to add FF_INPUT_BUFFER_PADDING_SIZE bytes!! ----------
+    // uint32_t end_time_ms = current_time_monotonic();
+    // LOGGER_WARNING(vc->log, "decode_frame_h264:001: %d ms", (int)(end_time_ms - start_time_ms));
 
     compr_data->data = tmp_buf; // p->data;
     compr_data->size = (int)full_data_len; // hmm, "int" again
 
+    uint32_t start_time_ms = current_time_monotonic();
     avcodec_send_packet(vc->h264_decoder, compr_data);
+    uint32_t end_time_ms = current_time_monotonic();
+    LOGGER_WARNING(vc->log, "decode_frame_h264:002: %d ms", (int)(end_time_ms - start_time_ms));
 
 
     int ret_ = 0;
 
     while (ret_ >= 0) {
 
+        // start_time_ms = current_time_monotonic();
         AVFrame *frame = av_frame_alloc();
+        // end_time_ms = current_time_monotonic();
+        // LOGGER_WARNING(vc->log, "decode_frame_h264:003: %d ms", (int)(end_time_ms - start_time_ms));
+
+        // start_time_ms = current_time_monotonic();
         ret_ = avcodec_receive_frame(vc->h264_decoder, frame);
+        // end_time_ms = current_time_monotonic();
+        // LOGGER_WARNING(vc->log, "decode_frame_h264:004: %d ms", (int)(end_time_ms - start_time_ms));
 
         // LOGGER_ERROR(vc->log, "H264:decoder:ret_=%d\n", (int)ret_);
 
@@ -329,28 +357,36 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
             // LOGGER_ERROR(vc->log, "H264:decoder:w=%d\n", (int)frame->width);
             // LOGGER_ERROR(vc->log, "H264:decoder:h=%d\n", (int)frame->height);
 
+            // start_time_ms = current_time_monotonic();
             vc->vcb.first(vc->av, vc->friend_number, frame->width, frame->height,
                           (const uint8_t *)frame->data[0],
                           (const uint8_t *)frame->data[1],
                           (const uint8_t *)frame->data[2],
                           frame->linesize[0], frame->linesize[1],
                           frame->linesize[2], vc->vcb.second);
+            // end_time_ms = current_time_monotonic();
+            // LOGGER_WARNING(vc->log, "decode_frame_h264:005: %d ms", (int)(end_time_ms - start_time_ms));
 
         } else {
             // some other error
         }
 
+        // start_time_ms = current_time_monotonic();
         av_frame_free(&frame);
+        // end_time_ms = current_time_monotonic();
+        // LOGGER_WARNING(vc->log, "decode_frame_h264:006: %d ms", (int)(end_time_ms - start_time_ms));
     }
 
+    // start_time_ms = current_time_monotonic();
     av_packet_free(&compr_data);
+    // end_time_ms = current_time_monotonic();
+    // LOGGER_WARNING(vc->log, "decode_frame_h264:007: %d ms", (int)(end_time_ms - start_time_ms));
 
     // HINT: dirty hack to add FF_INPUT_BUFFER_PADDING_SIZE bytes!! ----------
     free(tmp_buf);
     // HINT: dirty hack to add FF_INPUT_BUFFER_PADDING_SIZE bytes!! ----------
 
     free(p);
-
 }
 
 uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height,
@@ -476,8 +512,10 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
 
 void vc_kill_h264(VCSession *vc)
 {
+    // encoder
     x264_encoder_close(vc->h264_encoder);
     x264_picture_clean(&(vc->h264_in_pic));
+    // decoder
     avcodec_free_context(&vc->h264_decoder);
 }
 
