@@ -697,7 +697,23 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
                                       ((VCSession *)(session->cs))->dummy_ntp_local_start,
                                       ((VCSession *)(session->cs))->dummy_ntp_local_end);
 
-                ((VCSession *)(session->cs))->rountrip_time_ms = roundtrip_;
+#define NETWORK_ROUND_TRIP_FUZZ_THRESHOLD_MS 150
+
+                if (roundtrip_ > ((VCSession *)(session->cs))->rountrip_time_ms) {
+                    if (roundtrip_ > ((((VCSession *)(session->cs))->rountrip_time_ms) + NETWORK_ROUND_TRIP_FUZZ_THRESHOLD_MS)) {
+                        ((VCSession *)(session->cs))->rountrip_time_ms = ((VCSession *)(session->cs))->rountrip_time_ms +
+                                (NETWORK_ROUND_TRIP_FUZZ_THRESHOLD_MS / 2);
+                    } else {
+                        ((VCSession *)(session->cs))->rountrip_time_ms = roundtrip_;
+                    }
+                } else if (roundtrip_ < ((VCSession *)(session->cs))->rountrip_time_ms) {
+                    if ((roundtrip_ + NETWORK_ROUND_TRIP_FUZZ_THRESHOLD_MS) < ((VCSession *)(session->cs))->rountrip_time_ms) {
+                        ((VCSession *)(session->cs))->rountrip_time_ms = ((VCSession *)(session->cs))->rountrip_time_ms -
+                                (NETWORK_ROUND_TRIP_FUZZ_THRESHOLD_MS / 2);
+                    } else {
+                        ((VCSession *)(session->cs))->rountrip_time_ms = roundtrip_;
+                    }
+                }
 
                 LOGGER_DEBUG(m->log, "DNTP:offset=%lld roundtrip=%ld", offset_, roundtrip_);
                 // LOGGER_WARNING(m->log, "DNTP:A:offset new=%lld", ((VCSession *)(session->cs))->timestamp_difference_to_sender);
