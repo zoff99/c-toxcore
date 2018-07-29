@@ -443,7 +443,7 @@ int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
     if (rc == -99) {
         // TODO: investigate how this can still occur? we take them out faster than they come in
 
-        LOGGER_DEBUG(ac->log, "AADEBUG:ERR:seqnum=%d dt=%d ts:%llu", (int)header_v3->sequnum,
+        LOGGER_DEBUG(ac->log, "AADEBUG:ERR:seqnum=%d dt=%d ts:%lu", (int)header_v3->sequnum,
                      (int)((int64_t)header_v3->frame_record_timestamp - (int64_t)ac->last_incoming_frame_ts),
                      header_v3->frame_record_timestamp);
 
@@ -451,7 +451,7 @@ int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
         free(msg);
         return -1;
     } else {
-        LOGGER_DEBUG(ac->log, "AADEBUG:seqnum=%d dt=%d ts:%llu curts:%lld", (int)header_v3->sequnum,
+        LOGGER_DEBUG(ac->log, "AADEBUG:seqnum=%d dt=%d ts:%lu curts:%ld", (int)header_v3->sequnum,
                      (int)((uint64_t)header_v3->frame_record_timestamp - (uint64_t)ac->last_incoming_frame_ts),
                      header_v3->frame_record_timestamp,
                      current_time_monotonic());

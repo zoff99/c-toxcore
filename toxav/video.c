@@ -840,6 +840,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     vc->dummy_ntp_remote_end = 0;
     vc->rountrip_time_ms = 0;
     vc->video_play_delay = 0;
+    vc->video_play_delay_real = 0;
     vc->video_frame_buffer_entries = 0;
     vc->last_sent_keyframe_ts = 0;
 
@@ -1210,7 +1211,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
         vc->video_play_delay = ((current_time_monotonic() + vc->timestamp_difference_to_sender) - timestamp_out_);
         vc->video_frame_buffer_entries = (uint32_t)tsb_size((TSBuffer *)vc->vbuf_raw);
 
-        LOGGER_DEBUG(vc->log, "seq:%d FC:%d min=%ld max=%ld want=%d got=%d diff=%d rm=%d pdelay=%d adj=%d dts=%d rtt=%d",
+        LOGGER_DEBUG(vc->log, "seq:%d FC:%d min=%d max=%d want=%d got=%d diff=%d rm=%d pdelay=%d adj=%d dts=%d rtt=%d",
                      (int)header_v3_0->sequnum,
                      (int)tsb_size((TSBuffer *)vc->vbuf_raw),
                      timestamp_min,
@@ -1484,8 +1485,9 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                                         &ret_value);
 #else
 
-            // uint32_t start_time_ms = current_time_monotonic();
-
+#ifdef DEBUG_SHOW_H264_DECODING_TIME
+            uint32_t start_time_ms = current_time_monotonic();
+#endif
             decode_frame_h264(vc, m, skip_video_flag, a_r_timestamp,
                               a_l_timestamp,
                               v_r_timestamp, v_l_timestamp,
@@ -1493,8 +1495,15 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                               rc, full_data_len,
                               &ret_value);
 
-            // uint32_t end_time_ms = current_time_monotonic();
-            // LOGGER_WARNING(vc->log, "decode_frame_h264: %d ms", (int)(end_time_ms - start_time_ms));
+#ifdef DEBUG_SHOW_H264_DECODING_TIME
+            uint32_t end_time_ms = current_time_monotonic();
+
+            if ((int)(end_time_ms - start_time_ms) > 4) {
+                LOGGER_WARNING(vc->log, "decode_frame_h264: %d ms", (int)(end_time_ms - start_time_ms));
+            }
+
+#endif
+
 #endif
         }
 
@@ -1578,7 +1587,7 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
 
                     vc->av->call_comm_cb.first(vc->av, vc->friend_number,
                                                TOXAV_CALL_COMM_PLAY_DELAY,
-                                               (int64_t)vc->video_play_delay,
+                                               (int64_t)vc->video_play_delay_real,
                                                vc->av->call_comm_cb.second);
 
                     vc->av->call_comm_cb.first(vc->av, vc->friend_number,
