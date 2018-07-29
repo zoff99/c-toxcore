@@ -131,6 +131,12 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         vc->h264_decoder->active_thread_type = FF_THREAD_SLICE;
     }
 
+    if (codec->capabilities & CODEC_CAP_FRAME_THREADS) {
+        vc->h264_decoder->thread_count = H264_DECODER_THREADS;
+        vc->h264_decoder->thread_type |= FF_THREAD_FRAME;
+        vc->h264_decoder->active_thread_type |= FF_THREAD_FRAME;
+    }
+
     vc->h264_decoder->refcounted_frames = 0;
     /*   When AVCodecContext.refcounted_frames is set to 0, the returned
     *             reference belongs to the decoder and is valid only until the
@@ -321,6 +327,10 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
     compr_data->data = tmp_buf; // p->data;
     compr_data->size = (int)full_data_len; // hmm, "int" again
 
+    if (header_v3->frame_record_timestamp > 0) {
+        compr_data->dts = (int64_t)header_v3->frame_record_timestamp;
+    }
+
     /* ------------------------------------------------------- */
     /* ------------------------------------------------------- */
     /* HINT: this is the only part that takes all the time !!! */
@@ -330,7 +340,9 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
     // uint32_t start_time_ms = current_time_monotonic();
     avcodec_send_packet(vc->h264_decoder, compr_data);
     // uint32_t end_time_ms = current_time_monotonic();
-    // LOGGER_WARNING(vc->log, "decode_frame_h264:002: %d ms", (int)(end_time_ms - start_time_ms));
+    // if ((int)(end_time_ms - start_time_ms) > 4) {
+    //    LOGGER_WARNING(vc->log, "decode_frame_h264:002: %d ms", (int)(end_time_ms - start_time_ms));
+    //}
 
     /* HINT: this is the only part that takes all the time !!! */
     /* HINT: this is the only part that takes all the time !!! */
@@ -368,6 +380,14 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
             // LOGGER_ERROR(vc->log, "H264:decoder:linesize=%d\n", (int)frame->linesize[0]);
             // LOGGER_ERROR(vc->log, "H264:decoder:w=%d\n", (int)frame->width);
             // LOGGER_ERROR(vc->log, "H264:decoder:h=%d\n", (int)frame->height);
+
+            // calculate the real play delay (from toxcore-in to toxcore-out)
+            if (header_v3->frame_record_timestamp > 0) {
+                vc->video_play_delay_real =
+                    (current_time_monotonic() + vc->timestamp_difference_to_sender) -
+                    frame->pkt_dts;
+                LOGGER_DEBUG(vc->log, "real play delay=%d", (int)(vc->video_play_delay_real));
+            }
 
             // start_time_ms = current_time_monotonic();
             vc->vcb.first(vc->av, vc->friend_number, frame->width, frame->height,
@@ -492,7 +512,7 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
         const uint32_t frame_length_in_bytes = *i_frame_size;
         const int keyframe = (int)call->video.second->h264_out_pic.b_keyframe;
 
-        LOGGER_DEBUG(av->m->log, "video packet record time: %llu", (*video_frame_record_timestamp));
+        LOGGER_DEBUG(av->m->log, "video packet record time: %lu", (*video_frame_record_timestamp));
 
         int res = rtp_send_data
                   (
