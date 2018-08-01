@@ -1400,7 +1400,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
 #endif
 
-#if 0
+#if 1
 
             if ((percent_recvd < 100) && (have_requested_index_frame == false)) {
                 if ((vc->last_requested_keyframe_ts + VIDEO_MIN_REQUEST_KEYFRAME_INTERVAL_MS_FOR_KF)
