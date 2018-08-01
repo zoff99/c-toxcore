@@ -650,6 +650,26 @@ typedef enum TOXAV_ERR_SEND_FRAME {
 } TOXAV_ERR_SEND_FRAME;
 
 
+
+/**
+ * The function type for the audio_bit_rate callback. The event is triggered
+ * when the network becomes too saturated for current bit rates at which
+ * point core suggests new bit rates.
+ *
+ * @param friend_number The friend number of the friend for which to set the
+ * bit rate.
+ * @param audio_bit_rate Suggested maximum audio bit rate in Kb/sec.
+ */
+typedef void toxav_audio_bit_rate_cb(ToxAV *av, uint32_t friend_number, uint32_t audio_bit_rate, void *user_data);
+
+
+/**
+ * Set the callback for the `audio_bit_rate` event. Pass NULL to unset.
+ *
+ */
+void toxav_callback_audio_bit_rate(ToxAV *av, toxav_audio_bit_rate_cb *callback, void *user_data);
+
+
 /**
  * Send an audio frame to a friend.
  *
@@ -691,6 +711,25 @@ bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pc
 bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height, const uint8_t *y,
                             const uint8_t *u, const uint8_t *v, TOXAV_ERR_SEND_FRAME *error);
 
+
+
+/**
+ * The function type for the video_bit_rate callback. The event is triggered
+ * when the network becomes too saturated for current bit rates at which
+ * point core suggests new bit rates.
+ *
+ * @param friend_number The friend number of the friend for which to set the
+ * bit rate.
+ * @param video_bit_rate Suggested maximum video bit rate in Kb/sec.
+ */
+typedef void toxav_video_bit_rate_cb(ToxAV *av, uint32_t friend_number, uint32_t video_bit_rate, void *user_data);
+
+
+/**
+ * Set the callback for the `video_bit_rate` event. Pass NULL to unset.
+ *
+ */
+void toxav_callback_video_bit_rate(ToxAV *av, toxav_video_bit_rate_cb *callback, void *user_data);
 
 /*******************************************************************************
  *
