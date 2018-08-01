@@ -849,6 +849,22 @@ void toxav_callback_video_bit_rate(ToxAV *av, toxav_video_bit_rate_cb *callback,
     pthread_mutex_unlock(av->mutex);
 }
 
+
+void toxav_callback_audio_bit_rate(ToxAV *av, toxav_audio_bit_rate_cb *callback, void *user_data)
+{
+    pthread_mutex_lock(av->mutex);
+    av->abcb.first = callback;
+    av->abcb.second = user_data;
+    pthread_mutex_unlock(av->mutex);
+}
+void toxav_callback_video_bit_rate(ToxAV *av, toxav_video_bit_rate_cb *callback, void *user_data)
+{
+    pthread_mutex_lock(av->mutex);
+    av->vbcb.first = callback;
+    av->vbcb.second = user_data;
+    pthread_mutex_unlock(av->mutex);
+}
+
 bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pcm, size_t sample_count,
                             uint8_t channels, uint32_t sampling_rate, Toxav_Err_Send_Frame *error)
 {

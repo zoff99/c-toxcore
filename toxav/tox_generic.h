@@ -116,6 +116,8 @@ struct ToxAV {
     PAIR(toxav_audio_receive_frame_cb *, void *) acb; /* Audio frame receive callback */
     PAIR(toxav_video_receive_frame_cb *, void *) vcb; /* Video frame receive callback */
     PAIR(toxav_bit_rate_status_cb *, void *) bcb; /* Bit rate control callback */
+    PAIR(toxav_audio_bit_rate_cb *, void *) abcb; /* Bit rate control callback */
+    PAIR(toxav_video_bit_rate_cb *, void *) vbcb; /* Bit rate control callback 
 
     /** Decode time measures */
     int32_t dmssc; /** Measure count */
