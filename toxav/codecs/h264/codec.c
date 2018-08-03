@@ -26,7 +26,7 @@
 #include "../../../toxcore/mono_time.h"
 #include "../toxav_codecs.h"
 
-
+/* !multithreaded H264 decoding adds about 50ms of delay! */
 #define H264_DECODER_THREADS 3
 #define X264_ENCODER_THREADS 3
 
@@ -125,16 +125,18 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     vc->h264_decoder->flags |= CODEC_FLAG2_FAST;
 
-    if (codec->capabilities & CODEC_CAP_SLICE_THREADS) {
-        vc->h264_decoder->thread_count = H264_DECODER_THREADS;
-        vc->h264_decoder->thread_type = FF_THREAD_SLICE;
-        vc->h264_decoder->active_thread_type = FF_THREAD_SLICE;
-    }
+    if (H264_DECODER_THREADS > 0) {
+        if (codec->capabilities & CODEC_CAP_SLICE_THREADS) {
+            vc->h264_decoder->thread_count = H264_DECODER_THREADS;
+            vc->h264_decoder->thread_type = FF_THREAD_SLICE;
+            vc->h264_decoder->active_thread_type = FF_THREAD_SLICE;
+        }
 
-    if (codec->capabilities & CODEC_CAP_FRAME_THREADS) {
-        vc->h264_decoder->thread_count = H264_DECODER_THREADS;
-        vc->h264_decoder->thread_type |= FF_THREAD_FRAME;
-        vc->h264_decoder->active_thread_type |= FF_THREAD_FRAME;
+        if (codec->capabilities & CODEC_CAP_FRAME_THREADS) {
+            vc->h264_decoder->thread_count = H264_DECODER_THREADS;
+            vc->h264_decoder->thread_type |= FF_THREAD_FRAME;
+            vc->h264_decoder->active_thread_type |= FF_THREAD_FRAME;
+        }
     }
 
     vc->h264_decoder->refcounted_frames = 0;
