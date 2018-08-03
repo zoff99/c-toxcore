@@ -305,8 +305,8 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
     tsb_get_range_in_buffer((TSBuffer *)vc->vbuf_raw, &timestamp_min, &timestamp_max);
 
-#define MIN_AV_BUFFERING_MS (250) // ORIG: 250
-#define AV_ADJUSTMENT_BASE_MS (120)
+#define MIN_AV_BUFFERING_MS (130) // ORIG: 250
+#define AV_ADJUSTMENT_BASE_MS (MIN_AV_BUFFERING_MS - 30) // ORIG: (MIN_AV_BUFFERING_MS - 130)
 
 
     int64_t want_remote_video_ts = (current_time_monotonic() + vc->timestamp_difference_to_sender +
