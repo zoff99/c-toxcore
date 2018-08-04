@@ -857,6 +857,13 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     vc->video_max_bitrate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264; // HINT: should probably be set to a higher value
     // options ---
 
+    vc->incoming_video_frames_gap_ms_index = 0;
+    vc->incoming_video_frames_gap_last_ts = 0;
+    vc->incoming_video_frames_gap_ms_mean_value = 0;
+
+    for (int i = 0; i < VIDEO_INCOMING_FRAMES_GAP_MS_ENTRIES; i++) {
+        vc->incoming_video_frames_gap_ms[i] = 0;
+    }
 
 #ifdef USE_TS_BUFFER_FOR_VIDEO
 
@@ -1047,9 +1054,6 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
     *timestamp_difference_to_sender_ = vc->timestamp_difference_to_sender;
 
     tsb_get_range_in_buffer((TSBuffer *)vc->vbuf_raw, &timestamp_min, &timestamp_max);
-
-#define MIN_AV_BUFFERING_MS (130) // ORIG: 250
-#define AV_ADJUSTMENT_BASE_MS (MIN_AV_BUFFERING_MS - 30) // ORIG: (MIN_AV_BUFFERING_MS - 130)
 
 
     int64_t want_remote_video_ts = (current_time_monotonic() + vc->timestamp_difference_to_sender +
@@ -1534,8 +1538,9 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 int vc_queue_message(void *vcp, struct RTPMessage *msg)
 {
     /* This function is called with complete messages
-     * they have already been assembled. but not yet decoded (data is still compressed by video codec)
-     * this function gets called from handle_rtp_packet() and handle_rtp_packet_v3()
+     * they have already been assembled. but not yet decoded
+     * (data is still compressed by video codec)
+     * this function gets called from handle_rtp_packet()
      */
     if (!vcp || !msg) {
         if (msg) {
@@ -1562,6 +1567,32 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
         return -1;
     }
 
+    // calculate mean "frame incoming every x milliseconds" --------------
+    if (vc->incoming_video_frames_gap_last_ts > 0) {
+        uint32_t curent_gap = current_time_monotonic() - vc->incoming_video_frames_gap_last_ts;
+
+        vc->incoming_video_frames_gap_ms[vc->incoming_video_frames_gap_ms_index] = curent_gap;
+        vc->incoming_video_frames_gap_ms_index = (vc->incoming_video_frames_gap_ms_index + 1) %
+                VIDEO_INCOMING_FRAMES_GAP_MS_ENTRIES;
+
+        uint32_t mean_value = 0;
+
+        for (int k = 0; k < VIDEO_INCOMING_FRAMES_GAP_MS_ENTRIES; k++) {
+            mean_value = mean_value + vc->incoming_video_frames_gap_ms[k];
+        }
+
+        vc->incoming_video_frames_gap_ms_mean_value = (mean_value * 10) / (VIDEO_INCOMING_FRAMES_GAP_MS_ENTRIES * 10);
+
+        LOGGER_DEBUG(vc->log, "FPS:INCOMING=%d ms = %.1f fps mean=%d m=%d",
+                     (int)curent_gap,
+                     (float)(1000.0f / curent_gap),
+                     (int)vc->incoming_video_frames_gap_ms_mean_value,
+                     (int)mean_value);
+    }
+
+    vc->incoming_video_frames_gap_last_ts = current_time_monotonic();
+    // calculate mean "frame incoming every x milliseconds" --------------
+
     pthread_mutex_lock(vc->queue_mutex);
 
     LOGGER_DEBUG(vc->log, "TT:queue:V:fragnum=%ld", (long)header_v3->fragment_num);
@@ -1580,7 +1611,7 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
         vc->last_incoming_frame_ts = header_v3->frame_record_timestamp;
 
 
-        // give network roundtrip time to client -------
+        // give COMM data to client -------
 
         if ((vc->network_round_trip_time_last_cb_ts + 2000) < current_time_monotonic()) {
             if (vc->av) {
@@ -1599,6 +1630,11 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
                                                TOXAV_CALL_COMM_PLAY_BUFFER_ENTRIES,
                                                (int64_t)vc->video_frame_buffer_entries,
                                                vc->av->call_comm_cb.second);
+
+                    vc->av->call_comm_cb.first(vc->av, vc->friend_number,
+                                               TOXAV_CALL_COMM_INCOMING_FPS,
+                                               (int64_t)(1000 / vc->incoming_video_frames_gap_ms_mean_value),
+                                               vc->av->call_comm_cb.second);
                 }
 
             }
@@ -1606,7 +1642,7 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
             vc->network_round_trip_time_last_cb_ts = current_time_monotonic();
         }
 
-        // give network roundtrip time to client -------
+        // give COMM data to client -------
 
 
         if (vc->show_own_video == 0) {
