@@ -57,7 +57,7 @@ VPX_DL_BEST_QUALITY   (0)       deadline parameter analogous to VPx BEST QUALITY
 */
 
 
-#define MIN_AV_BUFFERING_MS (80) // ORIG: 250
+#define MIN_AV_BUFFERING_MS (50) // ORIG: 250
 #define AV_ADJUSTMENT_BASE_MS (MIN_AV_BUFFERING_MS - 30) // ORIG: (MIN_AV_BUFFERING_MS - 130)
 
 
