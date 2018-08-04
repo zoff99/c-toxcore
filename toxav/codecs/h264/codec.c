@@ -27,10 +27,12 @@
 #include "../toxav_codecs.h"
 
 /* !!multithreaded H264 decoding adds about 80ms of delay!! (0 .. disable, 1 .. disable also?) */
-#define H264_DECODER_THREADS 1
+#define H264_DECODER_THREADS 4
+#define H264_DECODER_THREAD_FRAME_ACTIVE 0
 
 /* multithreaded encoding seems add less delay (0 .. disable) */
-#define X264_ENCODER_THREADS 3
+#define X264_ENCODER_THREADS 4
+#define X264_ENCODER_SLICES 4
 
 
 VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data,
@@ -51,7 +53,11 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     param.i_height = 1080;
     vc->h264_enc_width = param.i_width;
     vc->h264_enc_height = param.i_height;
+#if 1
     param.i_threads = X264_ENCODER_THREADS;
+    param.b_sliced_threads = 1;
+    param.i_slice_count = X264_ENCODER_SLICES;
+#endif
     param.b_deterministic = 0;
     param.b_intra_refresh = 1;
     // param.b_open_gop = 20;
@@ -75,7 +81,10 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     param.rc.b_stat_read = 0;
     param.rc.b_stat_write = 0;
+
+#if 0
     x264_param_apply_fastfirstpass(&param);
+#endif
 
     /* Apply profile restrictions. */
     if (x264_param_apply_profile(&param,
@@ -135,10 +144,12 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
             vc->h264_decoder->active_thread_type = FF_THREAD_SLICE;
         }
 
-        if (codec->capabilities & CODEC_CAP_FRAME_THREADS) {
-            vc->h264_decoder->thread_count = H264_DECODER_THREADS;
-            vc->h264_decoder->thread_type |= FF_THREAD_FRAME;
-            vc->h264_decoder->active_thread_type |= FF_THREAD_FRAME;
+        if (H264_DECODER_THREAD_FRAME_ACTIVE == 1) {
+            if (codec->capabilities & CODEC_CAP_FRAME_THREADS) {
+                vc->h264_decoder->thread_count = H264_DECODER_THREADS;
+                vc->h264_decoder->thread_type |= FF_THREAD_FRAME;
+                vc->h264_decoder->active_thread_type |= FF_THREAD_FRAME;
+            }
         }
     }
 
@@ -148,6 +159,8 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     *             next call to this function or until closing or flushing the
     *             decoder. The caller may not write to it.
     */
+
+    vc->h264_decoder->delay = 0;
 
     if (avcodec_open2(vc->h264_decoder, codec, NULL) < 0) {
         LOGGER_WARNING(log, "could not open codec H264 on decoder");
@@ -217,7 +230,11 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             param.i_height = height;
             vc->h264_enc_width = param.i_width;
             vc->h264_enc_height = param.i_height;
+#if 1
             param.i_threads = X264_ENCODER_THREADS;
+            param.b_sliced_threads = 1;
+            param.i_slice_count = X264_ENCODER_SLICES;
+#endif
             param.b_deterministic = 0;
             param.b_intra_refresh = 1;
             // param.b_open_gop = 20;
@@ -242,7 +259,9 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
             param.rc.b_stat_read = 0;
             param.rc.b_stat_write = 0;
+#if 0
             x264_param_apply_fastfirstpass(&param);
+#endif
 
             /* Apply profile restrictions. */
             if (x264_param_apply_profile(&param,
