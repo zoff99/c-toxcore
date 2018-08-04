@@ -57,6 +57,10 @@ VPX_DL_BEST_QUALITY   (0)       deadline parameter analogous to VPx BEST QUALITY
 */
 
 
+#define MIN_AV_BUFFERING_MS (80) // ORIG: 250
+#define AV_ADJUSTMENT_BASE_MS (MIN_AV_BUFFERING_MS - 30) // ORIG: (MIN_AV_BUFFERING_MS - 130)
+
+
 typedef enum PACKET_TOXAV_COMM_CHANNEL_FUNCTION {
     PACKET_TOXAV_COMM_CHANNEL_REQUEST_KEYFRAME = 0,
     PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO = 1,
@@ -130,6 +134,7 @@ typedef enum PACKET_TOXAV_COMM_CHANNEL_FUNCTION {
 
 #define VIDEO_DECODER_SOFT_DEADLINE_AUTOTUNE_ENTRIES 20
 #define VIDEO_ENCODER_SOFT_DEADLINE_AUTOTUNE_ENTRIES 20
+#define VIDEO_INCOMING_FRAMES_GAP_MS_ENTRIES 20
 
 #include <pthread.h>
 
@@ -181,6 +186,10 @@ typedef struct VCSession_s {
     uint8_t  decoder_soft_deadline_index;
     uint32_t encoder_soft_deadline[VIDEO_ENCODER_SOFT_DEADLINE_AUTOTUNE_ENTRIES];
     uint8_t  encoder_soft_deadline_index;
+    uint32_t incoming_video_frames_gap_ms[VIDEO_INCOMING_FRAMES_GAP_MS_ENTRIES];
+    uint8_t  incoming_video_frames_gap_ms_index;
+    uint32_t incoming_video_frames_gap_last_ts;
+    uint32_t incoming_video_frames_gap_ms_mean_value;
 
     uint8_t send_keyframe_request_received;
     uint8_t h264_video_capabilities_received;

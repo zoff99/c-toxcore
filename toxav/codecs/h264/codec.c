@@ -26,9 +26,12 @@
 #include "../../../toxcore/mono_time.h"
 #include "../toxav_codecs.h"
 
-/* !multithreaded H264 decoding adds about 50ms of delay! */
-#define H264_DECODER_THREADS 3
+/* !!multithreaded H264 decoding adds about 80ms of delay!! (0 .. disable, 1 .. disable also?) */
+#define H264_DECODER_THREADS 1
+
+/* multithreaded encoding seems add less delay (0 .. disable) */
 #define X264_ENCODER_THREADS 3
+
 
 VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data,
                        VCSession *vc)
