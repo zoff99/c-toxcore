@@ -518,14 +518,9 @@ typedef enum TOXAV_ERR_BIT_RATE_SET {
     TOXAV_ERR_BIT_RATE_SET_SYNC,
 
     /**
-     * The audio bit rate passed was not one of the supported values.
+     * The bit rate passed was not one of the supported values.
      */
-    TOXAV_ERR_BIT_RATE_SET_INVALID_AUDIO_BIT_RATE,
-
-    /**
-     * The video bit rate passed was not one of the supported values.
-     */
-    TOXAV_ERR_BIT_RATE_SET_INVALID_VIDEO_BIT_RATE,
+    TOXAV_ERR_BIT_RATE_SET_INVALID_BIT_RATE,
 
     /**
      * The friend_number passed did not designate a valid friend.
@@ -538,6 +533,7 @@ typedef enum TOXAV_ERR_BIT_RATE_SET {
     TOXAV_ERR_BIT_RATE_SET_FRIEND_NOT_IN_CALL,
 
 } TOXAV_ERR_BIT_RATE_SET;
+
 
 
 /**
