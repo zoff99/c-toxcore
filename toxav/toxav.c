@@ -839,12 +839,12 @@ bool toxav_bit_rate_set(ToxAV *av, uint32_t friend_number, int32_t audio_bit_rat
     }
 
     if (audio_bit_rate > 0 && audio_bit_rate_invalid(audio_bit_rate)) {
-        rc = TOXAV_ERR_BIT_RATE_SET_INVALID_AUDIO_BIT_RATE;
+        rc = TOXAV_ERR_BIT_RATE_SET_INVALID_BIT_RATE;
         goto END;
     }
 
     if (video_bit_rate > 0 && video_bit_rate_invalid(video_bit_rate)) {
-        rc = TOXAV_ERR_BIT_RATE_SET_INVALID_VIDEO_BIT_RATE;
+        rc = TOXAV_ERR_BIT_RATE_SET_INVALID_BIT_RATE;
         goto END;
     }
 
