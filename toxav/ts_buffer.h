@@ -20,9 +20,10 @@
 #ifndef TS_BUFFER_H
 #define TS_BUFFER_H
 
+#include "../toxcore/logger.h"
+
 #include <stdbool.h>
 #include <stdint.h>
-#include "../toxcore/logger.h"
 
 /* TimeStamp Buffer */
 typedef struct TSBuffer TSBuffer;
