@@ -250,7 +250,7 @@ cc_library(
 cc_library(
     name = "Messenger",
     srcs = ["Messenger.c"],
-    hdrs = ["Messenger.h"],
+    hdrs = ["Messenger.h", "tox.h"],
     visibility = ["//c-toxcore/toxav:__pkg__"],
     deps = [
         ":friend_requests",

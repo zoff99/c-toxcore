@@ -12,6 +12,38 @@ cc_library(
 )
 
 cc_library(
+    name = "dummy_ntp",
+    srcs = ["dummy_ntp.c"],
+    hdrs = ["dummy_ntp.h"],
+    deps = ["//c-toxcore/toxcore:ccompat"],
+)
+
+cc_library(
+    name = "vpx_codec",
+    srcs = ["codecs/vpx/codec.c"],
+    hdrs = ["audio.h","toxav.h","video.h","pair.h","msi.h","rtp.h","tox_generic.h",
+            "codecs/toxav_codecs.h"],
+    deps = ["@libvpx","@opus","//c-toxcore/toxcore:ccompat",
+    "//c-toxcore/toxcore:Messenger",":bwcontroller"],
+)
+
+cc_library(
+    name = "h264_codec",
+    srcs = ["codecs/h264/codec.c"],
+    hdrs = ["audio.h","toxav.h","video.h","pair.h","msi.h","rtp.h","tox_generic.h",
+            "codecs/toxav_codecs.h"],
+    deps = ["@ffmpeg","@opus","@x264//:core","//c-toxcore/toxcore:ccompat",
+    "//c-toxcore/toxcore:Messenger",":bwcontroller"],
+)
+
+cc_library(
+    name = "ts_buffer",
+    srcs = ["ts_buffer.c"],
+    hdrs = ["ts_buffer.h"],
+    deps = [":rtp","//c-toxcore/toxcore:ccompat"],
+)
+
+cc_library(
     name = "ring_buffer",
     srcs = ["ring_buffer.c"],
     hdrs = ["ring_buffer.h"],
@@ -51,8 +83,8 @@ cc_library(
 cc_library(
     name = "rtp",
     srcs = ["rtp.c"],
-    hdrs = ["rtp.h"],
-    deps = [":bwcontroller"],
+    hdrs = ["rtp.h","video.h","toxav.h","pair.h","audio.h"],
+    deps = ["@opus",":bwcontroller", ":dummy_ntp"],
 )
 
 cc_test(
@@ -73,6 +105,7 @@ cc_library(
     deps = [
         ":public",
         ":rtp",
+        ":ts_buffer",
         "//c-toxcore/toxcore:network",
         "@opus",
     ],
@@ -86,7 +119,7 @@ cc_library(
     ],
     hdrs = [
         "msi.h",
-        "video.h",
+        "video.h","tox_generic.h","codecs/toxav_codecs.h"
     ],
     deps = [
         ":audio",
@@ -114,12 +147,14 @@ cc_library(
     ],
     hdrs = [
         "toxav.api.h",
-        "toxav.h",
+        "toxav.h", "tox_generic.h","codecs/toxav_codecs.h"
     ],
     visibility = ["//c-toxcore:__subpackages__"],
     deps = [
         ":groupav",
         ":video",
+        ":vpx_codec",
+        ":h264_codec"
     ],
 )
 
