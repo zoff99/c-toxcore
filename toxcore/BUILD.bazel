@@ -248,7 +248,7 @@ cc_library(
     name = "Messenger",
     srcs = ["Messenger.c"],
     hdrs = ["Messenger.h", "tox.h"],
-    visibility = ["//c-toxcore/toxav:__pkg__"],
+    visibility = ["//c-toxcore:__subpackages__"],
     deps = [
         ":friend_requests",
         ":state",
