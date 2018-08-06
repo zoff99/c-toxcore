@@ -23,12 +23,12 @@
 
 #include <time.h>
 
-#include "Messenger.h"
+#include "../toxcore/Messenger.h"
 
-#include "logger.h"
-#include "network.h"
-#include "util.h"
-#include "tox.h"
+#include "../toxcore/logger.h"
+#include "../toxcore/network.h"
+#include "../toxcore/util.h"
+#include "../toxcore/tox.h"
 #include "toxutil.h"
 
 #include <assert.h>
