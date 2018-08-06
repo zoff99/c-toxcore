@@ -1,0 +1,24 @@
+load("//tools:no_undefined.bzl", "cc_library")
+
+filegroup(
+    name = "public_headers",
+    srcs = ["toxutil.h"],
+    visibility = ["//c-toxcore:__pkg__"],
+)
+
+cc_library(
+    name = "public",
+    hdrs = [":public_headers"],
+)
+
+cc_library(
+    name = "toxutil",
+    srcs = ["toxutil.c"],
+    hdrs = ["toxutil.h"],
+    visibility = ["//c-toxcore:__subpackages__"],
+    deps = [
+        "//c-toxcore/toxcore:ccompat",
+        "//c-toxcore/toxcore:Messenger",
+    ],
+)
+
