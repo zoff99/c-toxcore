@@ -639,7 +639,11 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
         if ((int)data_type == (int)video_frame_type_KEYFRAME) {
 
-            int percent_recvd = (int)(((float)header_v3->received_length_full / (float)full_data_len) * 100.0f);
+            int percent_recvd = 100;
+
+            if (full_data_len > 0) {
+                percent_recvd = (int)(((float)header_v3->received_length_full / (float)full_data_len) * 100.0f);
+            }
 
 #if 0
 
@@ -834,13 +838,19 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
             mean_value = mean_value + vc->incoming_video_frames_gap_ms[k];
         }
 
-        vc->incoming_video_frames_gap_ms_mean_value = (mean_value * 10) / (VIDEO_INCOMING_FRAMES_GAP_MS_ENTRIES * 10);
+        if (mean_value == 0) {
+            vc->incoming_video_frames_gap_ms_mean_value = 0;
+        } else {
+            vc->incoming_video_frames_gap_ms_mean_value = (mean_value * 10) / (VIDEO_INCOMING_FRAMES_GAP_MS_ENTRIES * 10);
+        }
 
+#if 0
         LOGGER_DEBUG(vc->log, "FPS:INCOMING=%d ms = %.1f fps mean=%d m=%d",
                      (int)curent_gap,
-                     (float)(1000.0f / curent_gap),
+                     (float)(1000.0f / (curent_gap + 0.00001)),
                      (int)vc->incoming_video_frames_gap_ms_mean_value,
                      (int)mean_value);
+#endif
     }
 
     vc->incoming_video_frames_gap_last_ts = current_time_monotonic();
@@ -884,10 +894,17 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
                                                (int64_t)vc->video_frame_buffer_entries,
                                                vc->av->call_comm_cb.second);
 
-                    vc->av->call_comm_cb.first(vc->av, vc->friend_number,
-                                               TOXAV_CALL_COMM_INCOMING_FPS,
-                                               (int64_t)(1000 / vc->incoming_video_frames_gap_ms_mean_value),
-                                               vc->av->call_comm_cb.second);
+                    if (vc->incoming_video_frames_gap_ms_mean_value == 0) {
+                        vc->av->call_comm_cb.first(vc->av, vc->friend_number,
+                                                   TOXAV_CALL_COMM_INCOMING_FPS,
+                                                   (int64_t)(9999),
+                                                   vc->av->call_comm_cb.second);
+                    } else {
+                        vc->av->call_comm_cb.first(vc->av, vc->friend_number,
+                                                   TOXAV_CALL_COMM_INCOMING_FPS,
+                                                   (int64_t)(1000 / vc->incoming_video_frames_gap_ms_mean_value),
+                                                   vc->av->call_comm_cb.second);
+                    }
                 }
 
             }
@@ -977,8 +994,10 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
         vc->decoder_soft_deadline[vc->decoder_soft_deadline_index] = decode_time_auto_tune;
         vc->decoder_soft_deadline_index = (vc->decoder_soft_deadline_index + 1) % VIDEO_DECODER_SOFT_DEADLINE_AUTOTUNE_ENTRIES;
 
+#if 0
         LOGGER_DEBUG(vc->log, "AUTOTUNE:INCOMING=%ld us = %.1f fps", (long)decode_time_auto_tune,
                      (float)(1000000.0f / decode_time_auto_tune));
+#endif
 
     }
 
