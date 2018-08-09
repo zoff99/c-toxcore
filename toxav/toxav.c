@@ -1369,162 +1369,137 @@ static void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, 
      */
 
     ToxAVCall *call = (ToxAVCall *)user_data;
-    assert(call);
 
     LOGGER_API_DEBUG(call->av->tox, "Reported loss of %f%%", (double)loss * 100);
 
-    if (1 == 1) { // (call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H264) {
+    if (!call->av) {
+        return;
+    }
 
-        if (call->video_bit_rate == 0) {
-            // HINT: video is turned off -> just do nothing
-            return;
-        }
+    if (call->video_bit_rate == 0) {
+        // HINT: video is turned off -> just do nothing
+        return;
+    }
 
-        if (call->video.second->video_bitrate_autoset == 0) {
-            // HINT: client does not want bitrate autoset
-            return;
-        }
+    if (!call->video.second) {
+        return;
+    }
 
-        pthread_mutex_lock(call->av->mutex);
+    if (call->video.second->video_bitrate_autoset == 0) {
+        // HINT: client does not want bitrate autoset
+        return;
+    }
 
-        // HINT: on high bitrates we lower the bitrate even on small data loss
-        if (call->video_bit_rate > VIDEO_BITRATE_SCALAR3_AUTO_VALUE_H264) {
-            if ((loss * 100) > VIDEO_BITRATE_AUTO_INC_THRESHOLD) {
-                int64_t tmp = (int64_t)((float)call->video_bit_rate * ((1.0f - loss) * VIDEO_BITRATE_AUTO_DEC_FACTOR));
+    if (loss > 0) {
+        LOGGER_ERROR(call->av->m->log, "Reported loss of %f%% : %f", loss * 100, loss);
+    }
 
-                if (tmp <= 0) {
-                    tmp = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
-                }
+    pthread_mutex_lock(call->av->mutex);
 
-                call->video_bit_rate = (uint32_t)tmp;
+    // HINT: on high bitrates we lower the bitrate even on small data loss
+    if (call->video_bit_rate > VIDEO_BITRATE_SCALAR3_AUTO_VALUE_H264) {
+        if ((loss * 100) > VIDEO_BITRATE_AUTO_INC_THRESHOLD) {
+            int64_t tmp = (int64_t)((float)call->video_bit_rate * ((1.0f - loss) * VIDEO_BITRATE_AUTO_DEC_FACTOR));
 
-                // HINT: sanity check --------------
-                if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
-                    call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
-                } else if (call->video_bit_rate > VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
-                    call->video_bit_rate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264;
-                }
-
-                if (call->video_bit_rate > (uint32_t)call->video.second->video_max_bitrate) {
-                    call->video_bit_rate = (uint32_t)call->video.second->video_max_bitrate;
-                }
-
-                // HINT: sanity check --------------
-
-                LOGGER_ERROR(call->av->m->log, "callback_bwc:DEC:1:H:vb=%d loss=%d", (int)call->video_bit_rate, (int)(loss * 100));
-
-                pthread_mutex_unlock(call->av->mutex);
-                return;
+            if (tmp <= 0) {
+                tmp = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
             }
-        }
 
-        if ((loss * 100) < VIDEO_BITRATE_AUTO_INC_THRESHOLD) {
-            if (call->video_bit_rate < VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
+            call->video_bit_rate = (uint32_t)tmp;
 
-                if (call->video_bit_rate < VIDEO_BITRATE_SCALAR_AUTO_VALUE_H264) {
-                    call->video_bit_rate = call->video_bit_rate + VIDEO_BITRATE_SCALAR_INC_BY_AUTO_VALUE_H264;
-                } else if (call->video_bit_rate > VIDEO_BITRATE_SCALAR2_AUTO_VALUE_H264) {
-                    call->video_bit_rate = call->video_bit_rate + VIDEO_BITRATE_SCALAR2_INC_BY_AUTO_VALUE_H264;
-                } else {
-                    call->video_bit_rate = (uint32_t)((float)call->video_bit_rate * (float)VIDEO_BITRATE_AUTO_INC_TO);
-                }
-
-                // HINT: sanity check --------------
-                if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
-                    call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
-                } else if (call->video_bit_rate > VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
-                    call->video_bit_rate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264;
-                }
-
-                if (call->video_bit_rate > (uint32_t)call->video.second->video_max_bitrate) {
-                    call->video_bit_rate = (uint32_t)call->video.second->video_max_bitrate;
-                }
-
-                // HINT: sanity check --------------
-
-                LOGGER_DEBUG(call->av->m->log, "callback_bwc:INC:vb=%d loss=%d", (int)call->video_bit_rate, (int)(loss * 100));
-            }
-        } else if ((loss * 100) > VIDEO_BITRATE_AUTO_DEC_THRESHOLD) {
-            if (call->video_bit_rate > VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
-
-                int64_t tmp = (int64_t)((float)call->video_bit_rate * ((1.0f - loss) * VIDEO_BITRATE_AUTO_DEC_FACTOR));
-
-                if (tmp <= 0) {
-                    tmp = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
-                }
-
-                call->video_bit_rate = (uint32_t)tmp;
-
-                // HINT: sanity check --------------
-                if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
-                    call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
-                } else if (call->video_bit_rate > VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
-                    call->video_bit_rate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264;
-                }
-
-                if (call->video_bit_rate > (uint32_t)call->video.second->video_max_bitrate) {
-                    call->video_bit_rate = (uint32_t)call->video.second->video_max_bitrate;
-                }
-
-                // HINT: sanity check --------------
-
-                LOGGER_ERROR(call->av->m->log, "callback_bwc:DEC:vb=%d loss=%d", (int)call->video_bit_rate, (int)(loss * 100));
-            }
-        }
-
-        // HINT: sanity check --------------
-
-        if (call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H264) {
+            // HINT: sanity check --------------
             if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
                 call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
             } else if (call->video_bit_rate > VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
                 call->video_bit_rate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264;
             }
-        } else {
-            if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_VP8) {
-                call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_VP8;
-            } else if (call->video_bit_rate > VIDEO_BITRATE_MAX_AUTO_VALUE_VP8) {
-                call->video_bit_rate = VIDEO_BITRATE_MAX_AUTO_VALUE_VP8;
+
+            if (call->video_bit_rate > (uint32_t)call->video.second->video_max_bitrate) {
+                call->video_bit_rate = (uint32_t)call->video.second->video_max_bitrate;
             }
 
-            call->video_bit_rate = (uint32_t)((float)call->video_bit_rate * VIDEO_BITRATE_CORRECTION_FACTOR_VP8);
+            // HINT: sanity check --------------
 
-            if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_VP8) {
-                call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_VP8;
-            }
+            LOGGER_ERROR(call->av->m->log, "callback_bwc:DEC:1:H:vb=%d loss=%d", (int)call->video_bit_rate, (int)(loss * 100));
 
-        }
-
-        if (call->video_bit_rate > (uint32_t)call->video.second->video_max_bitrate) {
-            call->video_bit_rate = (uint32_t)call->video.second->video_max_bitrate;
-        }
-
-        // HINT: sanity check --------------
-
-        pthread_mutex_unlock(call->av->mutex);
-    } else {
-
-        /* if less than x% data loss we do nothing! */
-        if (loss < VIDEO_ACCEPTABLE_LOSS) {
-            return;
-        }
-
-        pthread_mutex_lock(call->av->mutex);
-
-        if (!call->av->bcb.first) {
             pthread_mutex_unlock(call->av->mutex);
-            LOGGER_DEBUG(call->av->m->log, "No callback to report loss on");
             return;
         }
+    }
 
-        if (call->video_bit_rate) {
-            (*call->av->bcb.first)(call->av, friend_number, call->audio_bit_rate,
-                                   call->video_bit_rate - (call->video_bit_rate * loss),
-                                   call->av->bcb.second);
-        } else if (call->audio_bit_rate) {
-            (*call->av->bcb.first)(call->av, friend_number,
-                                   call->audio_bit_rate - (call->audio_bit_rate * loss),
-                                   0, call->av->bcb.second);
+    if ((loss * 100) < VIDEO_BITRATE_AUTO_INC_THRESHOLD) {
+        if (call->video_bit_rate < VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
+
+            if (call->video_bit_rate < VIDEO_BITRATE_SCALAR_AUTO_VALUE_H264) {
+                call->video_bit_rate = call->video_bit_rate + VIDEO_BITRATE_SCALAR_INC_BY_AUTO_VALUE_H264;
+            } else if (call->video_bit_rate > VIDEO_BITRATE_SCALAR2_AUTO_VALUE_H264) {
+                call->video_bit_rate = call->video_bit_rate + VIDEO_BITRATE_SCALAR2_INC_BY_AUTO_VALUE_H264;
+            } else {
+                call->video_bit_rate = (uint32_t)((float)call->video_bit_rate * (float)VIDEO_BITRATE_AUTO_INC_TO);
+            }
+
+            // HINT: sanity check --------------
+            if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
+                call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
+            } else if (call->video_bit_rate > VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
+                call->video_bit_rate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264;
+            }
+
+            if (call->video_bit_rate > (uint32_t)call->video.second->video_max_bitrate) {
+                call->video_bit_rate = (uint32_t)call->video.second->video_max_bitrate;
+            }
+
+            // HINT: sanity check --------------
+
+            LOGGER_DEBUG(call->av->m->log, "callback_bwc:INC:vb=%d loss=%d", (int)call->video_bit_rate, (int)(loss * 100));
+        }
+    } else if ((loss * 100) > VIDEO_BITRATE_AUTO_DEC_THRESHOLD) {
+        if (call->video_bit_rate > VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
+
+            int64_t tmp = (int64_t)((float)call->video_bit_rate * ((1.0f - loss) * VIDEO_BITRATE_AUTO_DEC_FACTOR));
+
+            if (tmp <= 0) {
+                tmp = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
+            }
+
+            call->video_bit_rate = (uint32_t)tmp;
+
+            // HINT: sanity check --------------
+            if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
+                call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
+            } else if (call->video_bit_rate > VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
+                call->video_bit_rate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264;
+            }
+
+            if (call->video_bit_rate > (uint32_t)call->video.second->video_max_bitrate) {
+                call->video_bit_rate = (uint32_t)call->video.second->video_max_bitrate;
+            }
+
+            // HINT: sanity check --------------
+
+            LOGGER_ERROR(call->av->m->log, "callback_bwc:DEC:vb=%d loss=%d", (int)call->video_bit_rate, (int)(loss * 100));
+        }
+    }
+
+    // HINT: sanity check --------------
+
+    if (call->video.second->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H264) {
+        if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
+            call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
+        } else if (call->video_bit_rate > VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
+            call->video_bit_rate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264;
+        }
+    } else {
+        if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_VP8) {
+            call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_VP8;
+        } else if (call->video_bit_rate > VIDEO_BITRATE_MAX_AUTO_VALUE_VP8) {
+            call->video_bit_rate = VIDEO_BITRATE_MAX_AUTO_VALUE_VP8;
+        }
+
+        call->video_bit_rate = (uint32_t)((float)call->video_bit_rate * VIDEO_BITRATE_CORRECTION_FACTOR_VP8);
+
+        if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_VP8) {
+            call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_VP8;
         }
 
     if (call->video_bit_rate) {
@@ -1549,6 +1524,10 @@ static void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, 
                        call->audio_bit_rate - (call->audio_bit_rate * loss),
                        call->av->abcb_user_data);
     }
+
+    // HINT: sanity check --------------
+
+    pthread_mutex_unlock(call->av->mutex);
 }
 
 int callback_invite(void *toxav_inst, MSICall *call)
