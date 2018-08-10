@@ -456,8 +456,6 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
 
 
-
-
         LOGGER_DEBUG(vc->log, "XLS01:%d,%d",
                      (int)(timestamp_want_get - current_time_monotonic()),
                      (int)(timestamp_out_ - current_time_monotonic())
