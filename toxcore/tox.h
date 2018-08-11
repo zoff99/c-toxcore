@@ -172,11 +172,9 @@ uint32_t tox_version_minor(void);
 
 uint32_t tox_version_patch(void);
 
-
-
 #define TOX_HAVE_TOXUTIL               1
-#define TOX_HAVE_TOXAV_CALLBACKS_002   1
 
+#define TOX_HAVE_TOXAV_CALLBACKS_002   1
 
 /**
  * A macro to check at preprocessing time whether the client code is compatible
@@ -3286,6 +3284,34 @@ uint16_t tox_self_get_tcp_port(const Tox *tox, TOX_ERR_GET_PORT *error);
 #ifdef __cplusplus
 }
 #endif
+
+/*******************************************************************************
+ *
+ * :: Message V2 functions
+ *
+ ******************************************************************************/
+#define TOX_MESSAGE_V2_ACTIVE 1
+/*
+* sending
+*/
+uint32_t tox_messagev2_size(uint32_t text_length, uint32_t type, uint32_t alter_type);
+bool tox_messagev2_wrap(uint32_t text_length, uint32_t type,
+                        uint32_t alter_type,
+                        const uint8_t *message_text, uint32_t ts_sec,
+                        uint16_t ts_ms, uint8_t *raw_message,
+                        uint8_t *msgid);
+/*
+* receiving
+*/
+bool tox_messagev2_get_message_id(const uint8_t *raw_message, uint8_t *msg_id);
+bool tox_messagev2_get_message_alter_id(uint8_t *raw_message, uint8_t *alter_id);
+uint8_t tox_messagev2_get_alter_type(uint8_t *raw_message);
+uint32_t tox_messagev2_get_ts_sec(const uint8_t *raw_message);
+uint16_t tox_messagev2_get_ts_ms(const uint8_t *raw_message);
+bool tox_messagev2_get_message_text(const uint8_t *raw_message, uint32_t raw_message_len,
+                                    bool is_alter_msg,
+                                    uint32_t alter_type, uint8_t *message_text,
+                                    uint32_t *text_length);
 
 typedef TOX_ERR_OPTIONS_NEW Tox_Err_Options_New;
 typedef TOX_ERR_NEW Tox_Err_New;
