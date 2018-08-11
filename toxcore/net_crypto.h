@@ -54,8 +54,8 @@
 #define PACKET_ID_USERSTATUS 50
 #define PACKET_ID_TYPING 51
 #define PACKET_ID_MESSAGE 64
-#define PACKET_ID_ACTION 65 // PACKET_ID_MESSAGE + MESSAGE_ACTION
-#define PACKET_ID_MSI 69    // Used by AV to setup calls and etc
+#define PACKET_ID_ACTION 65 /* PACKET_ID_MESSAGE + MESSAGE_ACTION */
+#define PACKET_ID_MSI 69    /* Used by AV to setup calls and etc */
 #define PACKET_ID_FILE_SENDREQUEST 80
 #define PACKET_ID_FILE_CONTROL 81
 #define PACKET_ID_FILE_DATA 82
@@ -65,6 +65,20 @@
 #define PACKET_ID_MESSAGE_CONFERENCE 99
 #define PACKET_ID_REJOIN_CONFERENCE 100
 #define PACKET_ID_LOSSY_CONFERENCE 199
+
+/* video via lossless packets */
+#define PACKET_LOSSLESS_VIDEO 171
+#define PACKET_TOXAV_COMM_CHANNEL 172
+
+/*** Crypto connections. ***/
+
+typedef enum Crypto_Conn_State {
+    CRYPTO_CONN_NO_CONNECTION = 0,
+    CRYPTO_CONN_COOKIE_REQUESTING = 1,  // send cookie request packets
+    CRYPTO_CONN_HANDSHAKE_SENT = 2,     // send handshake packets
+    CRYPTO_CONN_NOT_CONFIRMED = 3,      // send handshake packets, we have received one from the other
+    CRYPTO_CONN_ESTABLISHED = 4,
+} Crypto_Conn_State;
 
 /* Maximum size of receiving and sending packet buffers. */
 #define CRYPTO_PACKET_BUFFER_SIZE 32768 // Must be a power of 2
