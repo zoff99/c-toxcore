@@ -69,8 +69,8 @@
 #define PACKET_ID_USERSTATUS 50
 #define PACKET_ID_TYPING 51
 #define PACKET_ID_MESSAGE 64
-#define PACKET_ID_ACTION 65 // PACKET_ID_MESSAGE + MESSAGE_ACTION
-#define PACKET_ID_MSI 69    // Used by AV to setup calls and etc
+#define PACKET_ID_ACTION 65 /* PACKET_ID_MESSAGE + MESSAGE_ACTION */
+#define PACKET_ID_MSI 69    /* Used by AV to setup calls and etc */
 #define PACKET_ID_FILE_SENDREQUEST 80
 #define PACKET_ID_FILE_CONTROL 81
 #define PACKET_ID_FILE_DATA 82
@@ -79,11 +79,6 @@
 #define PACKET_ID_DIRECT_CONFERENCE 98
 #define PACKET_ID_MESSAGE_CONFERENCE 99
 #define PACKET_ID_LOSSY_CONFERENCE 199
-
-/* All packets starting with a byte in this range can be used for anything. */
-#define PACKET_ID_LOSSLESS_RANGE_START 160
-#define PACKET_ID_LOSSLESS_RANGE_SIZE 32
-#define PACKET_LOSSY_AV_RESERVED 8 // Number of lossy packet types at start of range reserved for A/V.
 
 /* video via lossless packets */
 #define PACKET_LOSSLESS_VIDEO 171
