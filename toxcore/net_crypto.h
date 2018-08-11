@@ -69,8 +69,8 @@
 #define PACKET_ID_USERSTATUS 50
 #define PACKET_ID_TYPING 51
 #define PACKET_ID_MESSAGE 64
-#define PACKET_ID_ACTION 65 // PACKET_ID_MESSAGE + MESSAGE_ACTION
-#define PACKET_ID_MSI 69    // Used by AV to setup calls and etc
+#define PACKET_ID_ACTION 65 /* PACKET_ID_MESSAGE + MESSAGE_ACTION */
+#define PACKET_ID_MSI 69    /* Used by AV to setup calls and etc */
 #define PACKET_ID_FILE_SENDREQUEST 80
 #define PACKET_ID_FILE_CONTROL 81
 #define PACKET_ID_FILE_DATA 82
@@ -80,6 +80,10 @@
 #define PACKET_ID_MESSAGE_CONFERENCE 99
 #define PACKET_ID_REJOIN_CONFERENCE 100
 #define PACKET_ID_LOSSY_CONFERENCE 199
+
+/* video via lossless packets */
+#define PACKET_LOSSLESS_VIDEO 171
+#define PACKET_TOXAV_COMM_CHANNEL 172
 
 /*** Crypto connections. ***/
 
