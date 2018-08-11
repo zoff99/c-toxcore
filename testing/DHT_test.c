@@ -28,22 +28,21 @@
  * You should have received a copy of the GNU General Public License
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
+#ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE 600
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
 #endif
 
-//#include "../core/network.h"
-#include "../toxcore/DHT.h"
-#include "../toxcore/friend_requests.h"
-#include "misc_tools.c"
-
+#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 #if !defined(_WIN32) && !defined(__WIN32__) && !defined (WIN32)
 #include <arpa/inet.h>
 #endif
+
+#include "../toxcore/DHT.h"
+#include "../toxcore/friend_requests.h"
+#include "misc_tools.h"
 
 #define PORT 33445
 

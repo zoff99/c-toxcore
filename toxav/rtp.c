@@ -1023,7 +1023,7 @@ size_t rtp_header_unpack(const uint8_t *data, struct RTPHeader *header)
     //      custom fields here      //
     // ---------------------------- //
     p += net_unpack_u64(p, &header->frame_record_timestamp);
-    p += net_unpack_u32(p, &header->fragment_num);
+    p += net_unpack_u32(p, (uint32_t *)&header->fragment_num);
     p += net_unpack_u32(p, &header->real_frame_num);
     p += net_unpack_u32(p, &header->encoder_bit_rate_used);
     // ---------------------------- //

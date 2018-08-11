@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.65])
-AC_INIT([tox], [0.2.3])
+AC_INIT([tox], [0.2.5])
 AC_CONFIG_AUX_DIR(configure_aux)
 AC_CONFIG_SRCDIR([toxcore/net_crypto.c])
 AC_CONFIG_HEADERS([config.h])
@@ -73,7 +73,7 @@ AC_ARG_ENABLE([logging],
         if test "x$enableval" = "xyes"; then
             TOX_LOGGER="yes"
 
-            AC_DEFINE([MIN_LOGGER_LEVEL], [LOG_DEBUG], [LOG_LEVEL value])
+            AC_DEFINE([MIN_LOGGER_LEVEL], [LOGGER_LEVEL_DEBUG], [Logger_Level value])
         fi
     ]
 )
@@ -86,19 +86,19 @@ AC_ARG_WITH(log-level,
             AC_MSG_WARN([Logging disabled!])
         else
             if test "x$withval" = "xTRACE"; then
-                AC_DEFINE([MIN_LOGGER_LEVEL], [LOG_TRACE], [LOG_LEVEL value])
+                AC_DEFINE([MIN_LOGGER_LEVEL], [LOGGER_LEVEL_TRACE], [Logger_Level value])
 
             elif test "x$withval" = "xDEBUG"; then
-                AC_DEFINE([MIN_LOGGER_LEVEL], [LOG_DEBUG], [LOG_LEVEL value])
+                AC_DEFINE([MIN_LOGGER_LEVEL], [LOGGER_LEVEL_DEBUG], [Logger_Level value])
 
             elif test "x$withval" = "xINFO"; then
-                AC_DEFINE([MIN_LOGGER_LEVEL], [LOG_INFO], [LOG_LEVEL value])
+                AC_DEFINE([MIN_LOGGER_LEVEL], [LOGGER_LEVEL_INFO], [Logger_Level value])
 
             elif test "x$withval" = "xWARNING"; then
-                AC_DEFINE([MIN_LOGGER_LEVEL], [LOG_WARNING], [LOG_LEVEL value])
+                AC_DEFINE([MIN_LOGGER_LEVEL], [LOGGER_LEVEL_WARNING], [Logger_Level value])
 
             elif test "x$withval" = "xERROR"; then
-                AC_DEFINE([MIN_LOGGER_LEVEL], [LOG_ERROR], [LOG_LEVEL value])
+                AC_DEFINE([MIN_LOGGER_LEVEL], [LOGGER_LEVEL_ERROR], [Logger_Level value])
             else
                 AC_MSG_WARN([Invalid logger level: $withval. Using default 'DEBUG'])
             fi
@@ -488,7 +488,7 @@ AC_C_BIGENDIAN
 # Checks for library functions.
 AC_FUNC_FORK
 AC_CHECK_FUNCS([gettimeofday memset socket strchr malloc])
-if (test "x$WIN32" != "xyes") && (test "x$MACH" != "xyes") && (test "x${host_os#*openbsd}" == "x$host_os") && (test "x$DISABLE_RT" != "xyes"); then
+if (test "x$WIN32" != "xyes") && (test "x$MACH" != "xyes") && (test "x${host_os#*openbsd}" = "x$host_os") && (test "x$DISABLE_RT" != "xyes"); then
     AC_CHECK_LIB(rt, clock_gettime,
         [
             RT_LIBS="-lrt"

@@ -39,15 +39,26 @@ typedef enum Groupchat_Type {
 
 #define MAX_LOSSY_COUNT 256
 
+typedef struct Message_Info {
+    uint32_t message_number;
+    uint8_t  message_id;
+} Message_Info;
+
+#define MAX_LAST_MESSAGE_INFOS 8
+
 typedef struct Group_Peer {
     uint8_t     real_pk[CRYPTO_PUBLIC_KEY_SIZE];
     uint8_t     temp_pk[CRYPTO_PUBLIC_KEY_SIZE];
 
     uint64_t    last_recv;
-    uint32_t    last_message_number;
+
+    Message_Info
+    last_message_infos[MAX_LAST_MESSAGE_INFOS]; /* received messages, strictly decreasing in message_number */
+    uint8_t         num_last_message_infos;
 
     uint8_t     nick[MAX_NAME_LENGTH];
     uint8_t     nick_len;
+    bool        nick_updated;
 
     uint16_t peer_number;
 
@@ -70,7 +81,9 @@ typedef enum Groupchat_Close_Type {
 
 typedef struct Groupchat_Close {
     uint8_t type; /* GROUPCHAT_CLOSE_* */
-    uint8_t closest;
+    bool closest; /* connected to peer because it is one of our closest peers */
+    bool introducer; /* connected to peer because it introduced us to the group */
+    bool introduced; /* connected to peer because we introduced it to the group */
     uint32_t number;
     uint16_t group_number;
 } Groupchat_Close;
@@ -91,6 +104,7 @@ typedef struct Group_c {
     Group_Peer *group;
     uint32_t numpeers;
 
+    /* TODO(zugz) rename close to something more accurate - "connected"? */
     Groupchat_Close close[MAX_GROUP_CONNECTIONS];
 
     uint8_t real_pk[CRYPTO_PUBLIC_KEY_SIZE];
@@ -138,7 +152,7 @@ typedef struct Group_Chats {
     Friend_Connections *fr_c;
 
     Group_c *chats;
-    uint32_t num_chats;
+    uint16_t num_chats;
 
     g_conference_invite_cb *invite_callback;
     g_conference_message_cb *message_callback;
@@ -331,14 +345,14 @@ int send_group_lossy_packet(const Group_Chats *g_c, uint32_t groupnumber, const 
  * You should use this to determine how much memory to allocate
  * for copy_chatlist.
  */
-uint32_t count_chatlist(Group_Chats *g_c);
+uint32_t count_chatlist(const Group_Chats *g_c);
 
 /* Copy a list of valid chat IDs into the array out_list.
  * If out_list is NULL, returns 0.
  * Otherwise, returns the number of elements copied.
  * If the array was too small, the contents
  * of out_list will be truncated to list_size. */
-uint32_t copy_chatlist(Group_Chats *g_c, uint32_t *out_list, uint32_t list_size);
+uint32_t copy_chatlist(const Group_Chats *g_c, uint32_t *out_list, uint32_t list_size);
 
 /* return the type of groupchat (GROUPCHAT_TYPE_) that groupnumber is.
  *
@@ -346,6 +360,15 @@ uint32_t copy_chatlist(Group_Chats *g_c, uint32_t *out_list, uint32_t list_size)
  * return type on success.
  */
 int group_get_type(const Group_Chats *g_c, uint32_t groupnumber);
+
+/* Copies the unique id of group_chat[groupnumber] into uid.
+*
+* return false on failure.
+* return true on success.
+*/
+bool conference_get_uid(const Group_Chats *g_c, uint32_t groupnumber, uint8_t *uid);
+
+int32_t conference_by_uid(const Group_Chats *g_c, const uint8_t *uid);
 
 /* Send current name (set in messenger) to all online groups.
  */

@@ -204,8 +204,8 @@ static int send_offline_packet(Messenger *m, int friendcon_id)
 
 static int m_handle_status(void *object, int i, uint8_t status, void *userdata);
 static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t len, void *userdata);
-static int m_handle_custom_lossy_packet(void *object, int friend_num, const uint8_t *packet, uint16_t length,
-                                        void *userdata);
+static int m_handle_lossy_packet(void *object, int friend_num, const uint8_t *packet, uint16_t length,
+                                 void *userdata);
 
 static int32_t init_new_friend(Messenger *m, const uint8_t *real_pk, uint8_t status)
 {
@@ -242,7 +242,7 @@ static int32_t init_new_friend(Messenger *m, const uint8_t *real_pk, uint8_t sta
             m->friendlist[i].status = status;
 
             friend_connection_callbacks(m->fr_c, friendcon_id, MESSENGER_CALLBACK_INDEX, &m_handle_status, &m_handle_packet,
-                                        &m_handle_custom_lossy_packet, m, i);
+                                        &m_handle_lossy_packet, m, i);
 
             if (friend_con_connected(m->fr_c, friendcon_id) == FRIENDCONN_STATUS_CONNECTED) {
                 send_online_packet(m, i);
@@ -542,7 +542,7 @@ int m_send_message_generic(Messenger *m, int32_t friendnumber, uint8_t type, con
     }
 
     if (length >= MAX_CRYPTO_DATA_SIZE) {
-        LOGGER_ERROR(m->log, "Message length %d is too large", friendnumber);
+        LOGGER_ERROR(m->log, "Message length %u is too large", length);
         return -2;
     }
 
@@ -552,7 +552,7 @@ int m_send_message_generic(Messenger *m, int32_t friendnumber, uint8_t type, con
     }
 
     VLA(uint8_t, packet, length + 1);
-    packet[0] = type + PACKET_ID_MESSAGE;
+    packet[0] = PACKET_ID_MESSAGE + type;
 
     if (length != 0) {
         memcpy(packet + 1, message, length);
@@ -877,11 +877,6 @@ static void set_friend_userstatus(const Messenger *m, int32_t friendnumber, uint
 static void set_friend_typing(const Messenger *m, int32_t friendnumber, uint8_t is_typing)
 {
     m->friendlist[friendnumber].is_typing = is_typing;
-}
-
-void m_callback_log(Messenger *m, logger_cb *function, void *context, void *userdata)
-{
-    logger_callback_log(m->log, function, context, userdata);
 }
 
 /* Set the function that will be executed when a friend request is received. */
@@ -1863,8 +1858,8 @@ int m_msi_packet(const Messenger *m, int32_t friendnumber, const uint8_t *data, 
     return write_cryptpacket_id(m, friendnumber, PACKET_ID_MSI, data, length, 0);
 }
 
-static int m_handle_custom_lossy_packet(void *object, int friend_num, const uint8_t *packet, uint16_t length,
-                                        void *userdata)
+static int m_handle_lossy_packet(void *object, int friend_num, const uint8_t *packet, uint16_t length,
+                                 void *userdata)
 {
     Messenger *m = (Messenger *)object;
 
@@ -1872,11 +1867,12 @@ static int m_handle_custom_lossy_packet(void *object, int friend_num, const uint
         return 1;
     }
 
-    if (packet[0] < (PACKET_ID_LOSSY_RANGE_START + PACKET_LOSSY_AV_RESERVED)) {
-        if (m->friendlist[friend_num].lossy_rtp_packethandlers[packet[0] % PACKET_LOSSY_AV_RESERVED].function) {
-            return m->friendlist[friend_num].lossy_rtp_packethandlers[packet[0] % PACKET_LOSSY_AV_RESERVED].function(
-                       m, friend_num, packet, length, m->friendlist[friend_num].lossy_rtp_packethandlers[packet[0] %
-                               PACKET_LOSSY_AV_RESERVED].object);
+    if (packet[0] <= PACKET_ID_RANGE_LOSSY_AV_END) {
+        const RTP_Packet_Handler *const ph =
+            &m->friendlist[friend_num].lossy_rtp_packethandlers[packet[0] % PACKET_ID_RANGE_LOSSY_AV_SIZE];
+
+        if (ph->function) {
+            return ph->function(m, friend_num, packet, length, ph->object);
         }
 
         return 1;
@@ -1916,20 +1912,23 @@ int m_callback_rtp_packet(Messenger *m, int32_t friendnumber, uint8_t byte, m_lo
         return 0;
     }
 
-    if (byte < PACKET_ID_LOSSY_RANGE_START) {
+    if (byte < PACKET_ID_RANGE_LOSSY_AV_START || byte > PACKET_ID_RANGE_LOSSY_AV_END) {
         return -1;
     }
 
-    if (byte >= (PACKET_ID_LOSSY_RANGE_START + PACKET_LOSSY_AV_RESERVED)) {
-        return -1;
-    }
-
-    m->friendlist[friendnumber].lossy_rtp_packethandlers[byte % PACKET_LOSSY_AV_RESERVED].function = function;
-    m->friendlist[friendnumber].lossy_rtp_packethandlers[byte % PACKET_LOSSY_AV_RESERVED].object = object;
+    m->friendlist[friendnumber].lossy_rtp_packethandlers[byte % PACKET_ID_RANGE_LOSSY_AV_SIZE].function = function;
+    m->friendlist[friendnumber].lossy_rtp_packethandlers[byte % PACKET_ID_RANGE_LOSSY_AV_SIZE].object = object;
     return 0;
 }
 
 
+/* TODO(oxij): this name is confusing, because this function sends both av and custom lossy packets.
+ * Meanwhile, m_handle_lossy_packet routes custom packets to custom_lossy_packet_registerhandler
+ * as you would expect from its name.
+ *
+ * I.e. custom_lossy_packet_registerhandler's "custom lossy packet" and this "custom lossy packet"
+ * are not the same set of packets.
+ */
 int m_send_custom_lossy_packet(const Messenger *m, int32_t friendnumber, const uint8_t *data, uint32_t length)
 {
     if (friend_not_valid(m, friendnumber)) {
@@ -1940,11 +1939,8 @@ int m_send_custom_lossy_packet(const Messenger *m, int32_t friendnumber, const u
         return -2;
     }
 
-    if (data[0] < PACKET_ID_LOSSY_RANGE_START) {
-        return -3;
-    }
-
-    if (data[0] >= (PACKET_ID_LOSSY_RANGE_START + PACKET_ID_LOSSY_RANGE_SIZE)) {
+    // TODO(oxij): send_lossy_cryptpacket makes this check already, similarly for other similar places
+    if (data[0] < PACKET_ID_RANGE_LOSSY_START || data[0] > PACKET_ID_RANGE_LOSSY_END) {
         return -3;
     }
 
@@ -1989,11 +1985,7 @@ static int handle_custom_lossless_packet(void *object, int friend_num, const uin
         return 1;
     }
 
-    if (packet[0] < PACKET_ID_LOSSLESS_RANGE_START) {
-        return -1;
-    }
-
-    if (packet[0] >= (PACKET_ID_LOSSLESS_RANGE_START + PACKET_ID_LOSSLESS_RANGE_SIZE)) {
+    if (packet[0] < PACKET_ID_RANGE_LOSSLESS_CUSTOM_START || packet[0] > PACKET_ID_RANGE_LOSSLESS_CUSTOM_END) {
         return -1;
     }
 
@@ -2019,11 +2011,7 @@ int send_custom_lossless_packet(const Messenger *m, int32_t friendnumber, const 
         return -2;
     }
 
-    if (data[0] < PACKET_ID_LOSSLESS_RANGE_START) {
-        return -3;
-    }
-
-    if (data[0] >= (PACKET_ID_LOSSLESS_RANGE_START + PACKET_ID_LOSSLESS_RANGE_SIZE)) {
+    if (data[0] < PACKET_ID_RANGE_LOSSLESS_CUSTOM_START || data[0] > PACKET_ID_RANGE_LOSSLESS_CUSTOM_END) {
         return -3;
     }
 
@@ -2083,7 +2071,7 @@ Messenger *new_messenger(Messenger_Options *options, unsigned int *error)
         return nullptr;
     }
 
-    logger_callback_log(m->log, options->log_callback, m, options->log_user_data);
+    logger_callback_log(m->log, options->log_callback, options->log_context, options->log_user_data);
 
     unsigned int net_err = 0;
 
@@ -2746,10 +2734,11 @@ void do_messenger(Messenger *m, void *userdata)
 
         for (client = 0; client < LCLIENT_LIST; ++client) {
             const Client_data *cptr = dht_get_close_client(m->dht, client);
-            const IPPTsPng *assoc = nullptr;
-            uint32_t a;
+            const IPPTsPng *const assocs[] = { &cptr->assoc4, &cptr->assoc6, nullptr };
 
-            for (a = 0, assoc = &cptr->assoc4; a < 2; ++a, assoc = &cptr->assoc6) {
+            for (const IPPTsPng * const *it = assocs; *it; ++it) {
+                const IPPTsPng *const assoc = *it;
+
                 if (ip_isset(&assoc->ip_port.ip)) {
                     last_pinged = m->lastdump - assoc->last_pinged;
 

@@ -2,11 +2,10 @@ load("//tools:no_undefined.bzl", "cc_library")
 
 cc_library(
     name = "misc_tools",
-    hdrs = [
-        "misc_tools.c",
-    ],
+    srcs = ["misc_tools.c"],
+    hdrs = ["misc_tools.h"],
     visibility = ["//c-toxcore:__subpackages__"],
-    deps = ["//c-toxcore/toxcore:ccompat"],
+    deps = ["//c-toxcore/toxcore"],
 )
 
 cc_binary(
@@ -36,7 +35,7 @@ cc_binary(
     copts = ["-O1"],
     deps = [
         "//c-toxcore/toxav",
-        "//c-toxcore/toxav:monolith",
+        "//c-toxcore/toxav:ring_buffer_srcs",
         "//c-toxcore/toxcore",
         "@opencv//:core",
         "@opencv//:highgui",

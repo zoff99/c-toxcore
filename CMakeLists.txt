@@ -30,7 +30,7 @@ set(CMAKE_MODULE_PATH ${toxcore_SOURCE_DIR}/cmake)
 # versions in a synchronised way.
 set(PROJECT_VERSION_MAJOR "0")
 set(PROJECT_VERSION_MINOR "2")
-set(PROJECT_VERSION_PATCH "3")
+set(PROJECT_VERSION_PATCH "5")
 set(PROJECT_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
 
 # set .so library version / following libtool scheme
@@ -77,7 +77,12 @@ enable_testing()
 
 set(CMAKE_MACOSX_RPATH ON)
 
-if(NOT ${CMAKE_VERSION} VERSION_LESS "3.1.0")
+if(${CMAKE_VERSION} VERSION_LESS "3.1.0")
+  if(NOT MSVC)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+  endif()
+else()
   # Set standard version for compiler.
   set(CMAKE_C_STANDARD 99)
   set(CMAKE_CXX_STANDARD 11)
@@ -99,7 +104,7 @@ if(TRACE)
 endif()
 
 if(MIN_LOGGER_LEVEL)
-  add_definitions(-DMIN_LOGGER_LEVEL=LOG_${MIN_LOGGER_LEVEL})
+  add_definitions(-DMIN_LOGGER_LEVEL=LOGGER_LEVEL_${MIN_LOGGER_LEVEL})
 endif()
 
 option(USE_IPV6 "Use IPv6 in tests" ON)
@@ -332,9 +337,20 @@ if(CMAKE_THREAD_LIBS_INIT)
   set(toxcore_PKGCONFIG_LIBS ${toxcore_PKGCONFIG_LIBS} ${CMAKE_THREAD_LIBS_INIT})
 endif()
 
+
+if(NSL_LIBRARIES)
+  set(toxcore_LINK_MODULES ${toxcore_LINK_MODULES} ${NSL_LIBRARIES})
+  set(toxcore_PKGCONFIG_LIBS ${toxcore_PKGCONFIG_LIBS} -lnsl)
+endif()
+
 if(RT_LIBRARIES)
   set(toxcore_LINK_MODULES ${toxcore_LINK_MODULES} ${RT_LIBRARIES})
   set(toxcore_PKGCONFIG_LIBS ${toxcore_PKGCONFIG_LIBS} -lrt)
+endif()
+
+if(SOCKET_LIBRARIES)
+  set(toxcore_LINK_MODULES ${toxcore_LINK_MODULES} ${SOCKET_LIBRARIES})
+  set(toxcore_PKGCONFIG_LIBS ${toxcore_PKGCONFIG_LIBS} -lsocket)
 endif()
 
 if(WIN32)
@@ -383,6 +399,11 @@ unit_test(toxcore util)
 #
 ################################################################################
 
+add_library(misc_tools
+  testing/misc_tools.c
+  testing/misc_tools.h)
+target_link_modules(misc_tools toxcore)
+
 set(TEST_TIMEOUT_SECONDS "" CACHE STRING "Limit runtime of each test to the number of seconds specified")
 
 if(ANDROID_CPU_FEATURES)
@@ -401,7 +422,7 @@ function(auto_test target)
   if(NOT (MSVC AND ARGV1 STREQUAL "MSVC_DONT_BUILD"))
     add_executable(auto_${target}_test ${CPUFEATURES}
       auto_tests/${target}_test.c)
-    target_link_modules(auto_${target}_test toxcore)
+    target_link_modules(auto_${target}_test toxcore misc_tools)
     if(NOT ARGV1 STREQUAL "DONT_RUN")
       add_test(NAME ${target} COMMAND ${CROSSCOMPILING_EMULATOR} auto_${target}_test)
       set_tests_properties(${target} PROPERTIES TIMEOUT "${TEST_TIMEOUT_SECONDS}")
@@ -409,14 +430,6 @@ function(auto_test target)
     endif()
   endif()
 endfunction()
-
-if(BUILD_TOXAV)
-  add_definitions(-D__STDC_LIMIT_MACROS=1)
-  add_executable(auto_monolith_test ${CPUFEATURES}
-    auto_tests/monolith_test.cc)
-  target_link_libraries(auto_monolith_test ${toxcore_LINK_MODULES})
-  add_test(NAME monolith COMMAND ${CROSSCOMPILING_EMULATOR} auto_monolith_test)
-endif()
 
 auto_test(TCP)
 auto_test(bootstrap)
@@ -429,10 +442,11 @@ auto_test(crypto                        MSVC_DONT_BUILD)
 auto_test(dht                           MSVC_DONT_BUILD)
 auto_test(encryptsave)
 auto_test(file_transfer)
+auto_test(file_saving)
 auto_test(friend_connection)
 auto_test(friend_request)
-auto_test(invalid_proxy)
 auto_test(invalid_tcp_proxy)
+auto_test(invalid_udp_proxy)
 auto_test(lan_discovery)
 auto_test(lossless_packet)
 auto_test(lossy_packet)
@@ -471,7 +485,7 @@ if(DHT_BOOTSTRAP)
   add_executable(DHT_bootstrap ${CPUFEATURES}
     other/DHT_bootstrap.c
     other/bootstrap_node_packets.c)
-  target_link_modules(DHT_bootstrap toxcore)
+  target_link_modules(DHT_bootstrap toxcore misc_tools)
 endif()
 
 option(BOOTSTRAP_DAEMON "Enable building of tox-bootstrapd" ON)
@@ -531,12 +545,12 @@ endif()
 
 add_executable(DHT_test ${CPUFEATURES}
   testing/DHT_test.c)
-target_link_modules(DHT_test toxcore)
+target_link_modules(DHT_test toxcore misc_tools)
 
 add_executable(Messenger_test ${CPUFEATURES}
   testing/Messenger_test.c)
-target_link_modules(Messenger_test toxcore)
+target_link_modules(Messenger_test toxcore misc_tools)
 
 add_executable(random_testing ${CPUFEATURES}
   testing/random_testing.cc)
-target_link_modules(random_testing toxcore)
+target_link_modules(random_testing toxcore misc_tools)

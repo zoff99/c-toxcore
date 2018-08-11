@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "../toxcore/tox.h"
-#include "misc_tools.c"
+#include "misc_tools.h"
 
 namespace {
 
@@ -32,8 +32,6 @@ constexpr uint32_t MAX_ACTIONS = 10000;
 constexpr uint32_t MAX_ACTION_ATTEMPTS = 100;
 // Number of tox_iterate calls between each action.
 constexpr uint32_t ITERATIONS_PER_ACTION = 1;
-// Amount of time in milliseconds to wait between tox_iterate calls.
-constexpr uint32_t ITERATION_INTERVAL = 5;
 
 struct Tox_Options_Deleter {
   void operator()(Tox_Options *options) const { tox_options_free(options); }
@@ -104,6 +102,7 @@ struct Global_State : std::vector<Local_State> {
   // Non-copyable;
   Global_State(Global_State const &) = delete;
   Global_State(Global_State &&) = default;
+  ~Global_State();
   explicit Global_State(std::vector<Action> const &actions)
       : actions_(actions), rnd_(actions), action_counter_(actions.size()) {}
 
@@ -116,6 +115,8 @@ struct Global_State : std::vector<Local_State> {
   Random rnd_;
   std::vector<unsigned> action_counter_;
 };
+
+Global_State::~Global_State() {}
 
 void handle_friend_connection_status(Tox *tox, uint32_t friend_number,
                                      TOX_CONNECTION connection_status, void *user_data) {
@@ -396,4 +397,6 @@ int main() {
   for (uint32_t i = 0; i < toxes.action_counter().size(); i++) {
     std::printf("%u x '%s'\n", toxes.action_counter().at(i), actions[i].title);
   }
+
+  return 0;
 }

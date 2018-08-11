@@ -28,6 +28,7 @@
 #include "friend_connection.h"
 #include "friend_requests.h"
 #include "logger.h"
+#include "net_crypto.h"
 
 #define MAX_NAME_LENGTH 128
 /* TODO(irungentoo): this must depend on other variable. */
@@ -49,34 +50,6 @@ typedef enum Message_Type {
     MESSAGE_ACTION
 } Message_Type;
 
-/* NOTE: Packet ids below 24 must never be used. */
-#define PACKET_ID_ONLINE 24
-#define PACKET_ID_OFFLINE 25
-#define PACKET_ID_NICKNAME 48
-#define PACKET_ID_STATUSMESSAGE 49
-#define PACKET_ID_USERSTATUS 50
-#define PACKET_ID_TYPING 51
-#define PACKET_ID_MESSAGE 64
-#define PACKET_ID_ACTION (PACKET_ID_MESSAGE + MESSAGE_ACTION) // 65
-#define PACKET_ID_MSI 69
-#define PACKET_ID_FILE_SENDREQUEST 80
-#define PACKET_ID_FILE_CONTROL 81
-#define PACKET_ID_FILE_DATA 82
-#define PACKET_ID_INVITE_CONFERENCE 96
-#define PACKET_ID_ONLINE_PACKET 97
-#define PACKET_ID_DIRECT_CONFERENCE 98
-#define PACKET_ID_MESSAGE_CONFERENCE 99
-#define PACKET_ID_LOSSY_CONFERENCE 199
-
-/* All packets starting with a byte in this range can be used for anything. */
-#define PACKET_ID_LOSSLESS_RANGE_START 160
-#define PACKET_ID_LOSSLESS_RANGE_SIZE 32
-#define PACKET_LOSSY_AV_RESERVED 8 // Number of lossy packet types at start of range reserved for A/V.
-
-/* video via lossless packets */
-#define PACKET_LOSSLESS_VIDEO 171
-#define PACKET_TOXAV_COMM_CHANNEL 172
-
 typedef struct Messenger_Options {
     bool ipv6enabled;
     bool udp_disabled;
@@ -88,6 +61,7 @@ typedef struct Messenger_Options {
     bool local_discovery_enabled;
 
     logger_cb *log_callback;
+    void *log_context;
     void *log_user_data;
 } Messenger_Options;
 
@@ -251,7 +225,7 @@ typedef struct Friend {
     uint32_t num_sending_files;
     struct File_Transfers file_receiving[MAX_CONCURRENT_FILE_PIPES];
 
-    RTP_Packet_Handler lossy_rtp_packethandlers[PACKET_LOSSY_AV_RESERVED];
+    RTP_Packet_Handler lossy_rtp_packethandlers[PACKET_ID_RANGE_LOSSY_AV_SIZE];
 
     struct Receipts *receipts_start;
     struct Receipts *receipts_end;
@@ -507,10 +481,6 @@ int m_set_usertyping(Messenger *m, int32_t friendnumber, uint8_t is_typing);
  */
 int m_get_istyping(const Messenger *m, int32_t friendnumber);
 
-/* Set the logger callback.
- */
-void m_callback_log(Messenger *m, logger_cb *function, void *context, void *userdata);
-
 /* Set the function that will be executed when a friend request is received.
  *  Function format is function(uint8_t * public_key, uint8_t * data, size_t length)
  */
@@ -716,14 +686,14 @@ int m_msi_packet(const Messenger *m, int32_t friendnumber, const uint8_t *data, 
  * return 0 on success.
  */
 int m_callback_rtp_packet(Messenger *m, int32_t friendnumber, uint8_t byte,
-                          m_lossy_rtp_packet_cb *packet_handler_callback, void *object);
+                          m_lossy_rtp_packet_cb *function, void *object);
 
 /**********************************************/
 
 /* Set handlers for custom lossy packets.
  *
  */
-void custom_lossy_packet_registerhandler(Messenger *m, m_friend_lossy_packet_cb *packet_handler_callback);
+void custom_lossy_packet_registerhandler(Messenger *m, m_friend_lossy_packet_cb *lossy_packethandler);
 
 /* High level function to send custom lossy packets.
  *
@@ -740,7 +710,7 @@ int m_send_custom_lossy_packet(const Messenger *m, int32_t friendnumber, const u
 /* Set handlers for custom lossless packets.
  *
  */
-void custom_lossless_packet_registerhandler(Messenger *m, m_friend_lossless_packet_cb *packet_handler_callback);
+void custom_lossless_packet_registerhandler(Messenger *m, m_friend_lossless_packet_cb *lossless_packethandler);
 
 /* High level function to send custom lossless packets.
  *
