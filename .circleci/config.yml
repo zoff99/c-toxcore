@@ -18,11 +18,14 @@ jobs:
     - run: apt install -y --no-install-recommends
              clang
              cmake
+             libavcodec-dev
+             libavutil-dev
              libconfig-dev
              libgtest-dev
              libopus-dev
              libsodium-dev
              libvpx-dev
+             libx264-dev
              ninja-build
              pkg-config
     - run: . .travis/flags-clang.sh;
