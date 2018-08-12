@@ -28,7 +28,6 @@
 #include "../toxcore/Messenger.h"
 
 #include "bwcontroller.h"
-#include "pair.h"
 
 // for VPX ----------
 #include <vpx/vpx_decoder.h>
@@ -245,7 +244,9 @@ typedef struct VCSession_s {
     uint32_t network_round_trip_time_last_cb_ts;
     uint32_t last_requested_lower_fps_ts;
 
-    PAIR(toxav_video_receive_frame_cb *, void *) vcb; /* Video frame receive callback */
+    /* Video frame receive callback */
+    toxav_video_receive_frame_cb *vcb;
+    void *vcb_user_data;
 
     pthread_mutex_t queue_mutex[1];
 } VCSession;

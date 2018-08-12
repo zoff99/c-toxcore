@@ -91,7 +91,9 @@ typedef struct ACSession_s {
 
     ToxAV *av;
     uint32_t friend_number;
-    PAIR(toxav_audio_receive_frame_cb *, void *) acb; /* Audio frame receive callback */
+    /* Audio frame receive callback */
+    toxav_audio_receive_frame_cb *acb;
+    void *acb_user_data;
 } ACSession;
 
 ACSession *ac_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_audio_receive_frame_cb *cb, void *cb_data);

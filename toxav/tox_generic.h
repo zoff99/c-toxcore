@@ -57,10 +57,12 @@ typedef struct ToxAVCall_s {
     ToxAV *av;
 
     pthread_mutex_t mutex_audio[1];
-    PAIR(RTPSession *, ACSession *) audio;
+    RTPSession *audio_rtp;
+    ACSession *audio;
 
     pthread_mutex_t mutex_video[1];
-    PAIR(RTPSession *, VCSession *) video;
+    RTPSession *video_rtp;
+    VCSession *video;
 
     BWController *bwc;
 
@@ -80,7 +82,7 @@ typedef struct ToxAVCall_s {
 
     uint64_t last_incoming_audio_frame_rtimestamp;
     uint64_t last_incoming_audio_frame_ltimestamp;
-    
+
     int64_t call_timestamp_difference_to_sender;
     int64_t call_timestamp_difference_adjustment;
     uint32_t call_rountrip_time_ms;
@@ -110,14 +112,30 @@ struct ToxAV {
     uint32_t calls_head;
     pthread_mutex_t mutex[1];
 
-    PAIR(toxav_call_cb *, void *) ccb; /* Call callback */
-    PAIR(toxav_call_comm_cb *, void *) call_comm_cb; /* Call_comm callback */
-    PAIR(toxav_call_state_cb *, void *) scb; /* Call state callback */
-    PAIR(toxav_audio_receive_frame_cb *, void *) acb; /* Audio frame receive callback */
-    PAIR(toxav_video_receive_frame_cb *, void *) vcb; /* Video frame receive callback */
-    PAIR(toxav_bit_rate_status_cb *, void *) bcb; /* Bit rate control callback */
-    PAIR(toxav_audio_bit_rate_cb *, void *) abcb; /* Bit rate control callback */
-    PAIR(toxav_video_bit_rate_cb *, void *) vbcb; /* Bit rate control callback */
+    /* Call callback */
+    toxav_call_cb *ccb;
+    void *ccb_user_data;
+    /* Call_comm callback */
+    toxav_call_comm_cb *call_comm_cb;
+    void *call_comm_cb_user_data;
+    /* Call state callback */
+    toxav_call_state_cb *scb;
+    void *scb_user_data;
+    /* Audio frame receive callback */
+    toxav_audio_receive_frame_cb *acb;
+    void *acb_user_data;
+    /* Video frame receive callback */
+    toxav_video_receive_frame_cb *vcb;
+    void *vcb_user_data;
+    /* Bit rate control callback */
+    toxav_bit_rate_status_cb *bcb;
+    void *bcb_user_data;
+    /* Bit rate control callback */
+    toxav_audio_bit_rate_cb *abcb;
+    void *abcb_user_data;
+    /* Bit rate control callback */
+    toxav_video_bit_rate_cb *vbcb;
+    void *vbcb_user_data;
 
     /** Decode time measures */
     int32_t dmssc; /** Measure count */

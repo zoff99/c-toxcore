@@ -21,7 +21,7 @@ cc_library(
 cc_library(
     name = "vpx_codec",
     srcs = ["codecs/vpx/codec.c"],
-    hdrs = ["audio.h","toxav.h","video.h","pair.h","msi.h","rtp.h","tox_generic.h",
+    hdrs = ["audio.h","toxav.h","video.h","msi.h","rtp.h","tox_generic.h",
             "codecs/toxav_codecs.h"],
     deps = ["@libvpx","@opus","//c-toxcore/toxcore:ccompat",
     "//c-toxcore/toxcore:Messenger",":bwcontroller"],
@@ -30,7 +30,7 @@ cc_library(
 cc_library(
     name = "h264_codec",
     srcs = ["codecs/h264/codec.c"],
-    hdrs = ["audio.h","toxav.h","video.h","pair.h","msi.h","rtp.h","tox_generic.h",
+    hdrs = ["audio.h","toxav.h","video.h","msi.h","rtp.h","tox_generic.h",
             "codecs/toxav_codecs.h"],
     deps = ["@ffmpeg","@opus","@x264//:core","//c-toxcore/toxcore:ccompat",
     "//c-toxcore/toxcore:Messenger",":bwcontroller"],
@@ -82,7 +82,7 @@ cc_library(
 cc_library(
     name = "rtp",
     srcs = ["rtp.c"],
-    hdrs = ["rtp.h","video.h","toxav.h","pair.h","audio.h"],
+    hdrs = ["rtp.h","video.h","toxav.h","audio.h"],
     deps = ["@opus",":bwcontroller", ":dummy_ntp"],
 )
 
@@ -97,16 +97,10 @@ cc_test(
 )
 
 cc_library(
-    name = "pair",
-    hdrs = ["pair.h"],
-)
-
-cc_library(
     name = "audio",
     srcs = ["audio.c"],
     hdrs = ["audio.h"],
     deps = [
-        ":pair",
         ":public",
         ":rtp",
         ":ts_buffer",
@@ -127,7 +121,6 @@ cc_library(
     ],
     deps = [
         ":audio",
-        ":pair",
         ":public",
         "//c-toxcore/toxcore:network",
         "@libvpx",

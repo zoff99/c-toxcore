@@ -414,12 +414,12 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
             }
 
             // start_time_ms = current_time_monotonic();
-            vc->vcb.first(vc->av, vc->friend_number, frame->width, frame->height,
+            vc->vcb(vc->av, vc->friend_number, frame->width, frame->height,
                           (const uint8_t *)frame->data[0],
                           (const uint8_t *)frame->data[1],
                           (const uint8_t *)frame->data[2],
                           frame->linesize[0], frame->linesize[1],
-                          frame->linesize[2], vc->vcb.second);
+                          frame->linesize[2], vc->vcb_user_data);
             // end_time_ms = current_time_monotonic();
             // LOGGER_WARNING(vc->log, "decode_frame_h264:005: %d ms", (int)(end_time_ms - start_time_ms));
 
@@ -454,35 +454,35 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
                            int *i_frame_size)
 {
 
-    memcpy(call->video.second->h264_in_pic.img.plane[0], y, width * height);
-    memcpy(call->video.second->h264_in_pic.img.plane[1], u, (width / 2) * (height / 2));
-    memcpy(call->video.second->h264_in_pic.img.plane[2], v, (width / 2) * (height / 2));
+    memcpy(call->video->h264_in_pic.img.plane[0], y, width * height);
+    memcpy(call->video->h264_in_pic.img.plane[1], u, (width / 2) * (height / 2));
+    memcpy(call->video->h264_in_pic.img.plane[2], v, (width / 2) * (height / 2));
 
     int i_nal;
 
-    call->video.second->h264_in_pic.i_pts = (int64_t)(*video_frame_record_timestamp);
+    call->video->h264_in_pic.i_pts = (int64_t)(*video_frame_record_timestamp);
 
     if ((vpx_encode_flags & VPX_EFLAG_FORCE_KF) > 0) {
-        call->video.second->h264_in_pic.i_type = X264_TYPE_IDR; // real full i-frame
-        call->video.second->last_sent_keyframe_ts = current_time_monotonic();
+        call->video->h264_in_pic.i_type = X264_TYPE_IDR; // real full i-frame
+        call->video->last_sent_keyframe_ts = current_time_monotonic();
     } else {
-        call->video.second->h264_in_pic.i_type = X264_TYPE_AUTO;
+        call->video->h264_in_pic.i_type = X264_TYPE_AUTO;
     }
 
-    LOGGER_DEBUG(av->m->log, "X264 IN frame type=%d", (int)call->video.second->h264_in_pic.i_type);
+    LOGGER_DEBUG(av->m->log, "X264 IN frame type=%d", (int)call->video->h264_in_pic.i_type);
 
-    *i_frame_size = x264_encoder_encode(call->video.second->h264_encoder,
+    *i_frame_size = x264_encoder_encode(call->video->h264_encoder,
                                         nal,
                                         &i_nal,
-                                        &(call->video.second->h264_in_pic),
-                                        &(call->video.second->h264_out_pic));
+                                        &(call->video->h264_in_pic),
+                                        &(call->video->h264_out_pic));
 
-    *video_frame_record_timestamp = (uint64_t)call->video.second->h264_out_pic.i_pts;
+    *video_frame_record_timestamp = (uint64_t)call->video->h264_out_pic.i_pts;
 
 
 
-    if (IS_X264_TYPE_I(call->video.second->h264_out_pic.i_type)) {
-        LOGGER_DEBUG(av->m->log, "X264 out frame type=%d", (int)call->video.second->h264_out_pic.i_type);
+    if (IS_X264_TYPE_I(call->video->h264_out_pic.i_type)) {
+        LOGGER_DEBUG(av->m->log, "X264 out frame type=%d", (int)call->video->h264_out_pic.i_type);
     }
 
 
@@ -498,7 +498,7 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
         // LOGGER_ERROR(av->m->log, "H264: i_frame_size=%d nal_buf=%p KF=%d\n",
         //             (int)*i_frame_size,
         //             (*nal)->p_payload,
-        //             (int)call->video.second->h264_out_pic.b_keyframe
+        //             (int)call->video->h264_out_pic.b_keyframe
         //            );
         // -- WARN -- : this could crash !! ----
 
@@ -532,15 +532,15 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
     if (*i_frame_size > 0) {
 
         // use the record timestamp that was actually used for this frame
-        *video_frame_record_timestamp = (uint64_t)call->video.second->h264_in_pic.i_pts;
+        *video_frame_record_timestamp = (uint64_t)call->video->h264_in_pic.i_pts;
         const uint32_t frame_length_in_bytes = *i_frame_size;
-        const int keyframe = (int)call->video.second->h264_out_pic.b_keyframe;
+        const int keyframe = (int)call->video->h264_out_pic.b_keyframe;
 
         LOGGER_DEBUG(av->m->log, "video packet record time: %lu", (*video_frame_record_timestamp));
 
         int res = rtp_send_data
                   (
-                      call->video.first,
+                      call->video_rtp,
                       (const uint8_t *)((*nal)->p_payload),
                       frame_length_in_bytes,
                       keyframe,

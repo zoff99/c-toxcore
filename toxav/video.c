@@ -143,7 +143,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     LOGGER_WARNING(log, "vc_new:rb_new OK");
 
     // HINT: tell client what encoder and decoder are in use now -----------
-    if (av->call_comm_cb.first) {
+    if (av->call_comm_cb) {
 
         TOXAV_CALL_COMM_INFO cmi;
         cmi = TOXAV_CALL_COMM_DECODER_IN_USE_VP8;
@@ -153,7 +153,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
             cmi = TOXAV_CALL_COMM_DECODER_IN_USE_H264;
         }
 
-        av->call_comm_cb.first(av, friend_number, cmi, 0, av->call_comm_cb.second);
+        av->call_comm_cb(av, friend_number, cmi, 0, av->call_comm_cb_user_data);
 
 
         cmi = TOXAV_CALL_COMM_ENCODER_IN_USE_VP8;
@@ -166,7 +166,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
             }
         }
 
-        av->call_comm_cb.first(av, friend_number, cmi, 0, av->call_comm_cb.second);
+        av->call_comm_cb(av, friend_number, cmi, 0, av->call_comm_cb_user_data);
     }
 
     // HINT: tell client what encoder and decoder are in use now -----------
@@ -232,7 +232,7 @@ void vc_kill(VCSession *vc)
 
     pthread_mutex_destroy(vc->queue_mutex);
 
-    LOGGER_DEBUG(vc->log, "Terminated video handler: %p", vc);
+    LOGGER_DEBUG(vc->log, "Terminated video handler: %p", (void *)vc);
     free(vc);
 }
 
@@ -250,7 +250,7 @@ void video_switch_decoder(VCSession *vc, TOXAV_ENCODER_CODEC_USED_VALUE decoder_
 
 
             if (vc->av) {
-                if (vc->av->call_comm_cb.first) {
+                if (vc->av->call_comm_cb) {
 
                     TOXAV_CALL_COMM_INFO cmi;
                     cmi = TOXAV_CALL_COMM_DECODER_IN_USE_VP8;
@@ -259,8 +259,8 @@ void video_switch_decoder(VCSession *vc, TOXAV_ENCODER_CODEC_USED_VALUE decoder_
                         cmi = TOXAV_CALL_COMM_DECODER_IN_USE_H264;
                     }
 
-                    vc->av->call_comm_cb.first(vc->av, vc->friend_number,
-                                               cmi, 0, vc->av->call_comm_cb.second);
+                    vc->av->call_comm_cb(vc->av, vc->friend_number,
+                                         cmi, 0, vc->av->call_comm_cb_user_data);
 
                 }
             }
@@ -872,32 +872,32 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
 
         if ((vc->network_round_trip_time_last_cb_ts + 2000) < current_time_monotonic()) {
             if (vc->av) {
-                if (vc->av->call_comm_cb.first) {
-                    vc->av->call_comm_cb.first(vc->av, vc->friend_number,
+                if (vc->av->call_comm_cb) {
+                    vc->av->call_comm_cb(vc->av, vc->friend_number,
                                                TOXAV_CALL_COMM_NETWORK_ROUND_TRIP_MS,
                                                (int64_t)vc->rountrip_time_ms,
-                                               vc->av->call_comm_cb.second);
+                                               vc->av->call_comm_cb_user_data);
 
-                    vc->av->call_comm_cb.first(vc->av, vc->friend_number,
+                    vc->av->call_comm_cb(vc->av, vc->friend_number,
                                                TOXAV_CALL_COMM_PLAY_DELAY,
                                                (int64_t)vc->video_play_delay_real,
-                                               vc->av->call_comm_cb.second);
+                                               vc->av->call_comm_cb_user_data);
 
-                    vc->av->call_comm_cb.first(vc->av, vc->friend_number,
+                    vc->av->call_comm_cb(vc->av, vc->friend_number,
                                                TOXAV_CALL_COMM_PLAY_BUFFER_ENTRIES,
                                                (int64_t)vc->video_frame_buffer_entries,
-                                               vc->av->call_comm_cb.second);
+                                               vc->av->call_comm_cb_user_data);
 
                     if (vc->incoming_video_frames_gap_ms_mean_value == 0) {
-                        vc->av->call_comm_cb.first(vc->av, vc->friend_number,
+                        vc->av->call_comm_cb(vc->av, vc->friend_number,
                                                    TOXAV_CALL_COMM_INCOMING_FPS,
                                                    (int64_t)(9999),
-                                                   vc->av->call_comm_cb.second);
+                                                   vc->av->call_comm_cb_user_data);
                     } else {
-                        vc->av->call_comm_cb.first(vc->av, vc->friend_number,
+                        vc->av->call_comm_cb(vc->av, vc->friend_number,
                                                    TOXAV_CALL_COMM_INCOMING_FPS,
                                                    (int64_t)(1000 / vc->incoming_video_frames_gap_ms_mean_value),
-                                                   vc->av->call_comm_cb.second);
+                                                   vc->av->call_comm_cb_user_data);
                     }
                 }
 
@@ -915,11 +915,11 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
             if ((vc->incoming_video_bitrate_last_cb_ts + 2000) < current_time_monotonic()) {
                 if (vc->incoming_video_bitrate_last_changed != header->encoder_bit_rate_used) {
                     if (vc->av) {
-                        if (vc->av->call_comm_cb.first) {
-                            vc->av->call_comm_cb.first(vc->av, vc->friend_number,
+                        if (vc->av->call_comm_cb) {
+                            vc->av->call_comm_cb(vc->av, vc->friend_number,
                                                        TOXAV_CALL_COMM_DECODER_CURRENT_BITRATE,
                                                        (int64_t)header->encoder_bit_rate_used,
-                                                       vc->av->call_comm_cb.second);
+                                                       vc->av->call_comm_cb_user_data);
                         }
                     }
 

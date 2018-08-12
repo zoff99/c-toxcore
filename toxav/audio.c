@@ -112,8 +112,8 @@ ACSession *ac_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_audio_re
 
     ac->av = av;
     ac->friend_number = friend_number;
-    ac->acb.first = cb;
-    ac->acb.second = cb_data;
+    ac->acb = cb;
+    ac->acb_user_data = cb_data;
 
     return ac;
 
@@ -149,7 +149,7 @@ void ac_kill(ACSession *ac)
 
     pthread_mutex_destroy(ac->queue_mutex);
 
-    LOGGER_DEBUG(ac->log, "Terminated audio handler: %p", ac);
+    LOGGER_DEBUG(ac->log, "Terminated audio handler: %p", (void *)ac);
     free(ac);
 }
 
@@ -387,10 +387,10 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
 
         if (rc < 0) {
             LOGGER_WARNING(ac->log, "Decoding error: %s", opus_strerror(rc));
-        } else if (ac->acb.first) {
+        } else if (ac->acb) {
             ac->lp_frame_duration = (rc * 1000) / ac->lp_sampling_rate;
-            ac->acb.first(ac->av, ac->friend_number, temp_audio_buffer, rc, ac->lp_channel_count,
-                          ac->lp_sampling_rate, ac->acb.second);
+            ac->acb(ac->av, ac->friend_number, temp_audio_buffer, rc, ac->lp_channel_count,
+                    ac->lp_sampling_rate, ac->acb_user_data);
         }
 
         return ret_value;

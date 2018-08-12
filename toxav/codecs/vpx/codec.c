@@ -467,8 +467,8 @@ VCSession *vc_new_vpx(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vide
 
     vc->linfts = current_time_monotonic();
     vc->lcfd = 10; // initial value in ms for av_iterate sleep
-    vc->vcb.first = cb;
-    vc->vcb.second = cb_data;
+    vc->vcb = cb;
+    vc->vcb_user_data = cb_data;
     vc->friend_number = friend_number;
     vc->av = av;
     vc->log = log;
@@ -561,7 +561,7 @@ int vc_reconfigure_encoder_vpx(Logger *log, VCSession *vc, uint32_t bit_rate,
          * TODO: Zoff in 2018: i wonder if this is still the case with libvpx 1.7.x ?
          */
 
-        LOGGER_DEBUG(vc->log, "Have to reinitialize vpx encoder on session %p", vc);
+        LOGGER_DEBUG(vc->log, "Have to reinitialize vpx encoder on session %p", (void *)vc);
 
 
         vpx_codec_ctx_t new_c;
@@ -900,7 +900,7 @@ void decode_frame_vpx(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint
             // we have a frame, set return code
             *ret_value = 1;
 
-            if (vc->vcb.first) {
+            if (vc->vcb) {
 
                 // what is the audio to video latency?
                 //
@@ -931,11 +931,11 @@ void decode_frame_vpx(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint
                              (const uint8_t *)dest->planes[1],
                              (const uint8_t *)dest->planes[2]);
 
-                vc->vcb.first(vc->av, vc->friend_number, dest->d_w, dest->d_h,
+                vc->vcb(vc->av, vc->friend_number, dest->d_w, dest->d_h,
                               (const uint8_t *)dest->planes[0],
                               (const uint8_t *)dest->planes[1],
                               (const uint8_t *)dest->planes[2],
-                              dest->stride[0], dest->stride[1], dest->stride[2], vc->vcb.second);
+                              dest->stride[0], dest->stride[1], dest->stride[2], vc->vcb_user_data);
             }
 
             vpx_img_free(dest); // is this needed? none of the VPx examples show that
@@ -1009,7 +1009,7 @@ uint32_t encode_frame_vpx(ToxAV *av, uint32_t friend_number, uint16_t width, uin
     uint32_t duration = (41 * 10); // HINT: 24fps ~= 41ms
 #endif
 
-    vpx_codec_err_t vrc = vpx_codec_encode(call->video.second->encoder, &img,
+    vpx_codec_err_t vrc = vpx_codec_encode(call->video->encoder, &img,
                                            (int64_t) * video_frame_record_timestamp, duration,
                                            vpx_encode_flags,
                                            VPX_DL_REALTIME);
@@ -1037,12 +1037,12 @@ uint32_t send_frames_vpx(ToxAV *av, uint32_t friend_number, uint16_t width, uint
     vpx_codec_iter_t iter = NULL;
     const vpx_codec_cx_pkt_t *pkt;
 
-    while ((pkt = vpx_codec_get_cx_data(call->video.second->encoder, &iter)) != NULL) {
+    while ((pkt = vpx_codec_get_cx_data(call->video->encoder, &iter)) != NULL) {
         if (pkt->kind == VPX_CODEC_CX_FRAME_PKT) {
             const int keyframe = (pkt->data.frame.flags & VPX_FRAME_IS_KEY) != 0;
 
             if (keyframe) {
-                call->video.second->last_sent_keyframe_ts = current_time_monotonic();
+                call->video->last_sent_keyframe_ts = current_time_monotonic();
             }
 
             if ((pkt->data.frame.flags & VPX_FRAME_IS_FRAGMENT) != 0) {
@@ -1064,7 +1064,7 @@ uint32_t send_frames_vpx(ToxAV *av, uint32_t friend_number, uint16_t width, uint
 
             int res = rtp_send_data
                       (
-                          call->video.first,
+                          call->video_rtp,
                           (const uint8_t *)pkt->data.frame.buf,
                           frame_length_in_bytes,
                           keyframe,

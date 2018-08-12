@@ -170,7 +170,7 @@ void send_update(BWController *bwc, bool force_update_now)
         if ((bwc->cycle.recv + bwc->cycle.lost) > 0) {
             if (bwc->cycle.lost > 0) {
                 LOGGER_DEBUG(bwc->m->log, "%p Sent update rcv: %u lost: %u percent: %f %%",
-                             bwc, bwc->cycle.recv, bwc->cycle.lost,
+                             (void *)bwc, bwc->cycle.recv, bwc->cycle.lost,
                              (float)(((float) bwc->cycle.lost / (bwc->cycle.recv + bwc->cycle.lost)) * 100.0f));
             }
         }
@@ -183,7 +183,7 @@ void send_update(BWController *bwc, bool force_update_now)
         msg->recv = net_htonl(bwc->cycle.recv);
 
         if (-1 == m_send_custom_lossy_packet(bwc->m, bwc->friend_number, bwc_packet, sizeof(bwc_packet))) {
-            LOGGER_WARNING(bwc->m->log, "BWC send failed (len: %d)! std error: %s", sizeof(bwc_packet), strerror(errno));
+            LOGGER_WARNING(bwc->m->log, "BWC send failed (len: %zu)! std error: %s", sizeof(bwc_packet), strerror(errno));
         }
 
         bwc->cycle.last_sent_timestamp = current_time_monotonic();
@@ -195,13 +195,13 @@ void send_update(BWController *bwc, bool force_update_now)
 
 static int on_update(BWController *bwc, const struct BWCMessage *msg)
 {
-    LOGGER_DEBUG(bwc->m->log, "%p Got update from peer", bwc);
+    LOGGER_DEBUG(bwc->m->log, "%p Got update from peer", (void *)bwc);
 
 #if 1
 
     /* Peers sent update too soon */
     if ((bwc->cycle.last_recv_timestamp + (BWC_SEND_INTERVAL_MS / 2)) > current_time_monotonic()) {
-        LOGGER_INFO(bwc->m->log, "%p Rejecting extra update", bwc);
+        LOGGER_INFO(bwc->m->log, "%p Rejecting extra update", (void *)bwc);
         return -1;
     }
 
