@@ -226,11 +226,11 @@ static int on_update(BWController *bwc, const struct BWCMessage *msg)
 
             bwc->mcb(bwc, bwc->friend_number,
                      ((float) lost / (recv + lost)),
-                     bwc->mcb_data);
+                     bwc->mcb_user_data);
         } else {
             bwc->mcb(bwc, bwc->friend_number,
                      0,
-                     bwc->mcb_data);
+                     bwc->mcb_user_data);
         }
     }
 

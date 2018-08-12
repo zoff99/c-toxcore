@@ -806,13 +806,13 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
     const struct RTPHeader *header_v3 = (void *) & (msg->header);
     const struct RTPHeader *header = &msg->header;
 
-    if (msg->header.pt == (rtp_TypeVideo + 2) % 128) {
+    if (msg->header.pt == (RTP_TYPE_VIDEO + 2) % 128) {
         LOGGER_WARNING(vc->log, "Got dummy!");
         free(msg);
         return 0;
     }
 
-    if (msg->header.pt != rtp_TypeVideo % 128) {
+    if (msg->header.pt != RTP_TYPE_VIDEO % 128) {
         LOGGER_WARNING(vc->log, "Invalid payload type! pt=%d", (int)msg->header.pt);
         free(msg);
         return -1;
@@ -862,7 +862,7 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
     }
 
 
-    if ((header->flags & RTP_LARGE_FRAME) && header->pt == rtp_TypeVideo % 128) {
+    if ((header->flags & RTP_LARGE_FRAME) && header->pt == RTP_TYPE_VIDEO % 128) {
 
 
         vc->last_incoming_frame_ts = header_v3->frame_record_timestamp;
