@@ -28,6 +28,8 @@
 #include "../toxcore/Messenger.h"
 
 #include "bwcontroller.h"
+#include "ring_buffer.h"
+#include "rtp.h"
 
 // for VPX ----------
 #include <vpx/vpx_decoder.h>
@@ -137,8 +139,6 @@ typedef enum PACKET_TOXAV_COMM_CHANNEL_FUNCTION {
 
 #include <pthread.h>
 
-struct RTPMessage;
-struct RingBuffer;
 struct TSBuffer;
 
 

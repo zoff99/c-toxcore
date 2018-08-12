@@ -25,6 +25,7 @@
 
 #include "../toxcore/logger.h"
 #include "../toxcore/util.h"
+#include "rtp.h"
 
 #include <opus.h>
 #include <pthread.h>
@@ -60,8 +61,6 @@
 // #define AUDIO_DEBUGGING_SKIP_FRAMES 1
 // #define AUDIO_DEBUGGING_SIMULATE_SOME_DATA_LOSS 1
 /* debugging */
-
-struct RTPMessage;
 
 typedef struct ACSession_s {
     Logger *log;

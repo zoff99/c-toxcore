@@ -35,8 +35,8 @@
 #include <string.h>
 
 #define BWC_PACKET_ID (196)
-#define BWC_SEND_INTERVAL_MS (950)     /* 0.95s  */
-#define BWC_REFRESH_INTERVAL_MS (2000) /* 2.00s */
+#define BWC_SEND_INTERVAL_MS (950)     // 0.95s
+#define BWC_REFRESH_INTERVAL_MS (2000) // 2.00s
 #define BWC_AVG_PKT_COUNT (20)
 #define BWC_AVG_LOSS_OVER_CYCLES_COUNT (50)
 
@@ -44,26 +44,30 @@
  *
  */
 
+typedef struct BWCCycle {
+    uint32_t last_recv_timestamp; /* Last recv update time stamp */
+    uint32_t last_sent_timestamp; /* Last sent update time stamp */
+    uint32_t last_refresh_timestamp; /* Last refresh time stamp */
+
+    uint32_t lost;
+    uint32_t recv;
+} BWCCycle;
+
+typedef struct BWCRcvPkt {
+    uint32_t packet_length_array[BWC_AVG_PKT_COUNT];
+    RingBuffer *rb;
+} BWCRcvPkt;
+
 struct BWController_s {
-    void (*mcb)(BWController *, uint32_t, float, void *);
-    void *mcb_data;
+    m_cb *mcb;
+    void *mcb_user_data;
 
     Messenger *m;
     uint32_t friend_number;
 
-    struct {
-        uint32_t last_recv_timestamp; /* Last recv update time stamp */
-        uint32_t last_sent_timestamp; /* Last sent update time stamp */
-        uint32_t last_refresh_timestamp; /* Last refresh time stamp */
+    BWCCycle cycle;
 
-        uint32_t lost;
-        uint32_t recv;
-    } cycle;
-
-    struct {
-        uint32_t packet_length_array[BWC_AVG_PKT_COUNT];
-        RingBuffer *rb;
-    } rcvpkt; /* To calculate average received packet (this means split parts, not the full message!) */
+    BWCRcvPkt rcvpkt; /* To calculate average received packet (this means split parts, not the full message!) */
 
     uint32_t packet_loss_counted_cycles;
 };
@@ -77,9 +81,7 @@ struct BWCMessage {
 int bwc_handle_data(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object);
 void send_update(BWController *bwc, bool force_update_now);
 
-BWController *bwc_new(Messenger *m, uint32_t friendnumber,
-                      void (*mcb)(BWController *, uint32_t, float, void *),
-                      void *udata)
+BWController *bwc_new(Messenger *m, uint32_t friendnumber, m_cb *mcb, void *mcb_user_data)
 {
     int i = 0;
     BWController *retu = (BWController *)calloc(sizeof(struct BWController_s), 1);
@@ -87,10 +89,12 @@ BWController *bwc_new(Messenger *m, uint32_t friendnumber,
     LOGGER_DEBUG(m->log, "BWC: new");
 
     retu->mcb = mcb;
-    retu->mcb_data = udata;
+    retu->mcb_user_data = mcb_user_data;
     retu->m = m;
     retu->friend_number = friendnumber;
-    retu->cycle.last_sent_timestamp = retu->cycle.last_refresh_timestamp = current_time_monotonic();
+    uint64_t now = current_time_monotonic();
+    retu->cycle.last_sent_timestamp = now;
+    retu->cycle.last_refresh_timestamp = now;
     retu->rcvpkt.rb = rb_new(BWC_AVG_PKT_COUNT);
 
     retu->cycle.lost = 0;
@@ -98,7 +102,7 @@ BWController *bwc_new(Messenger *m, uint32_t friendnumber,
     retu->packet_loss_counted_cycles = 0;
 
     /* Fill with zeros */
-    for (i = 0; i < BWC_AVG_PKT_COUNT; i++) {
+    for (i = 0; i < BWC_AVG_PKT_COUNT; ++i) {
         uint32_t *j = (retu->rcvpkt.packet_length_array + i);
         *j = 0;
         rb_write(retu->rcvpkt.rb, j, 0);
@@ -154,7 +158,7 @@ void bwc_add_recv(BWController *bwc, uint32_t recv_bytes)
 
     // LOGGER_WARNING(bwc->m->log, "BWC recv: %d", (int)recv_bytes);
 
-    bwc->packet_loss_counted_cycles++;
+    ++bwc->packet_loss_counted_cycles;
     bwc->cycle.recv = bwc->cycle.recv + recv_bytes;
     send_update(bwc, false);
 }
