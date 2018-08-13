@@ -56,7 +56,6 @@ uint32_t _debug_skip_every_x_audio_frame = 10;
 #endif
 
 
-
 void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *user_data);
 
 int callback_invite(void *toxav_inst, MSICall *call);
@@ -107,6 +106,7 @@ ToxAV *toxav_new(Tox *tox, TOXAV_ERR_NEW *error)
         goto END;
     }
 
+    av->tox = tox;
     av->m = m;
     av->msi = msi_new(av->m);
 
@@ -173,7 +173,7 @@ void toxav_kill(ToxAV *av)
 
 Tox *toxav_get_tox(const ToxAV *av)
 {
-    return (Tox *) av->m;
+    return av->tox;
 }
 
 uint32_t toxav_iteration_interval(const ToxAV *av)

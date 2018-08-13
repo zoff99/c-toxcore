@@ -103,6 +103,7 @@ typedef struct ToxAVCall_s {
 
 
 struct ToxAV {
+    Tox *tox;
     Messenger *m;
     MSISession *msi;
 
