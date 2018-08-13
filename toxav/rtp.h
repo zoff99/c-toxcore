@@ -48,10 +48,10 @@ extern "C" {
 /**
  * Payload type identifier. Also used as rtp callback prefix.
  */
-enum {
+typedef enum RTP_Type {
     RTP_TYPE_AUDIO = 192,
     RTP_TYPE_VIDEO = 193,
-};
+} RTP_Type;
 
 
 enum {
@@ -78,7 +78,7 @@ Note
  * A bit mask (up to 64 bits) specifying features of the current frame affecting
  * the behaviour of the decoder.
  */
-enum RTPFlags {
+typedef enum RTPFlags {
     /**
      * Support frames larger than 64KiB. The full 32 bit length and offset are
      * set in \ref RTPHeader::data_length_full and \ref RTPHeader::offset_full.
@@ -99,7 +99,7 @@ enum RTPFlags {
      */
     RTP_ENCODER_HAS_RECORD_TIMESTAMP = 1 << 3,
 
-};
+} RTPFlags;
 
 
 struct RTPHeader {
@@ -210,6 +210,8 @@ struct RTPWorkBufferList {
 #define DISMISS_FIRST_LOST_VIDEO_PACKET_COUNT 10
 #define INCOMING_PACKETS_TS_ENTRIES 10
 
+typedef int rtp_m_cb(void *cs, struct RTPMessage *msg);
+
 /**
  * RTP control session.
  */
@@ -230,7 +232,7 @@ typedef struct RTPSession {
     uint32_t friend_number;
     BWController *bwc;
     void *cs;
-    int (*mcb)(void *, struct RTPMessage *msg);
+    rtp_m_cb *mcb;
 } RTPSession;
 
 
@@ -253,8 +255,7 @@ size_t rtp_header_pack(uint8_t *rdata, const struct RTPHeader *header);
 size_t rtp_header_unpack(const uint8_t *data, struct RTPHeader *header);
 
 RTPSession *rtp_new(int payload_type, Messenger *m, uint32_t friendnumber,
-                    BWController *bwc, void *cs,
-                    int (*mcb)(void *, struct RTPMessage *));
+                    BWController *bwc, void *cs, rtp_m_cb *mcb);
 void rtp_kill(RTPSession *session);
 int rtp_allow_receiving(RTPSession *session);
 int rtp_stop_receiving(RTPSession *session);
