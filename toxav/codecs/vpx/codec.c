@@ -1072,6 +1072,7 @@ uint32_t send_frames_vpx(ToxAV *av, uint32_t friend_number, uint16_t width, uint
                           (int32_t)pkt->data.frame.partition_id,
                           TOXAV_ENCODER_CODEC_USED_VP8,
                           call->video_bit_rate,
+                          call->video.second->client_video_capture_delay_ms,
                           av->m->log
                       );
 
