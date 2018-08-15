@@ -113,6 +113,10 @@ VCSession *vc_new(const Mono_Time *mono_time, const Logger *log, ToxAV *av, uint
     vc->last_requested_lower_fps_ts = 0;
     vc->encoder_frame_has_record_timestamp = 1;
     vc->video_max_bitrate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264; // HINT: should probably be set to a higher value
+    vc->video_decoder_buffer_ms = MIN_AV_BUFFERING_MS;
+    vc->video_decoder_adjustment_base_ms = MIN_AV_BUFFERING_MS - AV_BUFFERING_DELTA_MS;
+    vc->client_video_capture_delay_ms = 0;
+    vc->remote_client_video_capture_delay_ms = 0;
     // options ---
 
     vc->incoming_video_frames_gap_ms_index = 0;
@@ -422,15 +426,15 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 #if 1
         LOGGER_DEBUG(vc->log, "rtt:drift:1:%d %d %d", (int)(vc->rountrip_time_ms),
                      (int)(-vc->timestamp_difference_adjustment),
-                     (int)AV_ADJUSTMENT_BASE_MS);
+                     (int)vc->video_decoder_adjustment_base_ms);
 
-        if (vc->rountrip_time_ms > (-vc->timestamp_difference_adjustment - AV_ADJUSTMENT_BASE_MS)) {
+        if (vc->rountrip_time_ms > (-vc->timestamp_difference_adjustment - vc->video_decoder_adjustment_base_ms)) {
             // drift
             LOGGER_DEBUG(vc->log, "rtt:drift:2:%d > %d", (int)(vc->rountrip_time_ms),
-                         (int)(-vc->timestamp_difference_adjustment - AV_ADJUSTMENT_BASE_MS));
+                         (int)(-vc->timestamp_difference_adjustment - vc->video_decoder_adjustment_base_ms));
 
             LOGGER_DEBUG(vc->log, "rtt:drift:3:%d < %d", (int)(vc->timestamp_difference_adjustment),
-                         (int)(-MIN_AV_BUFFERING_MS));
+                         (int)(-vc->video_decoder_buffer_ms));
 
             if (tsb_size((TSBuffer *)vc->vbuf_raw) < 10) {
                 vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment - 1;
@@ -438,14 +442,14 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
             } else {
                 vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment + 1;
             }
-        } else if (vc->rountrip_time_ms < (-vc->timestamp_difference_adjustment - AV_ADJUSTMENT_BASE_MS)) {
+        } else if (vc->rountrip_time_ms < (-vc->timestamp_difference_adjustment - vc->video_decoder_adjustment_base_ms)) {
             // drift
             LOGGER_DEBUG(vc->log, "rtt:drift:5:%d << %d", (int)(vc->rountrip_time_ms),
-                         (int)(-vc->timestamp_difference_adjustment - AV_ADJUSTMENT_BASE_MS));
+                         (int)(-vc->timestamp_difference_adjustment - vc->video_decoder_adjustment_base_ms));
 
-            if (vc->timestamp_difference_adjustment <= -MIN_AV_BUFFERING_MS) {
+            if (vc->timestamp_difference_adjustment <= -vc->video_decoder_buffer_ms) {
                 LOGGER_DEBUG(vc->log, "rtt:drift:6:%d < %d", (int)(vc->timestamp_difference_adjustment),
-                             (int)(-MIN_AV_BUFFERING_MS));
+                             (int)(-vc->video_decoder_buffer_ms));
 
                 vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment + 1;
                 LOGGER_DEBUG(vc->log, "rtt:drift:7:+1:%d", (int)(vc->timestamp_difference_adjustment));
@@ -884,7 +888,12 @@ int vc_queue_message(const Mono_Time *mono_time, void *vcp, struct RTPMessage *m
                                                (int64_t)vc->video_play_delay_real,
                                                vc->av->call_comm_cb_user_data);
 
-                    vc->av->call_comm_cb(vc->av, vc->friend_number,
+                    vc->av->call_comm_cb.first(vc->av, vc->friend_number,
+                                               TOXAV_CALL_COMM_REMOTE_RECORD_DELAY,
+                                               (int64_t)vc->remote_client_video_capture_delay_ms,
+                                               vc->av->call_comm_cb.second);
+
+                    vc->av->call_comm_cb.first(vc->av, vc->friend_number,
                                                TOXAV_CALL_COMM_PLAY_BUFFER_ENTRIES,
                                                (int64_t)vc->video_frame_buffer_entries,
                                                vc->av->call_comm_cb_user_data);

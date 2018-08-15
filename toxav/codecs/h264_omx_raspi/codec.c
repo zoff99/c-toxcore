@@ -989,6 +989,7 @@ uint32_t send_frames_h264_omx_raspi(ToxAV *av, uint32_t friend_number, uint16_t 
                       (int32_t)0,
                       TOXAV_ENCODER_CODEC_USED_H264,
                       call->video_bit_rate,
+                      call->video.second->client_video_capture_delay_ms,
                       av->m->log
                   );
 

@@ -702,6 +702,13 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
             vc->video_encoder_cpu_used = (int32_t)value;
             LOGGER_WARNING(av->m->log, "video encoder setting cpu_used to: %d", (int)value);
         }
+    } else if (option == TOXAV_CLIENT_VIDEO_CAPTURE_DELAY_MS) {
+        VCSession *vc = (VCSession *)call->video.second;
+
+        if (((int32_t)value >= 0)
+                && ((int32_t)value <= 10000)) {
+            vc->client_video_capture_delay_ms = (int32_t)value;
+        }
     } else if (option == TOXAV_ENCODER_CODEC_USED) {
         VCSession *vc = (VCSession *)call->video;
 
@@ -745,9 +752,27 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
         if (vc->video_rc_max_quantizer == (int32_t)value) {
             LOGGER_WARNING(av->m->log, "video encoder rc_max_quantizer already set to: %d", (int)value);
         } else {
-            vc->video_rc_max_quantizer_prev = vc->video_rc_max_quantizer;
-            vc->video_rc_max_quantizer = (int32_t)value;
-            LOGGER_WARNING(av->m->log, "video encoder setting rc_max_quantizer to: %d", (int)value);
+            if ((value >= AV_BUFFERING_MS_MIN) && (value <= AV_BUFFERING_MS_MAX)) {
+                vc->video_rc_max_quantizer_prev = vc->video_rc_max_quantizer;
+                vc->video_rc_max_quantizer = (int32_t)value;
+                LOGGER_WARNING(av->m->log, "video encoder setting rc_max_quantizer to: %d", (int)value);
+            }
+        }
+    } else if (option == TOXAV_DECODER_VIDEO_BUFFER_MS) {
+        VCSession *vc = (VCSession *)call->video.second;
+
+        if (vc->video_decoder_buffer_ms == (int32_t)value) {
+            LOGGER_WARNING(av->m->log, "video encoder video_decoder_buffer_ms already set to: %d", (int)value);
+        } else {
+            vc->video_decoder_buffer_ms = (int32_t)value;
+
+            if ((vc->video_decoder_buffer_ms - AV_BUFFERING_DELTA_MS) > 1) {
+                vc->video_decoder_adjustment_base_ms = vc->video_decoder_buffer_ms - AV_BUFFERING_DELTA_MS;
+            } else {
+                vc->video_decoder_adjustment_base_ms = 1;
+            }
+
+            LOGGER_WARNING(av->m->log, "video encoder setting video_decoder_buffer_ms to: %d", (int)value);
         }
     } else if (option == TOXAV_ENCODER_VIDEO_MAX_BITRATE) {
         VCSession *vc = (VCSession *)call->video;
@@ -1073,6 +1098,7 @@ bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pc
                               VIDEO_FRAGMENT_NUM_NO_FRAG,
                               0,
                               call->audio_bit_rate,
+                              0,
                               av->m->log) != 0) {
                 LOGGER_WARNING(av->m->log, "Failed to send audio packet");
                 rc = TOXAV_ERR_SEND_FRAME_RTP_FAILED;
@@ -1089,6 +1115,7 @@ bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pc
                               VIDEO_FRAGMENT_NUM_NO_FRAG,
                               0,
                               call->audio_bit_rate,
+                              0,
                               av->m->log) != 0) {
             }
 
