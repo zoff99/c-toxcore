@@ -787,6 +787,10 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
         }
     }
 
+    if (header.pt == (rtp_TypeVideo % 128)) {
+        ((VCSession *)(session->cs))->remote_client_video_capture_delay_ms = header.client_video_capture_delay_ms;
+    }
+
     // set flag indicating that we have real record-timestamps for frames ---
 
     // HINT: ask sender for dummy ntp values -------------
@@ -984,6 +988,7 @@ size_t rtp_header_pack(uint8_t *const rdata, const struct RTPHeader *header)
     p += net_pack_u32(p, header->fragment_num);
     p += net_pack_u32(p, header->real_frame_num);
     p += net_pack_u32(p, header->encoder_bit_rate_used);
+    p += net_pack_u32(p, header->client_video_capture_delay_ms);
     // ---------------------------- //
     //      custom fields here      //
     // ---------------------------- //
@@ -1026,6 +1031,7 @@ size_t rtp_header_unpack(const uint8_t *data, struct RTPHeader *header)
     p += net_unpack_u32(p, &header->fragment_num);
     p += net_unpack_u32(p, &header->real_frame_num);
     p += net_unpack_u32(p, &header->encoder_bit_rate_used);
+    p += net_unpack_u32(p, &header->client_video_capture_delay_ms);
     // ---------------------------- //
     //      custom fields here      //
     // ---------------------------- //
@@ -1172,6 +1178,7 @@ int rtp_stop_receiving(RTPSession *session)
 int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, bool is_keyframe,
                   uint64_t frame_record_timestamp, int32_t fragment_num,
                   uint32_t codec_used, uint32_t bit_rate_used,
+                  uint32_t client_capture_delay_ms,
                   Logger *log)
 {
     if (!session) {
@@ -1223,6 +1230,8 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
     header.real_frame_num = 0; // not yet used
 
     header.encoder_bit_rate_used = bit_rate_used;
+
+    header.client_video_capture_delay_ms = client_capture_delay_ms;
 
     uint16_t length_safe = (uint16_t)length;
 

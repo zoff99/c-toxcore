@@ -56,10 +56,10 @@ VPX_DL_GOOD_QUALITY   (1000000) deadline parameter analogous to VPx GOOD QUALITY
 VPX_DL_BEST_QUALITY   (0)       deadline parameter analogous to VPx BEST QUALITY mode.
 */
 
-
-#define MIN_AV_BUFFERING_MS (80) // ORIG: 250
-#define AV_ADJUSTMENT_BASE_MS (MIN_AV_BUFFERING_MS - 30) // ORIG: (MIN_AV_BUFFERING_MS - 130)
-
+#define AV_BUFFERING_DELTA_MS 130
+#define AV_BUFFERING_MS_MIN 2
+#define AV_BUFFERING_MS_MAX 800
+#define MIN_AV_BUFFERING_MS 170
 
 typedef enum PACKET_TOXAV_COMM_CHANNEL_FUNCTION {
     PACKET_TOXAV_COMM_CHANNEL_REQUEST_KEYFRAME = 0,
@@ -232,6 +232,10 @@ typedef struct VCSession_s {
     int32_t video_decoder_codec_used;
     int32_t startup_video_timespan;
     uint8_t encoder_frame_has_record_timestamp;
+    int32_t video_decoder_buffer_ms;
+    int32_t video_decoder_adjustment_base_ms;
+    int32_t client_video_capture_delay_ms;
+    int32_t remote_client_video_capture_delay_ms;
     // options ---
 
     void *vpx_frames_buf_list[VIDEO_MAX_FRAGMENT_BUFFER_COUNT];
