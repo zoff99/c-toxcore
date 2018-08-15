@@ -59,11 +59,15 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     param.i_slice_count = X264_ENCODER_SLICES;
 #endif
     param.b_deterministic = 0;
+    //x//param.i_sync_lookahead = 0;
+    //x//param.i_lookahead_threads = 0;
     param.b_intra_refresh = 1;
     // param.b_open_gop = 20;
     param.i_keyint_max = VIDEO_MAX_KF_H264;
     // param.rc.i_rc_method = X264_RC_CRF; // X264_RC_ABR;
     // param.i_nal_hrd = X264_NAL_HRD_CBR;
+
+    //x//param.i_frame_reference = 1;
 
     param.b_vfr_input = 1; /* VFR input.  If 1, use timebase and timestamps for ratecontrol purposes.
                             * If 0, use fps only. */
@@ -243,10 +247,13 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             param.i_slice_count = X264_ENCODER_SLICES;
 #endif
             param.b_deterministic = 0;
+            //x//param.i_sync_lookahead = 0;
+            //x//param.i_lookahead_threads = 0;
             param.b_intra_refresh = 1;
             // param.b_open_gop = 20;
             param.i_keyint_max = VIDEO_MAX_KF_H264;
             // param.rc.i_rc_method = X264_RC_ABR;
+            //x//param.i_frame_reference = 1;
 
             param.b_vfr_input = 1; /* VFR input.  If 1, use timebase and timestamps for ratecontrol purposes.
                             * If 0, use fps only. */
@@ -569,6 +576,7 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
                       (int32_t)0,
                       TOXAV_ENCODER_CODEC_USED_H264,
                       call->video_bit_rate,
+                      call->video.second->client_video_capture_delay_ms,
                       av->m->log
                   );
 
