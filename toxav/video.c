@@ -409,6 +409,10 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                     pkg_buf[2] = 3; // skip every 3rd video frame and dont encode and dont sent it
                 }
 
+#else
+                pkg_buf[2] = 3; // skip every 3rd video frame and dont encode and dont sent it
+#endif
+
                 int result = send_custom_lossless_packet(vc->av->m, vc->friend_number, pkg_buf, pkg_buf_len);
                 // HINT: tell sender to turn down video FPS -------------
 
