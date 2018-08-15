@@ -30,7 +30,7 @@
 #define H264_DECODER_THREADS 4
 #define H264_DECODER_THREAD_FRAME_ACTIVE 0
 
-/* multithreaded encoding seems add less delay (0 .. disable) */
+/* multithreaded encoding seems to add less delay (0 .. disable) */
 #define X264_ENCODER_THREADS 4
 #define X264_ENCODER_SLICES 4
 
@@ -76,6 +76,9 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     param.rc.i_vbv_buffer_size = VIDEO_BITRATE_INITIAL_VALUE_H264 * VIDEO_BUF_FACTOR_H264;
     param.rc.i_vbv_max_bitrate = VIDEO_BITRATE_INITIAL_VALUE_H264 * 1;
     // param.rc.i_bitrate = VIDEO_BITRATE_INITIAL_VALUE_H264 * VIDEO_BITRATE_FACTOR_H264;
+
+    param.rc.i_qp_min = 0;
+    param.rc.i_qp_max = 51; // max quantizer for x264
 
     vc->h264_enc_bitrate = VIDEO_BITRATE_INITIAL_VALUE_H264 * 1000;
 
@@ -188,6 +191,8 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
     if ((vc->h264_enc_width == width) &&
             (vc->h264_enc_height == height) &&
+            (vc->video_rc_max_quantizer == vc->video_rc_max_quantizer_prev) &&
+            (vc->video_rc_min_quantizer == vc->video_rc_min_quantizer_prev) &&
             (vc->h264_enc_bitrate != bit_rate) &&
             (kf_max_dist != -2)) {
         // only bit rate changed
@@ -212,6 +217,8 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
         if ((vc->h264_enc_width != width) ||
                 (vc->h264_enc_height != height) ||
                 (vc->h264_enc_bitrate != bit_rate) ||
+                (vc->video_rc_max_quantizer != vc->video_rc_max_quantizer_prev) ||
+                (vc->video_rc_min_quantizer != vc->video_rc_min_quantizer_prev) ||
                 (kf_max_dist == -2)
            ) {
             // input image size changed
@@ -254,6 +261,18 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             param.rc.i_vbv_buffer_size = (bit_rate / 1000) * VIDEO_BUF_FACTOR_H264;
             param.rc.i_vbv_max_bitrate = (bit_rate / 1000) * 1;
 
+            if ((vc->video_rc_min_quantizer >= 0) &&
+                    (vc->video_rc_min_quantizer < vc->video_rc_max_quantizer) &&
+                    (vc->video_rc_min_quantizer < 51)) {
+                param.rc.i_qp_min = vc->video_rc_min_quantizer;
+            }
+
+            if ((vc->video_rc_max_quantizer >= 0) &&
+                    (vc->video_rc_min_quantizer < vc->video_rc_max_quantizer) &&
+                    (vc->video_rc_max_quantizer < 51)) {
+                param.rc.i_qp_max = vc->video_rc_max_quantizer;
+            }
+
             // param.rc.i_bitrate = (bit_rate / 1000) * VIDEO_BITRATE_FACTOR_H264;
             vc->h264_enc_bitrate = bit_rate;
 
@@ -293,6 +312,8 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             vc->h264_encoder = x264_encoder_open(&param);
             // alloc with new values -------
 
+            vc->video_rc_max_quantizer_prev = vc->video_rc_max_quantizer;
+            vc->video_rc_min_quantizer_prev = vc->video_rc_min_quantizer;
 
             LOGGER_DEBUG(log, "H264: reconfigure encoder:004\n");
 
