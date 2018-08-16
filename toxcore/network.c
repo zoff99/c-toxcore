@@ -505,7 +505,7 @@ int sendpacket(Networking_Core *net, IP_Port ip_port, const uint8_t *data, uint1
 
     /* socket TOX_AF_INET, but target IP NOT: can't send */
     if (net_family_is_ipv4(net->family) && !net_family_is_ipv4(ip_port.ip.family)) {
-        LOGGER_ERROR(net->log, "attempted to send message with network family %d (probably IPv6) on IPv4 socket",
+        LOGGER_DEBUG(net->log, "attempted to send message with network family %d (probably IPv6) on IPv4 socket",
                      ip_port.ip.family.value);
         return -1;
     }
@@ -580,7 +580,7 @@ static int receivepacket(const Logger *log, Socket sock, IP_Port *ip_port, uint8
 
         if (fail_or_len < 0 && error != TOX_EWOULDBLOCK) {
             const char *strerror = net_new_strerror(error);
-            LOGGER_ERROR(log, "Unexpected error reading from socket: %u, %s", error, strerror);
+            LOGGER_DEBUG(log, "Unexpected error reading from socket: %u, %s", error, strerror);
             net_kill_strerror(strerror);
         }
 
