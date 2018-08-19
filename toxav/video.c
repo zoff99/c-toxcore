@@ -45,7 +45,8 @@
 // #define DEBUG_SHOW_H264_DECODING_TIME 1
 /* activate only for debugging!! */
 
-VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data)
+VCSession *vc_new(const Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t friend_number,
+                  toxav_video_receive_frame_cb *cb, void *cb_data)
 {
     VCSession *vc = (VCSession *)calloc(sizeof(VCSession), 1);
 
@@ -309,7 +310,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
     tsb_get_range_in_buffer((TSBuffer *)vc->vbuf_raw, &timestamp_min, &timestamp_max);
 
 
-    int64_t want_remote_video_ts = (current_time_monotonic() + vc->timestamp_difference_to_sender +
+    int64_t want_remote_video_ts = (current_time_monotonic(m->mono_time) + vc->timestamp_difference_to_sender +
                                     vc->timestamp_difference_adjustment);
 
     uint32_t timestamp_want_get = (uint32_t)want_remote_video_ts;
@@ -350,7 +351,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
             LOGGER_ERROR(vc->log, "DEFF_CORR:--:%d", (int)((timestamp_want_get - timestamp_max) - 10));
 
-            want_remote_video_ts = (current_time_monotonic() + vc->timestamp_difference_to_sender +
+            want_remote_video_ts = (current_time_monotonic(m->mono_time) + vc->timestamp_difference_to_sender +
                                     vc->timestamp_difference_adjustment);
 
             timestamp_want_get = (uint32_t)want_remote_video_ts;
@@ -360,7 +361,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
             LOGGER_ERROR(vc->log, "DEFF_CORR:++++:%d", (int)((timestamp_min - timestamp_want_get) + 10));
 
-            want_remote_video_ts = (current_time_monotonic() + vc->timestamp_difference_to_sender +
+            want_remote_video_ts = (current_time_monotonic(m->mono_time) + vc->timestamp_difference_to_sender +
                                     vc->timestamp_difference_adjustment);
 
             timestamp_want_get = (uint32_t)want_remote_video_ts;
@@ -389,7 +390,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 #if 1
 
         if ((is_skipping > 0) && (removed_entries > 0)) {
-            if ((vc->last_requested_lower_fps_ts + 10000) < current_time_monotonic()) {
+            if ((vc->last_requested_lower_fps_ts + 10000) < current_time_monotonic(m->mono_time)) {
 
 
                 // HINT: tell sender to turn down video FPS -------------
@@ -398,7 +399,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                 pkg_buf[0] = PACKET_TOXAV_COMM_CHANNEL;
                 pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_LESS_VIDEO_FPS;
 
-                if ((vc->last_requested_lower_fps_ts + 12000) < current_time_monotonic()) {
+                if ((vc->last_requested_lower_fps_ts + 12000) < current_time_monotonic(m->mono_time)) {
                     pkg_buf[2] = 2;
                 } else {
                     pkg_buf[2] = 3; // skip every 3rd video frame and dont encode and dont sent it
@@ -407,7 +408,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                 int result = send_custom_lossless_packet(vc->av->m, vc->friend_number, pkg_buf, pkg_buf_len);
                 // HINT: tell sender to turn down video FPS -------------
 
-                vc->last_requested_lower_fps_ts = current_time_monotonic();
+                vc->last_requested_lower_fps_ts = current_time_monotonic(m->mono_time);
 
                 LOGGER_WARNING(vc->log, "request lower FPS from sender: %d ms : skip every %d", (int)is_skipping, (int)pkg_buf[2]);
             }
@@ -457,13 +458,13 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
 
         LOGGER_DEBUG(vc->log, "XLS01:%d,%d",
-                     (int)(timestamp_want_get - current_time_monotonic()),
-                     (int)(timestamp_out_ - current_time_monotonic())
+                     (int)(timestamp_want_get - current_time_monotonic(m->mono_time)),
+                     (int)(timestamp_out_ - current_time_monotonic(m->mono_time))
                     );
 
         const struct RTPHeader *header_v3_0 = (void *) & (p->header);
 
-        vc->video_play_delay = ((current_time_monotonic() + vc->timestamp_difference_to_sender) - timestamp_out_);
+        vc->video_play_delay = ((current_time_monotonic(m->mono_time) + vc->timestamp_difference_to_sender) - timestamp_out_);
         vc->video_frame_buffer_entries = (uint32_t)tsb_size((TSBuffer *)vc->vbuf_raw);
 
         LOGGER_DEBUG(vc->log, "seq:%d FC:%d min=%d max=%d want=%d got=%d diff=%d rm=%d pdelay=%d adj=%d dts=%d rtt=%d",
@@ -663,7 +664,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
             if ((percent_recvd < 100) && (have_requested_index_frame == false)) {
                 if ((vc->last_requested_keyframe_ts + VIDEO_MIN_REQUEST_KEYFRAME_INTERVAL_MS_FOR_KF)
-                        < current_time_monotonic()) {
+                        < current_time_monotonic(m->mono_time)) {
                     // if keyframe received has less than 100% of the data, request a new keyframe
                     // from the sender
                     uint32_t pkg_buf_len = 2;
@@ -677,7 +678,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                     } else {
                         LOGGER_WARNING(vc->log,
                                        "PACKET_TOXAV_COMM_CHANNEL_REQUEST_KEYFRAME:RTP Sent.");
-                        vc->last_requested_keyframe_ts = current_time_monotonic();
+                        vc->last_requested_keyframe_ts = current_time_monotonic(m->mono_time);
                     }
                 }
             }
@@ -750,7 +751,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 #else
 
 #ifdef DEBUG_SHOW_H264_DECODING_TIME
-            uint32_t start_time_ms = current_time_monotonic();
+            uint32_t start_time_ms = current_time_monotonic(m->mono_time);
 #endif
             decode_frame_h264(vc, m, skip_video_flag, a_r_timestamp,
                               a_l_timestamp,
@@ -760,7 +761,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                               &ret_value);
 
 #ifdef DEBUG_SHOW_H264_DECODING_TIME
-            uint32_t end_time_ms = current_time_monotonic();
+            uint32_t end_time_ms = current_time_monotonic(m->mono_time);
 
             if ((int)(end_time_ms - start_time_ms) > 4) {
                 LOGGER_WARNING(vc->log, "decode_frame_h264: %d ms", (int)(end_time_ms - start_time_ms));
@@ -790,7 +791,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 /* --- VIDEO DECODING happens here --- */
 
 
-int vc_queue_message(void *vcp, struct RTPMessage *msg)
+int vc_queue_message(const Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
 {
     /* This function is called with complete messages
      * they have already been assembled. but not yet decoded
@@ -820,7 +821,7 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
 
     // calculate mean "frame incoming every x milliseconds" --------------
     if (vc->incoming_video_frames_gap_last_ts > 0) {
-        uint32_t curent_gap = current_time_monotonic() - vc->incoming_video_frames_gap_last_ts;
+        uint32_t curent_gap = current_time_monotonic(mono_time) - vc->incoming_video_frames_gap_last_ts;
 
         vc->incoming_video_frames_gap_ms[vc->incoming_video_frames_gap_ms_index] = curent_gap;
         vc->incoming_video_frames_gap_ms_index = (vc->incoming_video_frames_gap_ms_index + 1) %
@@ -847,7 +848,7 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
 #endif
     }
 
-    vc->incoming_video_frames_gap_last_ts = current_time_monotonic();
+    vc->incoming_video_frames_gap_last_ts = current_time_monotonic(mono_time);
     // calculate mean "frame incoming every x milliseconds" --------------
 
     pthread_mutex_lock(vc->queue_mutex);
@@ -870,7 +871,7 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
 
         // give COMM data to client -------
 
-        if ((vc->network_round_trip_time_last_cb_ts + 2000) < current_time_monotonic()) {
+        if ((vc->network_round_trip_time_last_cb_ts + 2000) < current_time_monotonic(mono_time)) {
             if (vc->av) {
                 if (vc->av->call_comm_cb) {
                     vc->av->call_comm_cb(vc->av, vc->friend_number,
@@ -903,7 +904,7 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
 
             }
 
-            vc->network_round_trip_time_last_cb_ts = current_time_monotonic();
+            vc->network_round_trip_time_last_cb_ts = current_time_monotonic(mono_time);
         }
 
         // give COMM data to client -------
@@ -912,7 +913,7 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
         if (vc->show_own_video == 0) {
 
 
-            if ((vc->incoming_video_bitrate_last_cb_ts + 2000) < current_time_monotonic()) {
+            if ((vc->incoming_video_bitrate_last_cb_ts + 2000) < current_time_monotonic(mono_time)) {
                 if (vc->incoming_video_bitrate_last_changed != header->encoder_bit_rate_used) {
                     if (vc->av) {
                         if (vc->av->call_comm_cb) {
@@ -926,7 +927,7 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
                     vc->incoming_video_bitrate_last_changed = header->encoder_bit_rate_used;
                 }
 
-                vc->incoming_video_bitrate_last_cb_ts = current_time_monotonic();
+                vc->incoming_video_bitrate_last_cb_ts = current_time_monotonic(mono_time);
             }
 
 
@@ -963,7 +964,7 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
         }
     } else {
 #ifdef USE_TS_BUFFER_FOR_VIDEO
-        free(tsb_write((TSBuffer *)vc->vbuf_raw, msg, 0, current_time_monotonic()));
+        free(tsb_write((TSBuffer *)vc->vbuf_raw, msg, 0, current_time_monotonic(mono_time)));
 #else
         free(rb_write((RingBuffer *)vc->vbuf_raw, msg, 0));
 #endif
@@ -972,14 +973,14 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
 
     /* Calculate time since we received the last video frame */
     // use 5ms less than the actual time, to give some free room
-    uint32_t t_lcfd = (current_time_monotonic() - vc->linfts) - 5;
+    uint32_t t_lcfd = (current_time_monotonic(mono_time) - vc->linfts) - 5;
     vc->lcfd = t_lcfd > 100 ? vc->lcfd : t_lcfd;
 
 #ifdef VIDEO_DECODER_SOFT_DEADLINE_AUTOTUNE
 
     // Autotune decoder softdeadline here ----------
     if (vc->last_decoded_frame_ts > 0) {
-        long decode_time_auto_tune = (current_time_monotonic() - vc->last_decoded_frame_ts) * 1000;
+        long decode_time_auto_tune = (current_time_monotonic(mono_time) - vc->last_decoded_frame_ts) * 1000;
 
         if (decode_time_auto_tune == 0) {
             decode_time_auto_tune = 1; // 0 means infinite long softdeadline!
@@ -995,11 +996,11 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
 
     }
 
-    vc->last_decoded_frame_ts = current_time_monotonic();
+    vc->last_decoded_frame_ts = current_time_monotonic(mono_time);
     // Autotune decoder softdeadline here ----------
 #endif
 
-    vc->linfts = current_time_monotonic();
+    vc->linfts = current_time_monotonic(mono_time);
 
     pthread_mutex_unlock(vc->queue_mutex);
 

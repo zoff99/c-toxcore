@@ -214,7 +214,7 @@ void toxav_iterate(ToxAV *av)
         return;
     }
 
-    uint64_t start = current_time_monotonic();
+    uint64_t start = current_time_monotonic(av->m->mono_time);
     int32_t rc = 500;
     uint32_t audio_iterations = 0;
 
@@ -376,7 +376,7 @@ void toxav_iterate(ToxAV *av)
     pthread_mutex_unlock(av->mutex);
 
     av->interval = rc < av->dmssa ? 0 : (rc - av->dmssa);
-    av->dmsst += current_time_monotonic() - start;
+    av->dmsst += current_time_monotonic(av->m->mono_time) - start;
 
     if (++av->dmssc == 3) {
         av->dmssa = av->dmsst / 3 + 5 /* NOTE Magic Offset for precission */;
@@ -978,7 +978,7 @@ bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pc
     TOXAV_ERR_SEND_FRAME rc = TOXAV_ERR_SEND_FRAME_OK;
     ToxAVCall *call;
 
-    uint64_t audio_frame_record_timestamp = current_time_monotonic();
+    uint64_t audio_frame_record_timestamp = current_time_monotonic(av->m->mono_time);
 
     if (m_friend_exists(av->m, friend_number) == 0) {
         rc = TOXAV_ERR_SEND_FRAME_FRIEND_NOT_FOUND;
@@ -1127,7 +1127,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
 
     // LOGGER_ERROR(av->m->log, "OMX:H:001");
 
-    uint64_t video_frame_record_timestamp = current_time_monotonic();
+    uint64_t video_frame_record_timestamp = current_time_monotonic(av->m->mono_time);
 
     if (m_friend_exists(av->m, friend_number) == 0) {
         rc = TOXAV_ERR_SEND_FRAME_FRIEND_NOT_FOUND;
@@ -1151,7 +1151,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
     if (call->video->skip_fps != 0) {
         call->video->skip_fps_counter++;
 
-        if (call->video->skip_fps_duration_until_ts > current_time_monotonic()) {
+        if (call->video->skip_fps_duration_until_ts > current_time_monotonic(av->m->mono_time)) {
             // HINT: ok stop skipping frames now, and reset the values
             call->video->skip_fps = 0;
             call->video->skip_fps_duration_until_ts = 0;
@@ -1172,7 +1172,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
     uint64_t ms_to_last_frame = 1;
 
     if (call->video) {
-        ms_to_last_frame = current_time_monotonic() - call->video->last_encoded_frame_ts;
+        ms_to_last_frame = current_time_monotonic(av->m->mono_time) - call->video->last_encoded_frame_ts;
 
         if (call->video->last_encoded_frame_ts == 0) {
             ms_to_last_frame = 1;
@@ -1252,7 +1252,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         }
     }
 
-    if ((call->video_bit_rate_last_last_changed_cb_ts + 2000) < current_time_monotonic()) {
+    if ((call->video_bit_rate_last_last_changed_cb_ts + 2000) < current_time_monotonic(av->m->mono_time)) {
         if (call->video_bit_rate_last_last_changed != call->video_bit_rate) {
             if (av->call_comm_cb) {
                 av->call_comm_cb(av, friend_number,
@@ -1264,7 +1264,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
             call->video_bit_rate_last_last_changed = call->video_bit_rate;
         }
 
-        call->video_bit_rate_last_last_changed_cb_ts = current_time_monotonic();
+        call->video_bit_rate_last_last_changed_cb_ts = current_time_monotonic(av->m->mono_time);
     }
 
     int vpx_encode_flags = 0;
@@ -1316,7 +1316,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
     long encode_time_auto_tune = MAX_ENCODE_TIME_US;
 
     if (call->video->last_encoded_frame_ts > 0) {
-        encode_time_auto_tune = (current_time_monotonic() - call->video->last_encoded_frame_ts) * 1000;
+        encode_time_auto_tune = (current_time_monotonic(av->m->mono_time) - call->video->last_encoded_frame_ts) * 1000;
 #ifdef VIDEO_CODEC_ENCODER_USE_FRAGMENTS
         encode_time_auto_tune = encode_time_auto_tune * VIDEO_CODEC_FRAGMENT_NUMS;
 #endif
@@ -1368,7 +1368,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
 
     // we start with I-frames (full frames) and then switch to normal mode later
 
-    call->video->last_encoded_frame_ts = current_time_monotonic();
+    call->video->last_encoded_frame_ts = current_time_monotonic(av->m->mono_time);
 
     if (call->video->send_keyframe_request_received == 1) {
         vpx_encode_flags = VPX_EFLAG_FORCE_KF;
@@ -1379,10 +1379,10 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         LOGGER_DEBUG(av->m->log, "++++ FORCE KEYFRAME ++++:%d %d %d",
                      (int)call->video->last_sent_keyframe_ts,
                      (int)VIDEO_MIN_SEND_KEYFRAME_INTERVAL,
-                     (int)current_time_monotonic());
+                     (int)current_time_monotonic(av->m->mono_time));
 
         if ((call->video->last_sent_keyframe_ts + VIDEO_MIN_SEND_KEYFRAME_INTERVAL)
-                < current_time_monotonic()) {
+                < current_time_monotonic(av->m->mono_time)) {
             // it's been x seconds without a keyframe, send one now
             vpx_encode_flags = VPX_EFLAG_FORCE_KF;
             vpx_encode_flags |= VP8_EFLAG_FORCE_GF;
@@ -2061,7 +2061,7 @@ bool call_prepare_transmission(ToxAVCall *call)
     call->bwc = bwc_new(av->m, call->friend_number, callback_bwc, call);
 
     { /* Prepare audio */
-        call->audio = ac_new(av->m->log, av, call->friend_number, av->acb, av->acb_user_data);
+        call->audio = ac_new(av->m->mono_time, av->m->log, av, call->friend_number, av->acb, av->acb_user_data);
 
         if (!call->audio) {
             LOGGER_ERROR(av->m->log, "Failed to create audio codec session");
@@ -2078,7 +2078,7 @@ bool call_prepare_transmission(ToxAVCall *call)
     }
 
     { /* Prepare video */
-        call->video = vc_new(av->m->log, av, call->friend_number, av->vcb, av->vcb_user_data);
+        call->video = vc_new(av->m->mono_time, av->m->log, av, call->friend_number, av->vcb, av->vcb_user_data);
 
         if (!call->video) {
             LOGGER_ERROR(av->m->log, "Failed to create video codec session");

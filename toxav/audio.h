@@ -63,7 +63,8 @@
 /* debugging */
 
 typedef struct ACSession_s {
-    Logger *log;
+    const Mono_Time *mono_time;
+    const Logger *log;
 
     /* encoding */
     OpusEncoder *encoder;
@@ -95,13 +96,14 @@ typedef struct ACSession_s {
     void *acb_user_data;
 } ACSession;
 
-ACSession *ac_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_audio_receive_frame_cb *cb, void *cb_data);
+ACSession *ac_new(const Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t friend_number,
+                  toxav_audio_receive_frame_cb *cb, void *cb_data);
 void ac_kill(ACSession *ac);
 uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timestamp, uint64_t *v_r_timestamp,
                    uint64_t *v_l_timestamp,
                    int64_t *timestamp_difference_adjustment_,
                    int64_t *timestamp_difference_to_sender_);
-int ac_queue_message(void *acp, struct RTPMessage *msg);
+int ac_queue_message(const Mono_Time *mono_time, void *acp, struct RTPMessage *msg);
 int ac_reconfigure_encoder(ACSession *ac, int32_t bit_rate, int32_t sampling_rate, uint8_t channels);
 
 #endif /* AUDIO_H */

@@ -496,7 +496,7 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
         // LOGGER_DEBUG(log, "-- handle_video_packet -- CALLBACK-001a b0=%d b1=%d", (int)m_new->data[0], (int)m_new->data[1]);
         //**// update_bwc_values(log, session, m_new);
         // Pass ownership of m_new to the callback.
-        session->mcb(session->cs, m_new);
+        session->mcb(session->m->mono_time, session->cs, m_new);
         // Now we no longer own m_new.
         m_new = NULL;
 
@@ -554,7 +554,7 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
 
                 if (m_new) {
                     LOGGER_DEBUG(log, "FPATH:11x:slot num=%d:VSEQ:%d", slot_id, (int)m_new->header.sequnum);
-                    session->mcb(session->cs, m_new);
+                    session->mcb(session->m->mono_time, session->cs, m_new);
                     m_new = NULL;
                 }
 
@@ -571,7 +571,7 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
 
         // LOGGER_DEBUG(log, "-- handle_video_packet -- CALLBACK-003a b0=%d b1=%d", (int)m_new->data[0], (int)m_new->data[1]);
         //**//update_bwc_values(log, session, m_new);
-        session->mcb(session->cs, m_new);
+        session->mcb(session->m->mono_time, session->cs, m_new);
 
         m_new = NULL;
     }
@@ -613,7 +613,7 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
                         ((VCSession *)(session->cs))->skip_fps = data[2];
                     }
 
-                    ((VCSession *)(session->cs))->skip_fps_duration_until_ts = current_time_monotonic() + TOXAV_SKIP_FPS_RELEASE_AFTER_MS;
+                    ((VCSession *)(session->cs))->skip_fps_duration_until_ts = current_time_monotonic(m->mono_time) + TOXAV_SKIP_FPS_RELEASE_AFTER_MS;
                 }
             } else if (data[1] == PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_REQUEST) {
 
@@ -621,7 +621,7 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
                 uint8_t pkg_buf[pkg_buf_len];
                 pkg_buf[0] = PACKET_TOXAV_COMM_CHANNEL;
                 pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_ANSWER;
-                uint32_t tmp = current_time_monotonic();
+                uint32_t tmp = current_time_monotonic(m->mono_time);
                 pkg_buf[2] = data[2];
                 pkg_buf[3] = data[3];
                 pkg_buf[4] = data[4];
@@ -676,7 +676,7 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
                     +
                     (data[13]);
 
-                ((VCSession *)(session->cs))->dummy_ntp_local_end = current_time_monotonic();
+                ((VCSession *)(session->cs))->dummy_ntp_local_end = current_time_monotonic(m->mono_time);
 
                 LOGGER_DEBUG(m->log, "DNTP:%d %d %d %d",
                              ((VCSession *)(session->cs))->dummy_ntp_local_start,
@@ -798,7 +798,7 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
         uint8_t pkg_buf[pkg_buf_len];
         pkg_buf[0] = PACKET_TOXAV_COMM_CHANNEL;
         pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_REQUEST;
-        uint32_t tmp = current_time_monotonic();
+        uint32_t tmp = current_time_monotonic(m->mono_time);
         pkg_buf[2] = tmp >> 24 & 0xFF;
         pkg_buf[3] = tmp >> 16 & 0xFF;
         pkg_buf[4] = tmp >> 8  & 0xFF;
@@ -823,11 +823,11 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
             session->incoming_packets_ts[session->incoming_packets_ts_index] = 0;
             session->incoming_packets_ts_average = 0;
         } else {
-            session->incoming_packets_ts[session->incoming_packets_ts_index] = current_time_monotonic() -
+            session->incoming_packets_ts[session->incoming_packets_ts_index] = current_time_monotonic(m->mono_time) -
                     session->incoming_packets_ts_last_ts;
         }
 
-        session->incoming_packets_ts_last_ts = current_time_monotonic();
+        session->incoming_packets_ts_last_ts = current_time_monotonic(m->mono_time);
         session->incoming_packets_ts_index++;
 
         if (session->incoming_packets_ts_index >= INCOMING_PACKETS_TS_ENTRIES) {
@@ -875,15 +875,15 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
 
         /* Invoke processing of active multiparted message */
         if (session->mp) {
-            session->mcb(session->cs, session->mp);
+            session->mcb(session->m->mono_time, session->cs, session->mp);
             session->mp = NULL;
         }
 
         /* The message came in the allowed time;
          */
 
-        return session->mcb(session->cs, new_message(&header, length - RTP_HEADER_SIZE, data + RTP_HEADER_SIZE,
-                            length - RTP_HEADER_SIZE));
+        return session->mcb(session->m->mono_time, session->cs, new_message(&header, length - RTP_HEADER_SIZE,
+                            data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE));
     }
 
     /* The message is sent in multiple parts */
@@ -918,7 +918,7 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
                 /* Received a full message; now push it for the further
                  * processing.
                  */
-                session->mcb(session->cs, session->mp);
+                session->mcb(session->m->mono_time, session->cs, session->mp);
                 session->mp = NULL;
             }
         } else {
@@ -931,7 +931,7 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
             }
 
             /* Push the previous message for processing */
-            session->mcb(session->cs, session->mp);
+            session->mcb(session->m->mono_time, session->cs, session->mp);
 
             session->mp = NULL;
             goto NEW_MULTIPARTED;
@@ -1198,7 +1198,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
 
     header.sequnum = session->sequnum;
 
-    header.timestamp = frame_record_timestamp; // current_time_monotonic();
+    header.timestamp = frame_record_timestamp; // current_time_monotonic(session->m->mono_time);
 
     header.ssrc = session->ssrc;
 

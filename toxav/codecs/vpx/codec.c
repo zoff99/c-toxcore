@@ -465,7 +465,7 @@ VCSession *vc_new_vpx(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vide
     // VP8E_SET_STATIC_THRESHOLD
 
 
-    vc->linfts = current_time_monotonic();
+    vc->linfts = current_time_monotonic(av->m->mono_time);
     vc->lcfd = 10; // initial value in ms for av_iterate sleep
     vc->vcb = cb;
     vc->vcb_user_data = cb_data;
@@ -907,14 +907,14 @@ void decode_frame_vpx(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint
                 if (dest->user_priv != NULL) {
                     uint64_t frame_record_timestamp_vpx = ((struct vpx_frame_user_data *)(dest->user_priv))->record_timestamp;
 
-                    //LOGGER_ERROR(vc->log, "VIDEO:TTx: %llu now=%llu", frame_record_timestamp_vpx, current_time_monotonic());
+                    //LOGGER_ERROR(vc->log, "VIDEO:TTx: %llu now=%llu", frame_record_timestamp_vpx, current_time_monotonic(m->mono_time));
                     if (frame_record_timestamp_vpx > 0) {
                         *ret_value = 1;
 
                         if (*v_r_timestamp < frame_record_timestamp_vpx) {
                             // LOGGER_ERROR(vc->log, "VIDEO:TTx:2: %llu", frame_record_timestamp_vpx);
                             *v_r_timestamp = frame_record_timestamp_vpx;
-                            *v_l_timestamp = current_time_monotonic();
+                            *v_l_timestamp = current_time_monotonic(m->mono_time);
                         } else {
                             // TODO: this should not happen here!
                             LOGGER_DEBUG(vc->log, "VIDEO: remote timestamp older");
@@ -1042,7 +1042,7 @@ uint32_t send_frames_vpx(ToxAV *av, uint32_t friend_number, uint16_t width, uint
             const int keyframe = (pkt->data.frame.flags & VPX_FRAME_IS_KEY) != 0;
 
             if (keyframe) {
-                call->video->last_sent_keyframe_ts = current_time_monotonic();
+                call->video->last_sent_keyframe_ts = current_time_monotonic(av->m->mono_time);
             }
 
             if ((pkt->data.frame.flags & VPX_FRAME_IS_FRAGMENT) != 0) {
