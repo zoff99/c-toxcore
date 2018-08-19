@@ -2040,7 +2040,7 @@ static int friend_already_added(const uint8_t *real_pk, void *data)
 }
 
 /* Run this at startup. */
-Messenger *new_messenger(Messenger_Options *options, unsigned int *error)
+Messenger *new_messenger(Mono_Time *mono_time, Messenger_Options *options, unsigned int *error)
 {
     if (!options) {
         return nullptr;
@@ -2055,6 +2055,8 @@ Messenger *new_messenger(Messenger_Options *options, unsigned int *error)
     if (!m) {
         return nullptr;
     }
+
+    m->mono_time = mono_time;
 
     m->fr = friendreq_new();
 
@@ -2101,7 +2103,7 @@ Messenger *new_messenger(Messenger_Options *options, unsigned int *error)
         return nullptr;
     }
 
-    m->dht = new_dht(m->log, m->net, options->hole_punching_enabled);
+    m->dht = new_dht(m->log, m->mono_time, m->net, options->hole_punching_enabled);
 
     if (m->dht == nullptr) {
         kill_networking(m->net);
@@ -2111,7 +2113,7 @@ Messenger *new_messenger(Messenger_Options *options, unsigned int *error)
         return nullptr;
     }
 
-    m->net_crypto = new_net_crypto(m->log, m->dht, &options->proxy_info);
+    m->net_crypto = new_net_crypto(m->log, m->mono_time, m->dht, &options->proxy_info);
 
     if (m->net_crypto == nullptr) {
         kill_networking(m->net);
@@ -2122,10 +2124,10 @@ Messenger *new_messenger(Messenger_Options *options, unsigned int *error)
         return nullptr;
     }
 
-    m->onion = new_onion(m->dht);
-    m->onion_a = new_onion_announce(m->dht);
-    m->onion_c =  new_onion_client(m->net_crypto);
-    m->fr_c = new_friend_connections(m->onion_c, options->local_discovery_enabled);
+    m->onion = new_onion(m->mono_time, m->dht);
+    m->onion_a = new_onion_announce(m->mono_time, m->dht);
+    m->onion_c =  new_onion_client(m->mono_time, m->net_crypto);
+    m->fr_c = new_friend_connections(m->mono_time, m->onion_c, options->local_discovery_enabled);
 
     if (!(m->onion && m->onion_a && m->onion_c)) {
         kill_friend_connections(m->fr_c);
@@ -2576,7 +2578,7 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
 static void do_friends(Messenger *m, void *userdata)
 {
     uint32_t i;
-    uint64_t temp_time = unix_time();
+    uint64_t temp_time = mono_time_get(m->mono_time);
 
     for (i = 0; i < m->numfriends; ++i) {
         if (m->friendlist[i].status == FRIEND_ADDED) {
@@ -2711,15 +2713,13 @@ void do_messenger(Messenger *m, void *userdata)
         }
     }
 
-    unix_time_update();
-
     if (!m->options.udp_disabled) {
         networking_poll(m->net, userdata);
         do_dht(m->dht);
     }
 
     if (m->tcp_server) {
-        do_TCP_server(m->tcp_server);
+        do_TCP_server(m->tcp_server, m->mono_time);
     }
 
     do_net_crypto(m->net_crypto, userdata);
@@ -2728,8 +2728,8 @@ void do_messenger(Messenger *m, void *userdata)
     do_friends(m, userdata);
     connection_status_callback(m, userdata);
 
-    if (unix_time() > m->lastdump + DUMPING_CLIENTS_FRIENDS_EVERY_N_SECONDS) {
-        m->lastdump = unix_time();
+    if (mono_time_get(m->mono_time) > m->lastdump + DUMPING_CLIENTS_FRIENDS_EVERY_N_SECONDS) {
+        m->lastdump = mono_time_get(m->mono_time);
         uint32_t client, last_pinged;
 
         for (client = 0; client < LCLIENT_LIST; ++client) {

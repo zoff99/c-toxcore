@@ -182,7 +182,7 @@ const VERSION_MINOR                = 2;
  * The patch or revision number. Incremented when bugfixes are applied without
  * changing any functionality or API or ABI.
  */
-const VERSION_PATCH                = 5;
+const VERSION_PATCH                = 6;
 
 #define TOX_HAVE_TOXUTIL               1
 #define TOX_HAVE_TOXAV_CALLBACKS_002   1

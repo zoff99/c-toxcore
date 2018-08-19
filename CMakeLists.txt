@@ -30,7 +30,7 @@ set(CMAKE_MODULE_PATH ${toxcore_SOURCE_DIR}/cmake)
 # versions in a synchronised way.
 set(PROJECT_VERSION_MAJOR "0")
 set(PROJECT_VERSION_MINOR "2")
-set(PROJECT_VERSION_PATCH "5")
+set(PROJECT_VERSION_PATCH "6")
 set(PROJECT_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
 
 # set .so library version / following libtool scheme
@@ -467,6 +467,7 @@ auto_test(tox_one)
 auto_test(tox_strncasecmp)
 auto_test(typing)
 auto_test(version)
+auto_test(save_compatibility)
 
 if(BUILD_TOXAV)
   auto_test(toxav_basic)
@@ -553,3 +554,7 @@ target_link_modules(Messenger_test toxcore misc_tools)
 add_executable(random_testing ${CPUFEATURES}
   testing/random_testing.cc)
 target_link_modules(random_testing toxcore misc_tools)
+
+add_executable(save-generator
+  other/fun/save-generator.c)
+target_link_modules(save-generator toxcore misc_tools)
