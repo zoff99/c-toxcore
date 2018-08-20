@@ -614,6 +614,8 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
                 if (session->cs) {
                     if ((data[2] > 1) && (data[2] < 10)) {
                         ((VCSession *)(session->cs))->skip_fps = data[2];
+                        LOGGER_DEBUG(m->log, "RECVD:PACKET_TOXAV_COMM_CHANNEL_LESS_VIDEO_FPS skip=%d",
+                                     (int)(((VCSession *)(session->cs))->skip_fps));
                     }
 
                     ((VCSession *)(session->cs))->skip_fps_duration_until_ts = current_time_monotonic() + TOXAV_SKIP_FPS_RELEASE_AFTER_MS;
