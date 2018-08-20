@@ -49,7 +49,7 @@ VPX_DL_BEST_QUALITY   (0)       deadline parameter analogous to VPx BEST QUALITY
 */
 
 #define VIDEO_ACCEPTABLE_LOSS (0.08f) /* if loss is less than this (8%), then don't do anything */
-#define AUDIO_ITERATATIONS_WHILE_VIDEO (8)
+#define AUDIO_ITERATATIONS_WHILE_VIDEO (10)
 #define VIDEO_MIN_SEND_KEYFRAME_INTERVAL 5000
 
 #if defined(AUDIO_DEBUGGING_SKIP_FRAMES)
