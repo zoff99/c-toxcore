@@ -19,7 +19,7 @@
  */
 
 
-#define DISABLE_H264_DECODER_FEATURE    1
+#define DISABLE_H264_DECODER_FEATURE    0
 
 // H264 settings -----------
 #define x264_param_profile_str "high"
