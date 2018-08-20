@@ -47,7 +47,7 @@
 
 
 #define VIDEO_ACCEPTABLE_LOSS (0.08f) /* if loss is less than this (8%), then don't do anything */
-#define AUDIO_ITERATATIONS_WHILE_VIDEO (20)
+#define AUDIO_ITERATATIONS_WHILE_VIDEO (8)
 #define VIDEO_MIN_SEND_KEYFRAME_INTERVAL 5000
 
 #if defined(AUDIO_DEBUGGING_SKIP_FRAMES)
@@ -1176,6 +1176,9 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         goto RETURN;
     }
 
+    // LOGGER_ERROR(av->m->log, "VIDEO:Skipping:%d %d",
+    //            (int)call->video.second->skip_fps,
+    //            (int)call->video.second->skip_fps_counter);
 
     if (call->video.second->skip_fps != 0) {
         call->video.second->skip_fps_counter++;
@@ -1763,17 +1766,6 @@ int callback_invite(void *toxav_inst, MSICall *call)
         return -1;
     }
 
-    // HINT: tell friend that we have H264 decoder capabilities (1) -------
-    uint32_t pkg_buf_len = 2;
-    uint8_t pkg_buf[pkg_buf_len];
-    pkg_buf[0] = PACKET_TOXAV_COMM_CHANNEL;
-    pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO;
-
-    int result = send_custom_lossless_packet(toxav->m, call->friend_number, pkg_buf, pkg_buf_len);
-    LOGGER_ERROR(toxav->m->log, "PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO=%d\n", (int)result);
-    // HINT: tell friend that we have H264 decoder capabilities -------
-
-
     pthread_mutex_unlock(toxav->mutex);
     return 0;
 }
@@ -1802,17 +1794,6 @@ int callback_start(void *toxav_inst, MSICall *call)
         pthread_mutex_unlock(toxav->mutex);
         return -1;
     }
-
-    // HINT: tell friend that we have H264 decoder capabilities (1) -------
-    uint32_t pkg_buf_len = 2;
-    uint8_t pkg_buf[pkg_buf_len];
-    pkg_buf[0] = PACKET_TOXAV_COMM_CHANNEL;
-    pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO;
-
-    int result = send_custom_lossless_packet(toxav->m, call->friend_number, pkg_buf, pkg_buf_len);
-    LOGGER_ERROR(toxav->m->log, "PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO=%d\n", (int)result);
-    // HINT: tell friend that we have H264 decoder capabilities -------
-
 
     pthread_mutex_unlock(toxav->mutex);
     return 0;
