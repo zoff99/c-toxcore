@@ -403,6 +403,8 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                 pkg_buf[0] = PACKET_TOXAV_COMM_CHANNEL;
                 pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_LESS_VIDEO_FPS;
 
+#if 0
+
                 if ((vc->last_requested_lower_fps_ts + 12000) < current_time_monotonic(m->mono_time)) {
                     pkg_buf[2] = 2;
                 } else {
@@ -895,12 +897,12 @@ int vc_queue_message(const Mono_Time *mono_time, void *vcp, struct RTPMessage *m
                                                (int64_t)vc->video_play_delay_real,
                                                vc->av->call_comm_cb_user_data);
 
-                    vc->av->call_comm_cb.first(vc->av, vc->friend_number,
+                    vc->av->call_comm_cb(vc->av, vc->friend_number,
                                                TOXAV_CALL_COMM_REMOTE_RECORD_DELAY,
                                                (int64_t)vc->remote_client_video_capture_delay_ms,
-                                               vc->av->call_comm_cb.second);
+                                               vc->av->call_comm_cb_user_data);
 
-                    vc->av->call_comm_cb.first(vc->av, vc->friend_number,
+                    vc->av->call_comm_cb(vc->av, vc->friend_number,
                                                TOXAV_CALL_COMM_PLAY_BUFFER_ENTRIES,
                                                (int64_t)vc->video_frame_buffer_entries,
                                                vc->av->call_comm_cb_user_data);

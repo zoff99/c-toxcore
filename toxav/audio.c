@@ -290,7 +290,7 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
 
     /* Enough space for the maximum frame size (120 ms 48 KHz stereo audio) */
     int16_t temp_audio_buffer[AUDIO_MAX_BUFFER_SIZE_PCM16_FOR_FRAME_PER_CHANNEL *
-                              AUDIO_MAX_CHANNEL_COUNT];
+                                                                                AUDIO_MAX_CHANNEL_COUNT];
 
     struct RTPMessage *msg = NULL;
     int rc = 0;

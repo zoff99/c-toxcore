@@ -615,7 +615,8 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
                                      (int)(((VCSession *)(session->cs))->skip_fps));
                     }
 
-                    ((VCSession *)(session->cs))->skip_fps_duration_until_ts = current_time_monotonic(m->mono_time) + TOXAV_SKIP_FPS_RELEASE_AFTER_MS;
+                    ((VCSession *)(session->cs))->skip_fps_duration_until_ts = current_time_monotonic(m->mono_time) +
+                            TOXAV_SKIP_FPS_RELEASE_AFTER_MS;
                 }
             } else if (data[1] == PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_REQUEST) {
 
@@ -720,7 +721,8 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
                 int64_t *ptmp = &(((VCSession *)(session->cs))->timestamp_difference_to_sender);
 
                 bool res4 = dntp_drift(ptmp, offset_, (int64_t)800);
-                LOGGER_DEBUG(m->log, "DNTP:*B*:offset new=%lu", (unsigned long)((VCSession *)(session->cs))->timestamp_difference_to_sender);
+                LOGGER_DEBUG(m->log, "DNTP:*B*:offset new=%lu",
+                             (unsigned long)((VCSession *)(session->cs))->timestamp_difference_to_sender);
             }
         }
 

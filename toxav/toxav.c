@@ -286,7 +286,7 @@ void toxav_iterate(ToxAV *av)
                                    &(i->call_timestamp_difference_to_sender)
                                   ) == 0) {
                         // TODO: Zoff: not sure if this sleep is good, or bad??
-                        usleep(40);
+                        // usleep(40);
                     } else {
                         LOGGER_TRACE(av->m->log, "did some more audio iterate");
                     }
@@ -1256,7 +1256,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
             }
 
             av->call_comm_cb(av, friend_number, cmi,
-                                   0, av->call_comm_cb_user_data);
+                             0, av->call_comm_cb_user_data);
         }
 
     }
@@ -1286,9 +1286,9 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
         if (call->video_bit_rate_last_last_changed != call->video_bit_rate) {
             if (av->call_comm_cb) {
                 av->call_comm_cb(av, friend_number,
-                                       TOXAV_CALL_COMM_ENCODER_CURRENT_BITRATE,
-                                       (int64_t)call->video_bit_rate,
-                                       av->call_comm_cb_user_data);
+                                 TOXAV_CALL_COMM_ENCODER_CURRENT_BITRATE,
+                                 (int64_t)call->video_bit_rate,
+                                 av->call_comm_cb_user_data);
             }
 
             call->video_bit_rate_last_last_changed = call->video_bit_rate;
@@ -1757,7 +1757,7 @@ int callback_invite(void *toxav_inst, MSICall *call)
 
     if (toxav->ccb) {
         toxav->ccb(toxav, call->friend_number, call->peer_capabilities & MSI_CAP_S_AUDIO,
-                         call->peer_capabilities & MSI_CAP_S_VIDEO, toxav->ccb_user_data);
+                   call->peer_capabilities & MSI_CAP_S_VIDEO, toxav->ccb_user_data);
     } else {
         /* No handler to capture the call request, send failure */
         pthread_mutex_unlock(toxav->mutex);
@@ -2077,7 +2077,7 @@ bool call_prepare_transmission(ToxAVCall *call)
         }
 
         call->audio_rtp = rtp_new(RTP_TYPE_AUDIO, av->m, call->friend_number, call->bwc,
-                                    call->audio, ac_queue_message);
+                                  call->audio, ac_queue_message);
 
         if (!call->audio_rtp) {
             LOGGER_ERROR(av->m->log, "Failed to create audio rtp session");;
@@ -2094,7 +2094,7 @@ bool call_prepare_transmission(ToxAVCall *call)
         }
 
         call->video_rtp = rtp_new(RTP_TYPE_VIDEO, av->m, call->friend_number, call->bwc,
-                                    call->video, vc_queue_message);
+                                  call->video, vc_queue_message);
 
         if (!call->video_rtp) {
             LOGGER_ERROR(av->m->log, "Failed to create video rtp session");
