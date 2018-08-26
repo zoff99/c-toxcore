@@ -788,7 +788,7 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
         }
     }
 
-    if (header.pt == (rtp_TypeVideo % 128)) {
+    if (header.pt == (RTP_TYPE_VIDEO % 128)) {
         ((VCSession *)(session->cs))->remote_client_video_capture_delay_ms = header.client_video_capture_delay_ms;
     }
 

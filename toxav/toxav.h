@@ -566,10 +566,27 @@ typedef enum TOXAV_ERR_BIT_RATE_SET {
 bool toxav_bit_rate_set(ToxAV *av, uint32_t friend_number, int32_t audio_bit_rate, int32_t video_bit_rate,
                         TOXAV_ERR_BIT_RATE_SET *error);
 
-/* dummy */
-bool toxav_video_set_bit_rate(ToxAV *av, uint32_t friend_number, int32_t video_bit_rate, TOXAV_ERR_BIT_RATE_SET *error);
-bool toxav_audio_set_bit_rate(ToxAV *av, uint32_t friend_number, int32_t audio_bit_rate, TOXAV_ERR_BIT_RATE_SET *error);
-/* dummy */
+/**
+ * Set the bit rate to be used in subsequent video frames.
+ *
+ * @param friend_number The friend number of the friend for which to set the
+ * bit rate.
+ * @param bit_rate The new video bit rate in Kb/sec. Set to 0 to disable.
+ *
+ * @return true on success.
+ */
+bool toxav_video_set_bit_rate(ToxAV *av, uint32_t friend_number, uint32_t bit_rate, TOXAV_ERR_BIT_RATE_SET *error);
+
+/**
+ * Set the bit rate to be used in subsequent video frames.
+ *
+ * @param friend_number The friend number of the friend for which to set the
+ * bit rate.
+ * @param bit_rate The new audio bit rate in Kb/sec. Set to 0 to disable.
+ *
+ * @return true on success.
+ */
+bool toxav_audio_set_bit_rate(ToxAV *av, uint32_t friend_number, uint32_t bit_rate, TOXAV_ERR_BIT_RATE_SET *error);
 
 /**
  * The function type for the bit_rate_status callback. The event is triggered
@@ -839,6 +856,14 @@ int toxav_join_av_groupchat(Tox *tox, uint32_t friendnumber, const uint8_t *data
 int toxav_group_send_audio(Tox *tox, uint32_t groupnumber, const int16_t *pcm, unsigned int samples, uint8_t channels,
                            uint32_t sample_rate);
 
+
+typedef TOXAV_ERR_CALL Toxav_Err_Call;
+typedef TOXAV_ERR_NEW Toxav_Err_New;
+typedef TOXAV_ERR_ANSWER Toxav_Err_Answer;
+typedef TOXAV_ERR_CALL_CONTROL Toxav_Err_Call_Control;
+typedef TOXAV_ERR_BIT_RATE_SET Toxav_Err_Bit_Rate_Set;
+typedef TOXAV_ERR_SEND_FRAME Toxav_Err_Send_Frame;
+typedef TOXAV_CALL_CONTROL Toxav_Call_Control;
 
 /*******************************************************************************
  *
