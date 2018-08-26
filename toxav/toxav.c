@@ -1098,8 +1098,8 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
                 cmi = TOXAV_CALL_COMM_ENCODER_IN_USE_H264_OMX_PI;
             }
 
-            av->call_comm_cb.first(av, friend_number, cmi,
-                                   0, av->call_comm_cb.second);
+            av->call_comm_cb(av, friend_number, cmi,
+                             0, av->call_comm_cb_user_data);
         }
 
     }
