@@ -415,17 +415,17 @@ static void tox_utils_set_capabilities(Tox *tox, uint32_t friendnumber, bool cap
             if (n == NULL) {
                 if (cap == true) {
                     tox_utils_list_add(&global_friend_capability_list, friend_pubkey, 0, data);
-                    Messenger *m = (Messenger *)tox;
+                    Messenger *m = *(Messenger **)tox;
                     LOGGER_WARNING(m->log, "toxutil:set_capabilities(add:1)");
                 }
             } else {
                 tox_utils_list_remove(&global_friend_capability_list, friend_pubkey, 0);
-                Messenger *m = (Messenger *)tox;
+                Messenger *m = *(Messenger **)tox;
                 LOGGER_WARNING(m->log, "toxutil:set_capabilities(rm)");
 
                 if (cap == true) {
                     tox_utils_list_add(&global_friend_capability_list, friend_pubkey, 0, data);
-                    Messenger *m = (Messenger *)tox;
+                    Messenger *m = *(Messenger **)tox;
                     LOGGER_WARNING(m->log, "toxutil:set_capabilities(add:2)");
                 }
             }
@@ -445,11 +445,11 @@ static void tox_utils_send_capabilities(Tox *tox, uint32_t friendnumber)
     tox_friend_send_lossless_packet(tox, friendnumber, data, 3, &error);
 
     if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_SENDQ) {
-        Messenger *m = (Messenger *)tox;
+        Messenger *m = *(Messenger **)tox;
         LOGGER_WARNING(m->log, "toxutil:tox_utils_send_capabilities fnum=%d error:TOX_ERR_FRIEND_CUSTOM_PACKET_SENDQ",
                        (int)friendnumber);
     } else if (error != 0) {
-        Messenger *m = (Messenger *)tox;
+        Messenger *m = *(Messenger **)tox;
         LOGGER_WARNING(m->log, "toxutil:tox_utils_send_capabilities fnum=%d errnum:%d",
                        (int)friendnumber, (int)error);
     }
@@ -460,7 +460,7 @@ static void tox_utils_receive_capabilities(Tox *tox, uint32_t friendnumber, cons
 {
     if (length == 3) {
         if ((data[0] == CAP_PACKET_ID) && (data[1] == CAP_BYTE_0) && (data[2] == CAP_BYTE_1)) {
-            Messenger *m = (Messenger *)tox;
+            Messenger *m = *(Messenger **)tox;
             LOGGER_WARNING(m->log, "toxutil:receive_capabilities fnum=%d data=%d% d %d",
                            (int)friendnumber, (int)data[0], (int)data[1], (int)data[2]);
 
@@ -488,7 +488,9 @@ static void tox_utils_housekeeping(Tox *tox)
         if (head->data) {
             global_msgv2_outgoing_ft_entry *e = ((global_msgv2_outgoing_ft_entry *)(head->data));
 
-            if ((e->timestamp + TOX_UTIL_EXPIRE_FT_MS) < current_time_monotonic()) {
+            Messenger *m = *(Messenger **)tox;
+
+            if ((e->timestamp + TOX_UTIL_EXPIRE_FT_MS) < current_time_monotonic(m->mono_time)) {
                 // cancel FT
                 uint32_t friend_number = e->friend_number;
                 uint32_t file_number = e->file_number;
@@ -531,7 +533,9 @@ static void tox_utils_housekeeping(Tox *tox)
         if (head->data) {
             global_msgv2_incoming_ft_entry *e = ((global_msgv2_incoming_ft_entry *)(head->data));
 
-            if ((e->timestamp + TOX_UTIL_EXPIRE_FT_MS) < current_time_monotonic()) {
+            Messenger *m = *(Messenger **)tox;
+
+            if ((e->timestamp + TOX_UTIL_EXPIRE_FT_MS) < current_time_monotonic(m->mono_time)) {
                 // cancel FT
                 uint32_t friend_number = e->friend_number;
                 uint32_t file_number = e->file_number;
@@ -586,7 +590,7 @@ void tox_utils_callback_friend_connection_status(Tox *tox, tox_friend_connection
 {
     tox_utils_friend_connectionstatuschange = (void (*)(Tox * tox, uint32_t,
             unsigned int, void *))callback;
-    Messenger *m = (Messenger *)tox;
+    Messenger *m = *(Messenger **)tox;
     LOGGER_WARNING(m->log, "toxutil:set callback");
 }
 
@@ -673,6 +677,7 @@ Tox *tox_utils_new(const struct Tox_Options *options, TOX_ERR_NEW *error)
     tox_utils_list_init(&global_msgv2_incoming_ft_list);
     tox_utils_list_init(&global_msgv2_outgoing_ft_list);
 
+    // ATTENTION: we only have a mono_time instance after this call returns!!
     return tox_new(options, error);
 }
 
@@ -931,7 +936,8 @@ void tox_utils_file_recv_cb(Tox *tox, uint32_t friend_number, uint32_t file_numb
             data->file_number = file_number;
             data->kind = kind;
             data->file_size = file_size;
-            data->timestamp = current_time_monotonic();
+            Messenger *m = *(Messenger **)tox;
+            data->timestamp = current_time_monotonic(m->mono_time);
 
             uint8_t *friend_pubkey = calloc(1, TOX_PUBLIC_KEY_SIZE);
 
@@ -1123,7 +1129,8 @@ bool tox_util_friend_send_msg_receipt_v2(Tox *tox, uint32_t friend_number, uint8
                     data->file_number = file_num_new;
                     data->kind = TOX_FILE_KIND_MESSAGEV2_ANSWER;
                     data->file_size = raw_msg_len;
-                    data->timestamp = current_time_monotonic();
+                    Messenger *m = *(Messenger **)tox;
+                    data->timestamp = current_time_monotonic(m->mono_time);
 
                     if (raw_msg_len <= TOX_MAX_FILETRANSFER_SIZE_MSGV2) {
                         memcpy(data->msg_data, raw_message, raw_msg_len);
@@ -1218,7 +1225,8 @@ bool tox_util_friend_resend_message_v2(Tox *tox, uint32_t friend_number,
         data->file_number = file_num_new;
         data->kind = TOX_FILE_KIND_MESSAGEV2_SEND;
         data->file_size = raw_msg_len;
-        data->timestamp = current_time_monotonic();
+        Messenger *m = *(Messenger **)tox;
+        data->timestamp = current_time_monotonic(m->mono_time);
 
         if (raw_msg_len <= TOX_MAX_FILETRANSFER_SIZE_MSGV2) {
             memcpy(data->msg_data, raw_message, raw_msg_len);
@@ -1309,7 +1317,7 @@ int64_t tox_util_friend_send_message_v2(Tox *tox, uint32_t friend_number, TOX_ME
 
 // --- DEBUG ---
 #if 0
-            Messenger *m = (Messenger *)tox;
+            Messenger *m = *(Messenger **)tox;
             char      data_hex_str[5000];
             get_hex((raw_message + 32 + 4 + 2), (raw_msg_len - 32 - 4 - 2), data_hex_str, 5000, 16);
             LOGGER_WARNING(m->log, "%s", data_hex_str);
@@ -1371,7 +1379,8 @@ int64_t tox_util_friend_send_message_v2(Tox *tox, uint32_t friend_number, TOX_ME
                     data->file_number = file_num_new;
                     data->kind = TOX_FILE_KIND_MESSAGEV2_SEND;
                     data->file_size = raw_msg_len;
-                    data->timestamp = current_time_monotonic();
+                    Messenger *m = *(Messenger **)tox;
+                    data->timestamp = current_time_monotonic(m->mono_time);
 
                     if (raw_msg_len <= TOX_MAX_FILETRANSFER_SIZE_MSGV2) {
                         memcpy(data->msg_data, raw_message, raw_msg_len);
