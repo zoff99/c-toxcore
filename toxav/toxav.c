@@ -288,7 +288,7 @@ void toxav_iterate(ToxAV *av)
                                    &(i->call_timestamp_difference_to_sender)
                                   ) == 0) {
                         // TODO: Zoff: not sure if this sleep is good, or bad??
-                        usleep(40);
+                        // usleep(40);
                     } else {
                         LOGGER_TRACE(av->m->log, "did some more audio iterate");
                     }
@@ -1257,8 +1257,8 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
                 cmi = TOXAV_CALL_COMM_ENCODER_IN_USE_H264_OMX_PI;
             }
 
-            av->call_comm_cb.first(av, friend_number, cmi,
-                                   0, av->call_comm_cb.second);
+            av->call_comm_cb(av, friend_number, cmi,
+                             0, av->call_comm_cb_user_data);
         }
 
     }
@@ -1286,11 +1286,11 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
 
     if ((call->video_bit_rate_last_last_changed_cb_ts + 2000) < current_time_monotonic()) {
         if (call->video_bit_rate_last_last_changed != call->video_bit_rate) {
-            if (av->call_comm_cb.first) {
-                av->call_comm_cb.first(av, friend_number,
-                                       TOXAV_CALL_COMM_ENCODER_CURRENT_BITRATE,
-                                       (int64_t)call->video_bit_rate,
-                                       av->call_comm_cb.second);
+            if (av->call_comm_cb) {
+                av->call_comm_cb(av, friend_number,
+                                 TOXAV_CALL_COMM_ENCODER_CURRENT_BITRATE,
+                                 (int64_t)call->video_bit_rate,
+                                 av->call_comm_cb_user_data);
             }
 
             call->video_bit_rate_last_last_changed = call->video_bit_rate;
