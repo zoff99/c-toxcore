@@ -255,6 +255,9 @@ set(toxcore_API_HEADERS ${toxcore_API_HEADERS} ${toxcore_SOURCE_DIR}/toxcore/tox
 #
 ################################################################################
 
+set(toxcore_SOURCES ${toxcore_SOURCES}
+  toxutil/toxutil.c)
+
 if(BUILD_TOXAV)
   apidsl(toxav/toxav.api.h)
   set(toxcore_SOURCES ${toxcore_SOURCES}
