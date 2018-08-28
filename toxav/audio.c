@@ -183,6 +183,26 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
 
     // HINT: compensate for older clients ----------------
 
+
+#if 0
+
+    uint32_t timestamp_min = 0;
+    uint32_t timestamp_max = 0;
+    tsb_get_range_in_buffer(q, &timestamp_min, &timestamp_max);
+
+    if ((int)tsb_size(q) > 0) {
+        LOGGER_ERROR(log, "FC:%d min=%ld max=%ld want=%d diff=%d adj=%d",
+                     (int)tsb_size(q),
+                     timestamp_min,
+                     timestamp_max,
+                     (int)want_remote_video_ts,
+                     (int)want_remote_video_ts - (int)timestamp_max,
+                     (int)timestamp_difference_adjustment_);
+    }
+
+#endif
+
+
     uint16_t is_skipping;
     bool res = tsb_read(q, log, &ret, &lost_frame,
                         &timestamp_out_,
@@ -190,6 +210,10 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
                         tsb_range_ms,
                         &removed_entries,
                         &is_skipping);
+
+    if (removed_entries > 0) {
+        LOGGER_ERROR(log, "removed entries=%d", (int)removed_entries);
+    }
 
     if (res == true) {
         *success = 1;
@@ -208,7 +232,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
                 int64_t diff = (m->header.sequnum - ac->lp_seqnum_new);
 
                 if (diff > 1) {
-                    LOGGER_WARNING(log, "AudioFramesIN: missing %d audio frames", (int)(diff - 1));
+                    LOGGER_DEBUG(log, "AudioFramesIN: missing %d audio frames", (int)(diff - 1));
                     lost_frame = 1;
                 }
             }
@@ -241,9 +265,13 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct RingBuffer *q, in
     uint64_t lost_frame = 0;
     *success = 0;
 
+#if 0
+
     if (rb_size(q) <= AUDIO_JITTERBUFFER_MIN_FILLED) {
         return (struct RTPMessage *)ret;
     }
+
+#endif
 
     bool res = rb_read(q, &ret, &lost_frame);
 
@@ -288,8 +316,8 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
 
 
     /* Enough space for the maximum frame size (120 ms 48 KHz stereo audio) */
-    int16_t temp_audio_buffer[AUDIO_MAX_BUFFER_SIZE_PCM16_FOR_FRAME_PER_CHANNEL *
-                                                                                AUDIO_MAX_CHANNEL_COUNT];
+    //int16_t temp_audio_buffer[AUDIO_MAX_BUFFER_SIZE_PCM16_FOR_FRAME_PER_CHANNEL *
+    //                                                                            AUDIO_MAX_CHANNEL_COUNT];
 
     struct RTPMessage *msg = NULL;
     int rc = 0;
@@ -308,7 +336,7 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
 
             if (ac->lp_sampling_rate > 0) {
                 int fs = (ac->lp_sampling_rate * ac->lp_frame_duration) / 1000;
-                rc = opus_decode(ac->decoder, NULL, 0, temp_audio_buffer, fs, 1);
+                rc = opus_decode(ac->decoder, NULL, 0, ac->temp_audio_buffer, fs, 1);
             }
 
             free(msg);
@@ -356,7 +384,7 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
             /* TODO: msg->data + 4, msg->len - 4
              * this should be defined, not hardcoded
              */
-            rc = opus_decode(ac->decoder, msg->data + 4, msg->len - 4, temp_audio_buffer, 5760, use_fec);
+            rc = opus_decode(ac->decoder, msg->data + 4, msg->len - 4, ac->temp_audio_buffer, 5760, use_fec);
 
 #if 0
 
@@ -390,8 +418,8 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
             LOGGER_WARNING(ac->log, "Decoding error: %s", opus_strerror(rc));
         } else if (ac->acb) {
             ac->lp_frame_duration = (rc * 1000) / ac->lp_sampling_rate;
-            ac->acb.first(ac->av, ac->friend_number, temp_audio_buffer, rc, ac->lp_channel_count,
-                          ac->lp_sampling_rate, ac->acb.second);
+            ac->acb(ac->av, ac->friend_number, ac->temp_audio_buffer, rc, ac->lp_channel_count,
+                    ac->lp_sampling_rate, ac->acb_user_data);
         }
 
         return ret_value;
@@ -451,21 +479,21 @@ int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
         free(msg);
         return -1;
     } else {
-        LOGGER_DEBUG(ac->log, "AADEBUG:seqnum=%d dt=%d ts:%lu curts:%ld", (int)header_v3->sequnum,
+        LOGGER_DEBUG(ac->log, "AADEBUG:OK:seqnum=%d dt=%d ts:%lu curts:%ld", (int)header_v3->sequnum,
                      (int)((uint64_t)header_v3->frame_record_timestamp - (uint64_t)ac->last_incoming_frame_ts),
                      header_v3->frame_record_timestamp,
-                     current_time_monotonic());
+                     current_time_monotonic(ac->mono_time));
 
         ac->last_incoming_frame_ts = header_v3->frame_record_timestamp;
 
 #if 0
-        int64_t cur_diff_in_ms = (int64_t)(current_time_monotonic() - ac->last_incoming_frame_ts);
+        int64_t cur_diff_in_ms = (int64_t)(current_time_monotonic(ac->mono_time) - ac->last_incoming_frame_ts);
         ac->timestamp_difference_to_sender = ac->timestamp_difference_to_sender
                                              + ((cur_diff_in_ms - ac->timestamp_difference_to_sender) / 2); // go half way in that direction
         LOGGER_DEBUG(ac->log, "AADEBUG:diff_ms:%lld", (int64_t)ac->timestamp_difference_to_sender);
         LOGGER_DEBUG(ac->log, "AADEBUG:ts_corr:%llu dt=%d",
-                     (uint64_t)(current_time_monotonic() - ac->timestamp_difference_to_sender),
-                     (int)((uint64_t)(current_time_monotonic() - ac->timestamp_difference_to_sender) -
+                     (uint64_t)(current_time_monotonic(ac->mono_time) - ac->timestamp_difference_to_sender),
+                     (int)((uint64_t)(current_time_monotonic(ac->mono_time) - ac->timestamp_difference_to_sender) -
                            (uint64_t)ac->last_incoming_frame_ts));
 #endif
     }
