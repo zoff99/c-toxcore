@@ -164,6 +164,9 @@ uint32_t toxav_iteration_interval(const ToxAV *av);
  */
 void toxav_iterate(ToxAV *av);
 
+void toxav_audio_iterate_seperation(ToxAV *av, bool active);
+void toxav_audio_iterate(ToxAV *av);
+
 
 /*******************************************************************************
  *

@@ -107,6 +107,8 @@ struct ToxAV {
     Messenger *m;
     MSISession *msi;
 
+    bool toxav_audio_iterate_seperation_active;
+
     /* Two-way storage: first is array of calls and second is list of calls with head and tail */
     ToxAVCall **calls;
     uint32_t calls_tail;

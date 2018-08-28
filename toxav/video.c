@@ -638,7 +638,18 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
             // const Messenger_Options *mo = (Messenger_Options *) & (mm->options);
 
             bwc_add_lost_v3(bwc, (full_data_len - header_v3->received_length_full), false);
-            LOGGER_ERROR(vc->log, "BWC:lost:004:lost bytes=%d", (int)(full_data_len - header_v3->received_length_full));
+
+            float percent_lost = 0.0f;
+
+            if (header_v3->received_length_full > 0) {
+                percent_lost = (float)full_data_len / (float)header_v3->received_length_full;
+            }
+
+            LOGGER_ERROR(vc->log, "BWC:lost:004:lost bytes=%d recevied=%d full=%d per=%.3f",
+                         (int)(full_data_len - header_v3->received_length_full),
+                         (int)header_v3->received_length_full,
+                         (int)full_data_len,
+                         (float)percent_lost);
         }
 
 
@@ -670,7 +681,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
 #endif
 
-#if 1
+#if 0
 
             if ((percent_recvd < 100) && (have_requested_index_frame == false)) {
                 if ((vc->last_requested_keyframe_ts + VIDEO_MIN_REQUEST_KEYFRAME_INTERVAL_MS_FOR_KF)
@@ -888,35 +899,35 @@ int vc_queue_message(const Mono_Time *mono_time, void *vcp, struct RTPMessage *m
             if (vc->av) {
                 if (vc->av->call_comm_cb) {
                     vc->av->call_comm_cb(vc->av, vc->friend_number,
-                                               TOXAV_CALL_COMM_NETWORK_ROUND_TRIP_MS,
-                                               (int64_t)vc->rountrip_time_ms,
-                                               vc->av->call_comm_cb_user_data);
+                                         TOXAV_CALL_COMM_NETWORK_ROUND_TRIP_MS,
+                                         (int64_t)vc->rountrip_time_ms,
+                                         vc->av->call_comm_cb_user_data);
 
                     vc->av->call_comm_cb(vc->av, vc->friend_number,
-                                               TOXAV_CALL_COMM_PLAY_DELAY,
-                                               (int64_t)vc->video_play_delay_real,
-                                               vc->av->call_comm_cb_user_data);
+                                         TOXAV_CALL_COMM_PLAY_DELAY,
+                                         (int64_t)vc->video_play_delay_real,
+                                         vc->av->call_comm_cb_user_data);
 
                     vc->av->call_comm_cb(vc->av, vc->friend_number,
-                                               TOXAV_CALL_COMM_REMOTE_RECORD_DELAY,
-                                               (int64_t)vc->remote_client_video_capture_delay_ms,
-                                               vc->av->call_comm_cb_user_data);
+                                         TOXAV_CALL_COMM_REMOTE_RECORD_DELAY,
+                                         (int64_t)vc->remote_client_video_capture_delay_ms,
+                                         vc->av->call_comm_cb_user_data);
 
                     vc->av->call_comm_cb(vc->av, vc->friend_number,
-                                               TOXAV_CALL_COMM_PLAY_BUFFER_ENTRIES,
-                                               (int64_t)vc->video_frame_buffer_entries,
-                                               vc->av->call_comm_cb_user_data);
+                                         TOXAV_CALL_COMM_PLAY_BUFFER_ENTRIES,
+                                         (int64_t)vc->video_frame_buffer_entries,
+                                         vc->av->call_comm_cb_user_data);
 
                     if (vc->incoming_video_frames_gap_ms_mean_value == 0) {
                         vc->av->call_comm_cb(vc->av, vc->friend_number,
-                                                   TOXAV_CALL_COMM_INCOMING_FPS,
-                                                   (int64_t)(9999),
-                                                   vc->av->call_comm_cb_user_data);
+                                             TOXAV_CALL_COMM_INCOMING_FPS,
+                                             (int64_t)(9999),
+                                             vc->av->call_comm_cb_user_data);
                     } else {
                         vc->av->call_comm_cb(vc->av, vc->friend_number,
-                                                   TOXAV_CALL_COMM_INCOMING_FPS,
-                                                   (int64_t)(1000 / vc->incoming_video_frames_gap_ms_mean_value),
-                                                   vc->av->call_comm_cb_user_data);
+                                             TOXAV_CALL_COMM_INCOMING_FPS,
+                                             (int64_t)(1000 / vc->incoming_video_frames_gap_ms_mean_value),
+                                             vc->av->call_comm_cb_user_data);
                     }
                 }
 
@@ -936,9 +947,9 @@ int vc_queue_message(const Mono_Time *mono_time, void *vcp, struct RTPMessage *m
                     if (vc->av) {
                         if (vc->av->call_comm_cb) {
                             vc->av->call_comm_cb(vc->av, vc->friend_number,
-                                                       TOXAV_CALL_COMM_DECODER_CURRENT_BITRATE,
-                                                       (int64_t)header->encoder_bit_rate_used,
-                                                       vc->av->call_comm_cb_user_data);
+                                                 TOXAV_CALL_COMM_DECODER_CURRENT_BITRATE,
+                                                 (int64_t)header->encoder_bit_rate_used,
+                                                 vc->av->call_comm_cb_user_data);
                         }
                     }
 
