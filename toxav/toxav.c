@@ -47,8 +47,8 @@
 
 
 #define VIDEO_ACCEPTABLE_LOSS (0.08f) /* if loss is less than this (8%), then don't do anything */
-#define AUDIO_ITERATATIONS_WHILE_VIDEO (10)
-#define VIDEO_MIN_SEND_KEYFRAME_INTERVAL 5000
+#define AUDIO_ITERATATIONS_WHILE_VIDEO (5)
+#define VIDEO_MIN_SEND_KEYFRAME_INTERVAL 6000
 
 #if defined(AUDIO_DEBUGGING_SKIP_FRAMES)
 uint32_t _debug_count_sent_audio_frames = 0;
@@ -206,6 +206,44 @@ static void *video_play_bg(void *data)
     return (void *)NULL;
 }
 
+void toxav_audio_iterate_seperation(ToxAV *av, bool active)
+{
+    if (av) {
+        av->toxav_audio_iterate_seperation_active = active;
+    }
+}
+
+void toxav_audio_iterate(ToxAV *av)
+{
+    if (av->calls == NULL) {
+        return;
+    }
+
+    ToxAVCall *i = av->calls[av->calls_head];
+
+    for (; i; i = i->next) {
+
+        if (i->active) {
+            // pthread_mutex_lock(i->mutex);
+            // pthread_mutex_unlock(av->mutex);
+
+            uint8_t res_ac = ac_iterate(i->audio,
+                                        &(i->last_incoming_audio_frame_rtimestamp),
+                                        &(i->last_incoming_audio_frame_ltimestamp),
+                                        &(i->last_incoming_video_frame_rtimestamp),
+                                        &(i->last_incoming_video_frame_ltimestamp),
+                                        &(i->call_timestamp_difference_adjustment),
+                                        &(i->call_timestamp_difference_to_sender)
+                                       );
+
+            // uint32_t fid = i->friend_number;
+
+            // pthread_mutex_unlock(i->mutex);
+            // pthread_mutex_lock(av->mutex);
+
+        }
+    }
+}
 
 void toxav_iterate(ToxAV *av)
 {
@@ -248,21 +286,22 @@ void toxav_iterate(ToxAV *av)
 #endif
 
 
+            if (!av->toxav_audio_iterate_seperation_active) {
+                // ------- av_iterate for audio -------
+                uint8_t res_ac = ac_iterate(i->audio,
+                                            &(i->last_incoming_audio_frame_rtimestamp),
+                                            &(i->last_incoming_audio_frame_ltimestamp),
+                                            &(i->last_incoming_video_frame_rtimestamp),
+                                            &(i->last_incoming_video_frame_ltimestamp),
+                                            &(i->call_timestamp_difference_adjustment),
+                                            &(i->call_timestamp_difference_to_sender)
+                                           );
 
-            // ------- av_iterate for audio -------
-            uint8_t res_ac = ac_iterate(i->audio.second,
-                                        &(i->last_incoming_audio_frame_rtimestamp),
-                                        &(i->last_incoming_audio_frame_ltimestamp),
-                                        &(i->last_incoming_video_frame_rtimestamp),
-                                        &(i->last_incoming_video_frame_ltimestamp),
-                                        &(i->call_timestamp_difference_adjustment),
-                                        &(i->call_timestamp_difference_to_sender)
-                                       );
-
-            if (res_ac == 2) {
-                i->skip_video_flag = 1;
-            } else {
-                i->skip_video_flag = 0;
+                if (res_ac == 2) {
+                    i->skip_video_flag = 1;
+                } else {
+                    i->skip_video_flag = 0;
+                }
             }
 
             // ------- av_iterate for audio -------
@@ -276,27 +315,30 @@ void toxav_iterate(ToxAV *av)
             // pthread_join(video_play_thread, NULL);
 #else
 
-            while (pthread_tryjoin_np(video_play_thread, NULL) != 0) {
-                if (audio_iterations < AUDIO_ITERATATIONS_WHILE_VIDEO) {
-                    /* video thread still running, let's do some more audio */
-                    if (ac_iterate(i->audio.second,
-                                   &(i->last_incoming_audio_frame_rtimestamp),
-                                   &(i->last_incoming_audio_frame_ltimestamp),
-                                   &(i->last_incoming_video_frame_rtimestamp),
-                                   &(i->last_incoming_video_frame_ltimestamp),
-                                   &(i->call_timestamp_difference_adjustment),
-                                   &(i->call_timestamp_difference_to_sender)
-                                  ) == 0) {
-                        // TODO: Zoff: not sure if this sleep is good, or bad??
-                        // usleep(40);
+            if (!av->toxav_audio_iterate_seperation_active) {
+                while (pthread_tryjoin_np(video_play_thread, NULL) != 0) {
+                    if (audio_iterations < AUDIO_ITERATATIONS_WHILE_VIDEO) {
+                        /* video thread still running, let's do some more audio */
+                        if (ac_iterate(i->audio,
+                                       &(i->last_incoming_audio_frame_rtimestamp),
+                                       &(i->last_incoming_audio_frame_ltimestamp),
+                                       &(i->last_incoming_video_frame_rtimestamp),
+                                       &(i->last_incoming_video_frame_ltimestamp),
+                                       &(i->call_timestamp_difference_adjustment),
+                                       &(i->call_timestamp_difference_to_sender)
+                                      ) == 0) {
+                            // TODO: Zoff: not sure if this sleep is good, or bad??
+                            // usleep(40);
+                        } else {
+                            LOGGER_TRACE(av->m->log, "did some more audio iterate");
+                        }
                     } else {
-                        LOGGER_TRACE(av->m->log, "did some more audio iterate");
+                        break;
                     }
-                } else {
-                    break;
+
+                    audio_iterations++;
                 }
 
-                audio_iterations++;
             }
 
             pthread_join(video_play_thread, NULL);
@@ -515,7 +557,8 @@ void toxav_callback_call_state(ToxAV *av, toxav_call_state_cb *callback, void *u
     pthread_mutex_unlock(av->mutex);
 }
 
-bool toxav_call_control(ToxAV *av, uint32_t friend_number, TOXAV_CALL_CONTROL control, TOXAV_ERR_CALL_CONTROL *error)
+bool toxav_call_control(ToxAV *av, uint32_t friend_number, TOXAV_CALL_CONTROL control,
+                        TOXAV_ERR_CALL_CONTROL *error)
 {
     pthread_mutex_lock(av->mutex);
     Toxav_Err_Call_Control rc = TOXAV_ERR_CALL_CONTROL_OK;

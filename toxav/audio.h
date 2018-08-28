@@ -82,6 +82,8 @@ typedef struct ACSession_s {
     uint64_t ldrts; /* Last decoder reconfiguration time stamp */
     int32_t lp_seqnum_new; /* last incoming packet sequence number */
     void *j_buf; /* it's a Ringbuffer now */
+    int16_t temp_audio_buffer[AUDIO_MAX_BUFFER_SIZE_PCM16_FOR_FRAME_PER_CHANNEL *
+                                                                                AUDIO_MAX_CHANNEL_COUNT];
 
     int64_t timestamp_difference_to_sender;
     uint64_t last_incoming_frame_ts;
