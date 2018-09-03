@@ -21,26 +21,56 @@ cc_library(
 cc_library(
     name = "vpx_codec",
     srcs = ["codecs/vpx/codec.c"],
-    hdrs = ["audio.h","toxav.h","video.h","pair.h","msi.h","rtp.h","tox_generic.h",
-            "codecs/toxav_codecs.h"],
-    deps = ["@libvpx","@opus","//c-toxcore/toxcore:ccompat",
-    "//c-toxcore/toxcore:Messenger",":bwcontroller"],
+    hdrs = [
+        "audio.h",
+        "codecs/toxav_codecs.h",
+        "msi.h",
+        "rtp.h",
+        "tox_generic.h",
+        "toxav.h",
+        "video.h",
+    ],
+    copts = ["-Wno-error"],
+    deps = [
+        ":bwcontroller",
+        "//c-toxcore/toxcore:Messenger",
+        "//c-toxcore/toxcore:ccompat",
+        "@libvpx",
+        "@opus",
+    ],
 )
 
 cc_library(
     name = "h264_codec",
     srcs = ["codecs/h264/codec.c"],
-    hdrs = ["audio.h","toxav.h","video.h","pair.h","msi.h","rtp.h","tox_generic.h",
-            "codecs/toxav_codecs.h"],
-    deps = ["@ffmpeg","@opus","@x264//:core","//c-toxcore/toxcore:ccompat",
-    "//c-toxcore/toxcore:Messenger",":bwcontroller"],
+    hdrs = [
+        "audio.h",
+        "codecs/toxav_codecs.h",
+        "msi.h",
+        "rtp.h",
+        "tox_generic.h",
+        "toxav.h",
+        "video.h",
+    ],
+    copts = ["-Wno-error"],
+    deps = [
+        ":bwcontroller",
+        "//c-toxcore/toxcore:Messenger",
+        "//c-toxcore/toxcore:ccompat",
+        "@ffmpeg",
+        "@opus",
+        "@x264//:core",
+    ],
 )
 
 cc_library(
     name = "ts_buffer",
     srcs = ["ts_buffer.c"],
     hdrs = ["ts_buffer.h"],
-    deps = [":rtp","//c-toxcore/toxcore:ccompat"],
+    deps = [
+        ":rtp",
+        "//c-toxcore/toxcore:ccompat",
+    ],
 )
 
 cc_library(
@@ -83,8 +113,18 @@ cc_library(
 cc_library(
     name = "rtp",
     srcs = ["rtp.c"],
-    hdrs = ["rtp.h","video.h","toxav.h","pair.h","audio.h"],
-    deps = ["@opus",":bwcontroller", ":dummy_ntp"],
+    hdrs = [
+        "audio.h",
+        "rtp.h",
+        "toxav.h",
+        "video.h",
+    ],
+    copts = ["-Wno-error"],
+    deps = [
+        ":bwcontroller",
+        ":dummy_ntp",
+        "@opus",
+    ],
 )
 
 cc_test(
@@ -102,6 +142,7 @@ cc_library(
     name = "audio",
     srcs = ["audio.c"],
     hdrs = ["audio.h"],
+    copts = ["-Wno-error"],
     deps = [
         ":public",
         ":rtp",
@@ -118,9 +159,12 @@ cc_library(
         "video.c",
     ],
     hdrs = [
+        "codecs/toxav_codecs.h",
         "msi.h",
-        "video.h","tox_generic.h","codecs/toxav_codecs.h"
+        "tox_generic.h",
+        "video.h",
     ],
+    copts = ["-Wno-error"],
     deps = [
         ":audio",
         ":public",
@@ -146,15 +190,18 @@ cc_library(
         "toxav_old.c",
     ],
     hdrs = [
+        "codecs/toxav_codecs.h",
+        "tox_generic.h",
         "toxav.api.h",
-        "toxav.h", "tox_generic.h","codecs/toxav_codecs.h"
+        "toxav.h",
     ],
+    copts = ["-Wno-error"],
     visibility = ["//c-toxcore:__subpackages__"],
     deps = [
         ":groupav",
+        ":h264_codec",
         ":video",
         ":vpx_codec",
-        ":h264_codec"
     ],
 )
 
