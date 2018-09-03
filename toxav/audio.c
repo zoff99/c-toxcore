@@ -438,6 +438,12 @@ int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
 
     ACSession *ac = (ACSession *)acp;
 
+    LOGGER_WARNING(ac->log, "mono:%p %p %d %d",
+                ac->mono_time,
+                mono_time,
+                (int)current_time_monotonic(ac->mono_time),
+                (int)current_time_monotonic(mono_time));
+
     if ((msg->header.pt & 0x7f) == (RTP_TYPE_AUDIO + 2) % 128) {
         LOGGER_WARNING(ac->log, "Got dummy!");
         free(msg);
