@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright © 2016-2017 The TokTok team.
+ * Copyright © 2016-2018 The TokTok team.
  * Copyright © 2013-2015 Tox project.
  *
  * This file is part of Tox, the free peer to peer instant messenger.
@@ -63,6 +63,9 @@ extern "C" {
 #include <opencv/cv.h>
 #include <opencv/cvwimage.h>
 #include <opencv/highgui.h>
+#ifdef __APPLE__
+#include <opencv2/videoio/videoio_c.h>
+#endif
 
 #include <assert.h>
 #include <sched.h>

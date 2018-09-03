@@ -3,7 +3,7 @@
  */
 
 /*
- * Copyright © 2016-2017 The TokTok team.
+ * Copyright © 2016-2018 The TokTok team.
  * Copyright © 2013 Tox project.
  *
  * This file is part of Tox, the free peer to peer instant messenger.
@@ -174,7 +174,7 @@ int pack_ip_port(uint8_t *data, uint16_t length, const IP_Port *ip_port);
  * Return size of unpacked ip_port on success.
  * Return -1 on failure.
  */
-int unpack_ip_port(IP_Port *ip_port, const uint8_t *data, uint16_t length, uint8_t tcp_enabled);
+int unpack_ip_port(IP_Port *ip_port, const uint8_t *data, uint16_t length, bool tcp_enabled);
 
 /* Pack number of nodes into data of maxlength length.
  *
@@ -191,7 +191,7 @@ int pack_nodes(uint8_t *data, uint16_t length, const Node_format *nodes, uint16_
  * return -1 on failure.
  */
 int unpack_nodes(Node_format *nodes, uint16_t max_num_nodes, uint16_t *processed_data_len, const uint8_t *data,
-                 uint16_t length, uint8_t tcp_enabled);
+                 uint16_t length, bool tcp_enabled);
 
 
 /*----------------------------------------------------------------------------------*/
@@ -203,7 +203,7 @@ typedef struct Shared_Key {
     uint8_t public_key[CRYPTO_PUBLIC_KEY_SIZE];
     uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE];
     uint32_t times_requested;
-    uint8_t  stored; /* 0 if not, 1 if is */
+    bool stored;
     uint64_t time_last_requested;
 } Shared_Key;
 
@@ -302,9 +302,12 @@ int dht_getfriendip(const DHT *dht, const uint8_t *public_key, IP_Port *ip_port)
  */
 int id_closest(const uint8_t *pk, const uint8_t *pk1, const uint8_t *pk2);
 
-/* Add node to the node list making sure only the nodes closest to cmp_pk are in the list.
+/**
+ * Add node to the node list making sure only the nodes closest to cmp_pk are in the list.
+ *
+ * @return true iff the node was added to the list.
  */
-bool add_to_list(Node_format *nodes_list, unsigned int length, const uint8_t *pk, IP_Port ip_port,
+bool add_to_list(Node_format *nodes_list, uint32_t length, const uint8_t *pk, IP_Port ip_port,
                  const uint8_t *cmp_pk);
 
 /* Return 1 if node can be added to close list, 0 if it can't.
@@ -322,7 +325,7 @@ bool node_addable_to_close_list(DHT *dht, const uint8_t *public_key, IP_Port ip_
  *
  */
 int get_close_nodes(const DHT *dht, const uint8_t *public_key, Node_format *nodes_list, Family sa_family,
-                    uint8_t is_LAN, uint8_t want_good);
+                    bool is_LAN, uint8_t want_good);
 
 
 /* Put up to max_num nodes in nodes from the random friends.

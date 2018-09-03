@@ -281,7 +281,7 @@ void get_shared_key(const Mono_Time *mono_time, Shared_Keys *shared_keys, uint8_
 
     if (num != UINT32_MAX) {
         Shared_Key *const key = &shared_keys->keys[curr];
-        key->stored = 1;
+        key->stored = true;
         key->times_requested = 1;
         memcpy(key->public_key, public_key, CRYPTO_PUBLIC_KEY_SIZE);
         memcpy(key->shared_key, shared_key, CRYPTO_SHARED_KEY_SIZE);
@@ -491,7 +491,7 @@ static int dht_create_packet(const uint8_t public_key[CRYPTO_PUBLIC_KEY_SIZE],
  * Return size of unpacked ip_port on success.
  * Return -1 on failure.
  */
-int unpack_ip_port(IP_Port *ip_port, const uint8_t *data, uint16_t length, uint8_t tcp_enabled)
+int unpack_ip_port(IP_Port *ip_port, const uint8_t *data, uint16_t length, bool tcp_enabled)
 {
     if (data == nullptr) {
         return -1;
@@ -589,7 +589,7 @@ int pack_nodes(uint8_t *data, uint16_t length, const Node_format *nodes, uint16_
  * return -1 on failure.
  */
 int unpack_nodes(Node_format *nodes, uint16_t max_num_nodes, uint16_t *processed_data_len, const uint8_t *data,
-                 uint16_t length, uint8_t tcp_enabled)
+                 uint16_t length, bool tcp_enabled)
 {
     uint32_t num = 0, len_processed = 0;
 
@@ -695,7 +695,7 @@ static void update_client(const Logger *log, const Mono_Time *mono_time, int ind
                      net_ntohs(ip_port.port));
     }
 
-    if (ip_is_lan(assoc->ip_port.ip) != 0 && ip_is_lan(ip_port.ip) == 0) {
+    if (!ip_is_lan(assoc->ip_port.ip) && ip_is_lan(ip_port.ip)) {
         return;
     }
 
@@ -755,30 +755,26 @@ static int client_or_ip_port_in_list(const Logger *log, const Mono_Time *mono_ti
     return 1;
 }
 
-/* Add node to the node list making sure only the nodes closest to cmp_pk are in the list.
- */
-bool add_to_list(Node_format *nodes_list, unsigned int length, const uint8_t *pk, IP_Port ip_port,
+bool add_to_list(Node_format *nodes_list, uint32_t length, const uint8_t *pk, IP_Port ip_port,
                  const uint8_t *cmp_pk)
 {
-    uint8_t pk_bak[CRYPTO_PUBLIC_KEY_SIZE];
-    IP_Port ip_port_bak;
-
-    for (size_t i = 0; i < length; ++i) {
+    for (uint32_t i = 0; i < length; ++i) {
         if (id_closest(cmp_pk, nodes_list[i].public_key, pk) == 2) {
+            uint8_t pk_bak[CRYPTO_PUBLIC_KEY_SIZE];
             memcpy(pk_bak, nodes_list[i].public_key, CRYPTO_PUBLIC_KEY_SIZE);
-            ip_port_bak = nodes_list[i].ip_port;
+            const IP_Port ip_port_bak = nodes_list[i].ip_port;
             memcpy(nodes_list[i].public_key, pk, CRYPTO_PUBLIC_KEY_SIZE);
             nodes_list[i].ip_port = ip_port;
 
-            if (i != (length - 1)) {
+            if (i != length - 1) {
                 add_to_list(nodes_list, length, pk_bak, ip_port_bak, cmp_pk);
             }
 
-            return 1;
+            return true;
         }
     }
 
-    return 0;
+    return false;
 }
 
 /* TODO(irungentoo): change this to 7 when done*/
@@ -798,7 +794,7 @@ static uint8_t hardening_correct(const Hardening *h)
  */
 static void get_close_nodes_inner(const Mono_Time *mono_time, const uint8_t *public_key, Node_format *nodes_list,
                                   Family sa_family, const Client_data *client_list, uint32_t client_list_length,
-                                  uint32_t *num_nodes_ptr, uint8_t is_LAN, uint8_t want_good)
+                                  uint32_t *num_nodes_ptr, bool is_LAN, uint8_t want_good)
 {
     if (!net_family_is_ipv4(sa_family) && !net_family_is_ipv6(sa_family) && !net_family_is_unspec(sa_family)) {
         return;
@@ -832,11 +828,11 @@ static void get_close_nodes_inner(const Mono_Time *mono_time, const uint8_t *pub
         }
 
         /* don't send LAN ips to non LAN peers */
-        if (ip_is_lan(ipptp->ip_port.ip) == 0 && !is_LAN) {
+        if (ip_is_lan(ipptp->ip_port.ip) && !is_LAN) {
             continue;
         }
 
-        if (ip_is_lan(ipptp->ip_port.ip) != 0 && want_good && hardening_correct(&ipptp->hardening) != HARDENING_ALL_OK
+        if (!ip_is_lan(ipptp->ip_port.ip) && want_good && hardening_correct(&ipptp->hardening) != HARDENING_ALL_OK
                 && !id_equal(public_key, client->public_key)) {
             continue;
         }
@@ -862,7 +858,7 @@ static void get_close_nodes_inner(const Mono_Time *mono_time, const uint8_t *pub
  * want_good : do we want only good nodes as checked with the hardening returned or not?
  */
 static int get_somewhat_close_nodes(const DHT *dht, const uint8_t *public_key, Node_format *nodes_list,
-                                    Family sa_family, uint8_t is_LAN, uint8_t want_good)
+                                    Family sa_family, bool is_LAN, uint8_t want_good)
 {
     uint32_t num_nodes = 0;
     get_close_nodes_inner(dht->mono_time, public_key, nodes_list, sa_family,
@@ -889,7 +885,7 @@ static int get_somewhat_close_nodes(const DHT *dht, const uint8_t *public_key, N
 }
 
 int get_close_nodes(const DHT *dht, const uint8_t *public_key, Node_format *nodes_list, Family sa_family,
-                    uint8_t is_LAN, uint8_t want_good)
+                    bool is_LAN, uint8_t want_good)
 {
     memset(nodes_list, 0, MAX_SENT_NODES * sizeof(Node_format));
     return get_somewhat_close_nodes(dht, public_key, nodes_list, sa_family, is_LAN, want_good);
@@ -1370,8 +1366,8 @@ static int sendnodes_ipv6(const DHT *dht, IP_Port ip_port, const uint8_t *public
     const size_t node_format_size = sizeof(Node_format);
 
     Node_format nodes_list[MAX_SENT_NODES];
-    const uint32_t num_nodes = get_close_nodes(dht, client_id, nodes_list, net_family_unspec, ip_is_lan(ip_port.ip) == 0,
-                               1);
+    const uint32_t num_nodes =
+        get_close_nodes(dht, client_id, nodes_list, net_family_unspec, ip_is_lan(ip_port.ip), 1);
 
     VLA(uint8_t, plain, 1 + node_format_size * MAX_SENT_NODES + length);
 
@@ -2996,12 +2992,12 @@ bool dht_non_lan_connected(const DHT *dht)
         const Client_data *const client = &dht->close_clientlist[i];
 
         if (!mono_time_is_timeout(dht->mono_time, client->assoc4.timestamp, BAD_NODE_TIMEOUT)
-                && ip_is_lan(client->assoc4.ip_port.ip) == -1) {
+                && !ip_is_lan(client->assoc4.ip_port.ip)) {
             return true;
         }
 
         if (!mono_time_is_timeout(dht->mono_time, client->assoc6.timestamp, BAD_NODE_TIMEOUT)
-                && ip_is_lan(client->assoc6.ip_port.ip) == -1) {
+                && !ip_is_lan(client->assoc6.ip_port.ip)) {
             return true;
         }
     }
