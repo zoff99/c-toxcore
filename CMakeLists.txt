@@ -30,7 +30,7 @@ set(CMAKE_MODULE_PATH ${toxcore_SOURCE_DIR}/cmake)
 # versions in a synchronised way.
 set(PROJECT_VERSION_MAJOR "0")
 set(PROJECT_VERSION_MINOR "2")
-set(PROJECT_VERSION_PATCH "6")
+set(PROJECT_VERSION_PATCH "7")
 set(PROJECT_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
 
 # set .so library version / following libtool scheme
@@ -393,6 +393,7 @@ unit_test(toxav ring_buffer)
 unit_test(toxav rtp)
 unit_test(toxcore crypto_core)
 unit_test(toxcore mono_time)
+unit_test(toxcore ping_array)
 unit_test(toxcore util)
 
 ################################################################################
@@ -457,6 +458,7 @@ auto_test(network)
 auto_test(onion)
 auto_test(overflow_recvq)
 auto_test(overflow_sendq)
+auto_test(reconnect)
 auto_test(save_friend)
 auto_test(save_load)
 auto_test(send_message)
