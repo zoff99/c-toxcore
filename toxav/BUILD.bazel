@@ -34,6 +34,7 @@ cc_library(
     copts = ["-Wno-error"],
     deps = [
         ":bwcontroller",
+        ":rtp",
         "//c-toxcore/toxcore:Messenger",
         "//c-toxcore/toxcore:ccompat",
         "@libvpx",
@@ -56,9 +57,11 @@ cc_library(
     copts = ["-Wno-error"],
     deps = [
         ":bwcontroller",
+        ":rtp",
         "//c-toxcore/toxcore:Messenger",
         "//c-toxcore/toxcore:ccompat",
         "@ffmpeg",
+        "@libvpx",
         "@opus",
         "@x264//:core",
     ],
@@ -162,7 +165,9 @@ cc_library(
     copts = ["-Wno-error"],
     deps = [
         ":audio",
+        ":h264_codec",
         ":public",
+        ":vpx_codec",
         "//c-toxcore/toxcore:network",
         "@libvpx",
     ],
