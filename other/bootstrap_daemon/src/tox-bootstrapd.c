@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright © 2016-2017 The TokTok team.
+ * Copyright © 2016-2018 The TokTok team.
  * Copyright © 2014-2016 Tox project.
  *
  * This file is part of Tox, the free peer to peer instant messenger.
@@ -178,6 +178,42 @@ static void daemonize(LOG_BACKEND log_backend, char *pid_file_path)
     }
 }
 
+// Logs toxcore logger message using our logger facility
+
+static void toxcore_logger_callback(void *context, Logger_Level level, const char *file, int line,
+                                    const char *func, const char *message, void *userdata)
+{
+    LOG_LEVEL log_level;
+
+    switch (level) {
+        case LOGGER_LEVEL_TRACE:
+            log_level = LOG_LEVEL_INFO;
+            break;
+
+        case LOGGER_LEVEL_DEBUG:
+            log_level = LOG_LEVEL_INFO;
+            break;
+
+        case LOGGER_LEVEL_INFO:
+            log_level = LOG_LEVEL_INFO;
+            break;
+
+        case LOGGER_LEVEL_WARNING:
+            log_level = LOG_LEVEL_WARNING;
+            break;
+
+        case LOGGER_LEVEL_ERROR:
+            log_level = LOG_LEVEL_ERROR;
+            break;
+
+        default:
+            log_level = LOG_LEVEL_INFO;
+            break;
+    }
+
+    log_write(log_level, "%s:%d(%s) %s\n", file, line, func, message);
+}
+
 int main(int argc, char *argv[])
 {
     umask(077);
@@ -231,6 +267,10 @@ int main(int argc, char *argv[])
     ip_init(&ip, enable_ipv6);
 
     Logger *logger = logger_new();
+
+    if (MIN_LOGGER_LEVEL == LOGGER_LEVEL_TRACE || MIN_LOGGER_LEVEL == LOGGER_LEVEL_DEBUG) {
+        logger_callback_log(logger, toxcore_logger_callback, nullptr, nullptr);
+    }
 
     Networking_Core *net = new_networking(logger, ip, port);
 
