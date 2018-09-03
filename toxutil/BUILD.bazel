@@ -15,10 +15,10 @@ cc_library(
     name = "toxutil",
     srcs = ["toxutil.c"],
     hdrs = ["toxutil.h"],
+    copts = ["-Wno-error"],
     visibility = ["//c-toxcore:__subpackages__"],
     deps = [
-        "//c-toxcore/toxcore:ccompat",
         "//c-toxcore/toxcore:Messenger",
+        "//c-toxcore/toxcore:ccompat",
     ],
 )
-
