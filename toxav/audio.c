@@ -51,7 +51,7 @@ bool reconfigure_audio_decoder(ACSession *ac, int32_t sampling_rate, int8_t chan
 
 
 
-ACSession *ac_new(const Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t friend_number,
+ACSession *ac_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t friend_number,
                   toxav_audio_receive_frame_cb *cb, void *cb_data)
 {
     ACSession *ac = (ACSession *)calloc(sizeof(ACSession), 1);
@@ -431,7 +431,7 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
     return ret_value;
 }
 
-int ac_queue_message(const Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
+int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
 {
     if (!acp || !msg) {
         return -1;
