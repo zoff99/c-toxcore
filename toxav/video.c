@@ -45,7 +45,7 @@
 // #define DEBUG_SHOW_H264_DECODING_TIME 1
 /* activate only for debugging!! */
 
-VCSession *vc_new(const Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t friend_number,
+VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t friend_number,
                   toxav_video_receive_frame_cb *cb, void *cb_data)
 {
     VCSession *vc = (VCSession *)calloc(sizeof(VCSession), 1);
@@ -815,7 +815,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 /* --- VIDEO DECODING happens here --- */
 
 
-int vc_queue_message(const Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
+int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
 {
     /* This function is called with complete messages
      * they have already been assembled. but not yet decoded
