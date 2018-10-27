@@ -953,11 +953,16 @@ static void check_friend_connectionstatus(Messenger *m, int32_t friendnumber, ui
     const uint8_t was_online = m->friendlist[friendnumber].status == FRIEND_ONLINE;
     const uint8_t is_online = status == FRIEND_ONLINE;
 
+    /* if change from ONLINE to OFF-LINE or the reverse */
     if (is_online != was_online) {
+        /* if change from ONLINE to OFF-LINE */
         if (was_online) {
+            /* kill all FTs */
             break_files(m, friendnumber);
+            /* remove all text message receipts */
             clear_receipts(m, friendnumber);
         } else {
+            /* if change from OFF-LINE to ONLINE */
             m->friendlist[friendnumber].name_sent = 0;
             m->friendlist[friendnumber].userstatus_sent = 0;
             m->friendlist[friendnumber].statusmessage_sent = 0;
@@ -1495,8 +1500,8 @@ int file_data(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uin
 }
 
 /**
- * Iterate over all file transfers and request chunks (from the client) for each
- * of them.
+ * Iterate over all file transfers (only file sending!! not receving) and
+ * request chunks (from the client) for each of them.
  *
  * The free_slots parameter is updated by this function.
  *
@@ -1585,6 +1590,7 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
     return any_active_fts;
 }
 
+/* call a function to iterate over all sending (not receiving) filetransfers */
 static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdata)
 {
     // We're not currently doing any file transfers.
@@ -1624,6 +1630,7 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
 /* Run this when the friend disconnects.
  *  Kill all current file transfers.
  */
+/* TODO: Zoff: deactivate this function */
 static void break_files(const Messenger *m, int32_t friendnumber)
 {
     // TODO(irungentoo): Inform the client which file transfers get killed with a callback?
@@ -1644,6 +1651,7 @@ static struct File_Transfers *get_file_transfer(uint8_t receive_send, uint8_t fi
     struct File_Transfers *ft;
 
     if (receive_send == 0) {
+        // TODO: what is happening here?
         *real_filenumber = (filenumber + 1) << 16;
         ft = &sender->file_receiving[filenumber];
     } else {
@@ -2241,6 +2249,7 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
             break;
         }
 
+        // handle receiving files ----
         case PACKET_ID_FILE_SENDREQUEST: {
             const unsigned int head_length = 1 + sizeof(uint32_t) + sizeof(uint64_t) + FILE_ID_LENGTH;
 
@@ -2273,6 +2282,13 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
             struct File_Transfers *ft = &m->friendlist[i].file_receiving[filenumber];
 
             if (ft->status != FILESTATUS_NONE) {
+                // TODO: we are receiving a filetransfer that we don't know about
+                //       should we send FILECONTROL_KILL back to friend, to let him know?
+                //
+                // well, yes
+                uint8_t send_receive = 1; // 0 -> send, 1 -> receive
+                send_file_control_packet(m, i, send_receive, filenumber, FILECONTROL_KILL, nullptr, 0);
+
                 break;
             }
 
@@ -2345,6 +2361,7 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
             break;
         }
 
+        // handle receiving files ----
         case PACKET_ID_FILE_DATA: {
             if (data_length < 1) {
                 break;
@@ -2363,6 +2380,10 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
             struct File_Transfers *ft = &m->friendlist[i].file_receiving[filenumber];
 
             if (ft->status != FILESTATUS_TRANSFERRING) {
+                // TODO: should we send something back to friend
+                // well, yes
+                uint8_t send_receive = 1; // 0 -> send, 1 -> receive
+                send_file_control_packet(m, i, send_receive, filenumber, FILECONTROL_KILL, nullptr, 0);
                 break;
             }
 
