@@ -132,8 +132,8 @@ typedef enum Userstatus {
 struct File_Transfers {
     uint64_t size;
     uint64_t transferred;
-    uint8_t status; /* 0 == no transfer, 1 = not accepted, 3 = transferring, 4 = broken, 5 = finished */
-    uint8_t paused; /* 0: not paused, 1 = paused by us, 2 = paused by other, 3 = paused by both. */
+    uint8_t status; /* -> Filestatus */ /* 0 == no transfer, 1 = not accepted, 3 = transferring, 4 = broken, 5 = finished */
+    uint8_t paused; /* -> File_Pause */ /* 0: not paused, 1 = paused by us, 2 = paused by other, 3 = paused by both. */
     uint32_t last_packet_number; /* number of the last packet sent. */
     uint64_t requested; /* total data requested by the request chunk callback */
     unsigned int slots_allocated; /* number of slots allocated to this transfer. */
@@ -226,9 +226,12 @@ typedef struct Friend {
     uint32_t friendrequest_nospam; // The nospam number used in the friend request.
     uint64_t last_seen_time;
     uint8_t last_connection_udp_tcp;
+
+    /* save these 3 for resumable FTs */
     struct File_Transfers file_sending[MAX_CONCURRENT_FILE_PIPES];
     uint32_t num_sending_files;
     struct File_Transfers file_receiving[MAX_CONCURRENT_FILE_PIPES];
+    /* save these 3 for resumable FTs */
 
     struct Receipts *receipts_start;
     struct Receipts *receipts_end;
