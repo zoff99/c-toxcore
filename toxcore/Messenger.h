@@ -138,6 +138,7 @@ struct File_Transfers {
     uint64_t requested; /* total data requested by the request chunk callback */
     unsigned int slots_allocated; /* number of slots allocated to this transfer. */
     uint8_t id[FILE_ID_LENGTH];
+    uint32_t file_type; /* TOX_FILE_KIND of this FT */
 };
 typedef enum Filestatus {
     FILESTATUS_NONE,
