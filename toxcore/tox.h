@@ -1924,13 +1924,16 @@ typedef enum TOX_MESSAGEV2_ALTER_TYPE {
  * clients can invent their own file kind. Unknown file kinds should be
  * treated as TOX_FILE_KIND_DATA.
  */
+/**
+ * pin down actual numbers here, since they are sent over the network to other nodes
+ */
 enum TOX_FILE_KIND {
 
     /**
      * Arbitrary file data. Clients can choose to handle it based on the file name
      * or magic or any other way they choose.
      */
-    TOX_FILE_KIND_DATA,
+    TOX_FILE_KIND_DATA = 0,
 
     /**
      * Avatar file_id. This consists of tox_hash(image).
@@ -1952,7 +1955,7 @@ enum TOX_FILE_KIND {
      * When file_size is set to 0 in the transfer request it means that the client
      * has no avatar.
      */
-    TOX_FILE_KIND_AVATAR,
+    TOX_FILE_KIND_AVATAR = 1,
 
     /**
      * MessageV2 Filetransfers
@@ -1960,17 +1963,17 @@ enum TOX_FILE_KIND {
      * filetransfers of this type are always autoaccepted
      * and the overall size is limited to TOX_MAX_FILETRANSFER_SIZE_MSGV2
      */
-    TOX_FILE_KIND_MESSAGEV2_SEND,
+    TOX_FILE_KIND_MESSAGEV2_SEND = 2,
 
     /**
      * TODO: Generate doc
      */
-    TOX_FILE_KIND_MESSAGEV2_ANSWER,
+    TOX_FILE_KIND_MESSAGEV2_ANSWER = 3,
 
     /**
      * TODO: Generate doc
      */
-    TOX_FILE_KIND_MESSAGEV2_ALTER,
+    TOX_FILE_KIND_MESSAGEV2_ALTER = 4,
 
 };
 
