@@ -1196,6 +1196,9 @@ long int new_filesender(const Messenger *m, int32_t friendnumber, uint32_t file_
         ft->status = FILESTATUS_NOT_ACCEPTED;
     }
 
+    /* remember the file_type of this FT */
+    ft->file_type = file_type;
+
     ft->size = filesize;
 
     ft->transferred = 0;
@@ -2292,6 +2295,8 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
                 break;
             }
 
+            /* remember the file_type of this FT */
+            ft->file_type = file_type;
 
             if ((file_type == TOX_FILE_KIND_MESSAGEV2_SEND)
                     ||
