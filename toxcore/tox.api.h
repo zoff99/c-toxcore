@@ -1699,7 +1699,7 @@ namespace file {
      * Arbitrary file data. Clients can choose to handle it based on the file name
      * or magic or any other way they choose.
      */
-    DATA,
+    DATA = 0,
     /**
      * Avatar file_id. This consists of $hash(image).
      * Avatar data. This consists of the image data.
@@ -1720,16 +1720,16 @@ namespace file {
      * When file_size is set to 0 in the transfer request it means that the client
      * has no avatar.
      */
-    AVATAR,
+    AVATAR = 1,
     /**
      * MessageV2 Filetransfers
      *
      * filetransfers of this type are always autoaccepted
      * and the overall size is limited to TOX_MAX_FILETRANSFER_SIZE_MSGV2
      */
-    MESSAGEV2_SEND,
-    MESSAGEV2_ANSWER,
-    MESSAGEV2_ALTER,
+    MESSAGEV2_SEND = 2,
+    MESSAGEV2_ANSWER = 3,
+    MESSAGEV2_ALTER = 4,
   }
 
 
