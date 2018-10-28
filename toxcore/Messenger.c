@@ -1658,17 +1658,22 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
 /* Run this when the friend disconnects.
  *  Kill all current file transfers.
  */
-/* TODO: Zoff: deactivate this function */
 static void break_files(const Messenger *m, int32_t friendnumber)
 {
     // TODO(irungentoo): Inform the client which file transfers get killed with a callback?
     for (uint32_t i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
         if (m->friendlist[friendnumber].file_sending[i].status != FILESTATUS_NONE) {
-            m->friendlist[friendnumber].file_sending[i].status = FILESTATUS_NONE;
+            /* only reset avatar and msgV2 FTs, but NOT normal data FTs */
+            if (m->friendlist[friendnumber].file_sending[i].file_type != TOX_FILE_KIND_DATA) {
+                m->friendlist[friendnumber].file_sending[i].status = FILESTATUS_NONE;
+            }
         }
 
         if (m->friendlist[friendnumber].file_receiving[i].status != FILESTATUS_NONE) {
-            m->friendlist[friendnumber].file_receiving[i].status = FILESTATUS_NONE;
+            /* only reset avatar and msgV2 FTs, but NOT normal data FTs */
+            if (m->friendlist[friendnumber].file_receiving[i].file_type != TOX_FILE_KIND_DATA) {
+                m->friendlist[friendnumber].file_receiving[i].status = FILESTATUS_NONE;
+            }
         }
     }
 }
@@ -3196,7 +3201,8 @@ static uint8_t *save_tcp_relays(const Messenger *m, uint8_t *data)
     return data;
 }
 
-static State_Load_Status load_tcp_relays(Messenger *m, const uint8_t *data, uint32_t length)
+static State_Load_Status messenger_load_state_callback(void *outer, const uint8_t *data, uint32_t length,
+        uint16_t type)
 {
     if (length != 0) {
         m->num_loaded_relays = unpack_nodes(m->loaded_relays, NUM_SAVED_TCP_RELAYS, nullptr, data, length, 1);
