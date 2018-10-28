@@ -2407,8 +2407,11 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
             if (ft->status != FILESTATUS_TRANSFERRING) {
                 // TODO: should we send something back to friend
                 // well, yes
-                uint8_t send_receive = 1; // 0 -> send, 1 -> receive
-                send_file_control_packet(m, i, send_receive, filenumber, FILECONTROL_KILL, nullptr, 0);
+                //
+                // Zoff: deactivating this again, not sure if FT packets can arrive out of order?
+                //       and don't want to make FTs unstable again
+                // uint8_t send_receive = 1; // 0 -> send, 1 -> receive
+                // send_file_control_packet(m, i, send_receive, filenumber, FILECONTROL_KILL, nullptr, 0);
                 break;
             }
 
