@@ -21,8 +21,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef ONION_H
-#define ONION_H
+#ifndef C_TOXCORE_TOXCORE_ONION_H
+#define C_TOXCORE_TOXCORE_ONION_H
 
 #include "DHT.h"
 #include "mono_time.h"
@@ -85,7 +85,7 @@ typedef struct Onion_Path {
  *
  * Create a new onion path out of nodes (nodes is a list of ONION_PATH_LENGTH nodes)
  *
- * new_path must be an empty memory location of atleast Onion_Path size.
+ * new_path must be an empty memory location of at least Onion_Path size.
  *
  * return -1 on failure.
  * return 0 on success.

@@ -22,8 +22,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef TOX_H
-#define TOX_H
+#ifndef C_TOXCORE_TOXCORE_TOX_H
+#define C_TOXCORE_TOXCORE_TOX_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -182,7 +182,7 @@ const VERSION_MINOR                = 2;
  * The patch or revision number. Incremented when bugfixes are applied without
  * changing any functionality or API or ABI.
  */
-const VERSION_PATCH                = 7;
+const VERSION_PATCH                = 8;
 
 #define TOX_HAVE_TOXUTIL               1
 #define TOX_HAVE_TOXAV_CALLBACKS_002   1
@@ -2837,5 +2837,5 @@ typedef TOX_CONNECTION Tox_Connection;
 typedef TOX_FILE_CONTROL Tox_File_Control;
 typedef TOX_CONFERENCE_TYPE Tox_Conference_Type;
 
-#endif
+#endif // C_TOXCORE_TOXCORE_TOX_H
 %}

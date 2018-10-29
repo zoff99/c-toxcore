@@ -84,8 +84,6 @@ typedef struct Onion_Friend {
     uint8_t temp_public_key[CRYPTO_PUBLIC_KEY_SIZE];
     uint8_t temp_secret_key[CRYPTO_SECRET_KEY_SIZE];
 
-    uint64_t last_reported_announced;
-
     uint64_t last_dht_pk_onion_sent;
     uint64_t last_dht_pk_dht_sent;
 
@@ -234,27 +232,35 @@ static int onion_add_path_node(Onion_Client *onion_c, IP_Port ip_port, const uin
  */
 uint16_t onion_backup_nodes(const Onion_Client *onion_c, Node_format *nodes, uint16_t max_num)
 {
-    unsigned int i;
-
     if (!max_num) {
         return 0;
     }
 
-    unsigned int num_nodes = (onion_c->path_nodes_index < MAX_PATH_NODES) ? onion_c->path_nodes_index : MAX_PATH_NODES;
+    const uint16_t num_nodes = (onion_c->path_nodes_index < MAX_PATH_NODES) ? onion_c->path_nodes_index : MAX_PATH_NODES;
+    uint16_t i = 0;
 
-    if (num_nodes == 0) {
-        return 0;
-    }
-
-    if (num_nodes < max_num) {
-        max_num = num_nodes;
-    }
-
-    for (i = 0; i < max_num; ++i) {
+    while (i < max_num && i < num_nodes) {
         nodes[i] = onion_c->path_nodes[(onion_c->path_nodes_index - (1 + i)) % num_nodes];
+        ++i;
     }
 
-    return max_num;
+    for (uint16_t j = 0; i < max_num && j < MAX_PATH_NODES && j < onion_c->path_nodes_index_bs; ++j) {
+        bool already_saved = false;
+
+        for (uint16_t k = 0; k < num_nodes; ++k) {
+            if (public_key_cmp(nodes[k].public_key, onion_c->path_nodes_bs[j].public_key) == 0) {
+                already_saved = true;
+                break;
+            }
+        }
+
+        if (!already_saved) {
+            nodes[i] = onion_c->path_nodes_bs[j];
+            ++i;
+        }
+    }
+
+    return i;
 }
 
 /* Put up to max_num random nodes in nodes.
@@ -700,7 +706,7 @@ static int client_add_to_list(Onion_Client *onion_c, uint32_t num, const uint8_t
         }
 
         if (is_stored == 1) {
-            onion_c->friends_list[num - 1].last_reported_announced = mono_time_get(onion_c->mono_time);
+            onion_c->friends_list[num - 1].last_seen = mono_time_get(onion_c->mono_time);
         }
 
         list_nodes = onion_c->friends_list[num - 1].clients_list;
@@ -1403,7 +1409,7 @@ int onion_dht_pk_callback(Onion_Client *onion_c, int friend_num,
     return 0;
 }
 
-/* Set a friends DHT public key.
+/* Set a friend's DHT public key.
  *
  * return -1 on failure.
  * return 0 on success.
@@ -1422,8 +1428,6 @@ int onion_set_friend_DHT_pubkey(Onion_Client *onion_c, int friend_num, const uin
         if (public_key_cmp(dht_key, onion_c->friends_list[friend_num].dht_public_key) == 0) {
             return -1;
         }
-
-        onion_c->friends_list[friend_num].know_dht_public_key = 0;
     }
 
     onion_c->friends_list[friend_num].last_seen = mono_time_get(onion_c->mono_time);
@@ -1553,12 +1557,12 @@ static void do_friend(Onion_Client *onion_c, uint16_t friendnum)
     if (onion_c->friends_list[friendnum].run_count < RUN_COUNT_FRIEND_ANNOUNCE_BEGINNING) {
         interval = ANNOUNCE_FRIEND_BEGINNING;
     } else {
-        if (onion_c->friends_list[friendnum].last_reported_announced == 0) {
-            onion_c->friends_list[friendnum].last_reported_announced = mono_time_get(onion_c->mono_time);
+        if (onion_c->friends_list[friendnum].last_seen == 0) {
+            onion_c->friends_list[friendnum].last_seen = mono_time_get(onion_c->mono_time);
         }
 
         uint64_t backoff_interval = (mono_time_get(onion_c->mono_time) -
-                                     onion_c->friends_list[friendnum].last_reported_announced)
+                                     onion_c->friends_list[friendnum].last_seen)
                                     / ONION_FRIEND_BACKOFF_FACTOR;
 
         if (backoff_interval > ONION_FRIEND_MAX_PING_INTERVAL) {

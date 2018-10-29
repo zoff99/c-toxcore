@@ -17,8 +17,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef VIDEO_H
-#define VIDEO_H
+#ifndef C_TOXCORE_TOXAV_VIDEO_H
+#define C_TOXCORE_TOXAV_VIDEO_H
 
 #include "toxav.h"
 
@@ -270,4 +270,4 @@ int vc_reconfigure_encoder(Logger *log, VCSession *vc, uint32_t bit_rate, uint16
                            int16_t kf_max_dist);
 int vc_reconfigure_encoder_bitrate_only(VCSession *vc, uint32_t bit_rate);
 
-#endif /* VIDEO_H */
+#endif // C_TOXCORE_TOXAV_VIDEO_H

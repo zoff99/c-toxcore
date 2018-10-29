@@ -7,7 +7,7 @@ CACHEDIR="$HOME/cache"
 . ".travis/flags-$CC.sh"
 add_flag -Werror
 add_flag -fdiagnostics-color=always
-add_flag -fsanitize=address
+add_flag -fsanitize=address,undefined
 cmake -B_build -H. -GNinja			\
   -DCMAKE_C_FLAGS="$C_FLAGS"			\
   -DCMAKE_CXX_FLAGS="$CXX_FLAGS"		\
@@ -18,7 +18,8 @@ cmake -B_build -H. -GNinja			\
   -DMUST_BUILD_TOXAV=ON				\
   -DSTRICT_ABI=ON				\
   -DTEST_TIMEOUT_SECONDS=120			\
-  -DUSE_IPV6=OFF
+  -DUSE_IPV6=OFF				\
+  -DAUTOTEST=ON
 
 cd _build
 

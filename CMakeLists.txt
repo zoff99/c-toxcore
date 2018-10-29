@@ -30,7 +30,7 @@ set(CMAKE_MODULE_PATH ${toxcore_SOURCE_DIR}/cmake)
 # versions in a synchronised way.
 set(PROJECT_VERSION_MAJOR "0")
 set(PROJECT_VERSION_MINOR "2")
-set(PROJECT_VERSION_PATCH "7")
+set(PROJECT_VERSION_PATCH "8")
 set(PROJECT_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
 
 # set .so library version / following libtool scheme
@@ -53,24 +53,13 @@ message("SOVERSION: ${SOVERSION}")
 ################################################################################
 
 include(ApiDsl)
+include(CTest)
 include(ModulePackage)
 include(StrictAbi)
 include(GNUInstallDirs)
 
 if(APPLE)
   include(MacRpath)
-endif()
-
-if(UNIX)
-  if(CMAKE_SYSTEM_NAME MATCHES ".*Linux")
-    set(LINUX TRUE)
-  elseif(CMAKE_SYSTEM_NAME MATCHES "kOpenBSD.*|OpenBSD.*")
-    set(OPENBSD TRUE)
-  elseif(CMAKE_SYSTEM_NAME MATCHES "kNetBSD.*|NetBSD.*")
-    set(NETBSD TRUE)
-  elseif(CMAKE_SYSTEM_NAME MATCHES "kFreeBSD.*|FreeBSD")
-    set(FREEBSD TRUE)
-  endif()
 endif()
 
 enable_testing()
@@ -93,18 +82,17 @@ else()
   message(STATUS "Supported C++ compiler features = ${CMAKE_CXX_COMPILE_FEATURES}")
 endif()
 
-option(TRACE "Enable DEBUG level logging (default)" ON)
-if(DEBUG)
-  set(MIN_LOGGER_LEVEL DEBUG)
-endif()
-
-option(TRACE "Enable TRACE level logging (expensive, for network debugging)" OFF)
-if(TRACE)
-  set(MIN_LOGGER_LEVEL TRACE)
-endif()
-
+set(MIN_LOGGER_LEVEL "" CACHE STRING "Logging level to use (TRACE, DEBUG, INFO, WARNING, ERROR)")
 if(MIN_LOGGER_LEVEL)
-  add_definitions(-DMIN_LOGGER_LEVEL=LOGGER_LEVEL_${MIN_LOGGER_LEVEL})
+  if(("${MIN_LOGGER_LEVEL}" STREQUAL "TRACE") OR
+     ("${MIN_LOGGER_LEVEL}" STREQUAL "DEBUG") OR
+     ("${MIN_LOGGER_LEVEL}" STREQUAL "INFO") OR
+     ("${MIN_LOGGER_LEVEL}" STREQUAL "WARNING") OR
+     ("${MIN_LOGGER_LEVEL}" STREQUAL "ERROR"))
+    add_definitions(-DMIN_LOGGER_LEVEL=LOGGER_LEVEL_${MIN_LOGGER_LEVEL})
+  else()
+    message(FATAL_ERROR "Unknown value provided for MIN_LOGGER_LEVEL: \"${MIN_LOGGER_LEVEL}\", must be one of TRACE, DEBUG, INFO, WARNING or ERROR")
+  endif()
 endif()
 
 option(USE_IPV6 "Use IPv6 in tests" ON)
@@ -421,8 +409,10 @@ if(ANDROID_CPU_FEATURES)
   set(CPUFEATURES other/cpufeatures.c)
 endif()
 
+option(AUTOTEST "Enable autotests (mainly for CI)" OFF)
+
 function(auto_test target)
-  if(NOT (MSVC AND ARGV1 STREQUAL "MSVC_DONT_BUILD"))
+  if(AUTOTEST AND NOT (MSVC AND ARGV1 STREQUAL "MSVC_DONT_BUILD"))
     add_executable(auto_${target}_test ${CPUFEATURES}
       auto_tests/${target}_test.c)
     target_link_modules(auto_${target}_test toxcore misc_tools)

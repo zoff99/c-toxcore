@@ -17,8 +17,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef AUDIO_H
-#define AUDIO_H
+#ifndef C_TOXCORE_TOXAV_AUDIO_H
+#define C_TOXCORE_TOXAV_AUDIO_H
 
 #include "toxav.h"
 #include "video.h"
@@ -108,4 +108,4 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
 int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg);
 int ac_reconfigure_encoder(ACSession *ac, int32_t bit_rate, int32_t sampling_rate, uint8_t channels);
 
-#endif /* AUDIO_H */
+#endif // C_TOXCORE_TOXAV_AUDIO_H

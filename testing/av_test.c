@@ -245,7 +245,7 @@ static void initialize_tox(Tox **bootstrap, ToxAV **AliceAV, CallControl *AliceC
     tox_options_set_ipv6_enabled(opts, false);
 
     {
-        TOX_ERR_NEW error;
+        Tox_Err_New error;
 
         tox_options_set_start_port(opts, 33445);
         *bootstrap = tox_new(opts, &error);
@@ -298,7 +298,7 @@ static void initialize_tox(Tox **bootstrap, ToxAV **AliceAV, CallControl *AliceC
     }
 
 
-    TOXAV_ERR_NEW rc;
+    Toxav_Err_New rc;
     *AliceAV = toxav_new(Alice, &rc);
     assert(rc == TOXAV_ERR_NEW_OK);
 
@@ -438,7 +438,10 @@ static int print_help(const char *name)
 
 int main(int argc, char **argv)
 {
-    freopen("/dev/zero", "w", stderr);
+    if (freopen("/dev/zero", "w", stderr) == nullptr) {
+        return EXIT_FAILURE;
+    }
+
     Pa_Initialize();
 
     struct stat st;
@@ -587,7 +590,7 @@ CHECK_ARG:
         BobCC.arb = rb_new(16);
 
         { /* Call */
-            TOXAV_ERR_CALL rc;
+            Toxav_Err_Call rc;
             toxav_call(AliceAV, 0, 48, 0, &rc);
 
             if (rc != TOXAV_ERR_CALL_OK) {
@@ -601,7 +604,7 @@ CHECK_ARG:
         }
 
         { /* Answer */
-            TOXAV_ERR_ANSWER rc;
+            Toxav_Err_Answer rc;
             toxav_answer(BobAV, 0, 48, 0, &rc);
 
             if (rc != TOXAV_ERR_ANSWER_OK) {
@@ -649,10 +652,16 @@ CHECK_ARG:
         output.hostApiSpecificStreamInfo = nullptr;
 
         PaError err = Pa_OpenStream(&adout, nullptr, &output, af_info.samplerate, frame_size, paNoFlag, nullptr, nullptr);
-        assert(err == paNoError);
+
+        if (err != paNoError) {
+            return EXIT_FAILURE;
+        }
 
         err = Pa_StartStream(adout);
-        assert(err == paNoError);
+
+        if (err != paNoError) {
+            return EXIT_FAILURE;
+        }
 
 //         toxav_audio_bit_rate_set(AliceAV, 0, 64, false, nullptr);
 
@@ -668,7 +677,7 @@ CHECK_ARG:
             int64_t count = sf_read_short(af_handle, PCM, frame_size);
 
             if (count > 0) {
-                TOXAV_ERR_SEND_FRAME rc;
+                Toxav_Err_Send_Frame rc;
 
                 if (toxav_audio_send_frame(AliceAV, 0, PCM, count / af_info.channels, af_info.channels, af_info.samplerate,
                                            &rc) == false) {
@@ -686,7 +695,7 @@ CHECK_ARG:
         sf_close(af_handle);
 
         { /* Hangup */
-            TOXAV_ERR_CALL_CONTROL rc;
+            Toxav_Err_Call_Control rc;
             toxav_call_control(AliceAV, 0, TOXAV_CALL_CONTROL_CANCEL, &rc);
 
             if (rc != TOXAV_ERR_CALL_CONTROL_OK) {
@@ -728,7 +737,7 @@ CHECK_ARG:
         memset(&BobCC, 0, sizeof(CallControl));
 
         { /* Call */
-            TOXAV_ERR_CALL rc;
+            Toxav_Err_Call rc;
             toxav_call(AliceAV, 0, 0, 2000, &rc);
 
             if (rc != TOXAV_ERR_CALL_OK) {
@@ -742,7 +751,7 @@ CHECK_ARG:
         }
 
         { /* Answer */
-            TOXAV_ERR_ANSWER rc;
+            Toxav_Err_Answer rc;
             toxav_answer(BobAV, 0, 0, 5000, &rc);
 
             if (rc != TOXAV_ERR_ANSWER_OK) {
@@ -792,7 +801,7 @@ CHECK_ARG:
         cvReleaseCapture(&capture);
 
         { /* Hangup */
-            TOXAV_ERR_CALL_CONTROL rc;
+            Toxav_Err_Call_Control rc;
             toxav_call_control(AliceAV, 0, TOXAV_CALL_CONTROL_CANCEL, &rc);
 
             if (rc != TOXAV_ERR_CALL_CONTROL_OK) {

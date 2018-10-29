@@ -33,7 +33,7 @@ typedef struct State {
 #include "run_auto_test.h"
 
 static void handle_self_connection_status(
-    Tox *tox, TOX_CONNECTION connection_status, void *user_data)
+    Tox *tox, Tox_Connection connection_status, void *user_data)
 {
     const State *state = (State *)user_data;
 
@@ -45,7 +45,7 @@ static void handle_self_connection_status(
 }
 
 static void handle_friend_connection_status(
-    Tox *tox, uint32_t friendnumber, TOX_CONNECTION connection_status, void *user_data)
+    Tox *tox, uint32_t friendnumber, Tox_Connection connection_status, void *user_data)
 {
     const State *state = (State *)user_data;
 
@@ -57,13 +57,13 @@ static void handle_friend_connection_status(
 }
 
 static void handle_conference_invite(
-    Tox *tox, uint32_t friendnumber, TOX_CONFERENCE_TYPE type,
+    Tox *tox, uint32_t friendnumber, Tox_Conference_Type type,
     const uint8_t *data, size_t length, void *user_data)
 {
     const State *state = (State *)user_data;
     ck_assert_msg(type == TOX_CONFERENCE_TYPE_TEXT, "tox #%u: wrong conference type: %d", state->index, type);
 
-    TOX_ERR_CONFERENCE_JOIN err;
+    Tox_Err_Conference_Join err;
     uint32_t g_num = tox_conference_join(tox, friendnumber, data, length, &err);
 
     ck_assert_msg(err == TOX_ERR_CONFERENCE_JOIN_OK, "tox #%u: error joining group: %d", state->index, err);
@@ -84,7 +84,7 @@ static void handle_conference_connected(
         return;
     }
 
-    TOX_ERR_CONFERENCE_INVITE err;
+    Tox_Err_Conference_Invite err;
     tox_conference_invite(tox, 1, 0, &err);
     ck_assert_msg(err == TOX_ERR_CONFERENCE_INVITE_OK, "tox #%u failed to invite next friend: err = %d", state->index, err);
     printf("tox #%u: invited next friend\n", state->index);
@@ -94,7 +94,7 @@ static void handle_conference_connected(
 static uint16_t num_recv;
 
 static void handle_conference_message(
-    Tox *tox, uint32_t groupnumber, uint32_t peernumber, TOX_MESSAGE_TYPE type,
+    Tox *tox, uint32_t groupnumber, uint32_t peernumber, Tox_Message_Type type,
     const uint8_t *message, size_t length, void *user_data)
 {
     if (length == (sizeof(GROUP_MESSAGE) - 1) && memcmp(message, GROUP_MESSAGE, sizeof(GROUP_MESSAGE) - 1) == 0) {
@@ -129,6 +129,22 @@ static bool all_connected_to_group(uint32_t tox_count, Tox **toxes)
     return true;
 }
 
+static bool names_propagated(uint32_t tox_count, Tox **toxes, State *state)
+{
+    for (uint16_t i = 0; i < tox_count; ++i) {
+        for (uint16_t j = 0; j < tox_count; ++j) {
+            const size_t len = tox_conference_peer_get_name_size(toxes[i], 0, j, nullptr);
+
+            if (len != NAMELEN) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+
 /* returns a random index at which a list of booleans is false
  * (some such index is required to exist)
  * */
@@ -145,9 +161,9 @@ static uint32_t random_false_index(bool *list, const uint32_t length)
 
 static void run_conference_tests(Tox **toxes, State *state)
 {
-    /* disabling name propagation check for now, as it occasionally fails due
-     * to disconnections too short to trigger freezing */
-    const bool check_name_propagation = false;
+    /* disabling name change propagation check for now, as it occasionally
+     * fails due to disconnections too short to trigger freezing */
+    const bool check_name_change_propagation = false;
 
     printf("letting random toxes timeout\n");
     bool disconnected[NUM_GROUP_TOX] = {0};
@@ -171,7 +187,7 @@ static void run_conference_tests(Tox **toxes, State *state)
         c_sleep(20);
     } while (!toxes_are_disconnected_from_group(NUM_GROUP_TOX, toxes, NUM_DISCONNECT, disconnected));
 
-    if (check_name_propagation) {
+    if (check_name_change_propagation) {
         printf("changing names\n");
 
         for (uint16_t i = 0; i < NUM_GROUP_TOX; ++i) {
@@ -191,9 +207,11 @@ static void run_conference_tests(Tox **toxes, State *state)
 
     for (uint16_t i = 0; i < NUM_GROUP_TOX; ++i) {
         tox_callback_conference_message(toxes[i], &handle_conference_message);
+
+        iterate_all_wait(NUM_GROUP_TOX, toxes, state, ITERATION_INTERVAL);
     }
 
-    TOX_ERR_CONFERENCE_SEND_MESSAGE err;
+    Tox_Err_Conference_Send_Message err;
     ck_assert_msg(
         tox_conference_send_message(
             toxes[random_u32() % NUM_GROUP_TOX], 0, TOX_MESSAGE_TYPE_NORMAL, (const uint8_t *)GROUP_MESSAGE,
@@ -208,13 +226,9 @@ static void run_conference_tests(Tox **toxes, State *state)
 
     ck_assert_msg(num_recv == NUM_GROUP_TOX, "failed to recv group messages");
 
-    for (uint16_t i = 0; i < NUM_GROUP_TOX; ++i) {
-        for (uint16_t j = 0; j < NUM_GROUP_TOX; ++j) {
-            const size_t len = tox_conference_peer_get_name_size(toxes[i], 0, j, nullptr);
-            ck_assert_msg(len == NAMELEN, "name of #%u according to #%u has incorrect length %u", state[j].index, state[i].index,
-                          (unsigned int)len);
-
-            if (check_name_propagation) {
+    if (check_name_change_propagation) {
+        for (uint16_t i = 0; i < NUM_GROUP_TOX; ++i) {
+            for (uint16_t j = 0; j < NUM_GROUP_TOX; ++j) {
                 uint8_t name[NAMELEN];
                 tox_conference_peer_get_name(toxes[i], 0, j, name, nullptr);
                 /* Note the toxes will have been reordered */
@@ -287,7 +301,7 @@ static void test_many_group(Tox **toxes, State *state)
         iterate_all_wait(NUM_GROUP_TOX, toxes, state, ITERATION_INTERVAL);
 
         for (uint16_t i = 0; i < NUM_GROUP_TOX; ++i) {
-            TOX_ERR_CONFERENCE_PEER_QUERY err;
+            Tox_Err_Conference_Peer_Query err;
             uint32_t peer_count = tox_conference_peer_count(toxes[i], 0, &err);
 
             if (err != TOX_ERR_CONFERENCE_PEER_QUERY_OK) {
@@ -320,6 +334,12 @@ static void test_many_group(Tox **toxes, State *state)
         tox_conference_get_title(toxes[i], 0, title, nullptr);
         ck_assert_msg(memcmp("Gentoo", title, ret) == 0, "Wrong title");
     }
+
+    printf("waiting for names to propagate\n");
+
+    do {
+        iterate_all_wait(NUM_GROUP_TOX, toxes, state, ITERATION_INTERVAL);
+    } while (!names_propagated(NUM_GROUP_TOX, toxes, state));
 
     printf("group connected, took %d seconds\n", (int)((state[0].clock - pregroup_clock) / 1000));
 

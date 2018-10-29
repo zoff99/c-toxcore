@@ -67,7 +67,7 @@ void c_sleep(uint32_t x)
 // You are responsible for freeing the return value!
 uint8_t *hex_string_to_bin(const char *hex_string)
 {
-    // byte is represented by exactly 2 hex digits, so lenth of binary string
+    // byte is represented by exactly 2 hex digits, so length of binary string
     // is half of that of the hex one. only hex string with even length
     // valid. the more proper implementation would be to check if strlen(hex_string)
     // is odd and return error code if it is. we assume strlen is even. if it's not
@@ -121,7 +121,7 @@ int tox_strncasecmp(const char *s1, const char *s2, size_t n)
     return 0;
 }
 
-int cmdline_parsefor_ipv46(int argc, char **argv, uint8_t *ipv6enabled)
+int cmdline_parsefor_ipv46(int argc, char **argv, bool *ipv6enabled)
 {
     int argvoffset = 0, argi;
 
@@ -131,9 +131,9 @@ int cmdline_parsefor_ipv46(int argc, char **argv, uint8_t *ipv6enabled)
                 char c = argv[argi][5];
 
                 if (c == '4') {
-                    *ipv6enabled = 0;
+                    *ipv6enabled = false;
                 } else if (c == '6') {
-                    *ipv6enabled = 1;
+                    *ipv6enabled = true;
                 } else {
                     printf("Invalid argument: %s. Try --ipv4 or --ipv6!\n", argv[argi]);
                     return -1;
@@ -155,7 +155,7 @@ int cmdline_parsefor_ipv46(int argc, char **argv, uint8_t *ipv6enabled)
     return argvoffset;
 }
 
-static const char *tox_log_level_name(TOX_LOG_LEVEL level)
+static const char *tox_log_level_name(Tox_Log_Level level)
 {
     switch (level) {
         case TOX_LOG_LEVEL_TRACE:
@@ -177,7 +177,7 @@ static const char *tox_log_level_name(TOX_LOG_LEVEL level)
     return "<unknown>";
 }
 
-void print_debug_log(Tox *m, TOX_LOG_LEVEL level, const char *file, uint32_t line, const char *func,
+void print_debug_log(Tox *m, Tox_Log_Level level, const char *file, uint32_t line, const char *func,
                      const char *message, void *user_data)
 {
     if (level == TOX_LOG_LEVEL_TRACE) {
@@ -188,7 +188,7 @@ void print_debug_log(Tox *m, TOX_LOG_LEVEL level, const char *file, uint32_t lin
     fprintf(stderr, "[#%u] %s %s:%u\t%s:\t%s\n", index, tox_log_level_name(level), file, line, func, message);
 }
 
-Tox *tox_new_log_lan(struct Tox_Options *options, TOX_ERR_NEW *err, void *log_user_data, bool lan_discovery)
+Tox *tox_new_log_lan(struct Tox_Options *options, Tox_Err_New *err, void *log_user_data, bool lan_discovery)
 {
     struct Tox_Options *log_options = options;
 
@@ -212,7 +212,7 @@ Tox *tox_new_log_lan(struct Tox_Options *options, TOX_ERR_NEW *err, void *log_us
     return tox;
 }
 
-Tox *tox_new_log(struct Tox_Options *options, TOX_ERR_NEW *err, void *log_user_data)
+Tox *tox_new_log(struct Tox_Options *options, Tox_Err_New *err, void *log_user_data)
 {
     return tox_new_log_lan(options, err, log_user_data, false);
 }

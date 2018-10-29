@@ -17,8 +17,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef TOXAV_H
-#define TOXAV_H
+#ifndef C_TOXCORE_TOXAV_TOXAV_H
+#define C_TOXCORE_TOXAV_TOXAV_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -949,4 +949,4 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
 #ifdef __cplusplus
 }
 #endif
-#endif /* TOXAV_H */
+#endif // C_TOXCORE_TOXAV_TOXAV_H

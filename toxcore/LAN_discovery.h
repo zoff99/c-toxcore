@@ -21,8 +21,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef LAN_DISCOVERY_H
-#define LAN_DISCOVERY_H
+#ifndef C_TOXCORE_TOXCORE_LAN_DISCOVERY_H
+#define C_TOXCORE_TOXCORE_LAN_DISCOVERY_H
 
 #include "DHT.h"
 
@@ -70,4 +70,4 @@ bool ip_is_local(IP ip);
  */
 bool ip_is_lan(IP ip);
 
-#endif
+#endif // C_TOXCORE_TOXCORE_LAN_DISCOVERY_H

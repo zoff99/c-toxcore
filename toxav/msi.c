@@ -30,7 +30,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #define MSI_MAXMSG_SIZE 256
 
@@ -145,7 +144,7 @@ int msi_kill(MSISession *session, const Logger *log)
     m_callback_msi_packet(session->messenger, nullptr, nullptr);
 
     if (pthread_mutex_trylock(session->mutex) != 0) {
-        LOGGER_ERROR(session->messenger->log, "Failed to acquire lock on msi mutex");
+        LOGGER_ERROR(log, "Failed to acquire lock on msi mutex");
         return -1;
     }
 
@@ -166,7 +165,7 @@ int msi_kill(MSISession *session, const Logger *log)
     pthread_mutex_unlock(session->mutex);
     pthread_mutex_destroy(session->mutex);
 
-    LOGGER_DEBUG(session->messenger->log, "Terminated session: %p", (void *)session);
+    LOGGER_DEBUG(log, "Terminated session: %p", (void *)session);
     free(session);
     return 0;
 }

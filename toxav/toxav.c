@@ -421,7 +421,7 @@ void toxav_iterate(ToxAV *av)
     av->dmsst += current_time_monotonic(av->m->mono_time) - start;
 
     if (++av->dmssc == 3) {
-        av->dmssa = av->dmsst / 3 + 5 /* NOTE Magic Offset for precission */;
+        av->dmssa = av->dmsst / 3 + 5 /* NOTE Magic Offset for precision */;
         av->dmssc = 0;
         av->dmsst = 0;
     }
@@ -2101,10 +2101,18 @@ ToxAVCall *call_new(ToxAV *av, uint32_t friend_number, TOXAV_ERR_CALL *error)
     call->av = av;
     call->friend_number = friend_number;
 
-    if (av->calls == NULL) { /* Creating */
+    if (create_recursive_mutex(call->mutex)) {
+        free(call);
+        call = nullptr;
+        rc = TOXAV_ERR_CALL_MALLOC;
+        goto END;
+    }
+
+    if (av->calls == nullptr) { /* Creating */
         av->calls = (ToxAVCall **)calloc(sizeof(ToxAVCall *), friend_number + 1);
 
-        if (av->calls == NULL) {
+        if (av->calls == nullptr) {
+            pthread_mutex_destroy(call->mutex);
             free(call);
             call = NULL;
             rc = TOXAV_ERR_CALL_MALLOC;
@@ -2115,7 +2123,8 @@ ToxAVCall *call_new(ToxAV *av, uint32_t friend_number, TOXAV_ERR_CALL *error)
     } else if (av->calls_tail < friend_number) { /* Appending */
         ToxAVCall **tmp = (ToxAVCall **)realloc(av->calls, sizeof(ToxAVCall *) * (friend_number + 1));
 
-        if (tmp == NULL) {
+        if (tmp == nullptr) {
+            pthread_mutex_destroy(call->mutex);
             free(call);
             call = NULL;
             rc = TOXAV_ERR_CALL_MALLOC;
@@ -2183,6 +2192,7 @@ ToxAVCall *call_remove(ToxAVCall *call)
         call->msi_call->av_call = NULL;
     }
 
+    pthread_mutex_destroy(call->mutex);
     free(call);
 
     if (prev) {
@@ -2238,10 +2248,6 @@ bool call_prepare_transmission(ToxAVCall *call)
     }
 
     if (create_recursive_mutex(call->mutex_video) != 0) {
-        goto FAILURE_3;
-    }
-
-    if (create_recursive_mutex(call->mutex) != 0) {
         goto FAILURE_2;
     }
 
@@ -2293,12 +2299,10 @@ FAILURE:
     call->audio = NULL;
     rtp_kill(call->video_rtp);
     vc_kill(call->video);
-    call->video_rtp = NULL;
-    call->video = NULL;
-    pthread_mutex_destroy(call->mutex);
-FAILURE_2:
+    call->video_rtp = nullptr;
+    call->video = nullptr;
     pthread_mutex_destroy(call->mutex_video);
-FAILURE_3:
+FAILURE_2:
     pthread_mutex_destroy(call->mutex_audio);
     return false;
 }
@@ -2333,7 +2337,6 @@ void call_kill_transmission(ToxAVCall *call)
 
     pthread_mutex_destroy(call->mutex_audio);
     pthread_mutex_destroy(call->mutex_video);
-    pthread_mutex_destroy(call->mutex);
 }
 
 

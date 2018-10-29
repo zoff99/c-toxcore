@@ -22,13 +22,14 @@
  * You should have received a copy of the GNU General Public License
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef MESSENGER_H
-#define MESSENGER_H
+#ifndef C_TOXCORE_TOXCORE_MESSENGER_H
+#define C_TOXCORE_TOXCORE_MESSENGER_H
 
 #include "friend_connection.h"
 #include "friend_requests.h"
 #include "logger.h"
 #include "net_crypto.h"
+#include "state.h"
 
 #define MAX_NAME_LENGTH 128
 /* TODO(irungentoo): this must depend on other variable. */
@@ -50,6 +51,24 @@ typedef enum Message_Type {
     MESSAGE_ACTION
 } Message_Type;
 
+typedef struct Messenger Messenger;
+
+// Returns the size of the data
+typedef uint32_t m_state_size_cb(const Messenger *m);
+
+// Returns the new pointer to data
+typedef uint8_t *m_state_save_cb(const Messenger *m, uint8_t *data);
+
+// Returns if there were any erros during loading
+typedef State_Load_Status m_state_load_cb(Messenger *m, const uint8_t *data, uint32_t length);
+
+typedef struct Messenger_State_Plugin {
+    State_Type type;
+    m_state_size_cb *size;
+    m_state_save_cb *save;
+    m_state_load_cb *load;
+} Messenger_State_Plugin;
+
 typedef struct Messenger_Options {
     bool ipv6enabled;
     bool udp_disabled;
@@ -63,6 +82,9 @@ typedef struct Messenger_Options {
     logger_cb *log_callback;
     void *log_context;
     void *log_user_data;
+
+    Messenger_State_Plugin *state_plugins;
+    uint8_t state_plugins_length;
 } Messenger_Options;
 
 
@@ -156,8 +178,6 @@ typedef enum Filekind {
     FILEKIND_AVATAR
 } Filekind;
 
-
-typedef struct Messenger Messenger;
 
 typedef void m_self_connection_status_cb(Messenger *m, unsigned int connection_status, void *user_data);
 typedef void m_friend_status_cb(Messenger *m, uint32_t friend_number, unsigned int status, void *user_data);
@@ -264,7 +284,9 @@ struct Messenger {
 
     time_t lastdump;
 
-    uint8_t has_added_relays; // If the first connection has occurred in do_messenger
+    bool has_added_relays; // If the first connection has occurred in do_messenger
+
+    uint16_t num_loaded_relays;
     Node_format loaded_relays[NUM_SAVED_TCP_RELAYS]; // Relays loaded from config
 
     m_friend_message_cb *friend_message;
@@ -762,14 +784,27 @@ uint32_t messenger_run_interval(const Messenger *m);
 
 /* SAVING AND LOADING FUNCTIONS: */
 
+/* Registers a state plugin for saving, loadding, and getting the size of a section of the save
+ *
+ * returns true on success
+ * returns false on error
+ */
+bool m_register_state_plugin(Messenger *m, State_Type type, m_state_size_cb size_callback,
+                             m_state_load_cb load_callback, m_state_save_cb save_callback);
+
 /* return size of the messenger data (for saving). */
 uint32_t messenger_size(const Messenger *m);
 
-/* Save the messenger in data (must be allocated memory of size Messenger_size()) */
-void messenger_save(const Messenger *m, uint8_t *data);
+/* Save the messenger in data (must be allocated memory of size at least Messenger_size()) */
+uint8_t *messenger_save(const Messenger *m, uint8_t *data);
 
-/* Load the messenger from data of size length. */
-int messenger_load(Messenger *m, const uint8_t *data, uint32_t length);
+/* Load a state section.
+ *
+ * @param status Result of loading section is stored here if the section is handled.
+ * @return true iff section handled.
+ */
+bool messenger_load_state_section(Messenger *m, const uint8_t *data, uint32_t length, uint16_t type,
+                                  State_Load_Status *status);
 
 /* Return the number of friends in the instance m.
  * You should use this to determine how much memory to allocate

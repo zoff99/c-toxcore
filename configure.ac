@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.65])
-AC_INIT([tox], [0.2.7])
+AC_INIT([tox], [0.2.8])
 AC_CONFIG_AUX_DIR(configure_aux)
 AC_CONFIG_SRCDIR([toxcore/net_crypto.c])
 AC_CONFIG_HEADERS([config.h])
@@ -84,7 +84,7 @@ AC_ARG_WITH(log-level,
         elif test "x$withval" = "xERROR"; then
             AC_DEFINE([MIN_LOGGER_LEVEL], [LOGGER_LEVEL_ERROR], [Logger_Level value])
         else
-            AC_MSG_WARN([Invalid logger level: $withval. Using default 'DEBUG'])
+            AC_MSG_WARN([Invalid logger level: $withval. Using default.])
         fi
     ]
 )

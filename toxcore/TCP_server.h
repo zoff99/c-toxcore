@@ -21,8 +21,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef TCP_SERVER_H
-#define TCP_SERVER_H
+#ifndef C_TOXCORE_TOXCORE_TCP_SERVER_H
+#define C_TOXCORE_TOXCORE_TCP_SERVER_H
 
 #include "crypto_core.h"
 #include "list.h"
@@ -74,6 +74,8 @@ struct TCP_Priority_List {
     uint16_t sent;
     uint8_t data[];
 };
+
+void wipe_priority_list(TCP_Priority_List *p);
 
 typedef struct TCP_Server TCP_Server;
 

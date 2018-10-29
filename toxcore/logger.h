@@ -21,8 +21,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef TOXLOGGER_H
-#define TOXLOGGER_H
+#ifndef C_TOXCORE_TOXCORE_LOGGER_H
+#define C_TOXCORE_TOXCORE_LOGGER_H
 
 #include <stdint.h>
 
@@ -36,6 +36,7 @@
 #define LOGGER_MAX_MSG_LENGTH (2048) // ORIG 1024
 #endif
 
+// NOTE: Don't forget to update build system files after modifying the enum.
 typedef enum Logger_Level {
     LOGGER_LEVEL_TRACE,
     LOGGER_LEVEL_DEBUG,
@@ -94,4 +95,18 @@ void logger_write(
 #define LOGGER_WARNING(log, ...) LOGGER_WRITE(log, LOGGER_LEVEL_WARNING, __VA_ARGS__)
 #define LOGGER_ERROR(log, ...)   LOGGER_WRITE(log, LOGGER_LEVEL_ERROR  , __VA_ARGS__)
 
-#endif /* TOXLOGGER_H */
+#define LOGGER_FATAL(log, ...) \
+    do { \
+        LOGGER_ERROR(log, __VA_ARGS__); \
+        abort(); \
+    } while(0)
+
+#define LOGGER_ASSERT(log, cond, ...) \
+    do { \
+        if (!(cond)) { \
+            LOGGER_ERROR(log, "Assertion failed"); \
+            LOGGER_FATAL(log, __VA_ARGS__); \
+        } \
+    } while(0)
+
+#endif // C_TOXCORE_TOXCORE_LOGGER_H

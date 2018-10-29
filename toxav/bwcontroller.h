@@ -17,8 +17,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef BWCONROLLER_H
-#define BWCONROLLER_H
+#ifndef C_TOXCORE_TOXAV_BWCONTROLLER_H
+#define C_TOXCORE_TOXAV_BWCONTROLLER_H
 
 #include "../toxcore/Messenger.h"
 
@@ -35,4 +35,4 @@ void bwc_add_lost(BWController *bwc, uint32_t bytes_lost);
 void bwc_add_lost_v3(BWController *bwc, uint32_t bytes, bool force_update_now);
 void bwc_add_recv(BWController *bwc, uint32_t recv_bytes);
 
-#endif /* BWCONROLLER_H */
+#endif // C_TOXCORE_TOXAV_BWCONTROLLER_H
