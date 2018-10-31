@@ -3131,6 +3131,115 @@ static State_Load_Status m_dht_load(Messenger *m, const uint8_t *data, uint32_t 
     return STATE_LOAD_STATUS_CONTINUE;
 }
 
+// friendft state plugin
+static uint32_t saved_friendsft_size(const Messenger *m)
+{
+    uint32_t save_bytes = sizeof(uint32_t) +
+                          m->numfriends * (
+                              sizeof(uint8_t) * CRYPTO_PUBLIC_KEY_SIZE
+                              + sizeof(uint32_t)
+                              + (sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES * 2)
+                          );
+    return save_bytes;
+}
+
+static uint8_t *friendsft_save(const Messenger *m, uint8_t *data)
+{
+    uint32_t len;
+    uint32_t nf;
+    void *buf;
+
+    const uint32_t len1 = m_plugin_size(m, STATE_TYPE_FRIENDSFILETRANSFERS);
+    data = state_write_section_header(data, STATE_COOKIE_TYPE, len1, STATE_TYPE_FRIENDSFILETRANSFERS);
+
+    len = sizeof(uint32_t);
+    nf = m->numfriends;
+    memcpy(data, &nf, len);
+    data += len;
+
+    for (uint32_t i = 0; i < m->numfriends; ++i) {
+        len = sizeof(uint8_t) * CRYPTO_PUBLIC_KEY_SIZE;
+        buf = m->friendlist[i].real_pk;
+        memcpy(data, buf, len);
+        data += len;
+
+        len = sizeof(uint32_t);
+        buf = &(m->friendlist[i].num_sending_files);
+        memcpy(data, buf, len);
+        data += len;
+
+        len = sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES;
+        buf = m->friendlist[i].file_sending;
+        memcpy(data, buf, len);
+        data += len;
+
+        len = sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES;
+        buf = m->friendlist[i].file_receiving;
+        memcpy(data, buf, len);
+        data += len;
+    }
+
+    return data;
+}
+
+static State_Load_Status friendsft_load(Messenger *m, const uint8_t *data2, uint32_t length)
+{
+    if (length > sizeof(uint32_t)) {
+
+        uint8_t *data = data2;
+        uint32_t length_should_be = sizeof(uint32_t) +
+                                    m->numfriends * (
+                                        (sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES * 2)
+                                        + sizeof(uint32_t)
+                                    );
+
+        if (length != length_should_be) {
+            // wrong length, there is a problem!
+        } else {
+
+            uint32_t saved_friendsft_num = (uint32_t) * data;
+            int32_t found_friendnum = -1;
+            uint32_t len = 0;
+            data = data + sizeof(uint32_t);
+
+            for (uint32_t i = 0; i < saved_friendsft_num; ++i) {
+
+                // find friendnum by pubkey
+                len = sizeof(uint8_t) * CRYPTO_PUBLIC_KEY_SIZE;
+                found_friendnum = getfriend_id(m, (uint8_t *)data);
+                data = data + len;
+
+                if (found_friendnum > -1) {
+
+                    // now load FTs of this friend
+                    len = sizeof(uint32_t);
+                    m->friendlist[found_friendnum].num_sending_files = (uint32_t) * data;
+                    data = data + len;
+
+                    len = sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES;
+                    memcpy(m->friendlist[found_friendnum].file_sending, data, len);
+                    data += len;
+
+                    len = sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES;
+                    memcpy(m->friendlist[found_friendnum].file_receiving, data, len);
+                    data += len;
+
+                    // reset any FTs that are not normal DATA FTs (like Avatar or MsgV2 FTs)
+                    break_files(m, found_friendnum);
+
+                } else {
+                    // skip this friends data
+                    data = data
+                           + sizeof(uint32_t)
+                           + sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES * 2;
+                }
+            }
+        }
+    }
+
+    return STATE_LOAD_STATUS_CONTINUE;
+}
+
 // friendlist state plugin
 static uint32_t saved_friendslist_size(const Messenger *m)
 {
@@ -3398,6 +3507,7 @@ static void m_register_default_plugins(Messenger *m)
     m_register_state_plugin(m, STATE_TYPE_STATUS, status_size, load_status, save_status);
     m_register_state_plugin(m, STATE_TYPE_TCP_RELAY, tcp_relay_size, load_tcp_relays, save_tcp_relays);
     m_register_state_plugin(m, STATE_TYPE_PATH_NODE, path_node_size, load_path_nodes, save_path_nodes);
+    m_register_state_plugin(m, STATE_TYPE_FRIENDSFILETRANSFERS, saved_friendsft_size, friendsft_load, friendsft_save);
 }
 
 bool messenger_load_state_section(Messenger *m, const uint8_t *data, uint32_t length, uint16_t type,
