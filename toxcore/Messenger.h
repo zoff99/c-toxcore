@@ -155,6 +155,7 @@ struct File_Transfers {
     uint8_t id[FILE_ID_LENGTH];
     uint32_t file_type; /* TOX_FILE_KIND of this FT */
 };
+
 typedef enum Filestatus {
     FILESTATUS_NONE,
     FILESTATUS_NOT_ACCEPTED,
