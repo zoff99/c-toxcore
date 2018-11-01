@@ -716,23 +716,17 @@ size_t tox_get_savedata_size(const Tox *tox)
     return ret;
 }
 
-#include <stdio.h>
-
 void tox_get_savedata(const Tox *tox, uint8_t *savedata)
 {
     if (savedata == nullptr) {
         return;
     }
 
-    fprintf(stderr, "TC:001\n");
-
     memset(savedata, 0, tox_get_savedata_size(tox));
 
     lock(tox);
 
     const uint32_t size32 = sizeof(uint32_t);
-
-    fprintf(stderr, "TC:003\n");
 
     // write cookie
     memset(savedata, 0, size32);

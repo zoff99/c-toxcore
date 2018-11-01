@@ -2344,12 +2344,15 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
             struct File_Transfers *ft = &m->friendlist[i].file_receiving[filenumber];
 
             if (ft->status != FILESTATUS_NONE) {
-                // TODO: we are receiving a filetransfer that we don't know about
-                //       should we send FILECONTROL_KILL back to friend, to let him know?
-                //
-                // well, yes
-                uint8_t send_receive = 1; // 0 -> send, 1 -> receive
-                send_file_control_packet(m, i, send_receive, filenumber, FILECONTROL_KILL, nullptr, 0);
+                if (ft->status == FILESTATUS_TRANSFERRING) {
+
+                    // TODO: we are receiving a filetransfer that we don't know about
+                    //       should we send FILECONTROL_KILL back to friend, to let him know?
+                    //
+                    // well, yes
+                    uint8_t send_receive = 1; // 0 -> send, 1 -> receive
+                    send_file_control_packet(m, i, send_receive, filenumber, FILECONTROL_KILL, nullptr, 0);
+                }
 
                 break;
             }
