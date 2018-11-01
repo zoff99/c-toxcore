@@ -150,6 +150,14 @@ static void test_keys(void)
     bool ret = tox_pass_key_encrypt(key, string, 44, encrypted, &encerr);
     ck_assert_msg(ret, "generic failure 2: %d", encerr);
 
+    int size_large = 30 * 1024 * 1024;
+    uint8_t *encrypted2a = malloc(size_large + TOX_PASS_ENCRYPTION_EXTRA_LENGTH);
+    uint8_t *unencrypted2a = malloc(size_large);
+    ret = tox_pass_encrypt(unencrypted2a, size_large, (const uint8_t *)"123qweasdzxc", 12, encrypted2a, &encerr);
+    ck_assert_msg(ret, "tox_pass_encrypt failure 2a: %d", encerr);
+    free(encrypted2a);
+    free(unencrypted2a);
+
     uint8_t encrypted2[44 + TOX_PASS_ENCRYPTION_EXTRA_LENGTH];
     ret = tox_pass_encrypt(string, 44, (const uint8_t *)"123qweasdzxc", 12, encrypted2, &encerr);
     ck_assert_msg(ret, "generic failure 3: %d", encerr);
