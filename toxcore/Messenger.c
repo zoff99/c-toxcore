@@ -1516,9 +1516,9 @@ int file_data(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uin
         return -6;
     }
 
-    int64_t ret = send_file_data_packet(m, friendnumber, filenumber, data, length);
+    int64_t packet_number = send_file_data_packet(m, friendnumber, filenumber, data, length);
 
-    if (ret != -1) {
+    if (packet_number != -1) {
         // TODO(irungentoo): record packet ids to check if other received complete file.
         ft->transferred += length;
 
@@ -1528,7 +1528,7 @@ int file_data(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uin
 
         if (length != MAX_FILE_DATA_SIZE || ft->size == ft->transferred) {
             ft->status = FILESTATUS_FINISHED;
-            ft->last_packet_number = ret;
+            ft->last_packet_number = packet_number;
         }
 
         return 0;
@@ -1602,7 +1602,8 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
             --num;
 
             // If the file transfer is complete, we request a chunk of size 0.
-            if (ft->status == FILESTATUS_FINISHED && friend_received_packet(m, friendnumber, ft->last_packet_number) == 0) {
+            if (ft->status == FILESTATUS_FINISHED &&
+                    friend_received_packet(m, friendnumber, ft->last_packet_number) == 0) {
                 if (m->file_reqchunk) {
                     m->file_reqchunk(m, friendnumber, i, ft->transferred, 0, userdata);
                 }
