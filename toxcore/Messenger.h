@@ -132,13 +132,16 @@ typedef enum Userstatus {
 struct File_Transfers {
     uint64_t size;
     uint64_t transferred;
+    uint64_t transferred_prev;
     uint8_t status; /* -> Filestatus */ /* 0 == no transfer, 1 = not accepted, 3 = transferring, 4 = broken, 5 = finished */
     uint8_t paused; /* -> File_Pause */ /* 0: not paused, 1 = paused by us, 2 = paused by other, 3 = paused by both. */
     uint32_t last_packet_number; /* number of the last packet sent. */
     uint64_t requested; /* total data requested by the request chunk callback */
+    uint64_t requested_prev; /* total data requested by the previous request chunk callback */
     unsigned int slots_allocated; /* number of slots allocated to this transfer. */
     uint8_t id[FILE_ID_LENGTH];
     uint32_t file_type; /* TOX_FILE_KIND of this FT */
+    uint8_t needs_resend; /* resend last chunk (after restart of tox or going offline), ONLY valid for sending FTs */
 };
 
 typedef enum Filestatus {
