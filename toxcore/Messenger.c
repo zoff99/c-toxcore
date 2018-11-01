@@ -1202,8 +1202,12 @@ long int new_filesender(const Messenger *m, int32_t friendnumber, uint32_t file_
     ft->size = filesize;
 
     ft->transferred = 0;
+    ft->transferred_prev = 0;
+
+    ft->needs_resend = 0;
 
     ft->requested = 0;
+    ft->requested_prev = 0;
 
     ft->slots_allocated = 0;
 
@@ -1319,6 +1323,7 @@ int file_control(const Messenger *m, int32_t friendnumber, uint32_t filenumber, 
     if (send_file_control_packet(m, friendnumber, send_receive, file_number, control, nullptr, 0)) {
         if (control == FILECONTROL_KILL) {
             ft->status = FILESTATUS_NONE;
+            ft->needs_resend = 0;
 
             if (send_receive == 0) {
                 --m->friendlist[friendnumber].num_sending_files;
@@ -1327,6 +1332,7 @@ int file_control(const Messenger *m, int32_t friendnumber, uint32_t filenumber, 
             ft->paused |= FILE_PAUSE_US;
         } else if (control == FILECONTROL_ACCEPT) {
             ft->status = FILESTATUS_TRANSFERRING;
+            ft->needs_resend = 0;
 
             if (ft->paused & FILE_PAUSE_US) {
                 ft->paused ^=  FILE_PAUSE_US;
@@ -1484,7 +1490,10 @@ int file_data(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uin
     int64_t packet_number = send_file_data_packet(m, friendnumber, filenumber, data, length);
 
     if (packet_number != -1) {
-        // TODO(irungentoo): record packet ids to check if other received complete file.
+        if (ft->needs_resend == 1) {
+            ft->needs_resend = 0;
+        }
+
         ft->transferred += length;
 
         if (ft->slots_allocated) {
@@ -1537,9 +1546,13 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
             // If the file transfer is complete, we request a chunk of size 0.
             if (ft->status == FILESTATUS_FINISHED &&
                     friend_received_packet(m, friendnumber, ft->last_packet_number) == 0) {
+
+                // send chunck to friend -------------------
                 if (m->file_reqchunk) {
                     m->file_reqchunk(m, friendnumber, i, ft->transferred, 0, userdata);
                 }
+
+                // send chunck to friend -------------------
 
                 // Now it's inactive, we're no longer sending this.
                 ft->status = FILESTATUS_NONE;
@@ -1578,9 +1591,12 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
             const uint64_t position = ft->requested;
             ft->requested += length;
 
+            // send chunck to friend -------------------
             if (m->file_reqchunk) {
                 m->file_reqchunk(m, friendnumber, i, position, length, userdata);
             }
+
+            // send chunck to friend -------------------
 
             // The allocated slot is no longer free.
             --*free_slots;
@@ -1638,10 +1654,20 @@ static void break_files(const Messenger *m, int32_t friendnumber)
 {
     // TODO(irungentoo): Inform the client which file transfers get killed with a callback?
     for (uint32_t i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
+
+        m->friendlist[friendnumber].file_sending[i].needs_resend = 0;
+        m->friendlist[friendnumber].file_receiving[i].needs_resend = 0;
+
         if (m->friendlist[friendnumber].file_sending[i].status != FILESTATUS_NONE) {
             /* only reset avatar and msgV2 FTs, but NOT normal data FTs */
             if (m->friendlist[friendnumber].file_sending[i].file_type != TOX_FILE_KIND_DATA) {
                 m->friendlist[friendnumber].file_sending[i].status = FILESTATUS_NONE;
+            } else {
+                if (m->friendlist[friendnumber].file_sending[i].status == FILESTATUS_TRANSFERRING) {
+                    m->friendlist[friendnumber].file_sending[i].needs_resend = 1;
+                    m->friendlist[friendnumber].file_sending[i].transferred =  m->friendlist[friendnumber].file_sending[i].transferred_prev;
+                    m->friendlist[friendnumber].file_sending[i].requested =  m->friendlist[friendnumber].file_sending[i].requested_prev;
+                }
             }
         }
 
@@ -1700,6 +1726,7 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, uint8_t receiv
         case FILECONTROL_ACCEPT: {
             if (receive_send && ft->status == FILESTATUS_NOT_ACCEPTED) {
                 ft->status = FILESTATUS_TRANSFERRING;
+                ft->needs_resend = 0;
             } else {
                 if (ft->paused & FILE_PAUSE_OTHER) {
                     ft->paused ^= FILE_PAUSE_OTHER;
@@ -1739,6 +1766,7 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, uint8_t receiv
             }
 
             ft->status = FILESTATUS_NONE;
+            ft->needs_resend = 0;
 
             if (receive_send) {
                 --m->friendlist[friendnumber].num_sending_files;
