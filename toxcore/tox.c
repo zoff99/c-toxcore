@@ -601,23 +601,15 @@ size_t tox_get_savedata_size(const Tox *tox)
            + end_size();
 }
 
-#include <stdio.h>
-
 void tox_get_savedata(const Tox *tox, uint8_t *savedata)
 {
     if (savedata == nullptr) {
         return;
     }
 
-    fprintf(stderr, "TC:001\n");
-
     memset(savedata, 0, tox_get_savedata_size(tox));
 
-    fprintf(stderr, "TC:002\n");
-
     const uint32_t size32 = sizeof(uint32_t);
-
-    fprintf(stderr, "TC:003\n");
 
     // write cookie
     memset(savedata, 0, size32);
@@ -625,16 +617,10 @@ void tox_get_savedata(const Tox *tox, uint8_t *savedata)
     host_to_lendian_bytes32(savedata, STATE_COOKIE_GLOBAL);
     savedata += size32;
 
-    fprintf(stderr, "TC:004\n");
-
     const Messenger *m = tox->m;
-    fprintf(stderr, "TC:005\n");
     savedata = messenger_save(m, savedata);
-    fprintf(stderr, "TC:006\n");
     savedata = conferences_save(m->conferences_object, savedata);
-    fprintf(stderr, "TC:007\n");
     end_save(savedata);
-    fprintf(stderr, "TC:008\n");
 }
 
 bool tox_bootstrap(Tox *tox, const char *host, uint16_t port, const uint8_t *public_key, Tox_Err_Bootstrap *error)
