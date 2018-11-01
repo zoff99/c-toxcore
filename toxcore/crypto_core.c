@@ -157,17 +157,10 @@ int32_t encrypt_data_symmetric(const uint8_t *secret_key, const uint8_t *nonce,
         return -1;
     }
 
-    const size_t size_temp_plain = length + crypto_box_ZEROBYTES;
-    const size_t size_temp_encrypted = length + crypto_box_MACBYTES + crypto_box_BOXZEROBYTES;
-
-    uint8_t *temp_plain = crypto_malloc(size_temp_plain);
-    uint8_t *temp_encrypted = crypto_malloc(size_temp_encrypted);
-
-    if (temp_plain == nullptr || temp_encrypted == nullptr) {
-        crypto_free(temp_plain, size_temp_plain);
-        crypto_free(temp_encrypted, size_temp_encrypted);
-        return -1;
-    }
+    uint8_t *temp_plain = calloc(1, length + crypto_box_ZEROBYTES);
+    uint8_t *temp_encrypted = calloc(1, length + crypto_box_MACBYTES + crypto_box_BOXZEROBYTES);
+//    VLA(uint8_t, temp_plain, length + crypto_box_ZEROBYTES);
+//    VLA(uint8_t, temp_encrypted, length + crypto_box_MACBYTES + crypto_box_BOXZEROBYTES);
 
     memset(temp_plain, 0, crypto_box_ZEROBYTES);
     // Pad the message with 32 0 bytes.
@@ -175,17 +168,15 @@ int32_t encrypt_data_symmetric(const uint8_t *secret_key, const uint8_t *nonce,
 
     if (crypto_box_afternm(temp_encrypted, temp_plain, length + crypto_box_ZEROBYTES, nonce,
                            secret_key) != 0) {
-        crypto_free(temp_plain, size_temp_plain);
-        crypto_free(temp_encrypted, size_temp_encrypted);
+        free(temp_plain);
+        free(temp_encrypted);
         return -1;
     }
 
     // Unpad the encrypted message.
     memcpy(encrypted, temp_encrypted + crypto_box_BOXZEROBYTES, length + crypto_box_MACBYTES);
-
-    crypto_free(temp_plain, size_temp_plain);
-    crypto_free(temp_encrypted, size_temp_encrypted);
-
+    free(temp_plain);
+    free(temp_encrypted);
     return length + crypto_box_MACBYTES;
 }
 

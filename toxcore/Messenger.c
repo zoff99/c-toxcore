@@ -3179,6 +3179,9 @@ static uint32_t saved_friendsft_size(const Messenger *m)
                               + sizeof(uint32_t)
                               + (sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES * 2)
                           );
+
+    // LOGGER_ERROR(m->log, "save_bytes=%d", (int)save_bytes);
+
     return save_bytes;
 }
 
