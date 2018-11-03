@@ -44,6 +44,8 @@
 
 #define SET_ERROR_PARAMETER(param, x) do { if (param) { *param = x; } } while (0)
 
+bool global_filetransfer_is_resumable = false;
+
 #if TOX_HASH_LENGTH != CRYPTO_SHA256_SIZE
 #error "TOX_HASH_LENGTH is assumed to be equal to CRYPTO_SHA256_SIZE"
 #endif
@@ -2242,3 +2244,7 @@ bool tox_messagev2_get_message_text(const uint8_t *raw_message, uint32_t raw_mes
     return result;
 }
 
+void tox_set_filetransfer_resumable(bool value)
+{
+    global_filetransfer_is_resumable = value;
+}
