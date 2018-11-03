@@ -25,6 +25,8 @@
 #include "util.h"
 #include "tox.h"
 
+extern bool global_filetransfer_is_resumable;
+
 static int write_cryptpacket_id(const Messenger *m, int32_t friendnumber, uint8_t packet_id, const uint8_t *data,
                                 uint32_t length, uint8_t congestion_control);
 static void m_register_default_plugins(Messenger *m);
@@ -1677,29 +1679,43 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
  */
 static void break_files(const Messenger *m, int32_t friendnumber)
 {
-    // TODO(irungentoo): Inform the client which file transfers get killed with a callback?
-    for (uint32_t i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
+    if (global_filetransfer_is_resumable) {
 
-        m->friendlist[friendnumber].file_sending[i].needs_resend = 0;
-        m->friendlist[friendnumber].file_receiving[i].needs_resend = 0;
+        for (uint32_t i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
 
-        if (m->friendlist[friendnumber].file_sending[i].status != FILESTATUS_NONE) {
-            /* only reset avatar and msgV2 FTs, but NOT normal data FTs */
-            if (m->friendlist[friendnumber].file_sending[i].file_type != TOX_FILE_KIND_DATA) {
-                m->friendlist[friendnumber].file_sending[i].status = FILESTATUS_NONE;
-            } else {
-                if (m->friendlist[friendnumber].file_sending[i].status == FILESTATUS_TRANSFERRING) {
-                    m->friendlist[friendnumber].file_sending[i].needs_resend = 1;
-                    m->friendlist[friendnumber].file_sending[i].transferred =  m->friendlist[friendnumber].file_sending[i].transferred_prev;
-                    m->friendlist[friendnumber].file_sending[i].requested =  m->friendlist[friendnumber].file_sending[i].requested_prev;
+            m->friendlist[friendnumber].file_sending[i].needs_resend = 0;
+            m->friendlist[friendnumber].file_receiving[i].needs_resend = 0;
+
+            if (m->friendlist[friendnumber].file_sending[i].status != FILESTATUS_NONE) {
+                /* only reset avatar and msgV2 FTs, but NOT normal data FTs */
+                if (m->friendlist[friendnumber].file_sending[i].file_type != TOX_FILE_KIND_DATA) {
+                    m->friendlist[friendnumber].file_sending[i].status = FILESTATUS_NONE;
+                } else {
+                    if (m->friendlist[friendnumber].file_sending[i].status == FILESTATUS_TRANSFERRING) {
+                        m->friendlist[friendnumber].file_sending[i].needs_resend = 1;
+                        m->friendlist[friendnumber].file_sending[i].transferred =  m->friendlist[friendnumber].file_sending[i].transferred_prev;
+                        m->friendlist[friendnumber].file_sending[i].requested =  m->friendlist[friendnumber].file_sending[i].requested_prev;
+                    }
+                }
+            }
+
+            if (m->friendlist[friendnumber].file_receiving[i].status != FILESTATUS_NONE) {
+                /* only reset avatar and msgV2 FTs, but NOT normal data FTs */
+                if (m->friendlist[friendnumber].file_receiving[i].file_type != TOX_FILE_KIND_DATA) {
+                    m->friendlist[friendnumber].file_receiving[i].status = FILESTATUS_NONE;
                 }
             }
         }
+    } else {
+        for (uint32_t i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
+            if (m->friendlist[friendnumber].file_sending[i].status != FILESTATUS_NONE) {
+                m->friendlist[friendnumber].file_sending[i].status = FILESTATUS_NONE;
+                m->friendlist[friendnumber].file_sending[i].needs_resend = 0;
+            }
 
-        if (m->friendlist[friendnumber].file_receiving[i].status != FILESTATUS_NONE) {
-            /* only reset avatar and msgV2 FTs, but NOT normal data FTs */
-            if (m->friendlist[friendnumber].file_receiving[i].file_type != TOX_FILE_KIND_DATA) {
+            if (m->friendlist[friendnumber].file_receiving[i].status != FILESTATUS_NONE) {
                 m->friendlist[friendnumber].file_receiving[i].status = FILESTATUS_NONE;
+                m->friendlist[friendnumber].file_receiving[i].needs_resend = 0;
             }
         }
     }
