@@ -374,6 +374,9 @@ uint32_t tox_max_filename_length(void);
 uint32_t tox_max_hostname_length(void);
 
 
+void tox_set_filetransfer_resumable(bool value);
+
+
 /*******************************************************************************
  *
  * :: Global enumerations

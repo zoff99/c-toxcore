@@ -33,6 +33,8 @@
 
 #define SET_ERROR_PARAMETER(param, x) do { if (param) { *param = x; } } while (0)
 
+bool global_filetransfer_is_resumable = false;
+
 #if TOX_HASH_LENGTH != CRYPTO_SHA256_SIZE
 #error "TOX_HASH_LENGTH is assumed to be equal to CRYPTO_SHA256_SIZE"
 #endif
