@@ -193,7 +193,19 @@ static int send_online_packet(Messenger *m, int32_t friendnumber)
         return 0;
     }
 
+    uint8_t buf[TOX_CAPABILITIES_SIZE + 1];
+    buf[0] = PACKET_ID_ONLINE;
+    net_pack_u64(buf + 1, TOX_CAPABILITIES_CURRENT);
+
+    if (write_cryptpacket(m->net_crypto, friend_connection_crypt_connection_id(m->fr_c,
+                          m->friendlist[friendnumber].friendcon_id), buf, TOX_CAPABILITIES_SIZE + 1, 0) == -1) {
+        return -1;
+    }
+
+    LOGGER_WARNING(m->log, "send capabilties: %lld for friendnum: %d", TOX_CAPABILITIES_CURRENT, (int)friendnumber);
+
     uint8_t packet = PACKET_ID_ONLINE;
+    LOGGER_WARNING(m->log, "send online packet for friendnum: %d", (int)friendnumber);
     return write_cryptpacket(m->net_crypto, friend_connection_crypt_connection_id(m->fr_c,
                              m->friendlist[friendnumber].friendcon_id), &packet, sizeof(packet), 0) != -1;
 }
@@ -241,6 +253,7 @@ static int32_t init_new_friend(Messenger *m, const uint8_t *real_pk, uint8_t sta
             m->friendlist[i].userstatus = USERSTATUS_NONE;
             m->friendlist[i].is_typing = 0;
             m->friendlist[i].message_id = 0;
+            m->friendlist[i].toxcore_capabilities = TOX_CAPABILITY_BASIC;
             // set this value last, since its the key if we look at this entry
             m->friendlist[i].status = status;
 
@@ -1769,7 +1782,6 @@ static struct File_Transfers *get_file_transfer(uint8_t receive_send, uint8_t fi
     struct File_Transfers *ft;
 
     if (receive_send == 0) {
-        // TODO: what is happening here?
         *real_filenumber = (filenumber + 1) << 16;
         ft = &sender->file_receiving[filenumber];
     } else {
@@ -2313,6 +2325,19 @@ static int m_handle_status(void *object, int i, uint8_t status, void *userdata)
     return 0;
 }
 
+/* get capabilities of friend's toxcore
+ * return TOX_CAPABILITY_BASIC on any error
+ */
+uint64_t m_get_friend_toxcore_capabilities(const Messenger *m, int32_t friendnumber)
+{
+    if (friend_not_valid(m, friendnumber)) {
+        return TOX_CAPABILITY_BASIC;
+    }
+
+    // return toxcore_capabilities for friend, not matter if ONLINE or OFFLINE
+    return m->friendlist[friendnumber].toxcore_capabilities;
+}
+
 static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t len, void *userdata)
 {
     if (len == 0) {
@@ -2325,9 +2350,20 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
     uint32_t data_length = len - 1;
 
     if (m->friendlist[i].status != FRIEND_ONLINE) {
-        if (packet_id == PACKET_ID_ONLINE && len == 1) {
-            set_friend_status(m, i, FRIEND_ONLINE, userdata);
-            send_online_packet(m, i);
+        if (packet_id == PACKET_ID_ONLINE) {
+            if (len == (TOX_CAPABILITIES_SIZE + 1)) {
+                uint64_t received_caps;
+                net_unpack_u64(data, &received_caps);
+                m->friendlist[i].toxcore_capabilities = received_caps;
+                LOGGER_WARNING(m->log, "got capabilties: %lld friendnum: %d",
+                               m->friendlist[i].toxcore_capabilities, (int)i);
+            } else if (len == 1) {
+                set_friend_status(m, i, FRIEND_ONLINE, userdata);
+                send_online_packet(m, i);
+                LOGGER_WARNING(m->log, "got online packet for friendnum: %d", (int)i);
+            } else {
+                return -1;
+            }
         } else {
             return -1;
         }
