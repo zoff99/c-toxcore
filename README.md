@@ -10,7 +10,7 @@ some of the subjects we are teaching here are:<br><br>
 - [x] automatic Video bandwith control
 - [x] additional threads for A/V
 - [x] fix some thread safety issues (see: https://github.com/TokTok/c-toxcore/issues/956)
-- [x] resumable Filetransfers (even across restarts)
+- [ ] resumable Filetransfers, even across restarts (inside c-toxcore)
 
 
 
