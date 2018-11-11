@@ -1632,7 +1632,7 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
     // older clients do not send the frame record timestamp
     // compensate by using the frame sennt timestamp
     if (msg->header.frame_record_timestamp == 0) {
-        LOGGER_ERROR(vc->log, "old client:001");
+        LOGGER_DEBUG(vc->log, "old client:001");
         msg->header.frame_record_timestamp = msg->header.timestamp;
     }
 
