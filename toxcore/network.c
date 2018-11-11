@@ -633,7 +633,7 @@ void networking_poll(Networking_Core *net, void *userdata)
         }
 
         if (!(net->packethandlers[data[0]].function)) {
-            LOGGER_WARNING(net->log, "[%02u] -- Packet has no handler", data[0]);
+            LOGGER_DEBUG(net->log, "[%02u] -- Packet has no handler", data[0]);
             continue;
         }
 
