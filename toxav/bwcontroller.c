@@ -205,7 +205,7 @@ static int on_update(BWController *bwc, const struct BWCMessage *msg)
 
     /* Peers sent update too soon */
     if ((bwc->cycle.last_recv_timestamp + (BWC_SEND_INTERVAL_MS / 2)) > current_time_monotonic(bwc->m->mono_time)) {
-        LOGGER_INFO(bwc->m->log, "%p Rejecting extra update", (void *)bwc);
+        LOGGER_DEBUG(bwc->m->log, "%p Rejecting extra update", (void *)bwc);
         return -1;
     }
 
