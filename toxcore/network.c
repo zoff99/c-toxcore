@@ -474,7 +474,7 @@ uint16_t net_port(const Networking_Core *net)
 int sendpacket(Networking_Core *net, IP_Port ip_port, const uint8_t *data, uint16_t length)
 {
     if (net_family_is_unspec(net->family)) { /* Socket not initialized */
-        LOGGER_ERROR(net->log, "attempted to send message of length %u on uninitialised socket", (unsigned)length);
+        LOGGER_DEBUG(net->log, "attempted to send message of length %u on uninitialised socket", (unsigned)length);
         return -1;
     }
 
@@ -522,7 +522,7 @@ int sendpacket(Networking_Core *net, IP_Port ip_port, const uint8_t *data, uint1
         addr6->sin6_flowinfo = 0;
         addr6->sin6_scope_id = 0;
     } else {
-        LOGGER_WARNING(net->log, "unknown address type: %d", ip_port.ip.family.value);
+        LOGGER_DEBUG(net->log, "unknown address type: %d", ip_port.ip.family.value);
         return -1;
     }
 
