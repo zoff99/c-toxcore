@@ -703,7 +703,7 @@ int file_control(const Messenger *m, int32_t friendnumber, uint32_t filenumber, 
  *  return -6 if position bad.
  *  return -8 if packet failed to send.
  */
-int file_seek(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uint64_t position);
+int file_seek(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uint64_t position, const bool resume_ft);
 
 /* Send file data.
  *
