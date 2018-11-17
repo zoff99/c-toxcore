@@ -462,6 +462,13 @@ static void file_transfer_test(void)
 
 
 
+
+
+
+
+
+
+
     // ========= now test resumable FTs ========= //
     tox_set_filetransfer_resumable(true);
 
@@ -534,7 +541,7 @@ static void file_transfer_test(void)
              tox_friend_get_connection_status(tox3, 0, nullptr) == TOX_CONNECTION_NONE);
 
 
-    printf("Starting resumable file transfer test: 100KiB file.\n");
+    printf("Starting resumable file transfer test\n");
 
     max_sending = UINT64_MAX;
     f_time = time(nullptr);
@@ -645,6 +652,20 @@ static void file_transfer_test(void)
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     // -- sender goes offline in the middle of the FT --
     printf("sender goes offline in the middle of the FT\n");
     file_sending_done = 0;
@@ -713,7 +734,7 @@ static void file_transfer_test(void)
              tox_friend_get_connection_status(tox3, 0, nullptr) == TOX_CONNECTION_NONE);
 
 
-    printf("Starting resumable file transfer test: 100KiB file.\n");
+    printf("Starting resumable file transfer test\n");
 
     max_sending = UINT64_MAX;
     f_time = time(nullptr);
@@ -821,6 +842,230 @@ static void file_transfer_test(void)
 
     free(file_resume_mem_send);
     free(file_resume_mem_recv);
+
+
+
+
+
+
+
+
+
+
+    // ========= now test resumable FTs ========= //
+    tox_set_filetransfer_resumable(true);
+
+    // -- receiver goes offline and restarts in the middle of the FT --
+    printf("receiver goes offline and restarts in the middle of the FT\n");
+
+    file_sending_done = 0;
+    file_accepted = 0;
+    file_size = 0;
+    sendf_ok = 0;
+    size_recv = 0;
+    file_recv = 0;
+
+    totalf_size = 300 * 1024;
+
+    file_resume_mem_send = calloc(1, totalf_size);
+    file_resume_mem_recv = calloc(1, totalf_size);
+
+    for(int ii = 0; ii < totalf_size; ii++)
+    {
+        file_resume_mem_send[ii] = (uint8_t) random();
+    }
+
+    ck_assert_msg(memcmp(file_resume_mem_send, file_resume_mem_recv, totalf_size) != 0, "INPUT and OUTPUT are the same, Not OK");
+
+
+    tox1 = tox_new_log(nullptr, &t_n_error, &index[0]);
+    ck_assert_msg(t_n_error == TOX_ERR_NEW_OK, "wrong error");
+    tox2 = tox_new_log(nullptr, &t_n_error, &index[1]);
+    ck_assert_msg(t_n_error == TOX_ERR_NEW_OK, "wrong error");
+    tox3 = tox_new_log(nullptr, &t_n_error, &index[2]);
+    ck_assert_msg(t_n_error == TOX_ERR_NEW_OK, "wrong error");
+
+    ck_assert_msg(tox1 && tox2 && tox3, "Failed to create 3 tox instances");
+
+    tox_callback_friend_request(tox2, accept_friend_request);
+    tox_self_get_address(tox2, address);
+    test = tox_friend_add(tox3, address, (const uint8_t *)"Gentoo", 7, nullptr);
+    ck_assert_msg(test == 0, "Failed to add friend error code: %u", test);
+
+    tox_self_get_dht_id(tox1, dhtKey);
+    dhtPort = tox_self_get_udp_port(tox1, nullptr);
+
+    tox_bootstrap(tox2, TOX_LOCALHOST, dhtPort, dhtKey, nullptr);
+    tox_bootstrap(tox3, TOX_LOCALHOST, dhtPort, dhtKey, nullptr);
+
+    printf("Waiting for toxes to come online\n");
+
+    // tox1 is just to bootstrap
+    // tox3 adds tox2 as friend
+
+    do {
+        tox_iterate(tox1, nullptr);
+        tox_iterate(tox2, nullptr);
+        tox_iterate(tox3, nullptr);
+
+/*
+        printf("Connections: self (%d, %d, %d), friends (%d, %d)\n",
+               tox_self_get_connection_status(tox1),
+               tox_self_get_connection_status(tox2),
+               tox_self_get_connection_status(tox3),
+               tox_friend_get_connection_status(tox2, 0, nullptr),
+               tox_friend_get_connection_status(tox3, 0, nullptr));
+*/
+        c_sleep(ITERATION_INTERVAL);
+    } while (tox_self_get_connection_status(tox1) == TOX_CONNECTION_NONE ||
+             tox_self_get_connection_status(tox2) == TOX_CONNECTION_NONE ||
+             tox_self_get_connection_status(tox3) == TOX_CONNECTION_NONE ||
+             tox_friend_get_connection_status(tox2, 0, nullptr) == TOX_CONNECTION_NONE ||
+             tox_friend_get_connection_status(tox3, 0, nullptr) == TOX_CONNECTION_NONE);
+
+
+    printf("Starting resumable file transfer test\n");
+
+    max_sending = UINT64_MAX;
+    f_time = time(nullptr);
+    tox_callback_file_recv_chunk(tox3, write_file2);
+    tox_callback_file_recv_control(tox2, file_print_control2);
+    tox_callback_file_chunk_request(tox2, tox_file_chunk_request2);
+    tox_callback_file_recv_control(tox3, file_print_control2);
+    tox_callback_file_recv(tox3, tox_file_receive2);
+    fnum = tox_file_send(tox2, 0, TOX_FILE_KIND_DATA, totalf_size, nullptr, (const uint8_t *)"Gentoo.exe",
+                                  sizeof("Gentoo.exe"), nullptr);
+    ck_assert_msg(fnum != UINT32_MAX, "tox_new_file_sender fail");
+
+    ck_assert_msg(!tox_file_get_file_id(tox2, 1, fnum, file_cmp_id, &gfierr), "tox_file_get_file_id didn't fail");
+    ck_assert_msg(gfierr == TOX_ERR_FILE_GET_FRIEND_NOT_FOUND, "wrong error");
+    ck_assert_msg(!tox_file_get_file_id(tox2, 0, fnum + 1, file_cmp_id, &gfierr), "tox_file_get_file_id didn't fail");
+    ck_assert_msg(gfierr == TOX_ERR_FILE_GET_NOT_FOUND, "wrong error");
+    ck_assert_msg(tox_file_get_file_id(tox2, 0, fnum, file_cmp_id, &gfierr), "tox_file_get_file_id failed");
+    ck_assert_msg(gfierr == TOX_ERR_FILE_GET_OK, "wrong error");
+
+    max_iterations2 = INT16_MAX;
+
+    go_offline = 0;
+
+    for (size_t i = 0; i < max_iterations2; i++) {
+        tox_iterate(tox1, nullptr);
+        tox_iterate(tox2, nullptr);
+
+        // printf("[+] size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
+
+        if ((size_recv >= 2000) && (go_offline == 0))
+        {
+            go_offline = 1;
+            printf("tox3 will go offline\n");
+            printf("size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
+        }
+        
+        if ((go_offline >= 3) || (go_offline == 0))
+        {
+            tox_iterate(tox3, nullptr);
+            if (go_offline >= 3)
+            {
+                // printf("[CNT] size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
+            }
+        }
+        
+        if ((go_offline == 1) || (go_offline == 2))
+        {
+            go_offline = 2;
+
+            if (tox_friend_get_connection_status(tox2, 0, nullptr) == TOX_CONNECTION_NONE)
+            {
+                printf("tox3 fully offline\n");
+                printf("size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
+                go_offline = 3;
+                
+                // get tox save data
+                size_t savedata_size = tox_get_savedata_size(tox3);
+                uint8_t *savedata = (uint8_t *)calloc(1, savedata_size);
+                tox_get_savedata(tox3, savedata);
+
+                // stop tox3
+                tox_kill(tox3);
+
+                // startup tox3
+                struct Tox_Options options2;
+                tox_options_default(&options2);
+
+                options2.savedata_type = TOX_SAVEDATA_TYPE_TOX_SAVE;
+                options2.savedata_data = savedata;
+                options2.savedata_length = savedata_size;
+
+                Tox_Err_New err2;
+                tox3 = tox_new_log(&options2, &err2, &index[2]);
+                ck_assert_msg(err2 == TOX_ERR_NEW_OK, "wrong error");
+
+                tox_self_get_dht_id(tox1, dhtKey);
+                dhtPort = tox_self_get_udp_port(tox1, nullptr);
+
+                tox_bootstrap(tox3, TOX_LOCALHOST, dhtPort, dhtKey, nullptr);                
+
+                tox_callback_file_recv_chunk(tox3, write_file2);
+                tox_callback_file_recv_control(tox3, file_print_control2);
+                tox_callback_file_recv(tox3, tox_file_receive2);
+
+                free(savedata);
+            }
+        }
+
+        if (go_offline == 3)
+        {
+            if (tox_friend_get_connection_status(tox2, 0, nullptr) != TOX_CONNECTION_NONE)
+            {
+                printf("tox3 online again\n");
+                printf("size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
+                go_offline = 4;
+            }
+        }
+
+        if (file_sending_done) {
+            ck_assert_msg(sendf_ok && file_recv && totalf_size == file_size && size_recv == file_size && sending_pos == size_recv
+                          && file_accepted == 1,
+                          "Something went wrong in file transfer %u %u %u %u %u %u %lu %lu %lu",
+                          sendf_ok, file_recv, totalf_size == file_size, size_recv == file_size, sending_pos == size_recv,
+                          file_accepted == 1, (unsigned long)totalf_size, (unsigned long)size_recv,
+                          (unsigned long)sending_pos);
+            break;
+        }
+
+        uint32_t tox1_interval = tox_iteration_interval(tox1);
+        uint32_t tox2_interval = tox_iteration_interval(tox2);
+        uint32_t tox3_interval = tox_iteration_interval(tox3);
+
+        if ((i + 1) % 100 == 0) {
+            printf("after %u iterations: %.2fKiB done\n", (unsigned int)i + 1, (double)size_recv / 1024);
+        }
+
+        c_sleep(min_u32(tox1_interval, min_u32(tox2_interval, tox3_interval)));
+    }
+
+    ck_assert_msg(file_sending_done, "file sending did not complete after %u iterations: sendf_ok:%u file_recv:%u "
+                  "totalf_size==file_size:%u size_recv==file_size:%u sending_pos==size_recv:%u file_accepted:%u "
+                  "totalf_size:%lu size_recv:%lu sending_pos:%lu",
+                  (unsigned int)max_iterations2, sendf_ok, file_recv,
+                  totalf_size == file_size, size_recv == file_size, sending_pos == size_recv, file_accepted == 1,
+                  (unsigned long)totalf_size, (unsigned long)size_recv,
+                  (unsigned long)sending_pos);
+
+    printf("file sent in %lu seconds\n", (unsigned long)(time(nullptr) - f_time));
+
+
+    tox_kill(tox1);
+    tox_kill(tox2);
+    tox_kill(tox3);
+
+    ck_assert_msg(memcmp(file_resume_mem_send, file_resume_mem_recv, totalf_size) == 0, "FILE_CORRUPTED");
+
+    free(file_resume_mem_send);
+    free(file_resume_mem_recv);
+
+
+
 
 }
 
