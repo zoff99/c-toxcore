@@ -25,6 +25,8 @@
 #include "util.h"
 #include "tox.h"
 
+// #define FT_RECV_SEND_DEBUG 1
+
 extern bool global_filetransfer_is_resumable;
 
 static int write_cryptpacket_id(const Messenger *m, int32_t friendnumber, uint8_t packet_id, const uint8_t *data,
@@ -191,10 +193,10 @@ static int send_online_packet(Messenger *m, int32_t friendnumber)
         return -1;
     }
 
-    LOGGER_WARNING(m->log, "send capabilties: %lld for friendnum: %d", TOX_CAPABILITIES_CURRENT, (int)friendnumber);
+    LOGGER_DEBUG(m->log, "send capabilties: %lld for friendnum: %d", TOX_CAPABILITIES_CURRENT, (int)friendnumber);
 
     uint8_t packet = PACKET_ID_ONLINE;
-    LOGGER_WARNING(m->log, "send online packet for friendnum: %d", (int)friendnumber);
+    LOGGER_DEBUG(m->log, "send online packet for friendnum: %d", (int)friendnumber);
     return write_cryptpacket(m->net_crypto, friend_connection_crypt_connection_id(m->fr_c,
                              m->friendlist[friendnumber].friendcon_id), &packet, sizeof(packet), 0) != -1;
 }
@@ -1371,7 +1373,7 @@ int file_control(const Messenger *m, int32_t friendnumber, uint32_t filenumber, 
  *  return -6 if position bad.
  *  return -8 if packet failed to send.
  */
-int file_seek(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uint64_t position)
+int file_seek(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uint64_t position, const bool resume_ft)
 {
     if (!friend_is_valid(m, friendnumber)) {
         return -1;
@@ -1402,8 +1404,58 @@ int file_seek(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uin
         return -3;
     }
 
-    if (ft->status != FILESTATUS_NOT_ACCEPTED) {
-        return -5;
+    if (!resume_ft) {
+        if (ft->status != FILESTATUS_NOT_ACCEPTED) {
+            return -5;
+        }
+    }
+
+    if (position >= ft->size) {
+        return -6;
+    }
+
+    uint64_t sending_pos = position;
+    host_to_net((uint8_t *)&sending_pos, sizeof(sending_pos));
+
+    if (send_file_control_packet(m, friendnumber, 1, file_number, FILECONTROL_SEEK, (uint8_t *)&sending_pos,
+                                 sizeof(sending_pos))) {
+        ft->transferred = position;
+    } else {
+        return -8;
+    }
+
+    return 0;
+}
+
+int file_seek_for_resume(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uint64_t position,
+                         const bool resume_ft)
+{
+    if (friend_not_valid(m, friendnumber)) {
+        return -1;
+    }
+
+    if (m->friendlist[friendnumber].status != FRIEND_ONLINE) {
+        return -2;
+    }
+
+    if (filenumber >= MAX_CONCURRENT_FILE_PIPES) {
+        return -3;
+    }
+
+    assert(filenumber <= UINT8_MAX);
+    uint8_t file_number = filenumber;
+
+    // We're always receiving at this point.
+    struct File_Transfers *ft = &m->friendlist[friendnumber].file_receiving[file_number];
+
+    if (ft->status == FILESTATUS_NONE) {
+        return -3;
+    }
+
+    if (!resume_ft) {
+        if (ft->status != FILESTATUS_NOT_ACCEPTED) {
+            return -5;
+        }
     }
 
     if (position >= ft->size) {
@@ -1502,12 +1554,13 @@ int file_data(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uin
         return -6;
     }
 
+#ifdef FT_RECV_SEND_DEBUG
+    LOGGER_WARNING(m->log, "SEND:tr=%u pos=%u [before]", ft->transferred, position);
+#endif
+
     int64_t packet_number = send_file_data_packet(m, friendnumber, filenumber, data, length);
 
     if (packet_number != -1) {
-        if (ft->needs_resend == 1) {
-            ft->needs_resend = 0;
-        }
 
         ft->transferred += length;
 
@@ -1557,6 +1610,11 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
         if (ft->status != FILESTATUS_NONE) {
             any_active_fts = true;
             --num;
+
+            if (ft->needs_resend == 1) {
+                // FT is in "resend" mode, we need to wait for the seek information before starting to send again
+                continue;
+            }
 
             // If the file transfer is complete, we request a chunk of size 0.
             if (ft->status == FILESTATUS_FINISHED &&
@@ -1628,6 +1686,35 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
 /* call a function to iterate over all sending (not receiving) filetransfers */
 static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdata)
 {
+    // check if we need to send SEEK for any incoming but resumed FTs
+    if (global_filetransfer_is_resumable) {
+
+        for (uint32_t i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
+
+            if (m->friendlist[friendnumber].file_receiving[i].status != FILESTATUS_NONE) {
+                /* only reset avatar and msgV2 FTs, but NOT normal data FTs */
+                if (m->friendlist[friendnumber].file_receiving[i].file_type != TOX_FILE_KIND_DATA) {
+                } else {
+                    if (m->friendlist[friendnumber].file_receiving[i].needs_resend == 1) {
+                        // send seek to correct position
+                        int res = file_seek_for_resume(m, friendnumber, i,
+                                                       m->friendlist[friendnumber].file_receiving[i].transferred, true);
+
+                        LOGGER_WARNING(m->log, "sending SEEK for FT resume ft-num=%d fnum=%d pos=%u res=%d",
+                                       (int)i, (int)friendnumber,
+                                       (long)m->friendlist[friendnumber].file_receiving[i].transferred,
+                                       res);
+
+
+                        if (res == 0) {
+                            m->friendlist[friendnumber].file_receiving[i].needs_resend = 0;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // We're not currently doing any file transfers.
     if (m->friendlist[friendnumber].num_sending_files == 0) {
         return;
@@ -1681,8 +1768,8 @@ static void break_files(const Messenger *m, int32_t friendnumber)
                 } else {
                     if (m->friendlist[friendnumber].file_sending[i].status == FILESTATUS_TRANSFERRING) {
                         m->friendlist[friendnumber].file_sending[i].needs_resend = 1;
-                        m->friendlist[friendnumber].file_sending[i].transferred =  m->friendlist[friendnumber].file_sending[i].transferred_prev;
-                        m->friendlist[friendnumber].file_sending[i].requested =  m->friendlist[friendnumber].file_sending[i].requested_prev;
+                        // m->friendlist[friendnumber].file_sending[i].transferred =  m->friendlist[friendnumber].file_sending[i].transferred_prev;
+                        // m->friendlist[friendnumber].file_sending[i].requested =  m->friendlist[friendnumber].file_sending[i].requested_prev;
                     }
                 }
             }
@@ -1691,6 +1778,8 @@ static void break_files(const Messenger *m, int32_t friendnumber)
                 /* only reset avatar and msgV2 FTs, but NOT normal data FTs */
                 if (m->friendlist[friendnumber].file_receiving[i].file_type != TOX_FILE_KIND_DATA) {
                     m->friendlist[friendnumber].file_receiving[i].status = FILESTATUS_NONE;
+                } else {
+                    m->friendlist[friendnumber].file_receiving[i].needs_resend = 1;
                 }
             }
         }
@@ -1812,21 +1901,35 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, uint8_t receiv
                 return -1;
             }
 
-            /* seek can only be sent by the receiver to seek before resuming broken transfers. */
-            if (ft->status != FILESTATUS_NOT_ACCEPTED || !receive_send) {
-                LOGGER_DEBUG(m->log,
-                             "file control (friend %d, file %d): seek was either sent by a sender or by the receiver after accepting",
-                             friendnumber, filenumber);
-                return -1;
+            /* seek can only be sent by the receiver to seek */
+
+            if ((ft->needs_resend == 1) && (receive_send)) {
+            } else {
+                if (ft->status != FILESTATUS_NOT_ACCEPTED || !receive_send) {
+                    LOGGER_DEBUG(m->log,
+                                 "file control (friend %d, file %d): seek was either sent by a sender or by the receiver after accepting",
+                                 friendnumber, filenumber);
+                    return -1;
+                }
             }
 
             net_unpack_u64(data, &position);
+
+            LOGGER_WARNING(m->log, "file control (friend %d, file %d): received SEEK %u",
+                           friendnumber, filenumber, position);
 
             if (position >= ft->size) {
                 LOGGER_DEBUG(m->log,
                              "file control (friend %d, file %d): seek position %ld exceeds file size %ld",
                              friendnumber, filenumber, (unsigned long)position, (unsigned long)ft->size);
                 return -1;
+            }
+
+            if ((ft->needs_resend == 1) && (receive_send)) {
+                // after seek position is set, reset resend flag
+                ft->needs_resend = 0;
+                LOGGER_WARNING(m->log, "file control (friend %d, file %d): received SEEK OK %u",
+                               friendnumber, filenumber, position);
             }
 
             ft->requested = position;
@@ -2206,12 +2309,12 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
                 uint64_t received_caps;
                 net_unpack_u64(data, &received_caps);
                 m->friendlist[i].toxcore_capabilities = received_caps;
-                LOGGER_WARNING(m->log, "got capabilties: %lld friendnum: %d",
-                               m->friendlist[i].toxcore_capabilities, (int)i);
+                LOGGER_DEBUG(m->log, "got capabilties: %lld friendnum: %d",
+                             m->friendlist[i].toxcore_capabilities, (int)i);
             } else if (len == 1) {
                 set_friend_status(m, i, FRIEND_ONLINE, userdata);
                 send_online_packet(m, i);
-                LOGGER_WARNING(m->log, "got online packet for friendnum: %d", (int)i);
+                LOGGER_DEBUG(m->log, "got online packet for friendnum: %d", (int)i);
             } else {
                 return -1;
             }
@@ -2484,6 +2587,10 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
                 break;
             }
 
+#ifdef FT_RECV_SEND_DEBUG
+            LOGGER_WARNING(m->log, "RECV:ft->transferred=%u [before]", ft->transferred);
+#endif
+
             uint64_t position = ft->transferred;
             uint32_t real_filenumber = filenumber;
             real_filenumber += 1;
@@ -2507,6 +2614,10 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
             }
 
             ft->transferred += file_data_length;
+
+#ifdef FT_RECV_SEND_DEBUG
+            LOGGER_WARNING(m->log, "RECV:ft->transferred=%u [after]", ft->transferred);
+#endif
 
             if (file_data_length && (ft->transferred >= ft->size || file_data_length != MAX_FILE_DATA_SIZE)) {
                 file_data_length = 0;
