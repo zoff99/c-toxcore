@@ -1314,7 +1314,7 @@ bool tox_file_seek(Tox *tox, uint32_t friend_number, uint32_t file_number, uint6
                    Tox_Err_File_Seek *error)
 {
     Messenger *m = tox->m;
-    const int ret = file_seek(m, friend_number, file_number, position);
+    int ret = file_seek(m, friend_number, file_number, position, false);
 
     if (ret == 0) {
         SET_ERROR_PARAMETER(error, TOX_ERR_FILE_SEEK_OK);
