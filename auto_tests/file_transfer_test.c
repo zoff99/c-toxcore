@@ -89,7 +89,7 @@ static void tox_file_receive(Tox *tox, uint32_t friend_number, uint32_t file_num
 }
 
 static void tox_file_receive2(Tox *tox, uint32_t friend_number, uint32_t file_number, uint32_t kind, uint64_t filesize,
-                             const uint8_t *filename, size_t filename_length, void *userdata)
+                              const uint8_t *filename, size_t filename_length, void *userdata)
 {
     ck_assert_msg(kind == TOX_FILE_KIND_DATA, "bad kind");
 
@@ -128,7 +128,7 @@ static void file_print_control(Tox *tox, uint32_t friend_number, uint32_t file_n
 }
 
 static void file_print_control2(Tox *tox, uint32_t friend_number, uint32_t file_number, Tox_File_Control control,
-                               void *userdata)
+                                void *userdata)
 {
     /* First send file num is 0.*/
     if (file_number == 0 && control == TOX_FILE_CONTROL_RESUME) {
@@ -177,7 +177,7 @@ static void tox_file_chunk_request(Tox *tox, uint32_t friend_number, uint32_t fi
 }
 
 static void tox_file_chunk_request2(Tox *tox, uint32_t friend_number, uint32_t file_number, uint64_t position,
-                                   size_t length, void *user_data)
+                                    size_t length, void *user_data)
 {
     ck_assert_msg(sendf_ok, "didn't get resume control");
 
@@ -198,7 +198,7 @@ static void tox_file_chunk_request2(Tox *tox, uint32_t friend_number, uint32_t f
 
     Tox_Err_File_Send_Chunk error;
     tox_file_send_chunk(tox, friend_number, file_number, position,
-            (uint8_t *)(file_resume_mem_send + position), length, &error);
+                        (uint8_t *)(file_resume_mem_send + position), length, &error);
 
 
     ck_assert_msg(error == TOX_ERR_FILE_SEND_CHUNK_OK,
@@ -230,7 +230,7 @@ static void write_file(Tox *tox, uint32_t friendnumber, uint32_t filenumber, uin
 }
 
 static void write_file2(Tox *tox, uint32_t friendnumber, uint32_t filenumber, uint64_t position, const uint8_t *data,
-                       size_t length, void *user_data)
+                        size_t length, void *user_data)
 {
     ck_assert_msg(size_recv == position, "bad position");
 
@@ -243,8 +243,8 @@ static void write_file2(Tox *tox, uint32_t friendnumber, uint32_t filenumber, ui
     memcpy((file_resume_mem_recv + position), data, length);
 
     ck_assert_msg(memcmp((file_resume_mem_send + position),
-                (file_resume_mem_recv + position),
-                length) == 0, "FILE_CORRUPTED");
+                         (file_resume_mem_recv + position),
+                         length) == 0, "FILE_CORRUPTED");
 
     size_recv = position + length;
 }
@@ -285,14 +285,14 @@ static void file_transfer_test(void)
         tox_iterate(tox2, nullptr);
         tox_iterate(tox3, nullptr);
 
-/*
-        printf("Connections: self (%d, %d, %d), friends (%d, %d)\n",
-               tox_self_get_connection_status(tox1),
-               tox_self_get_connection_status(tox2),
-               tox_self_get_connection_status(tox3),
-               tox_friend_get_connection_status(tox2, 0, nullptr),
-               tox_friend_get_connection_status(tox3, 0, nullptr));
-*/
+        /*
+                printf("Connections: self (%d, %d, %d), friends (%d, %d)\n",
+                       tox_self_get_connection_status(tox1),
+                       tox_self_get_connection_status(tox2),
+                       tox_self_get_connection_status(tox3),
+                       tox_friend_get_connection_status(tox2, 0, nullptr),
+                       tox_friend_get_connection_status(tox3, 0, nullptr));
+        */
         c_sleep(ITERATION_INTERVAL);
     } while (tox_self_get_connection_status(tox1) == TOX_CONNECTION_NONE ||
              tox_self_get_connection_status(tox2) == TOX_CONNECTION_NONE ||
@@ -487,12 +487,12 @@ static void file_transfer_test(void)
     file_resume_mem_send = calloc(1, totalf_size);
     file_resume_mem_recv = calloc(1, totalf_size);
 
-    for(int ii = 0; ii < totalf_size; ii++)
-    {
+    for (int ii = 0; ii < totalf_size; ii++) {
         file_resume_mem_send[ii] = (uint8_t) random();
     }
 
-    ck_assert_msg(memcmp(file_resume_mem_send, file_resume_mem_recv, totalf_size) != 0, "INPUT and OUTPUT are the same, Not OK");
+    ck_assert_msg(memcmp(file_resume_mem_send, file_resume_mem_recv, totalf_size) != 0,
+                  "INPUT and OUTPUT are the same, Not OK");
 
 
     tox1 = tox_new_log(nullptr, &t_n_error, &index[0]);
@@ -525,14 +525,14 @@ static void file_transfer_test(void)
         tox_iterate(tox2, nullptr);
         tox_iterate(tox3, nullptr);
 
-/*
-        printf("Connections: self (%d, %d, %d), friends (%d, %d)\n",
-               tox_self_get_connection_status(tox1),
-               tox_self_get_connection_status(tox2),
-               tox_self_get_connection_status(tox3),
-               tox_friend_get_connection_status(tox2, 0, nullptr),
-               tox_friend_get_connection_status(tox3, 0, nullptr));
-*/
+        /*
+                printf("Connections: self (%d, %d, %d), friends (%d, %d)\n",
+                       tox_self_get_connection_status(tox1),
+                       tox_self_get_connection_status(tox2),
+                       tox_self_get_connection_status(tox3),
+                       tox_friend_get_connection_status(tox2, 0, nullptr),
+                       tox_friend_get_connection_status(tox3, 0, nullptr));
+        */
         c_sleep(ITERATION_INTERVAL);
     } while (tox_self_get_connection_status(tox1) == TOX_CONNECTION_NONE ||
              tox_self_get_connection_status(tox2) == TOX_CONNECTION_NONE ||
@@ -551,7 +551,7 @@ static void file_transfer_test(void)
     tox_callback_file_recv_control(tox3, file_print_control2);
     tox_callback_file_recv(tox3, tox_file_receive2);
     fnum = tox_file_send(tox2, 0, TOX_FILE_KIND_DATA, totalf_size, nullptr, (const uint8_t *)"Gentoo.exe",
-                                  sizeof("Gentoo.exe"), nullptr);
+                         sizeof("Gentoo.exe"), nullptr);
     ck_assert_msg(fnum != UINT32_MAX, "tox_new_file_sender fail");
 
     ck_assert_msg(!tox_file_get_file_id(tox2, 1, fnum, file_cmp_id, &gfierr), "tox_file_get_file_id didn't fail");
@@ -571,40 +571,34 @@ static void file_transfer_test(void)
 
         // printf("[+] size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
 
-        if ((size_recv >= 2000) && (go_offline == 0))
-        {
+        if ((size_recv >= 2000) && (go_offline == 0)) {
             go_offline = 1;
             printf("tox3 will go offline\n");
-            printf("size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
+            printf("size_recv=%lu sending_pos=%lu\n", (unsigned long)size_recv, (unsigned long)sending_pos);
         }
-        
-        if ((go_offline >= 3) || (go_offline == 0))
-        {
+
+        if ((go_offline >= 3) || (go_offline == 0)) {
             tox_iterate(tox3, nullptr);
-            if (go_offline >= 3)
-            {
+
+            if (go_offline >= 3) {
                 // printf("[CNT] size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
             }
         }
-        
-        if ((go_offline == 1) || (go_offline == 2))
-        {
+
+        if ((go_offline == 1) || (go_offline == 2)) {
             go_offline = 2;
 
-            if (tox_friend_get_connection_status(tox2, 0, nullptr) == TOX_CONNECTION_NONE)
-            {
+            if (tox_friend_get_connection_status(tox2, 0, nullptr) == TOX_CONNECTION_NONE) {
                 printf("tox3 fully offline\n");
-                printf("size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
+                printf("size_recv=%lu sending_pos=%lu\n", (unsigned long)size_recv, (unsigned long)sending_pos);
                 go_offline = 3;
             }
         }
 
-        if (go_offline == 3)
-        {
-            if (tox_friend_get_connection_status(tox2, 0, nullptr) != TOX_CONNECTION_NONE)
-            {
+        if (go_offline == 3) {
+            if (tox_friend_get_connection_status(tox2, 0, nullptr) != TOX_CONNECTION_NONE) {
                 printf("tox3 online again\n");
-                printf("size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
+                printf("size_recv=%lu sending_pos=%lu\n", (unsigned long)size_recv, (unsigned long)sending_pos);
                 go_offline = 4;
             }
         }
@@ -680,12 +674,12 @@ static void file_transfer_test(void)
     file_resume_mem_send = calloc(1, totalf_size);
     file_resume_mem_recv = calloc(1, totalf_size);
 
-    for(int ii = 0; ii < totalf_size; ii++)
-    {
+    for (int ii = 0; ii < totalf_size; ii++) {
         file_resume_mem_send[ii] = (uint8_t) random();
     }
 
-    ck_assert_msg(memcmp(file_resume_mem_send, file_resume_mem_recv, totalf_size) != 0, "INPUT and OUTPUT are the same, Not OK");
+    ck_assert_msg(memcmp(file_resume_mem_send, file_resume_mem_recv, totalf_size) != 0,
+                  "INPUT and OUTPUT are the same, Not OK");
 
 
     tox1 = tox_new_log(nullptr, &t_n_error, &index[0]);
@@ -718,14 +712,14 @@ static void file_transfer_test(void)
         tox_iterate(tox2, nullptr);
         tox_iterate(tox3, nullptr);
 
-/*
-        printf("Connections: self (%d, %d, %d), friends (%d, %d)\n",
-               tox_self_get_connection_status(tox1),
-               tox_self_get_connection_status(tox2),
-               tox_self_get_connection_status(tox3),
-               tox_friend_get_connection_status(tox2, 0, nullptr),
-               tox_friend_get_connection_status(tox3, 0, nullptr));
-*/
+        /*
+                printf("Connections: self (%d, %d, %d), friends (%d, %d)\n",
+                       tox_self_get_connection_status(tox1),
+                       tox_self_get_connection_status(tox2),
+                       tox_self_get_connection_status(tox3),
+                       tox_friend_get_connection_status(tox2, 0, nullptr),
+                       tox_friend_get_connection_status(tox3, 0, nullptr));
+        */
         c_sleep(ITERATION_INTERVAL);
     } while (tox_self_get_connection_status(tox1) == TOX_CONNECTION_NONE ||
              tox_self_get_connection_status(tox2) == TOX_CONNECTION_NONE ||
@@ -744,7 +738,7 @@ static void file_transfer_test(void)
     tox_callback_file_recv_control(tox3, file_print_control2);
     tox_callback_file_recv(tox3, tox_file_receive2);
     fnum = tox_file_send(tox2, 0, TOX_FILE_KIND_DATA, totalf_size, nullptr, (const uint8_t *)"Gentoo.exe",
-                                  sizeof("Gentoo.exe"), nullptr);
+                         sizeof("Gentoo.exe"), nullptr);
     ck_assert_msg(fnum != UINT32_MAX, "tox_new_file_sender fail");
 
     ck_assert_msg(!tox_file_get_file_id(tox2, 1, fnum, file_cmp_id, &gfierr), "tox_file_get_file_id didn't fail");
@@ -764,40 +758,34 @@ static void file_transfer_test(void)
 
         // printf("[+] size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
 
-        if ((size_recv >= 2000) && (go_offline == 0))
-        {
+        if ((size_recv >= 2000) && (go_offline == 0)) {
             go_offline = 1;
             printf("tox2 will go offline\n");
-            printf("size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
+            printf("size_recv=%lu sending_pos=%lu\n", (unsigned long)size_recv, (unsigned long)sending_pos);
         }
-        
-        if ((go_offline >= 3) || (go_offline == 0))
-        {
+
+        if ((go_offline >= 3) || (go_offline == 0)) {
             tox_iterate(tox2, nullptr);
-            if (go_offline >= 3)
-            {
+
+            if (go_offline >= 3) {
                 // printf("[CNT] size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
             }
         }
-        
-        if ((go_offline == 1) || (go_offline == 2))
-        {
+
+        if ((go_offline == 1) || (go_offline == 2)) {
             go_offline = 2;
 
-            if (tox_friend_get_connection_status(tox3, 0, nullptr) == TOX_CONNECTION_NONE)
-            {
+            if (tox_friend_get_connection_status(tox3, 0, nullptr) == TOX_CONNECTION_NONE) {
                 printf("tox2 fully offline\n");
-                printf("size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
+                printf("size_recv=%lu sending_pos=%lu\n", (unsigned long)size_recv, (unsigned long)sending_pos);
                 go_offline = 3;
             }
         }
 
-        if (go_offline == 3)
-        {
-            if (tox_friend_get_connection_status(tox3, 0, nullptr) != TOX_CONNECTION_NONE)
-            {
+        if (go_offline == 3) {
+            if (tox_friend_get_connection_status(tox3, 0, nullptr) != TOX_CONNECTION_NONE) {
                 printf("tox2 online again\n");
-                printf("size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
+                printf("size_recv=%lu sending_pos=%lu\n", (unsigned long)size_recv, (unsigned long)sending_pos);
                 go_offline = 4;
             }
         }
@@ -870,12 +858,12 @@ static void file_transfer_test(void)
     file_resume_mem_send = calloc(1, totalf_size);
     file_resume_mem_recv = calloc(1, totalf_size);
 
-    for(int ii = 0; ii < totalf_size; ii++)
-    {
+    for (int ii = 0; ii < totalf_size; ii++) {
         file_resume_mem_send[ii] = (uint8_t) random();
     }
 
-    ck_assert_msg(memcmp(file_resume_mem_send, file_resume_mem_recv, totalf_size) != 0, "INPUT and OUTPUT are the same, Not OK");
+    ck_assert_msg(memcmp(file_resume_mem_send, file_resume_mem_recv, totalf_size) != 0,
+                  "INPUT and OUTPUT are the same, Not OK");
 
 
     tox1 = tox_new_log(nullptr, &t_n_error, &index[0]);
@@ -908,14 +896,14 @@ static void file_transfer_test(void)
         tox_iterate(tox2, nullptr);
         tox_iterate(tox3, nullptr);
 
-/*
-        printf("Connections: self (%d, %d, %d), friends (%d, %d)\n",
-               tox_self_get_connection_status(tox1),
-               tox_self_get_connection_status(tox2),
-               tox_self_get_connection_status(tox3),
-               tox_friend_get_connection_status(tox2, 0, nullptr),
-               tox_friend_get_connection_status(tox3, 0, nullptr));
-*/
+        /*
+                printf("Connections: self (%d, %d, %d), friends (%d, %d)\n",
+                       tox_self_get_connection_status(tox1),
+                       tox_self_get_connection_status(tox2),
+                       tox_self_get_connection_status(tox3),
+                       tox_friend_get_connection_status(tox2, 0, nullptr),
+                       tox_friend_get_connection_status(tox3, 0, nullptr));
+        */
         c_sleep(ITERATION_INTERVAL);
     } while (tox_self_get_connection_status(tox1) == TOX_CONNECTION_NONE ||
              tox_self_get_connection_status(tox2) == TOX_CONNECTION_NONE ||
@@ -934,7 +922,7 @@ static void file_transfer_test(void)
     tox_callback_file_recv_control(tox3, file_print_control2);
     tox_callback_file_recv(tox3, tox_file_receive2);
     fnum = tox_file_send(tox2, 0, TOX_FILE_KIND_DATA, totalf_size, nullptr, (const uint8_t *)"Gentoo.exe",
-                                  sizeof("Gentoo.exe"), nullptr);
+                         sizeof("Gentoo.exe"), nullptr);
     ck_assert_msg(fnum != UINT32_MAX, "tox_new_file_sender fail");
 
     ck_assert_msg(!tox_file_get_file_id(tox2, 1, fnum, file_cmp_id, &gfierr), "tox_file_get_file_id didn't fail");
@@ -954,39 +942,37 @@ static void file_transfer_test(void)
 
         // printf("[+] size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
 
-        if ((size_recv >= 2000) && (go_offline == 0))
-        {
+        if ((size_recv >= 2000) && (go_offline == 0)) {
             go_offline = 1;
             printf("tox3 will go offline\n");
-            printf("size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
+            printf("size_recv=%lu sending_pos=%lu\n", (unsigned long)size_recv, (unsigned long)sending_pos);
         }
-        
-        if ((go_offline >= 3) || (go_offline == 0))
-        {
+
+        if ((go_offline >= 3) || (go_offline == 0)) {
             tox_iterate(tox3, nullptr);
-            if (go_offline >= 3)
-            {
+
+            if (go_offline >= 3) {
                 // printf("[CNT] size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
             }
         }
-        
-        if ((go_offline == 1) || (go_offline == 2))
-        {
+
+        if ((go_offline == 1) || (go_offline == 2)) {
             go_offline = 2;
 
-            if (tox_friend_get_connection_status(tox2, 0, nullptr) == TOX_CONNECTION_NONE)
-            {
+            if (tox_friend_get_connection_status(tox2, 0, nullptr) == TOX_CONNECTION_NONE) {
                 printf("tox3 fully offline\n");
-                printf("size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
+                printf("size_recv=%lu sending_pos=%lu\n", (unsigned long)size_recv, (unsigned long)sending_pos);
                 go_offline = 3;
-                
+
                 // get tox save data
                 size_t savedata_size = tox_get_savedata_size(tox3);
                 uint8_t *savedata = (uint8_t *)calloc(1, savedata_size);
                 tox_get_savedata(tox3, savedata);
+                printf("tox3 saving data\n");
 
                 // stop tox3
                 tox_kill(tox3);
+                printf("tox3 killed\n");
 
                 // startup tox3
                 struct Tox_Options options2;
@@ -999,26 +985,28 @@ static void file_transfer_test(void)
                 Tox_Err_New err2;
                 tox3 = tox_new_log(&options2, &err2, &index[2]);
                 ck_assert_msg(err2 == TOX_ERR_NEW_OK, "wrong error");
+                printf("tox3 init with savedata\n");
 
                 tox_self_get_dht_id(tox1, dhtKey);
                 dhtPort = tox_self_get_udp_port(tox1, nullptr);
 
-                tox_bootstrap(tox3, TOX_LOCALHOST, dhtPort, dhtKey, nullptr);                
+                tox_bootstrap(tox3, TOX_LOCALHOST, dhtPort, dhtKey, nullptr);
+                printf("tox3 booting\n");
 
                 tox_callback_file_recv_chunk(tox3, write_file2);
                 tox_callback_file_recv_control(tox3, file_print_control2);
                 tox_callback_file_recv(tox3, tox_file_receive2);
 
+                tox_iterate(tox3, nullptr);
+
                 free(savedata);
             }
         }
 
-        if (go_offline == 3)
-        {
-            if (tox_friend_get_connection_status(tox2, 0, nullptr) != TOX_CONNECTION_NONE)
-            {
+        if (go_offline == 3) {
+            if (tox_friend_get_connection_status(tox2, 0, nullptr) != TOX_CONNECTION_NONE) {
                 printf("tox3 online again\n");
-                printf("size_recv=%lu sending_pos=%lu\n",(unsigned long)size_recv, (unsigned long)sending_pos);
+                printf("size_recv=%lu sending_pos=%lu\n", (unsigned long)size_recv, (unsigned long)sending_pos);
                 go_offline = 4;
             }
         }
