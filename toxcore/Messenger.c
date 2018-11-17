@@ -1763,16 +1763,11 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
                 /* only reset avatar and msgV2 FTs, but NOT normal data FTs */
                 if (m->friendlist[friendnumber].file_receiving[i].file_type != TOX_FILE_KIND_DATA) {
                 } else {
+
                     if (m->friendlist[friendnumber].file_receiving[i].needs_resend == 1) {
                         // send seek to correct position
                         int res = file_seek_for_resume(m, friendnumber, i,
                                                        m->friendlist[friendnumber].file_receiving[i].transferred, true);
-
-                        LOGGER_WARNING(m->log, "sending SEEK for FT resume ft-num=%d fnum=%d pos=%u res=%d",
-                                       (int)i, (int)friendnumber,
-                                       (long)m->friendlist[friendnumber].file_receiving[i].transferred,
-                                       res);
-
 
                         if (res == 0) {
                             m->friendlist[friendnumber].file_receiving[i].needs_resend = 0;
@@ -1983,8 +1978,10 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, uint8_t receiv
 
             net_unpack_u64(data, &position);
 
+#ifdef FT_RECV_SEND_DEBUG
             LOGGER_WARNING(m->log, "file control (friend %d, file %d): received SEEK %u",
                            friendnumber, filenumber, position);
+#endif
 
             if (position >= ft->size) {
                 LOGGER_DEBUG(m->log,
@@ -1996,8 +1993,10 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, uint8_t receiv
             if ((ft->needs_resend == 1) && (receive_send)) {
                 // after seek position is set, reset resend flag
                 ft->needs_resend = 0;
+#ifdef FT_RECV_SEND_DEBUG
                 LOGGER_WARNING(m->log, "file control (friend %d, file %d): received SEEK OK %u",
                                friendnumber, filenumber, position);
+#endif
             }
 
             ft->requested = position;
@@ -3343,7 +3342,7 @@ static uint32_t saved_friendsft_size(const Messenger *m)
                               + (sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES * 2)
                           );
 
-    // LOGGER_ERROR(m->log, "save_bytes=%d", (int)save_bytes);
+    LOGGER_DEBUG(m->log, "save_bytes=%d", (int)save_bytes);
 
     return save_bytes;
 }
@@ -3394,13 +3393,17 @@ static State_Load_Status friendsft_load(Messenger *m, const uint8_t *data2, uint
         uint8_t *data = data2;
         uint32_t length_should_be = sizeof(uint32_t) +
                                     m->numfriends * (
-                                        (sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES * 2)
+                                        sizeof(uint8_t) * CRYPTO_PUBLIC_KEY_SIZE
                                         + sizeof(uint32_t)
+                                        + (sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES * 2)
                                     );
 
         if (length != length_should_be) {
             // wrong length, there is a problem!
+            LOGGER_DEBUG(m->log, "friendsft_load:001");
         } else {
+
+            LOGGER_DEBUG(m->log, "friendsft_load:002");
 
             uint32_t saved_friendsft_num = (uint32_t) * data;
             int32_t found_friendnum = -1;
