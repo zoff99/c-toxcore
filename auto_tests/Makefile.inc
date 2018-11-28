@@ -1,7 +1,5 @@
 if BUILD_TESTS
 
-#	lan_discovery_test \
-
 TESTS = \
 	bootstrap_test \
 	conference_double_invite_test \
@@ -128,10 +126,6 @@ invalid_tcp_proxy_test_LDADD = $(AUTOTEST_LDADD)
 invalid_udp_proxy_test_SOURCES = ../auto_tests/invalid_udp_proxy_test.c
 invalid_udp_proxy_test_CFLAGS = $(AUTOTEST_CFLAGS)
 invalid_udp_proxy_test_LDADD = $(AUTOTEST_LDADD)
-
-lan_discovery_test_SOURCES = ../auto_tests/lan_discovery_test.c
-lan_discovery_test_CFLAGS = $(AUTOTEST_CFLAGS)
-lan_discovery_test_LDADD = $(AUTOTEST_LDADD)
 
 lossless_packet_test_SOURCES = ../auto_tests/lossless_packet_test.c
 lossless_packet_test_CFLAGS = $(AUTOTEST_CFLAGS)
