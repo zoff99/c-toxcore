@@ -5,44 +5,35 @@ workflows:
   version: 2
   build_linux:
     jobs:
-      - asan
-      - tsan
+      - build
 
 jobs:
-  asan:
+  build:
     working_directory: ~/work
+    #machine:
+    #  image: circleci/classic:latest
     docker:
-      - image: ubuntu
+      - image: ubuntu:bionic
 
     steps:
-    - checkout
-    - run: apt update
-    - run: apt install -y --no-install-recommends
-             clang
-             cmake
-             libavcodec-dev
-             libavutil-dev
-             libconfig-dev
-             libgtest-dev
-             libopus-dev
-             libsodium-dev
-             libvpx-dev
-             libx264-dev
-             ninja-build
-             pkg-config
-    - run: . .travis/flags-clang.sh;
-           add_flag -fsanitize=address;
-           cmake -H. -B_build -GNinja
-             -DCMAKE_C_FLAGS="$C_FLAGS"
-             -DCMAKE_CXX_FLAGS="$CXX_FLAGS"
-             -DCMAKE_EXE_LINKER_FLAGS="$LD_FLAGS"
-             -DCMAKE_SHARED_LINKER_FLAGS="$LD_FLAGS"
-             -DCMAKE_INSTALL_PREFIX:PATH="$PWD/_install"
-             -DTRACE=ON
-             -DMUST_BUILD_TOXAV=ON
-             -DSTRICT_ABI=ON
-             -DTEST_TIMEOUT_SECONDS=120
-             -DUSE_IPV6=OFF
-    - run: cd _build && ninja install -j$(nproc)
-    - run: cd _build && ctest -j50 --output-on-failure ||
-                        ctest -j50 --output-on-failure --rerun-failed
+      - run: &apt_install
+          apt update &&
+          apt install -y --no-install-recommends
+            clang
+            cmake
+            libconfig-dev
+            libgtest-dev
+            libopus-dev
+            libsodium-dev
+            libvpx-dev
+            ninja-build
+            pkg-config
+            zip grep file ca-certificates autotools-dev autoconf
+            git bc wget rsync cmake make pkg-config yasm libtool
+            libasound2-dev libv4l-dev ssh gzip tar
+      - checkout
+
+      - run: mkdir -p ~/work/deploy
+      - run: if [ -e build_dir ]; then export oo="cache" ; else export oo="" ; fi ; mkdir -p build_dir ; cd build_dir ; bash ../circle_scripts/deps.sh "$oo"
+      - run: cd build_dir ; bash ../circle_scripts/ctoxcore.sh '../'
+
