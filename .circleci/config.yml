@@ -23,9 +23,6 @@ jobs:
             cmake
             libconfig-dev
             libgtest-dev
-            libopus-dev
-            libsodium-dev
-            libvpx-dev
             ninja-build
             pkg-config
             zip grep file ca-certificates autotools-dev autoconf automake
