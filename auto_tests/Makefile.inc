@@ -1,5 +1,7 @@
 if BUILD_TESTS
 
+#	lan_discovery_test \
+
 TESTS = \
 	bootstrap_test \
 	conference_double_invite_test \
@@ -17,7 +19,6 @@ TESTS = \
 	friend_request_test \
 	invalid_tcp_proxy_test \
 	invalid_udp_proxy_test \
-	lan_discovery_test \
 	lossless_packet_test \
 	lossy_packet_test \
 	messenger_test \
