@@ -5,14 +5,15 @@ workflows:
   version: 2
   build_linux:
     jobs:
-      - asan
-      - tsan
+      - build
 
 jobs:
-  asan:
+  build:
     working_directory: ~/work
+    #machine:
+    #  image: circleci/classic:latest
     docker:
-      - image: ubuntu
+      - image: ubuntu:bionic
 
     steps:
       - checkout
