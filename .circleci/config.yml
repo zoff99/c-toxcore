@@ -37,5 +37,5 @@ jobs:
       - run: cd build_dir ; bash ../circle_scripts/ctoxcore.sh '../'
 
       - save_cache:
-          paths: [ "~/work/cache" ]
+          paths: [ "~/work/build_dir" ]
           key: ctc-library-dependencies-v1-{{ .Branch }}
