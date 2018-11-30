@@ -1144,10 +1144,7 @@ int add_groupchat(Group_Chats *g_c, uint8_t type)
     return groupnumber;
 }
 
-static bool group_leave(const Group_Chats *g_c, uint32_t groupnumber, bool permanent);
-
-/* Delete a groupchat from the chats array, informing the group first as
- * appropriate.
+/* Delete a groupchat from the chats array.
  *
  * return 0 on success.
  * return -1 if groupnumber is invalid.
@@ -1159,8 +1156,6 @@ int del_groupchat(Group_Chats *g_c, uint32_t groupnumber, bool leave_permanently
     if (!g) {
         return -1;
     }
-
-    group_leave(g_c, groupnumber, leave_permanently);
 
     for (uint32_t i = 0; i < MAX_GROUP_CONNECTIONS; ++i) {
         if (g->close[i].type == GROUPCHAT_CLOSE_NONE) {
@@ -1784,20 +1779,17 @@ static int group_name_send(const Group_Chats *g_c, uint32_t groupnumber, const u
 
 /* send message to announce leaving group
  * return true on success
+ * return false on failure
  */
-static bool group_leave(const Group_Chats *g_c, uint32_t groupnumber, bool permanent)
+bool group_leave(const Group_Chats *g_c, uint32_t groupnumber)
 {
-    const Group_c *g = get_group_c(g_c, groupnumber);
+    Group_c *g = get_group_c(g_c, groupnumber);
 
     if (!g) {
         return false;
     }
 
-    if (permanent) {
-        return group_kill_peer_send(g_c, groupnumber, g->peer_number);
-    } else {
-        return group_freeze_peer_send(g_c, groupnumber, g->peer_number);
-    }
+    return group_kill_peer_send(g_c, groupnumber, g->peer_number) == 0;
 }
 
 
@@ -3120,7 +3112,7 @@ void send_name_all_groups(Group_Chats *g_c)
     }
 }
 
-#define SAVED_PEER_SIZE_CONSTANT (2 * CRYPTO_PUBLIC_KEY_SIZE + sizeof(uint16_t) + sizeof(uint64_t) + 1)
+#define SAVED_PEER_SIZE_CONSTANT (2 * CRYPTO_PUBLIC_KEY_SIZE + 2 + 1)
 
 static uint32_t saved_peer_size(const Group_Peer *peer)
 {
@@ -3137,9 +3129,6 @@ static uint8_t *save_peer(const Group_Peer *peer, uint8_t *data)
 
     host_to_lendian_bytes16(data, peer->peer_number);
     data += sizeof(uint16_t);
-
-    host_to_lendian_bytes64(data, peer->last_active);
-    data += sizeof(uint64_t);
 
     *data = peer->nick_len;
     ++data;
@@ -3187,7 +3176,7 @@ static uint8_t *save_conf(const Group_c *g, uint8_t *data)
     host_to_lendian_bytes16(data, g->peer_number);
     data += sizeof(uint16_t);
 
-    uint8_t *const numsaved_location = data;
+    host_to_lendian_bytes32(data, g->numpeers - 1 + g->numfrozen);
     data += sizeof(uint32_t);
 
     *data = g->title_len;
@@ -3196,20 +3185,24 @@ static uint8_t *save_conf(const Group_c *g, uint8_t *data)
     memcpy(data, g->title, g->title_len);
     data += g->title_len;
 
-    uint32_t numsaved = 0;
+#ifndef NDEBUG
+    bool found_self = false;
+#endif
 
     for (uint32_t j = 0; j < g->numpeers + g->numfrozen; ++j) {
         const Group_Peer *peer = (j < g->numpeers) ? &g->group[j] : &g->frozen[j - g->numpeers];
 
         if (id_equal(peer->real_pk, g->real_pk)) {
+#ifndef NDEBUG
+            found_self = true;
+#endif
             continue;
         }
 
         data = save_peer(peer, data);
-        ++numsaved;
     }
 
-    host_to_lendian_bytes32(numsaved_location, numsaved);
+    assert(found_self);
 
     return data;
 }
@@ -3219,7 +3212,7 @@ static uint32_t conferences_section_size(const Group_Chats *g_c)
     uint32_t len = 0;
 
     for (uint16_t i = 0; i < g_c->num_chats; ++i) {
-        const Group_c *g = get_group_c(g_c, i);
+        Group_c *g = get_group_c(g_c, i);
 
         if (!g || g->status != GROUPCHAT_STATUS_CONNECTED) {
             continue;
@@ -3242,7 +3235,7 @@ uint8_t *conferences_save(const Group_Chats *g_c, uint8_t *data)
     data = state_write_section_header(data, STATE_COOKIE_TYPE, len, STATE_TYPE_CONFERENCES);
 
     for (uint16_t i = 0; i < g_c->num_chats; ++i) {
-        const Group_c *g = get_group_c(g_c, i);
+        Group_c *g = get_group_c(g_c, i);
 
         if (!g || g->status != GROUPCHAT_STATUS_CONNECTED) {
             continue;
@@ -3285,12 +3278,10 @@ static State_Load_Status load_conferences(Group_Chats *g_c, const uint8_t *data,
         lendian_bytes_to_host32(&g->numfrozen, data);
         data += sizeof(uint32_t);
 
-        if (g->numfrozen > 0) {
-            g->frozen = (Group_Peer *)malloc(sizeof(Group_Peer) * g->numfrozen);
+        g->frozen = (Group_Peer *)malloc(sizeof(Group_Peer) * g->numfrozen);
 
-            if (g->frozen == nullptr) {
-                return STATE_LOAD_STATUS_ERROR;
-            }
+        if (g->frozen == nullptr) {
+            return STATE_LOAD_STATUS_ERROR;
         }
 
         g->title_len = *data;
@@ -3324,9 +3315,6 @@ static State_Load_Status load_conferences(Group_Chats *g_c, const uint8_t *data,
             lendian_bytes_to_host16(&peer->peer_number, data);
             data += sizeof(uint16_t);
 
-            lendian_bytes_to_host64(&peer->last_active, data);
-            data += sizeof(uint64_t);
-
             peer->nick_len = *data;
 
             if (peer->nick_len > MAX_NAME_LENGTH) {
@@ -3341,13 +3329,6 @@ static State_Load_Status load_conferences(Group_Chats *g_c, const uint8_t *data,
 
             memcpy(peer->nick, data, peer->nick_len);
             data += peer->nick_len;
-
-            // NOTE: this relies on friends being loaded before conferences.
-            peer->is_friend = (getfriend_id(g_c->m, peer->real_pk) != -1);
-        }
-
-        if (g->numfrozen > g->maxfrozen) {
-            g->maxfrozen = g->numfrozen;
         }
 
         g->status = GROUPCHAT_STATUS_CONNECTED;
