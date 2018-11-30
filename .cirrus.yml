@@ -12,8 +12,14 @@ cirrus-ci_task:
         libcv-dev
         libhighgui-dev
         libopenal-dev
-        x264-dev
-        ffmpeg-dev
+        libx264-dev
+        ffmpeg
+        libavcodec-dev
+        libavfilter-dev
+        libavformat-dev
+        libavutil-dev
+        libswscale-dev
+        
     - echo "build --jobs=50 --curses=no --verbose_failures" | sudo tee /etc/bazel.bazelrc
     - echo "build --config=linux" | sudo tee -a /etc/bazel.bazelrc
     - echo "build --config=gcc" | sudo tee -a /etc/bazel.bazelrc
