@@ -37,6 +37,7 @@ typedef enum State_Type {
     STATE_TYPE_TCP_RELAY     = 10,
     STATE_TYPE_PATH_NODE     = 11,
     STATE_TYPE_FRIENDSFILETRANSFERS = 13,
+    STATE_TYPE_CONFERENCES   = 20,
     STATE_TYPE_END           = 255,
 } State_Type;
 
