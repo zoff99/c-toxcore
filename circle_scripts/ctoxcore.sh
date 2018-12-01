@@ -44,5 +44,5 @@ make install
 export CFLAGS=" $CFLAGS -fPIC "
 export CXXFLAGS=" $CFLAGS -fPIC "
 export LDFLAGS=" $LDFLAGS -fPIC "
-make V=1 -j$(nproc) check || exit 1
+make V=1 -j4 check || exit 1
 
