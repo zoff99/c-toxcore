@@ -32,7 +32,9 @@ cat toxav/rtp.c |grep 'define DISABLE_H264_ENCODER_FEATURE'
 
 ./autogen.sh
 make clean
-export CFLAGS=" $CF2 -D_GNU_SOURCE -I$_INST_/include/ -O3 -g -fstack-protector-all "
+export CFLAGS_=" $CF2 -D_GNU_SOURCE -I$_INST_/include/ -O3 -g -fstack-protector-all "
+export CFLAGS="$CFLAGS"
+export CFLAGS=" $CFLAGS -Werror=div-by-zero -Werror=sign-compare -Werror=format=2 "
 export LDFLAGS=-L$_INST_/lib
 
 ./configure \
@@ -41,8 +43,8 @@ export LDFLAGS=-L$_INST_/lib
 make -j$(nproc) || exit 1
 make install
 
-export CFLAGS=" $CFLAGS -fPIC "
-export CXXFLAGS=" $CFLAGS -fPIC "
-export LDFLAGS=" $LDFLAGS -fPIC "
+export CFLAGS=" $CFLAGS_ -fPIC "
+export CXXFLAGS=" $CFLAGS_ -fPIC "
+export LDFLAGS=" $LDFLAGS_ -fPIC "
 make V=1 -j4 check || exit 1
 
