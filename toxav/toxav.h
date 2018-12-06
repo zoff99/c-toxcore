@@ -730,6 +730,9 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
                             const uint8_t *u, const uint8_t *v, TOXAV_ERR_SEND_FRAME *error);
 
 
+bool toxav_video_send_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height, const uint8_t *buf,
+                                 uint32_t data_len, TOXAV_ERR_SEND_FRAME *error);
+
 
 /**
  * The function type for the video_bit_rate callback. The event is triggered
