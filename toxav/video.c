@@ -780,6 +780,35 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 #ifdef DEBUG_SHOW_H264_DECODING_TIME
             uint32_t start_time_ms = current_time_monotonic();
 #endif
+
+
+
+/*
+#include <sodium/crypto_generichash.h>
+    uint8_t *hash1 = calloc(1, 100);
+    crypto_generichash(hash1, 32,
+                       p->data, (unsigned long long)(full_data_len),
+                       NULL, 0);
+    char aaastr[101];
+    memset(aaastr, 0, 101);
+
+    char tox_id_hex_local[32 * 2 + 1];
+    memset(tox_id_hex_local, 0, (32 * 2 + 1));
+    sodium_bin2hex(tox_id_hex_local, sizeof(tox_id_hex_local), hash1, 32);
+    for (size_t i = 0; i < sizeof(tox_id_hex_local) - 1; i++)
+    {
+        tox_id_hex_local[i] = toupper(tox_id_hex_local[i]);
+    }
+    snprintf(aaastr, (size_t)(32 * 2 + 1), "%s", (const char *) tox_id_hex_local);
+
+    LOGGER_ERROR(vc->log, "h642_data_hash_in1=%s\n", aaastr);
+    free(hash1);
+*/
+
+
+
+
+
             decode_frame_h264(vc, m, skip_video_flag, a_r_timestamp,
                               a_l_timestamp,
                               v_r_timestamp, v_l_timestamp,

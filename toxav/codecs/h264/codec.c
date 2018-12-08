@@ -134,25 +134,25 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     vc->h264_decoder = avcodec_alloc_context3(codec);
 
-    if (codec->capabilities & CODEC_CAP_TRUNCATED) {
-        vc->h264_decoder->flags |= CODEC_FLAG_TRUNCATED; /* we do not send complete frames */
+    if (codec->capabilities & AV_CODEC_CAP_TRUNCATED) {
+        vc->h264_decoder->flags |= AV_CODEC_FLAG_TRUNCATED; /* we do not send complete frames */
     }
 
     if (codec->capabilities & AV_CODEC_FLAG_LOW_DELAY) {
-        vc->h264_decoder->flags |= CODEC_FLAG_LOW_DELAY;
+        vc->h264_decoder->flags |= AV_CODEC_FLAG_LOW_DELAY;
     }
 
-    vc->h264_decoder->flags |= CODEC_FLAG2_FAST;
+    vc->h264_decoder->flags |= AV_CODEC_FLAG2_FAST;
 
     if (H264_DECODER_THREADS > 0) {
-        if (codec->capabilities & CODEC_CAP_SLICE_THREADS) {
+        if (codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
             vc->h264_decoder->thread_count = H264_DECODER_THREADS;
             vc->h264_decoder->thread_type = FF_THREAD_SLICE;
             vc->h264_decoder->active_thread_type = FF_THREAD_SLICE;
         }
 
         if (H264_DECODER_THREAD_FRAME_ACTIVE == 1) {
-            if (codec->capabilities & CODEC_CAP_FRAME_THREADS) {
+            if (codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) {
                 vc->h264_decoder->thread_count = H264_DECODER_THREADS;
                 vc->h264_decoder->thread_type |= FF_THREAD_FRAME;
                 vc->h264_decoder->active_thread_type |= FF_THREAD_FRAME;
@@ -370,7 +370,7 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
 
     // uint32_t start_time_ms = current_time_monotonic();
     // HINT: dirty hack to add FF_INPUT_BUFFER_PADDING_SIZE bytes!! ----------
-    uint8_t *tmp_buf = calloc(1, full_data_len + FF_INPUT_BUFFER_PADDING_SIZE);
+    uint8_t *tmp_buf = calloc(1, full_data_len + AV_INPUT_BUFFER_PADDING_SIZE);
     memcpy(tmp_buf, p->data, full_data_len);
     // HINT: dirty hack to add FF_INPUT_BUFFER_PADDING_SIZE bytes!! ----------
     // uint32_t end_time_ms = current_time_monotonic();
