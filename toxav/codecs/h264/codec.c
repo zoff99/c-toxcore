@@ -28,7 +28,7 @@
 
 /* !!multithreaded H264 decoding adds about 80ms of delay!! (0 .. disable, 1 .. disable also?) */
 #define H264_DECODER_THREADS 4
-#define H264_DECODER_THREAD_FRAME_ACTIVE 0
+#define H264_DECODER_THREAD_FRAME_ACTIVE 1
 
 /* multithreaded encoding seems to add less delay (0 .. disable) */
 #define X264_ENCODER_THREADS 4
