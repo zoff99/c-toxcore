@@ -42,7 +42,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     // ENCODER -------
     x264_param_t param;
 
-    if (x264_param_default_preset(&param, "ultrafast", "zerolatency") < 0) {
+    if (x264_param_default_preset(&param, "ultrafast", "zerolatency,fastdecode") < 0) {
         // goto fail;
     }
 
@@ -120,13 +120,18 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
 
     // DECODER -------
-    AVCodec *codec;
+    AVCodec *codec = NULL;
     vc->h264_decoder = NULL;
 
     avcodec_register_all();
 
-    codec = avcodec_find_decoder(AV_CODEC_ID_H264);
+    codec = NULL;
+    codec = avcodec_find_decoder_by_name("h264_mmal");
 
+    if (!codec) {
+        LOGGER_WARNING(log, "codec not found HW Accel H264 on decoder, trying software decoder ...");
+        codec = avcodec_find_decoder(AV_CODEC_ID_H264);
+    }
 
     if (!codec) {
         LOGGER_WARNING(log, "codec not found H264 on decoder");
@@ -229,7 +234,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
             x264_param_t param;
 
-            if (x264_param_default_preset(&param, "ultrafast", "zerolatency") < 0) {
+            if (x264_param_default_preset(&param, "ultrafast", "zerolatency,fastdecode") < 0) {
                 // goto fail;
             }
 
