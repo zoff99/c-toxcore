@@ -393,6 +393,7 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
 
     if (header_v3->frame_record_timestamp > 0) {
         compr_data->dts = (int64_t)header_v3->frame_record_timestamp;
+        compr_data->pts = (int64_t)header_v3->frame_record_timestamp;
     }
 
     /* ------------------------------------------------------- */
@@ -445,12 +446,30 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
             // LOGGER_ERROR(vc->log, "H264:decoder:w=%d\n", (int)frame->width);
             // LOGGER_ERROR(vc->log, "H264:decoder:h=%d\n", (int)frame->height);
 
+
+            /*
+                pkt_pts
+                PTS copied from the AVPacket that was decoded to produce this frame.
+
+                pkt_dts
+                DTS copied from the AVPacket that triggered returning this frame.
+            */
+
             // calculate the real play delay (from toxcore-in to toxcore-out)
             if (header_v3->frame_record_timestamp > 0) {
                 vc->video_play_delay_real =
-                    (current_time_monotonic() + vc->timestamp_difference_to_sender) -
-                    frame->pkt_dts;
-                LOGGER_DEBUG(vc->log, "real play delay=%d", (int)(vc->video_play_delay_real));
+                    (current_time_monotonic(m->mono_time) + vc->timestamp_difference_to_sender) -
+                    frame->pkt_pts;
+
+                LOGGER_DEBUG(vc->log, "real play delay=%d header_v3->frame_record_timestamp=%d, mono=%d, vc->timestamp_difference_to_sender=%d frame->pkt_pts=%ld, frame->pkt_dts=%ld, frame->pts=%ld",
+                    (int)vc->video_play_delay_real,
+                    (int)header_v3->frame_record_timestamp,
+                    (int)current_time_monotonic(m->mono_time),
+                    (int)vc->timestamp_difference_to_sender,
+                    frame->pkt_pts,
+                    frame->pkt_dts,
+                    frame->pts
+                    );
             }
 
             // start_time_ms = current_time_monotonic();
