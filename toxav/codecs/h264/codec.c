@@ -127,8 +127,8 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     codec = NULL;
 
-#if 0
-    codec = avcodec_find_decoder_by_name("h264_v4l2m2m");
+#if 1
+    codec = avcodec_find_decoder_by_name("h264_mmal");
     if (!codec) {
         LOGGER_WARNING(log, "codec not found HW Accel H264 on decoder, trying software decoder ...");
         codec = avcodec_find_decoder(AV_CODEC_ID_H264);
