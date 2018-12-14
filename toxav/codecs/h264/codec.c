@@ -164,6 +164,8 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         25, 1
     };
 
+    // vc->h264_encoder2->flags |= ;
+    vc->h264_encoder2->flags2 |= AV_CODEC_FLAG2_LOCAL_HEADER;
 
     if (avcodec_open2(vc->h264_encoder2, codec2, NULL) < 0) {
         LOGGER_WARNING(log, "could not open codec H264 on encoder");
@@ -463,6 +465,9 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
                 25, 1
             };
 
+            // vc->h264_encoder2->flags |= ;
+            vc->h264_encoder2->flags2 |= AV_CODEC_FLAG2_LOCAL_HEADER;
+
 
             if (avcodec_open2(vc->h264_encoder2, codec2, NULL) < 0) {
                 LOGGER_WARNING(log, "could not open codec H264 on encoder");
@@ -720,12 +725,12 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
 
 #else
 
-    AVPacket *compr_data;
     AVFrame *frame;
     int ret;
     uint32_t result = 1;
+    bool do_pkt_free = 0;
 
-    compr_data = av_packet_alloc();
+    call->video->h264_out_pic2 = av_packet_alloc();
     frame = av_frame_alloc();
 
     frame->format = call->video->h264_encoder2->pix_fmt;
@@ -760,30 +765,40 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
         LOGGER_ERROR(av->m->log, "Error sending a frame for encoding:ERROR");
     }
 
-    while (ret >= 0) {
-        ret = avcodec_receive_packet(call->video->h264_encoder2, compr_data);
+    do_pkt_free = false;
 
-        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-            break;
-        } else if (ret < 0) {
-            fprintf(stderr, "Error during encoding\n");
-            break;
-        }
+    //while (ret >= 0) {
+    ret = avcodec_receive_packet(call->video->h264_encoder2, call->video->h264_out_pic2);
 
-        // printf("Write packet %3"PRId64" (size=%5d)\n", compr_data->pts, compr_data->size);
-        // fwrite(compr_data->data, 1, compr_data->size, outfile);
+    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+        do_pkt_free = true;
+        *i_frame_size = 0;
+        // break;
+    } else if (ret < 0) {
+        fprintf(stderr, "Error during encoding\n");
+        *i_frame_size = 0;
+        do_pkt_free = true;
+        // break;
+    } else {
 
-        *i_frame_size = compr_data->size;
-        *video_frame_record_timestamp = (uint64_t)compr_data->pts;
+        // printf("Write packet %3"PRId64" (size=%5d)\n", call->video->h264_out_pic2->pts, call->video->h264_out_pic2->size);
+        // fwrite(call->video->h264_out_pic2->data, 1, call->video->h264_out_pic2->size, outfile);
+
+        *i_frame_size = call->video->h264_out_pic2->size;
+        *video_frame_record_timestamp = (uint64_t)call->video->h264_out_pic2->pts;
 
         result = 0;
-
-        av_packet_unref(compr_data);
     }
+
+    //}
 
 
     av_frame_free(&frame);
-    av_packet_free(&compr_data);
+
+
+    if (do_pkt_free) {
+        av_packet_free(&call->video->h264_out_pic2);
+    }
 
 
     return result;
@@ -808,7 +823,7 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
     if (*i_frame_size > 0) {
 
         // use the record timestamp that was actually used for this frame
-        *video_frame_record_timestamp = (uint64_t)call->video.second->h264_in_pic.i_pts;
+        *video_frame_record_timestamp = (uint64_t)call->video->h264_in_pic.i_pts; // TODO: --> is this wrong?
         const uint32_t frame_length_in_bytes = *i_frame_size;
         const int keyframe = (int)call->video.second->h264_out_pic.b_keyframe;
 
@@ -844,7 +859,43 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
 
 #else
 
-    return 1;
+    if (*i_frame_size > 0) {
+
+        const uint32_t frame_length_in_bytes = *i_frame_size;
+        const int keyframe = (int)0;
+
+        int res = rtp_send_data
+                  (
+                      call->video_rtp,
+                      (const uint8_t *)(call->video->h264_out_pic2->data),
+                      frame_length_in_bytes,
+                      keyframe,
+                      *video_frame_record_timestamp,
+                      (int32_t)0,
+                      TOXAV_ENCODER_CODEC_USED_H264,
+                      call->video_bit_rate,
+                      call->video->client_video_capture_delay_ms,
+                      av->m->log
+                  );
+
+        (*video_frame_record_timestamp)++;
+
+
+        av_packet_unref(call->video->h264_out_pic2);
+        av_packet_free(&call->video->h264_out_pic2);
+
+        if (res < 0) {
+            LOGGER_WARNING(av->m->log, "Could not send video frame: %s", strerror(errno));
+            *rc = TOXAV_ERR_SEND_FRAME_RTP_FAILED;
+            return 1;
+        }
+
+        return 0;
+
+    } else {
+        *rc = TOXAV_ERR_SEND_FRAME_RTP_FAILED;
+        return 1;
+    }
 
 #endif
 
