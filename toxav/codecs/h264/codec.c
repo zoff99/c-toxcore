@@ -26,6 +26,8 @@
 #include "../../../toxcore/mono_time.h"
 #include "../toxav_codecs.h"
 
+// #define X264_ENCODE_USED 1
+
 /* !!multithreaded H264 decoding adds about 80ms of delay!! (0 .. disable, 1 .. disable also?) */
 #define H264_DECODER_THREADS 4
 #define H264_DECODER_THREAD_FRAME_ACTIVE 1
@@ -109,6 +111,71 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     vc->h264_encoder = x264_encoder_open(&param);
 
+
+
+
+// ------ ffmpeg encoder ------
+    AVCodec *codec2 = NULL;
+    vc->h264_encoder2 = NULL;
+
+    // avcodec_register_all();
+
+    codec2 = NULL;
+
+#if 0
+    codec2 = avcodec_find_encoder_by_name("h264_mmal");
+
+    if (!codec2) {
+        LOGGER_WARNING(log, "codec not found HW Accel H264 on encoder, trying software decoder ...");
+        codec2 = avcodec_find_encoder_by_name("libx264");
+    } else {
+        LOGGER_WARNING(log, "FOUND: *HW Accel* H264 on encoder");
+    }
+
+#else
+    codec2 = avcodec_find_encoder_by_name("libx264");
+#endif
+
+    vc->h264_encoder2 = avcodec_alloc_context3(codec2);
+
+
+    if (codec2->id == AV_CODEC_ID_H264) {
+        av_opt_set(vc->h264_encoder2->priv_data, "preset", "ultrafast", 0);
+    }
+
+    /* put sample parameters */
+    vc->h264_encoder2->bit_rate = 100000;
+    /* resolution must be a multiple of two */
+    vc->h264_encoder2->width = 640;
+    vc->h264_encoder2->height = 480;
+
+    vc->h264_enc_width = vc->h264_encoder2->width;
+    vc->h264_enc_height = vc->h264_encoder2->height;
+
+    vc->h264_encoder2->gop_size = 10;
+    vc->h264_encoder2->max_b_frames = 1;
+    vc->h264_encoder2->pix_fmt = AV_PIX_FMT_YUV420P;
+
+    /* frames per second */
+    vc->h264_encoder2->time_base = (AVRational) {
+        1, 25
+    };
+    vc->h264_encoder2->framerate = (AVRational) {
+        25, 1
+    };
+
+
+    if (avcodec_open2(vc->h264_encoder2, codec2, NULL) < 0) {
+        LOGGER_WARNING(log, "could not open codec H264 on encoder");
+    }
+
+
+// ------ ffmpeg encoder ------
+
+
+
+
+
 //    goto good;
 
 //fail:
@@ -123,19 +190,20 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     AVCodec *codec = NULL;
     vc->h264_decoder = NULL;
 
-    avcodec_register_all();
+    // avcodec_register_all();
 
     codec = NULL;
 
 #if 1
     codec = avcodec_find_decoder_by_name("h264_mmal");
+
     if (!codec) {
         LOGGER_WARNING(log, "codec not found HW Accel H264 on decoder, trying software decoder ...");
         codec = avcodec_find_decoder(AV_CODEC_ID_H264);
-    }
-    else {
+    } else {
         LOGGER_WARNING(log, "FOUND: *HW Accel* H264 on decoder");
     }
+
 #else
     codec = avcodec_find_decoder(AV_CODEC_ID_H264);
 #endif
@@ -336,6 +404,75 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
             LOGGER_DEBUG(log, "H264: reconfigure encoder:004\n");
 
+
+
+
+            // --- ffmpeg encoder ---
+            avcodec_free_context(&vc->h264_encoder2);
+
+
+            AVCodec *codec2 = NULL;
+            vc->h264_encoder2 = NULL;
+
+            // avcodec_register_all();
+
+            codec2 = NULL;
+
+#if 0
+            codec2 = avcodec_find_encoder_by_name("h264_mmal");
+
+            if (!codec2) {
+                LOGGER_WARNING(log, "codec not found HW Accel H264 on encoder, trying software decoder ...");
+                codec2 = avcodec_find_encoder_by_name("libx264");
+            } else {
+                LOGGER_WARNING(log, "FOUND: *HW Accel* H264 on encoder");
+            }
+
+#else
+            codec2 = avcodec_find_encoder_by_name("libx264");
+#endif
+
+            vc->h264_encoder2 = avcodec_alloc_context3(codec2);
+
+
+            if (codec2->id == AV_CODEC_ID_H264) {
+                av_opt_set(vc->h264_encoder2->priv_data, "preset", "ultrafast", 0);
+            }
+
+            /* put sample parameters */
+            vc->h264_encoder2->bit_rate = bit_rate;
+            vc->h264_enc_bitrate = bit_rate;
+
+            /* resolution must be a multiple of two */
+            vc->h264_encoder2->width = width;
+            vc->h264_encoder2->height = height;
+
+            vc->h264_enc_width = vc->h264_encoder2->width;
+            vc->h264_enc_height = vc->h264_encoder2->height;
+
+
+            vc->h264_encoder2->gop_size = 10;
+            vc->h264_encoder2->max_b_frames = 1;
+            vc->h264_encoder2->pix_fmt = AV_PIX_FMT_YUV420P;
+
+            /* frames per second */
+            vc->h264_encoder2->time_base = (AVRational) {
+                1, 25
+            };
+            vc->h264_encoder2->framerate = (AVRational) {
+                25, 1
+            };
+
+
+            if (avcodec_open2(vc->h264_encoder2, codec2, NULL) < 0) {
+                LOGGER_WARNING(log, "could not open codec H264 on encoder");
+            }
+
+
+            // --- ffmpeg encoder ---
+
+
+
         }
     }
 
@@ -461,25 +598,26 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
                     (current_time_monotonic(m->mono_time) + vc->timestamp_difference_to_sender) -
                     frame->pkt_pts;
 
-                LOGGER_DEBUG(vc->log, "real play delay=%d header_v3->frame_record_timestamp=%d, mono=%d, vc->timestamp_difference_to_sender=%d frame->pkt_pts=%ld, frame->pkt_dts=%ld, frame->pts=%ld",
-                    (int)vc->video_play_delay_real,
-                    (int)header_v3->frame_record_timestamp,
-                    (int)current_time_monotonic(m->mono_time),
-                    (int)vc->timestamp_difference_to_sender,
-                    frame->pkt_pts,
-                    frame->pkt_dts,
-                    frame->pts
-                    );
+                LOGGER_DEBUG(vc->log,
+                             "real play delay=%d header_v3->frame_record_timestamp=%d, mono=%d, vc->timestamp_difference_to_sender=%d frame->pkt_pts=%ld, frame->pkt_dts=%ld, frame->pts=%ld",
+                             (int)vc->video_play_delay_real,
+                             (int)header_v3->frame_record_timestamp,
+                             (int)current_time_monotonic(m->mono_time),
+                             (int)vc->timestamp_difference_to_sender,
+                             frame->pkt_pts,
+                             frame->pkt_dts,
+                             frame->pts
+                            );
             }
 
-            // start_time_ms = current_time_monotonic();
-            vc->vcb.first(vc->av, vc->friend_number, frame->width, frame->height,
-                          (const uint8_t *)frame->data[0],
-                          (const uint8_t *)frame->data[1],
-                          (const uint8_t *)frame->data[2],
-                          frame->linesize[0], frame->linesize[1],
-                          frame->linesize[2], vc->vcb.second);
-            // end_time_ms = current_time_monotonic();
+            // start_time_ms = current_time_monotonic(m->mono_time);
+            vc->vcb(vc->av, vc->friend_number, frame->width, frame->height,
+                    (const uint8_t *)frame->data[0],
+                    (const uint8_t *)frame->data[1],
+                    (const uint8_t *)frame->data[2],
+                    frame->linesize[0], frame->linesize[1],
+                    frame->linesize[2], vc->vcb_user_data);
+            // end_time_ms = current_time_monotonic(m->mono_time);
             // LOGGER_WARNING(vc->log, "decode_frame_h264:005: %d ms", (int)(end_time_ms - start_time_ms));
 
         } else {
@@ -513,9 +651,12 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
                            int *i_frame_size)
 {
 
-    memcpy(call->video.second->h264_in_pic.img.plane[0], y, width * height);
-    memcpy(call->video.second->h264_in_pic.img.plane[1], u, (width / 2) * (height / 2));
-    memcpy(call->video.second->h264_in_pic.img.plane[2], v, (width / 2) * (height / 2));
+#ifdef X264_ENCODE_USED
+
+
+    memcpy(call->video->h264_in_pic.img.plane[0], y, width * height);
+    memcpy(call->video->h264_in_pic.img.plane[1], u, (width / 2) * (height / 2));
+    memcpy(call->video->h264_in_pic.img.plane[2], v, (width / 2) * (height / 2));
 
     int i_nal;
 
@@ -576,6 +717,79 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
     }
 
     return 0;
+
+#else
+
+    AVPacket *compr_data;
+    AVFrame *frame;
+    int ret;
+    uint32_t result = 1;
+
+    compr_data = av_packet_alloc();
+    frame = av_frame_alloc();
+
+    frame->format = call->video->h264_encoder2->pix_fmt;
+    frame->width  = width;
+    frame->height = height;
+
+    ret = av_frame_get_buffer(frame, 32);
+
+    if (ret < 0) {
+        LOGGER_ERROR(av->m->log, "av_frame_get_buffer:Could not allocate the video frame data");
+    }
+
+    /* make sure the frame data is writable */
+    ret = av_frame_make_writable(frame);
+
+    if (ret < 0) {
+        LOGGER_ERROR(av->m->log, "av_frame_make_writable:ERROR");
+    }
+
+    frame->pts = (int64_t)(*video_frame_record_timestamp);
+
+
+    // copy YUV frame data into buffers
+    memcpy(frame->data[0], y, width * height);
+    memcpy(frame->data[1], u, (width / 2) * (height / 2));
+    memcpy(frame->data[2], v, (width / 2) * (height / 2));
+
+    // encode the frame
+    ret = avcodec_send_frame(call->video->h264_encoder2, frame);
+
+    if (ret < 0) {
+        LOGGER_ERROR(av->m->log, "Error sending a frame for encoding:ERROR");
+    }
+
+    while (ret >= 0) {
+        ret = avcodec_receive_packet(call->video->h264_encoder2, compr_data);
+
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+            break;
+        } else if (ret < 0) {
+            fprintf(stderr, "Error during encoding\n");
+            break;
+        }
+
+        // printf("Write packet %3"PRId64" (size=%5d)\n", compr_data->pts, compr_data->size);
+        // fwrite(compr_data->data, 1, compr_data->size, outfile);
+
+        *i_frame_size = compr_data->size;
+        *video_frame_record_timestamp = (uint64_t)compr_data->pts;
+
+        result = 0;
+
+        av_packet_unref(compr_data);
+    }
+
+
+    av_frame_free(&frame);
+    av_packet_free(&compr_data);
+
+
+    return result;
+
+#endif
+
 }
 
 uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height,
@@ -587,6 +801,9 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
                           int *i_frame_size,
                           TOXAV_ERR_SEND_FRAME *rc)
 {
+
+#ifdef X264_ENCODE_USED
+
 
     if (*i_frame_size > 0) {
 
@@ -624,6 +841,13 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
         *rc = TOXAV_ERR_SEND_FRAME_RTP_FAILED;
         return 1;
     }
+
+#else
+
+    return 1;
+
+#endif
+
 }
 
 void vc_kill_h264(VCSession *vc)
@@ -631,6 +855,10 @@ void vc_kill_h264(VCSession *vc)
     // encoder
     x264_encoder_close(vc->h264_encoder);
     x264_picture_clean(&(vc->h264_in_pic));
+    // --- ffmpeg encoder ---
+    avcodec_free_context(&vc->h264_encoder2);
+    // --- ffmpeg encoder ---
+
     // decoder
     avcodec_free_context(&vc->h264_decoder);
 }

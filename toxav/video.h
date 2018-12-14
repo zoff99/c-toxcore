@@ -156,6 +156,11 @@ typedef struct VCSession_s {
     int h264_enc_height;
     uint32_t h264_enc_bitrate;
 
+// ------ ffmpeg encoder ------
+    AVCodecContext *h264_encoder2;
+// ------ ffmpeg encoder ------
+
+
 #ifdef RASPBERRY_PI_OMX
     struct OMXContext *omx_ctx;
 #endif
