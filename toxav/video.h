@@ -38,11 +38,11 @@
 #include <vpx/vp8dx.h>
 // for VPX ----------
 
-// for openH264 ----------
+// for H264 ----------
 #include <x264.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/common.h>
-// for openH264 ----------
+// for H264 ----------
 
 #define USE_TS_BUFFER_FOR_VIDEO   1
 
