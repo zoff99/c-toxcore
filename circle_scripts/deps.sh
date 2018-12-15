@@ -82,12 +82,24 @@ nasm -v || exit 1
 # -- nasm --
 
 
+cd $_SRC_
+# rm -Rf x264
+git clone git://git.videolan.org/x264.git
+cd x264
+git checkout 0a84d986e7020f8344f00752e3600b9769cc1e85 # stable
+./configure --prefix=$_INST_ --disable-opencl --enable-static \
+--disable-avs --disable-cli --enable-pic
+#make clean
+make -j$(nproc) || exit 1
+make install
+
+
 
 cd $_SRC_
 # rm -Rf libav
-git clone https://github.com/libav/libav
+git clone https://github.com/FFmpeg/FFmpeg libav
 cd libav
-git checkout v12.3
+git checkout n4.1
 ./configure --prefix=$_INST_ --disable-devices --disable-programs \
 --disable-doc --disable-avdevice --disable-avformat \
 --disable-swscale \
@@ -96,20 +108,10 @@ git checkout v12.3
 --disable-libxcb-shm \
 --disable-libxcb-xfixes \
 --enable-parser=h264 \
+--enable-libx264 \
+--enable-encoder=libx264 \
 --enable-runtime-cpudetect \
 --enable-gpl --enable-decoder=h264
-#make clean
-make -j$(nproc) || exit 1
-make install
-
-
-cd $_SRC_
-# rm -Rf x264
-git clone git://git.videolan.org/x264.git
-cd x264
-git checkout 0a84d986e7020f8344f00752e3600b9769cc1e85 # stable
-./configure --prefix=$_INST_ --disable-opencl --enable-shared --enable-static \
---disable-avs --disable-cli
 #make clean
 make -j$(nproc) || exit 1
 make install
