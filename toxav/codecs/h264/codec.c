@@ -26,9 +26,9 @@
 #include "../../../toxcore/mono_time.h"
 #include "../toxav_codecs.h"
 
-// #define X264_ENCODE_USED 1
-#define RAPI_HWACCEL_ENC 1
-#define RAPI_HWACCEL_DEC 1
+#define X264_ENCODE_USED 1
+// #define RAPI_HWACCEL_ENC 1
+// #define RAPI_HWACCEL_DEC 1
 
 /* !!multithreaded H264 decoding adds about 80ms of delay!! (0 .. disable, 1 .. disable also?) */
 #define H264_DECODER_THREADS 4
@@ -46,7 +46,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     // ENCODER -------
 
-#if 0
+#ifdef X264_ENCODE_USED
 
     x264_param_t param;
 
@@ -117,7 +117,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     vc->h264_encoder = x264_encoder_open(&param);
 
-#endif
+#else
 
     vc->h264_encoder = NULL;
 
@@ -136,7 +136,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         LOGGER_WARNING(log, "codec not found HW Accel H264 on encoder, trying software decoder ...");
         codec2 = avcodec_find_encoder_by_name("libx264");
     } else {
-        LOGGER_WARNING(log, "FOUND: *HW Accel* H264 on encoder");
+        LOGGER_ERROR(log, "FOUND: *HW Accel* H264 on encoder");
     }
 
 #else
@@ -193,14 +193,16 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     AVDictionary *opts = NULL;
 
+
     if (avcodec_open2(vc->h264_encoder2, codec2, &opts) < 0) {
-        LOGGER_WARNING(log, "could not open codec H264 on encoder");
+        LOGGER_ERROR(log, "could not open codec H264 on encoder");
     }
+
 
 
 // ------ ffmpeg encoder ------
 
-
+#endif
 
 
 
@@ -337,6 +339,8 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
            ) {
             // input image size changed
 
+#ifdef X264_ENCODE_USED
+
             if (vc->h264_encoder) {
 
                 x264_param_t param;
@@ -419,14 +423,10 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
                 x264_picture_clean(&(vc->h264_in_pic));
                 // free old stuff ---------
 
-                LOGGER_DEBUG(log, "H264: reconfigure encoder:002\n");
-
                 // alloc with new values -------
                 if (x264_picture_alloc(&(vc->h264_in_pic), param.i_csp, param.i_width, param.i_height) < 0) {
                     // goto fail;
                 }
-
-                LOGGER_DEBUG(log, "H264: reconfigure encoder:003\n");
 
                 vc->h264_encoder = x264_encoder_open(&param);
                 // alloc with new values -------
@@ -434,10 +434,9 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
                 vc->video_rc_max_quantizer_prev = vc->video_rc_max_quantizer;
                 vc->video_rc_min_quantizer_prev = vc->video_rc_min_quantizer;
 
-                LOGGER_DEBUG(log, "H264: reconfigure encoder:004\n");
-
             }
 
+#else
 
             // --- ffmpeg encoder ---
             avcodec_free_context(&vc->h264_encoder2);
@@ -457,7 +456,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
                 LOGGER_WARNING(log, "codec not found HW Accel H264 on encoder, trying software decoder ...");
                 codec2 = avcodec_find_encoder_by_name("libx264");
             } else {
-                LOGGER_WARNING(log, "FOUND: *HW Accel* H264 on encoder");
+                LOGGER_ERROR(log, "FOUND: *HW Accel* H264 on encoder");
             }
 
 #else
@@ -519,13 +518,12 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             AVDictionary *opts = NULL;
 
             if (avcodec_open2(vc->h264_encoder2, codec2, NULL) < 0) {
-                LOGGER_WARNING(log, "could not open codec H264 on encoder");
+                LOGGER_ERROR(log, "could not open codec H264 on encoder");
             }
-
 
             // --- ffmpeg encoder ---
 
-
+#endif
 
         }
     }
@@ -944,15 +942,20 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
 void vc_kill_h264(VCSession *vc)
 {
     // encoder
+#ifdef X264_ENCODE_USED
+
     if (vc->h264_encoder) {
         x264_encoder_close(vc->h264_encoder);
         x264_picture_clean(&(vc->h264_in_pic));
     }
 
+#else
     // --- ffmpeg encoder ---
     av_packet_free(&(vc->h264_out_pic2));
     avcodec_free_context(&(vc->h264_encoder2));
     // --- ffmpeg encoder ---
+
+#endif
 
     // decoder
     avcodec_free_context(&vc->h264_decoder);
