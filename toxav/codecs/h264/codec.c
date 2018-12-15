@@ -26,6 +26,10 @@
 #include "../../../toxcore/mono_time.h"
 #include "../toxav_codecs.h"
 
+// for H264 ----------
+#include <libavcodec/avcodec.h>
+// for H264 ----------
+
 #define X264_ENCODE_USED 1
 // #define RAPI_HWACCEL_ENC 1
 // #define RAPI_HWACCEL_DEC 1
