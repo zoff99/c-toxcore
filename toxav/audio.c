@@ -217,23 +217,39 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
 
         struct RTPMessage *m = (struct RTPMessage *)ret;
 
+        LOGGER_DEBUG(log, "AudioFramesIN: header sequnum=%d", (int)m->header.sequnum);
 
         if (ac->lp_seqnum_new == -1) {
             ac->lp_seqnum_new = m->header.sequnum;
         } else {
             if (
-                ((m->header.sequnum > 8) && (ac->lp_seqnum_new < (UINT16_MAX - 7)))
+                (
+                    ((m->header.sequnum > 5) && (ac->lp_seqnum_new < (UINT16_MAX - 5)))
+                ) &&
+                (m->header.sequnum <= ac->lp_seqnum_new)
             ) {
-                LOGGER_DEBUG(log, "AudioFramesIN:2: %d %d", (int)ac->lp_seqnum_new, (int)m->header.sequnum);
-                int64_t diff = (m->header.sequnum - ac->lp_seqnum_new);
+                LOGGER_DEBUG(ac->log, "AudioFramesIN: drop pkt num: %d", (int)m->header.sequnum);
 
-                if (diff > 1) {
-                    LOGGER_DEBUG(log, "AudioFramesIN: missing %d audio frames", (int)(diff - 1));
-                    lost_frame = 1;
+                free(ret);
+                ret = NULL;
+            } else {
+
+                LOGGER_DEBUG(log, "AudioFramesIN: using sequnum=%d", (int)m->header.sequnum);
+
+                if (
+                    ((m->header.sequnum > 8) && (ac->lp_seqnum_new < (UINT16_MAX - 7)))
+                ) {
+                    LOGGER_DEBUG(log, "AudioFramesIN:2: %d %d", (int)ac->lp_seqnum_new, (int)m->header.sequnum);
+                    int64_t diff = (m->header.sequnum - ac->lp_seqnum_new);
+
+                    if (diff > 1) {
+                        LOGGER_WARNING(log, "AudioFramesIN: missing %d audio frames", (int)(diff - 1));
+                        lost_frame = 1;
+                    }
                 }
-            }
 
-            ac->lp_seqnum_new = m->header.sequnum;
+                ac->lp_seqnum_new = m->header.sequnum;
+            }
         }
     }
 
