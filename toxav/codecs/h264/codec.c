@@ -31,17 +31,169 @@
 #include <libavutil/opt.h>
 // for H264 ----------
 
+
+/* ---------------------------------------------------
+ *
+ * Hardware specific defines for encoders and decoder
+ * use -DXXXXXX to enable at compile time, otherwise defaults will be used
+ *
+ * ---------------------------------------------------
+ */
+
+
+/* ---------------------------------------------------
+ * DEFAULT
+ */
+#define ACTIVE_HW_CODEC_CONFIG_NAME "_DEFAULT_"
+#define H264_WANT_ENCODER_NAME "not used with x264"
+#define H264_WANT_DECODER_NAME "h264"
 #define X264_ENCODE_USED 1
 // #define RAPI_HWACCEL_ENC 1
 // #define RAPI_HWACCEL_DEC 1
-
 /* !!multithreaded H264 decoding adds about 80ms of delay!! (0 .. disable, 1 .. disable also?) */
-#define H264_DECODER_THREADS 0 // 4
-#define H264_DECODER_THREAD_FRAME_ACTIVE 0 // 1
-
+#define H264_DECODER_THREADS 4
+#define H264_DECODER_THREAD_FRAME_ACTIVE 1
 /* multithreaded encoding seems to add less delay (0 .. disable) */
 #define X264_ENCODER_THREADS 4
 #define X264_ENCODER_SLICES 4
+/* ---------------------------------------------------
+ * DEFAULT
+ */
+
+
+#ifdef HW_CODEC_CONFIG_TRIFA
+/* ---------------------------------------------------
+ * TRIfA
+ */
+#undef ACTIVE_HW_CODEC_CONFIG_NAME
+#undef H264_WANT_ENCODER_NAME
+#undef H264_WANT_DECODER_NAME
+#undef X264_ENCODE_USED
+#undef RAPI_HWACCEL_ENC
+#undef RAPI_HWACCEL_DEC
+#undef H264_DECODER_THREADS
+#undef H264_DECODER_THREAD_FRAME_ACTIVE
+#undef X264_ENCODER_THREADS
+#undef X264_ENCODER_SLICES
+// --
+#define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_TRIFA"
+#define H264_WANT_DECODER_NAME "h264"
+#define X264_ENCODE_USED 1
+#define H264_DECODER_THREADS 0
+#define H264_DECODER_THREAD_FRAME_ACTIVE 0
+#define X264_ENCODER_THREADS 4
+#define X264_ENCODER_SLICES 4
+/* ---------------------------------------------------
+ * TRIfA
+ */
+#endif
+
+#ifdef HW_CODEC_CONFIG_RPI3_TBW_BIDI
+/* ---------------------------------------------------
+ * RPI3 tbw-bidi
+ */
+#undef ACTIVE_HW_CODEC_CONFIG_NAME
+#undef H264_WANT_ENCODER_NAME
+#undef H264_WANT_DECODER_NAME
+#undef X264_ENCODE_USED
+#undef RAPI_HWACCEL_ENC
+#undef RAPI_HWACCEL_DEC
+#undef H264_DECODER_THREADS
+#undef H264_DECODER_THREAD_FRAME_ACTIVE
+#undef X264_ENCODER_THREADS
+#undef X264_ENCODER_SLICES
+// --
+#define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_RPI3_TBW_BIDI"
+#define H264_WANT_ENCODER_NAME "h264_omx"
+#define H264_WANT_DECODER_NAME "h264_mmal"
+#define RAPI_HWACCEL_ENC 1
+#define RAPI_HWACCEL_DEC 1
+#define H264_DECODER_THREADS 0
+#define H264_DECODER_THREAD_FRAME_ACTIVE 0
+/* ---------------------------------------------------
+ * RPI3 bidi
+ */
+#endif
+
+#ifdef HW_CODEC_CONFIG_RPI3_TBW_TV
+/* ---------------------------------------------------
+ * RPI3 tbw-TV
+ */
+#undef ACTIVE_HW_CODEC_CONFIG_NAME
+#undef H264_WANT_ENCODER_NAME
+#undef H264_WANT_DECODER_NAME
+#undef X264_ENCODE_USED
+#undef RAPI_HWACCEL_ENC
+#undef RAPI_HWACCEL_DEC
+#undef H264_DECODER_THREADS
+#undef H264_DECODER_THREAD_FRAME_ACTIVE
+#undef X264_ENCODER_THREADS
+#undef X264_ENCODER_SLICES
+// --
+#define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_RPI3_TBW_TV"
+#define H264_WANT_DECODER_NAME "h264_mmal"
+#define X264_ENCODE_USED 1
+#define RAPI_HWACCEL_DEC 1
+#define H264_DECODER_THREADS 4
+#define H264_DECODER_THREAD_FRAME_ACTIVE 1
+#define X264_ENCODER_THREADS 4
+#define X264_ENCODER_SLICES 4
+/* ---------------------------------------------------
+ * RPI3 tbw-TV
+ */
+#endif
+
+#ifdef HW_CODEC_CONFIG_UTOX_LINNVENC
+/* ---------------------------------------------------
+ * UTOX win7
+ */
+#undef ACTIVE_HW_CODEC_CONFIG_NAME
+#undef H264_WANT_ENCODER_NAME
+#undef H264_WANT_DECODER_NAME
+#undef X264_ENCODE_USED
+#undef RAPI_HWACCEL_ENC
+#undef RAPI_HWACCEL_DEC
+#undef H264_DECODER_THREADS
+#undef H264_DECODER_THREAD_FRAME_ACTIVE
+#undef X264_ENCODER_THREADS
+#undef X264_ENCODER_SLICES
+// --
+#define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_UTOX_LINNVENC"
+#define H264_WANT_ENCODER_NAME "h264_nvenc"
+#define H264_WANT_DECODER_NAME "h264"
+#define RAPI_HWACCEL_ENC 1
+#define H264_DECODER_THREADS 0
+#define H264_DECODER_THREAD_FRAME_ACTIVE 0
+/* ---------------------------------------------------
+ * UTOX win7
+ */
+#endif
+
+#ifdef HW_CODEC_CONFIG_UTOX_WIN7
+/* ---------------------------------------------------
+ * UTOX win7
+ */
+#undef ACTIVE_HW_CODEC_CONFIG_NAME
+#undef H264_WANT_ENCODER_NAME
+#undef H264_WANT_DECODER_NAME
+#undef X264_ENCODE_USED
+#undef RAPI_HWACCEL_ENC
+#undef RAPI_HWACCEL_DEC
+#undef H264_DECODER_THREADS
+#undef H264_DECODER_THREAD_FRAME_ACTIVE
+#undef X264_ENCODER_THREADS
+#undef X264_ENCODER_SLICES
+// --
+#define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_UTOX_WIN7"
+#define H264_WANT_ENCODER_NAME "h264_nvenc"
+#define H264_WANT_DECODER_NAME "h264"
+#define RAPI_HWACCEL_ENC 1
+#define H264_DECODER_THREADS 0
+#define H264_DECODER_THREAD_FRAME_ACTIVE 0
+/* ---------------------------------------------------
+ * UTOX win7
+ */
+#endif
 
 Logger *global__log = NULL;
 
@@ -56,6 +208,8 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
 
     // ENCODER -------
+
+    LOGGER_WARNING(log, "HW CODEC CONFIG ACTIVE: %s", ACTIVE_HW_CODEC_CONFIG_NAME);
 
 #ifdef X264_ENCODE_USED
 
@@ -72,11 +226,11 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     param.i_height = 1080;
     vc->h264_enc_width = param.i_width;
     vc->h264_enc_height = param.i_height;
-#if 1
+
     param.i_threads = X264_ENCODER_THREADS;
     param.b_sliced_threads = 1;
     param.i_slice_count = X264_ENCODER_SLICES;
-#endif
+
     param.b_deterministic = 0;
     //x//param.i_sync_lookahead = 0;
     //x//param.i_lookahead_threads = 0;
@@ -141,13 +295,13 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     codec2 = NULL;
 
 #ifdef RAPI_HWACCEL_ENC
-    codec2 = avcodec_find_encoder_by_name("h264_omx");
+    codec2 = avcodec_find_encoder_by_name(H264_WANT_ENCODER_NAME);
 
     if (!codec2) {
         LOGGER_WARNING(log, "codec not found HW Accel H264 on encoder, trying software decoder ...");
         codec2 = avcodec_find_encoder_by_name("libx264");
     } else {
-        LOGGER_ERROR(log, "FOUND: *HW Accel* H264 on encoder");
+        LOGGER_ERROR(log, "FOUND: *HW Accel* H264 encoder: %s", H264_WANT_ENCODER_NAME);
     }
 
 #else
@@ -165,8 +319,8 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     av_opt_set(vc->h264_encoder2->priv_data, "annex_b", "1", 0);
     av_opt_set(vc->h264_encoder2->priv_data, "repeat_headers", "1", 0);
     av_opt_set(vc->h264_encoder2->priv_data, "tune", "zerolatency", 0);
-    // av_opt_set(vc->h264_encoder2->priv_data, "b", "6100000", 0);
-    // av_opt_set(vc->h264_encoder2->priv_data, "bitrate", "6100000", 0);
+    av_opt_set(vc->h264_encoder2->priv_data, "b", "100000", 0);
+    av_opt_set(vc->h264_encoder2->priv_data, "bitrate", "100000", 0);
 
     // av_opt_set(vc->h264_encoder2->priv_data, "cbr", "true", 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "cbr", true, 0);
@@ -245,29 +399,20 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     codec = NULL;
 
-    LOGGER_WARNING(log, "H264 decoder:001");
-
 #ifdef RAPI_HWACCEL_DEC
-    LOGGER_WARNING(log, "H264 decoder:002");
 
-    codec = avcodec_find_decoder_by_name("h264_mmal");
+    codec = avcodec_find_decoder_by_name(H264_WANT_DECODER_NAME);
 
     if (!codec) {
-        LOGGER_WARNING(log, "H264 decoder:005");
         LOGGER_WARNING(log, "codec not found HW Accel H264 on decoder, trying software decoder ...");
         codec = avcodec_find_decoder(AV_CODEC_ID_H264);
     } else {
-        LOGGER_WARNING(log, "H264 decoder:004");
         LOGGER_WARNING(log, "FOUND: *HW Accel* H264 on decoder");
     }
 
-    LOGGER_WARNING(log, "H264 decoder:006");
 #else
-    LOGGER_WARNING(log, "H264 decoder:007");
     codec = avcodec_find_decoder(AV_CODEC_ID_H264);
 #endif
-
-    LOGGER_WARNING(log, "H264 decoder:008");
 
 
     if (!codec) {
@@ -407,13 +552,11 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
         } else {
 
 #ifndef X264_ENCODE_USED
-
             vc->h264_encoder2->bit_rate = bit_rate;
             vc->h264_enc_bitrate = bit_rate;
 
-            // av_opt_set_int(vc->h264_encoder2->priv_data, "b", bit_rate, 0);
-            // av_opt_set_int(vc->h264_encoder2->priv_data, "bitrate", bit_rate, 0);
-
+            av_opt_set_int(vc->h264_encoder2->priv_data, "b", bit_rate, 0);
+            av_opt_set_int(vc->h264_encoder2->priv_data, "bitrate", bit_rate, 0);
 #endif
 
         }
@@ -540,13 +683,13 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             codec2 = NULL;
 
 #ifdef RAPI_HWACCEL_ENC
-            codec2 = avcodec_find_encoder_by_name("h264_omx");
+            codec2 = avcodec_find_encoder_by_name(H264_WANT_ENCODER_NAME);
 
             if (!codec2) {
                 LOGGER_WARNING(log, "codec not found HW Accel H264 on encoder, trying software decoder ...");
                 codec2 = avcodec_find_encoder_by_name("libx264");
             } else {
-                LOGGER_ERROR(log, "FOUND: *HW Accel* H264 on encoder");
+                LOGGER_ERROR(log, "FOUND: *HW Accel* H264 encoder: %s", H264_WANT_ENCODER_NAME);
             }
 
 #else
@@ -561,8 +704,8 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             av_opt_set(vc->h264_encoder2->priv_data, "annex_b", "1", 0);
             av_opt_set(vc->h264_encoder2->priv_data, "repeat_headers", "1", 0);
             av_opt_set(vc->h264_encoder2->priv_data, "tune", "zerolatency", 0);
-            // av_opt_set(vc->h264_encoder2->priv_data, "b", "6100000", 0);
-            // av_opt_set(vc->h264_encoder2->priv_data, "bitrate", "6100000", 0);
+            av_opt_set_int(vc->h264_encoder2->priv_data, "b", bit_rate, 0);
+            av_opt_set_int(vc->h264_encoder2->priv_data, "bitrate", bit_rate, 0);
 
             // av_opt_set(vc->h264_encoder2->priv_data, "cbr", "true", 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "cbr", true, 0);
@@ -578,8 +721,8 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             av_opt_set(vc->h264_encoder2->priv_data, "i_slice_count", "1", 0);
 
             /* put sample parameters */
-            vc->h264_encoder2->bit_rate = 100 * 1000;
-            vc->h264_enc_bitrate = 100 * 1000;
+            vc->h264_encoder2->bit_rate = bit_rate;
+            vc->h264_enc_bitrate = bit_rate;
 
             /* resolution must be a multiple of two */
             vc->h264_encoder2->width = width;
