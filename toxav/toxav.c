@@ -49,6 +49,7 @@
 #define VIDEO_ACCEPTABLE_LOSS (0.08f) /* if loss is less than this (8%), then don't do anything */
 #define AUDIO_ITERATATIONS_WHILE_VIDEO (5)
 #define VIDEO_MIN_SEND_KEYFRAME_INTERVAL 6000
+#define AUDIO_SEND_DATAPKTS_TWICE 1
 
 #if defined(AUDIO_DEBUGGING_SKIP_FRAMES)
 uint32_t _debug_count_sent_audio_frames = 0;
@@ -1286,7 +1287,7 @@ bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pc
                 rc = TOXAV_ERR_SEND_FRAME_RTP_FAILED;
             }
 
-#if 0
+#if defined(AUDIO_SEND_DATAPKTS_TWICE)
             // HINT: send audio data 2 times --------------------------
             ((RTPSession *)call->audio.first)->sequnum = seq_num_save;
 
