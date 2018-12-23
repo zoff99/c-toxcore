@@ -132,6 +132,7 @@
 // --
 #define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_RPI3_TBW_TV"
 #define H264_WANT_DECODER_NAME "h264_mmal"
+// #define H264_WANT_DECODER_NAME "h264"
 #define X264_ENCODE_USED 1
 #define RAPI_HWACCEL_DEC 1
 #define H264_DECODER_THREADS 4
@@ -190,6 +191,8 @@
 #define RAPI_HWACCEL_ENC 1
 #define H264_DECODER_THREADS 0
 #define H264_DECODER_THREAD_FRAME_ACTIVE 0
+#define X264_ENCODER_THREADS 4
+#define X264_ENCODER_SLICES 4
 /* ---------------------------------------------------
  * UTOX win7
  */
@@ -331,9 +334,9 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     av_opt_set(vc->h264_encoder2->priv_data, "forced-idr", "true", 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "zerolatency", 1, 0);
 
-    av_opt_set(vc->h264_encoder2->priv_data, "threads", "1", 0);
+    av_opt_set_int(vc->h264_encoder2->priv_data, "threads", X264_ENCODER_THREADS, 0);
     av_opt_set(vc->h264_encoder2->priv_data, "sliced_threads", "1", 0);
-    av_opt_set(vc->h264_encoder2->priv_data, "i_slice_count", "1", 0);
+    av_opt_set_int(vc->h264_encoder2->priv_data, "i_slice_count", X264_ENCODER_SLICES, 0);
 
     /* put sample parameters */
     vc->h264_encoder2->bit_rate = 100 * 1000;
@@ -355,10 +358,10 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     // without these it won't work !! ---------------------
     vc->h264_encoder2->time_base = (AVRational) {
-        1, 25
+        1, 30
     };
     vc->h264_encoder2->framerate = (AVRational) {
-        25, 1
+        30, 1
     };
     // without these it won't work !! ---------------------
 
@@ -716,9 +719,9 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             av_opt_set(vc->h264_encoder2->priv_data, "forced-idr", "true", 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "zerolatency", 1, 0);
 
-            av_opt_set(vc->h264_encoder2->priv_data, "threads", "1", 0);
+            av_opt_set_int(vc->h264_encoder2->priv_data, "threads", X264_ENCODER_THREADS, 0);
             av_opt_set(vc->h264_encoder2->priv_data, "sliced_threads", "1", 0);
-            av_opt_set(vc->h264_encoder2->priv_data, "i_slice_count", "1", 0);
+            av_opt_set_int(vc->h264_encoder2->priv_data, "i_slice_count", X264_ENCODER_SLICES, 0);
 
             /* put sample parameters */
             vc->h264_encoder2->bit_rate = bit_rate;
@@ -740,10 +743,10 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
             // without these it won't work !! ---------------------
             vc->h264_encoder2->time_base = (AVRational) {
-                1, 25
+                1, 30
             };
             vc->h264_encoder2->framerate = (AVRational) {
-                25, 1
+                30, 1
             };
             // without these it won't work !! ---------------------
 
