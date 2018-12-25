@@ -21,6 +21,10 @@
 #include "mono_time.h"
 #include "util.h"
 
+
+// #define TOX_CONGESTION_CONTROL_DISABLE 1
+
+
 typedef struct Packet_Data {
     uint64_t sent_time;
     uint16_t length;
@@ -1135,6 +1139,7 @@ static int64_t send_lossless_packet(Net_Crypto *c, int crypt_connection_id, cons
         return -1;
     }
 
+#ifdef TOX_CONGESTION_CONTROL_DISABLE
     /* If last packet send failed, try to send packet again.
        If sending it fails we won't be able to send the new packet. */
     reset_max_speed_reached(c, crypt_connection_id);
@@ -1142,6 +1147,7 @@ static int64_t send_lossless_packet(Net_Crypto *c, int crypt_connection_id, cons
     if (conn->maximum_speed_reached && congestion_control) {
         return -1;
     }
+#endif
 
     Packet_Data dt;
     dt.sent_time = 0;
@@ -1153,9 +1159,11 @@ static int64_t send_lossless_packet(Net_Crypto *c, int crypt_connection_id, cons
         return -1;
     }
 
+#ifdef TOX_CONGESTION_CONTROL_DISABLE
     if (!congestion_control && conn->maximum_speed_reached) {
         return packet_num;
     }
+#endif
 
     if (send_data_packet_helper(c, crypt_connection_id, conn->recv_array.buffer_start, packet_num, data, length) == 0) {
         Packet_Data *dt1 = nullptr;
@@ -2695,9 +2703,11 @@ int64_t write_cryptpacket(Net_Crypto *c, int crypt_connection_id, const uint8_t 
         return -1;
     }
 
+#ifdef TOX_CONGESTION_CONTROL_DISABLE
     if (congestion_control && conn->packets_left == 0) {
         return -1;
     }
+#endif
 
     int64_t ret = send_lossless_packet(c, crypt_connection_id, data, length, congestion_control);
 
@@ -2705,11 +2715,13 @@ int64_t write_cryptpacket(Net_Crypto *c, int crypt_connection_id, const uint8_t 
         return -1;
     }
 
+#ifdef TOX_CONGESTION_CONTROL_DISABLE
     if (congestion_control) {
         --conn->packets_left;
         --conn->packets_left_requested;
         ++conn->packets_sent;
     }
+#endif
 
     return ret;
 }
