@@ -193,6 +193,7 @@ BASE_CLEANUP:
     pthread_mutex_destroy(vc->queue_mutex);
 
 #ifdef USE_TS_BUFFER_FOR_VIDEO
+    tsb_drain((TSBuffer *)vc->vbuf_raw);
     tsb_kill((TSBuffer *)vc->vbuf_raw);
 #else
     rb_kill((RingBuffer *)vc->vbuf_raw);
