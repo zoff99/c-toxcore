@@ -106,6 +106,7 @@
 #define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_RPI3_TBW_BIDI"
 #define H264_WANT_ENCODER_NAME "h264_omx"
 #define H264_WANT_DECODER_NAME "h264_mmal"
+// #define X264_ENCODE_USED 1
 #define RAPI_HWACCEL_ENC 1
 #define RAPI_HWACCEL_DEC 1
 #define H264_DECODER_THREADS 0
@@ -317,16 +318,14 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     vc->h264_out_pic2 = av_packet_alloc();
 
 
-    // av_opt_set(vc->h264_encoder2->priv_data, "preset", "ultrafast", 0);
-    av_opt_set(vc->h264_encoder2->priv_data, "profile", "main", 0);
-    // av_opt_set(vc->h264_encoder2->priv_data, "level", "40", 0);
+    av_opt_set(vc->h264_encoder2->priv_data, "profile", "high", 0);
+    av_opt_set(vc->h264_encoder2->priv_data, "level", "40", 0);
     av_opt_set(vc->h264_encoder2->priv_data, "annex_b", "1", 0);
     av_opt_set(vc->h264_encoder2->priv_data, "repeat_headers", "1", 0);
     av_opt_set(vc->h264_encoder2->priv_data, "tune", "zerolatency", 0);
     av_opt_set(vc->h264_encoder2->priv_data, "b", "100000", 0);
     av_opt_set(vc->h264_encoder2->priv_data, "bitrate", "100000", 0);
 
-    // av_opt_set(vc->h264_encoder2->priv_data, "cbr", "true", 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "cbr", true, 0);
     av_opt_set(vc->h264_encoder2->priv_data, "rc", "cbr", 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "delay", 0, 0);
@@ -434,7 +433,8 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     }
 
     vc->h264_decoder->flags |= AV_CODEC_FLAG_OUTPUT_CORRUPT;
-    vc->h264_decoder->flags |= AV_CODEC_FLAG2_FAST;
+    // vc->h264_decoder->flags |= AV_CODEC_FLAG2_SHOW_ALL;
+    // vc->h264_decoder->flags2 |= AV_CODEC_FLAG2_FAST;
 
     if (H264_DECODER_THREADS > 0) {
         if (codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
@@ -702,16 +702,14 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
             vc->h264_encoder2 = avcodec_alloc_context3(codec2);
 
-            // av_opt_set(vc->h264_encoder2->priv_data, "preset", "ultrafast", 0);
-            av_opt_set(vc->h264_encoder2->priv_data, "profile", "main", 0);
-            // av_opt_set(vc->h264_encoder2->priv_data, "level", "40", 0);
+            av_opt_set(vc->h264_encoder2->priv_data, "profile", "high", 0);
+            av_opt_set(vc->h264_encoder2->priv_data, "level", "40", 0);
             av_opt_set(vc->h264_encoder2->priv_data, "annex_b", "1", 0);
             av_opt_set(vc->h264_encoder2->priv_data, "repeat_headers", "1", 0);
             av_opt_set(vc->h264_encoder2->priv_data, "tune", "zerolatency", 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "b", bit_rate, 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "bitrate", bit_rate, 0);
 
-            // av_opt_set(vc->h264_encoder2->priv_data, "cbr", "true", 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "cbr", true, 0);
             av_opt_set(vc->h264_encoder2->priv_data, "rc", "cbr", 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "delay", 0, 0);
