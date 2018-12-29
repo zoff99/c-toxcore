@@ -22,7 +22,7 @@
 #define DISABLE_H264_DECODER_FEATURE    0
 
 // H264 settings -----------
-#define x264_param_profile_str "main" // "high"
+#define x264_param_profile_str "high" // "main" "high"
 #define VIDEO_BITRATE_INITIAL_VALUE_H264 1500
 #define VIDEO_BITRATE_MIN_AUTO_VALUE_H264 95
 #define VIDEO_BITRATE_SCALAR_AUTO_VALUE_H264 1400
