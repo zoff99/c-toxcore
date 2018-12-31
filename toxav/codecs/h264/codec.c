@@ -210,18 +210,18 @@ Logger *global__log = NULL;
 void my_log_callback(void *ptr, int level, const char *fmt, va_list vargs)
 {
     LOGGER_WARNING(global__log, fmt, vargs);
-/*
-    FILE *pFile;
-    pFile=fopen("/sdcard/log.txt", "a");
-    if(pFile==NULL)
-    {
-    }
-    else
-    {
-        fprintf(pFile, fmt, vargs);
-    }
-    fclose(pFile);
-*/
+    /*
+        FILE *pFile;
+        pFile=fopen("/sdcard/log.txt", "a");
+        if(pFile==NULL)
+        {
+        }
+        else
+        {
+            fprintf(pFile, fmt, vargs);
+        }
+        fclose(pFile);
+    */
 }
 
 VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data,
@@ -503,16 +503,16 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     vc->h264_decoder->codec_type = AVMEDIA_TYPE_VIDEO;
     vc->h264_decoder->codec_id   = AV_CODEC_ID_H264;
 
-/*
-    vc->h264_decoder->codec_tag  = 0x31637661; // ('1'<<24) + ('c'<<16) + ('v'<<8) + 'a';
+    /*
+        vc->h264_decoder->codec_tag  = 0x31637661; // ('1'<<24) + ('c'<<16) + ('v'<<8) + 'a';
 
-    vc->h264_decoder->bit_rate              = 2500 * 1000;
-    // codec->bits_per_coded_sample = par->bits_per_coded_sample;
-    vc->h264_decoder->bits_per_raw_sample   = 8;
-    vc->h264_decoder->profile               = FF_PROFILE_H264_HIGH;
-    vc->h264_decoder->level                 = 40;
-    vc->h264_decoder->has_b_frames          = 2;
-*/
+        vc->h264_decoder->bit_rate              = 2500 * 1000;
+        // codec->bits_per_coded_sample = par->bits_per_coded_sample;
+        vc->h264_decoder->bits_per_raw_sample   = 8;
+        vc->h264_decoder->profile               = FF_PROFILE_H264_HIGH;
+        vc->h264_decoder->level                 = 40;
+        vc->h264_decoder->has_b_frames          = 2;
+    */
 
 
     vc->h264_decoder->pix_fmt                = AV_PIX_FMT_YUV420P;
@@ -560,11 +560,11 @@ void vc_reconfigure_decoder(Logger *log, VCSession *vc, const uint8_t *h264_fram
                             const uint8_t h264_frame_data_len)
 {
     // decoder
-    if (vc->h264_decoder->extradata)
-    {
+    if (vc->h264_decoder->extradata) {
         av_freep(vc->h264_decoder->extradata);
         // vc->h264_decoder->extradata = NULL;
     }
+
     avcodec_free_context(&vc->h264_decoder);
 
 
@@ -640,37 +640,38 @@ void vc_reconfigure_decoder(Logger *log, VCSession *vc, const uint8_t *h264_fram
     LOGGER_WARNING(log, "reconfiguring up h264_mediacodec decoder ...");
 
     uint8_t h264_frame_data_len2 = h264_frame_data_len;
-    if (h264_frame_data_len > 300)
-    {
+
+    if (h264_frame_data_len > 300) {
         h264_frame_data_len2 = 300;
     }
 
-    if (vc->h264_decoder->extradata)
-    {
+    if (vc->h264_decoder->extradata) {
         av_freep(vc->h264_decoder->extradata);
         // vc->h264_decoder->extradata = NULL;
     }
-/*
-    vc->h264_decoder->extradata = (uint8_t *)av_malloc(h264_frame_data_len2 + AV_INPUT_BUFFER_PADDING_SIZE);
-    vc->h264_decoder->extradata_size = h264_frame_data_len2;
-    memset(&vc->h264_decoder->extradata[vc->h264_decoder->extradata_size], 0, AV_INPUT_BUFFER_PADDING_SIZE);
-    LOGGER_WARNING(log, "reconfiguring up h264_mediacodec decoder: %p %d", h264_frame_data, h264_frame_data_len2);
-    memcpy(vc->h264_decoder->extradata, h264_frame_data, h264_frame_data_len2);
-*/
+
+    /*
+        vc->h264_decoder->extradata = (uint8_t *)av_malloc(h264_frame_data_len2 + AV_INPUT_BUFFER_PADDING_SIZE);
+        vc->h264_decoder->extradata_size = h264_frame_data_len2;
+        memset(&vc->h264_decoder->extradata[vc->h264_decoder->extradata_size], 0, AV_INPUT_BUFFER_PADDING_SIZE);
+        LOGGER_WARNING(log, "reconfiguring up h264_mediacodec decoder: %p %d", h264_frame_data, h264_frame_data_len2);
+        memcpy(vc->h264_decoder->extradata, h264_frame_data, h264_frame_data_len2);
+    */
 
 
     int j = h264_frame_data_len2;
     char *str_bytes = calloc(1, (h264_frame_data_len2 + 1) * 2);
     char *str_bytes_p = str_bytes;
     memset(str_bytes, 0, j + 2);
-	for(int i=0;i<j;i++)
-	{
+
+    for (int i = 0; i < j; i++) {
         LOGGER_WARNING(log, "reconfiguring up h264_mediacodec decoder ... SPS: %02x", h264_frame_data[i]);
-		sprintf(str_bytes_p, "%02x ", h264_frame_data[i]);
+        sprintf(str_bytes_p, "%02x ", h264_frame_data[i]);
         str_bytes_p++;
         str_bytes_p++;
-	}
-	sprintf(str_bytes_p, "\n");
+    }
+
+    sprintf(str_bytes_p, "\n");
     LOGGER_WARNING(log, "reconfiguring up h264_mediacodec decoder ... incmoning SPS: %s", str_bytes);
     free(str_bytes);
 
@@ -693,17 +694,17 @@ void vc_reconfigure_decoder(Logger *log, VCSession *vc, const uint8_t *h264_fram
 
     // vc->h264_decoder->codec_tag  = 0x31637661; // ('1'<<24) + ('c'<<16) + ('v'<<8) + 'a';
 
-/*
-    vc->h264_decoder->bit_rate              = 2500 * 1000;
-    vc->h264_decoder->bits_per_raw_sample   = 8;
-    vc->h264_decoder->profile               = FF_PROFILE_H264_HIGH;
-    vc->h264_decoder->level                 = 40;
-    vc->h264_decoder->has_b_frames          = 2;
+    /*
+        vc->h264_decoder->bit_rate              = 2500 * 1000;
+        vc->h264_decoder->bits_per_raw_sample   = 8;
+        vc->h264_decoder->profile               = FF_PROFILE_H264_HIGH;
+        vc->h264_decoder->level                 = 40;
+        vc->h264_decoder->has_b_frames          = 2;
 
-    vc->h264_decoder->pix_fmt                = AV_PIX_FMT_YUV420P;
-    vc->h264_decoder->width                  = 1280;
-    vc->h264_decoder->height                 = 720;
-*/
+        vc->h264_decoder->pix_fmt                = AV_PIX_FMT_YUV420P;
+        vc->h264_decoder->width                  = 1280;
+        vc->h264_decoder->height                 = 720;
+    */
 
     /*
         codec->field_order            = par->field_order;
@@ -1016,14 +1017,13 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
 
     LOGGER_WARNING(vc->log, "decode_frame_h264:len=%d", full_data_len);
 
-    if (global_first_video_frame_data > 0)
-    {
+    if (global_first_video_frame_data > 0) {
         global_first_video_frame_data--;
-        if (global_first_video_frame_data == 1)
-        {
+
+        if (global_first_video_frame_data == 1) {
             global_first_video_frame_data = 0;
-            if ((p) && (p->data) && (full_data_len > 0))
-            {
+
+            if ((p) && (p->data) && (full_data_len > 0)) {
                 vc_reconfigure_decoder(vc->log, vc, p->data, full_data_len);
                 global_first_video_frame_data = 1;
             }
@@ -1448,11 +1448,11 @@ void vc_kill_h264(VCSession *vc)
 #endif
 
     // decoder
-    if (vc->h264_decoder->extradata)
-    {
+    if (vc->h264_decoder->extradata) {
         free(vc->h264_decoder->extradata);
         vc->h264_decoder->extradata = NULL;
     }
+
     avcodec_free_context(&vc->h264_decoder);
 }
 
