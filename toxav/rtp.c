@@ -779,6 +779,39 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     }
 
 
+    /*
+     * just process any incoming audio packets ----
+     */
+    if (header.data_length_lower == length - RTP_HEADER_SIZE) {
+        /* The message is sent in single part */
+
+        /*
+         *   session->mcb == vc_queue_message() // this function is called from here
+         *   session->mp == struct RTPMessage *
+         *   session->cs == call->video.second // == VCSession created by vc_new() call
+         */
+
+        session->rsequnum = header.sequnum;
+        session->rtimestamp = header.timestamp;
+
+        LOGGER_DEBUG(m->log, "RTP: AUDIO singlepart message: len=%d seqnum=%d",
+                     length, header.sequnum);
+
+        return session->mcb(session->m->mono_time, session->cs, new_message(&header, length - RTP_HEADER_SIZE,
+                            data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE));
+
+    }
+
+    /*
+     * just process any incoming audio packets ----
+     */
+
+
+    LOGGER_DEBUG(m->log, "RTP: AUDIO multipart message");
+
+
+
+
     if (header.data_length_lower == length - RTP_HEADER_SIZE) {
         /* The message is sent in single part */
 
