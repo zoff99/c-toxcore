@@ -1015,7 +1015,7 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
                        uint8_t *ret_value)
 {
 
-    LOGGER_WARNING(vc->log, "decode_frame_h264:len=%d", full_data_len);
+    LOGGER_DEBUG(vc->log, "decode_frame_h264:len=%d", full_data_len);
 
     if (global_first_video_frame_data > 0) {
         global_first_video_frame_data--;
