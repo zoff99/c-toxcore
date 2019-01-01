@@ -114,6 +114,8 @@
 #define RAPI_HWACCEL_DEC 1
 #define H264_DECODER_THREADS 0
 #define H264_DECODER_THREAD_FRAME_ACTIVE 0
+#define X264_ENCODER_THREADS 1
+#define X264_ENCODER_SLICES 1
 /* ---------------------------------------------------
  * RPI3 bidi
  */
