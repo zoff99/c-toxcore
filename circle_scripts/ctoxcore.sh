@@ -13,7 +13,7 @@ export _INST_=$_HOME_/inst/
 
 export CF2=" -O3 -g"
 export CF3=" "
-export VV1=" VERBOSE=1 V=1 "
+export VV1=" " # VERBOSE=1 V=1 "
 
 
 mkdir -p $_SRC_
@@ -46,5 +46,5 @@ make install
 export CFLAGS=" $CFLAGS_ -fPIC "
 export CXXFLAGS=" $CFLAGS_ -fPIC "
 export LDFLAGS=" $LDFLAGS_ -fPIC "
-timeout -k 121 120s make V=1 -j20 check || exit 0 # tests fail too often on CI -> don't error out on test failures
+timeout -k 242 240 make V=1 -j20 check || exit 0 # tests fail too often on CI -> don't error out on test failures
 
