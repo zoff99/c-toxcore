@@ -46,5 +46,5 @@ make install
 export CFLAGS=" $CFLAGS_ -fPIC "
 export CXXFLAGS=" $CFLAGS_ -fPIC "
 export LDFLAGS=" $LDFLAGS_ -fPIC "
-make V=1 -j5 check || exit 0 # tests fail too often on CI -> don't error out on test failures
+timeout -k 121 120s make V=1 -j20 check || exit 0 # tests fail too often on CI -> don't error out on test failures
 
