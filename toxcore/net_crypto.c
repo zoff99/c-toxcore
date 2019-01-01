@@ -1139,7 +1139,7 @@ static int64_t send_lossless_packet(Net_Crypto *c, int crypt_connection_id, cons
         return -1;
     }
 
-#ifdef TOX_CONGESTION_CONTROL_DISABLE
+#ifndef TOX_CONGESTION_CONTROL_DISABLE
     /* If last packet send failed, try to send packet again.
        If sending it fails we won't be able to send the new packet. */
     reset_max_speed_reached(c, crypt_connection_id);
@@ -1159,7 +1159,7 @@ static int64_t send_lossless_packet(Net_Crypto *c, int crypt_connection_id, cons
         return -1;
     }
 
-#ifdef TOX_CONGESTION_CONTROL_DISABLE
+#ifndef TOX_CONGESTION_CONTROL_DISABLE
     if (!congestion_control && conn->maximum_speed_reached) {
         return packet_num;
     }
@@ -2703,7 +2703,7 @@ int64_t write_cryptpacket(Net_Crypto *c, int crypt_connection_id, const uint8_t 
         return -1;
     }
 
-#ifdef TOX_CONGESTION_CONTROL_DISABLE
+#ifndef TOX_CONGESTION_CONTROL_DISABLE
     if (congestion_control && conn->packets_left == 0) {
         return -1;
     }
@@ -2715,7 +2715,7 @@ int64_t write_cryptpacket(Net_Crypto *c, int crypt_connection_id, const uint8_t 
         return -1;
     }
 
-#ifdef TOX_CONGESTION_CONTROL_DISABLE
+#ifndef TOX_CONGESTION_CONTROL_DISABLE
     if (congestion_control) {
         --conn->packets_left;
         --conn->packets_left_requested;
