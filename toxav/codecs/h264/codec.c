@@ -139,11 +139,11 @@
 // --
 #define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_RPI3_TBW_TV"
 #define H264_WANT_DECODER_NAME "h264_mmal"
-// #define H264_WANT_DECODER_NAME "h264"
+//#define H264_WANT_DECODER_NAME "h264"
 #define X264_ENCODE_USED 1
 #define RAPI_HWACCEL_DEC 1
-#define H264_DECODER_THREADS 0
-#define H264_DECODER_THREAD_FRAME_ACTIVE 0
+#define H264_DECODER_THREADS 4
+#define H264_DECODER_THREAD_FRAME_ACTIVE 1
 #define X264_ENCODER_THREADS 1
 #define X264_ENCODER_SLICES 1
 /* ---------------------------------------------------
@@ -201,8 +201,8 @@
 #define RAPI_HWACCEL_ENC 1
 #define H264_DECODER_THREADS 4
 #define H264_DECODER_THREAD_FRAME_ACTIVE 1
-#define X264_ENCODER_THREADS 1
-#define X264_ENCODER_SLICES 1
+#define X264_ENCODER_THREADS 4
+#define X264_ENCODER_SLICES 4
 /* ---------------------------------------------------
  * UTOX win7
  */
@@ -257,8 +257,8 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     param.i_slice_count = X264_ENCODER_SLICES;
 
     param.b_deterministic = 0;
-    //x//param.i_sync_lookahead = 0;
-    //x//param.i_lookahead_threads = 0;
+    param.i_sync_lookahead = 0;
+    param.i_lookahead_threads = 0;
     param.b_intra_refresh = 1;
     param.i_bframe = 0;
     // param.b_open_gop = 20;
@@ -266,7 +266,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     // param.rc.i_rc_method = X264_RC_CRF; // X264_RC_ABR;
     // param.i_nal_hrd = X264_NAL_HRD_CBR;
 
-    //x//param.i_frame_reference = 1;
+    param.i_frame_reference = 1;
 
     param.b_vfr_input = 1; /* VFR input.  If 1, use timebase and timestamps for ratecontrol purposes.
                             * If 0, use fps only. */
@@ -362,7 +362,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     av_opt_set_int(vc->h264_encoder2->priv_data, "qmax", 51, 0);
     av_opt_set(vc->h264_encoder2->priv_data, "forced-idr", "true", 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "zerolatency", 1, 0);
-    av_opt_set_int(vc->h264_encoder2->priv_data, "refs", 0, 0);
+    av_opt_set_int(vc->h264_encoder2->priv_data, "refs", 1, 0);
 
     av_opt_set_int(vc->h264_encoder2->priv_data, "threads", X264_ENCODER_THREADS, 0);
     av_opt_set(vc->h264_encoder2->priv_data, "sliced_threads", "1", 0);
@@ -834,14 +834,14 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
                 param.i_slice_count = X264_ENCODER_SLICES;
 
                 param.b_deterministic = 0;
-                //x//param.i_sync_lookahead = 0;
-                //x//param.i_lookahead_threads = 0;
+                param.i_sync_lookahead = 0;
+                param.i_lookahead_threads = 0;
                 param.b_intra_refresh = 1;
                 param.i_bframe = 0;
                 // param.b_open_gop = 20;
                 param.i_keyint_max = VIDEO_MAX_KF_H264;
                 // param.rc.i_rc_method = X264_RC_ABR;
-                //x//param.i_frame_reference = 1;
+                param.i_frame_reference = 1;
 
                 param.b_vfr_input = 1; /* VFR input.  If 1, use timebase and timestamps for ratecontrol purposes.
                             * If 0, use fps only. */
@@ -960,7 +960,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             av_opt_set_int(vc->h264_encoder2->priv_data, "qmax", 51, 0);
             av_opt_set(vc->h264_encoder2->priv_data, "forced-idr", "true", 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "zerolatency", 1, 0);
-            av_opt_set_int(vc->h264_encoder2->priv_data, "refs", 0, 0);
+            av_opt_set_int(vc->h264_encoder2->priv_data, "refs", 1, 0);
 
             av_opt_set_int(vc->h264_encoder2->priv_data, "threads", X264_ENCODER_THREADS, 0);
             av_opt_set(vc->h264_encoder2->priv_data, "sliced_threads", "1", 0);
@@ -1022,7 +1022,8 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
     return 0;
 }
 
-bool global_first_video_frame_data = 50;
+int32_t global_first_video_frame_data = 50;
+int32_t global_decoder_delay_counter = 0;
 
 void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_t *a_r_timestamp,
                        uint64_t *a_l_timestamp,
@@ -1091,8 +1092,9 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
     compr_data->size = (int)full_data_len; // hmm, "int" again
 
     if (header_v3->frame_record_timestamp > 0) {
-        compr_data->dts = (int64_t)header_v3->frame_record_timestamp;
-        compr_data->pts = (int64_t)header_v3->frame_record_timestamp;
+        compr_data->dts = (int64_t)(header_v3->frame_record_timestamp) + 0;
+        compr_data->pts = (int64_t)(header_v3->frame_record_timestamp) + 1;
+        compr_data->duration = (int64_t)(header_v3->frame_record_timestamp) + 1; // 0;
     }
 
     /* ------------------------------------------------------- */
@@ -1134,9 +1136,11 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
 
         if (ret_ == AVERROR(EAGAIN) || ret_ == AVERROR_EOF) {
             // error
+            av_frame_free(&frame);
             break;
         } else if (ret_ < 0) {
             // Error during decoding
+            av_frame_free(&frame);
             break;
         } else if (ret_ == 0) {
 
@@ -1160,16 +1164,43 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
                     (current_time_monotonic(m->mono_time) + vc->timestamp_difference_to_sender) -
                     frame->pkt_pts;
 
-                LOGGER_WARNING(vc->log,
-                               "real play delay=%d header_v3->frame_record_timestamp=%d, mono=%d, vc->timestamp_difference_to_sender=%d frame->pkt_pts=%ld, frame->pkt_dts=%ld, frame->pts=%ld",
-                               (int)vc->video_play_delay_real,
-                               (int)header_v3->frame_record_timestamp,
-                               (int)current_time_monotonic(m->mono_time),
-                               (int)vc->timestamp_difference_to_sender,
-                               frame->pkt_pts,
-                               frame->pkt_dts,
-                               frame->pts
-                              );
+                /*
+                 * TODO: there is some memory issue in the log line. DO NOT ENABLE !! ---------
+                                LOGGER_DEBUG(vc->log,
+                                               "real play delay=%d header_v3->frame_record_timestamp=%d, mono=%d, vc->timestamp_difference_to_sender=%d frame->pkt_pts=%ld, frame->pkt_dts=%ld, frame->pts=%ld",
+                                               (int)vc->video_play_delay_real,
+                                               (int)header_v3->frame_record_timestamp,
+                                               (int)current_time_monotonic(m->mono_time),
+                                               (int)vc->timestamp_difference_to_sender,
+                                               frame->pkt_pts,
+                                               frame->pkt_dts,
+                                               frame->pts
+                                              );
+                 *
+                 * TODO: there is some memory issue in the log line. DO NOT ENABLE !! ---------
+                 */
+
+                /*
+
+                MMAL H264 Decoder - problem ?
+                =============================
+
+                 fps    ms delay    ms between frames   frames cached
+                ---------------------------------------------------------
+                 10     450         100                 4.5
+                 20     230         50                  4.6
+                 25     190         40                  4.75
+
+                */
+
+                global_decoder_delay_counter++;
+
+                if (global_decoder_delay_counter > 30) {
+                    global_decoder_delay_counter = 0;
+                    LOGGER_WARNING(vc->log, "delay=%ld",
+                                   (long int)(h_frame_record_timestamp - frame->pkt_pts)
+                                  );
+                }
             }
 
             // start_time_ms = current_time_monotonic(m->mono_time);
