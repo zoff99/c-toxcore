@@ -56,6 +56,7 @@
 /* multithreaded encoding seems to add less delay (0 .. disable) */
 #define X264_ENCODER_THREADS 4
 #define X264_ENCODER_SLICES 4
+#define H264_ENCODE_MAX_BITRATE_OVER_ALLOW 1.3
 /* ---------------------------------------------------
  * DEFAULT
  */
@@ -338,15 +339,17 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     vc->h264_out_pic2 = av_packet_alloc();
 
 
-    av_opt_set(vc->h264_encoder2->priv_data, "profile", "high", 0);
-    av_opt_set(vc->h264_encoder2->priv_data, "level", "40", 0);
+    av_opt_set(vc->h264_encoder2->priv_data, "profile", "high", AV_OPT_SEARCH_CHILDREN);
+    vc->h264_encoder2->profile               = FF_PROFILE_H264_HIGH;
+
+    av_opt_set(vc->h264_encoder2->priv_data, "level", "4.0", AV_OPT_SEARCH_CHILDREN);
     av_opt_set(vc->h264_encoder2->priv_data, "annex_b", "1", 0);
     av_opt_set(vc->h264_encoder2->priv_data, "repeat_headers", "1", 0);
     av_opt_set(vc->h264_encoder2->priv_data, "tune", "zerolatency", 0);
     av_opt_set(vc->h264_encoder2->priv_data, "b", "100000", 0);
     av_opt_set(vc->h264_encoder2->priv_data, "bitrate", "100000", 0);
-    av_opt_set_int(vc->h264_encoder2->priv_data, "minrate", 100000, 0);
-    av_opt_set_int(vc->h264_encoder2->priv_data, "maxrate", 100000, 0);
+    // av_opt_set_int(vc->h264_encoder2->priv_data, "minrate", 100000, 0);
+    // av_opt_set_int(vc->h264_encoder2->priv_data, "maxrate", (int)((float)100000 * H264_ENCODE_MAX_BITRATE_OVER_ALLOW), 0);
 
     av_opt_set_int(vc->h264_encoder2->priv_data, "cbr", true, 0);
     av_opt_set(vc->h264_encoder2->priv_data, "rc", "cbr", 0);
@@ -356,8 +359,9 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     // av_opt_set(vc->h264_encoder2->priv_data, "qp", "30", 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "qmin", 3, 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "qmax", 51, 0);
-    av_opt_set(vc->h264_encoder2->priv_data, "forced-idr", "false", 0);
+    av_opt_set(vc->h264_encoder2->priv_data, "forced-idr", "true", 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "zerolatency", 1, 0);
+    av_opt_set_int(vc->h264_encoder2->priv_data, "refs", 0, 0);
 
     av_opt_set_int(vc->h264_encoder2->priv_data, "threads", X264_ENCODER_THREADS, 0);
     av_opt_set(vc->h264_encoder2->priv_data, "sliced_threads", "1", 0);
@@ -375,6 +379,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     vc->h264_enc_height = vc->h264_encoder2->height;
 
     vc->h264_encoder2->gop_size = VIDEO_MAX_KF_H264;
+    // vc->h264_encoder2->keyint_min = VIDEO_MAX_KF_H264;
     vc->h264_encoder2->max_b_frames = 0;
     vc->h264_encoder2->pix_fmt = AV_PIX_FMT_YUV420P;
 
@@ -383,10 +388,10 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     // without these it won't work !! ---------------------
     vc->h264_encoder2->time_base = (AVRational) {
-        1, 30
+        40, 1000
     };
     vc->h264_encoder2->framerate = (AVRational) {
-        30, 1
+        1000, 40
     };
     // without these it won't work !! ---------------------
 
@@ -636,6 +641,7 @@ void vc_reconfigure_decoder(Logger *log, VCSession *vc, const uint8_t *h264_fram
     */
 
     vc->h264_decoder->delay = 0;
+    // av_opt_set_int(vc->h264_decoder->priv_data, "delay", 0, 0);
 
 #ifdef _TRIFA_CODEC_DECODER_
 
@@ -783,8 +789,8 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
             av_opt_set_int(vc->h264_encoder2->priv_data, "b", bit_rate, 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "bitrate", bit_rate, 0);
-            av_opt_set_int(vc->h264_encoder2->priv_data, "minrate", bit_rate, 0);
-            av_opt_set_int(vc->h264_encoder2->priv_data, "maxrate", bit_rate, 0);
+            // av_opt_set_int(vc->h264_encoder2->priv_data, "minrate", bit_rate, 0);
+            // av_opt_set_int(vc->h264_encoder2->priv_data, "maxrate", (int)((float)bit_rate * H264_ENCODE_MAX_BITRATE_OVER_ALLOW), 0);
 #endif
 
         }
@@ -926,15 +932,17 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
             vc->h264_encoder2 = avcodec_alloc_context3(codec2);
 
-            av_opt_set(vc->h264_encoder2->priv_data, "profile", "high", 0);
-            av_opt_set(vc->h264_encoder2->priv_data, "level", "40", 0);
+            av_opt_set(vc->h264_encoder2->priv_data, "profile", "high", AV_OPT_SEARCH_CHILDREN);
+            vc->h264_encoder2->profile               = FF_PROFILE_H264_HIGH;
+
+            av_opt_set(vc->h264_encoder2->priv_data, "level", "4.0", AV_OPT_SEARCH_CHILDREN);
             av_opt_set(vc->h264_encoder2->priv_data, "annex_b", "1", 0);
             av_opt_set(vc->h264_encoder2->priv_data, "repeat_headers", "1", 0);
             av_opt_set(vc->h264_encoder2->priv_data, "tune", "zerolatency", 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "b", bit_rate, 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "bitrate", bit_rate, 0);
-            av_opt_set_int(vc->h264_encoder2->priv_data, "minrate", bit_rate, 0);
-            av_opt_set_int(vc->h264_encoder2->priv_data, "maxrate", bit_rate, 0);
+            // av_opt_set_int(vc->h264_encoder2->priv_data, "minrate", bit_rate, 0);
+            // av_opt_set_int(vc->h264_encoder2->priv_data, "maxrate", (int)((float)bit_rate * H264_ENCODE_MAX_BITRATE_OVER_ALLOW), 0);
 
             av_opt_set_int(vc->h264_encoder2->priv_data, "cbr", true, 0);
             av_opt_set(vc->h264_encoder2->priv_data, "rc", "cbr", 0);
@@ -944,8 +952,9 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             // av_opt_set(vc->h264_encoder2->priv_data, "qp", "30", 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "qmin", 3, 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "qmax", 51, 0);
-            av_opt_set(vc->h264_encoder2->priv_data, "forced-idr", "false", 0);
+            av_opt_set(vc->h264_encoder2->priv_data, "forced-idr", "true", 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "zerolatency", 1, 0);
+            av_opt_set_int(vc->h264_encoder2->priv_data, "refs", 0, 0);
 
             av_opt_set_int(vc->h264_encoder2->priv_data, "threads", X264_ENCODER_THREADS, 0);
             av_opt_set(vc->h264_encoder2->priv_data, "sliced_threads", "1", 0);
@@ -963,6 +972,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             vc->h264_enc_height = vc->h264_encoder2->height;
 
             vc->h264_encoder2->gop_size = VIDEO_MAX_KF_H264;
+            // vc->h264_encoder2->keyint_min = VIDEO_MAX_KF_H264;
             vc->h264_encoder2->max_b_frames = 0;
             vc->h264_encoder2->pix_fmt = AV_PIX_FMT_YUV420P;
 
@@ -971,10 +981,10 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
             // without these it won't work !! ---------------------
             vc->h264_encoder2->time_base = (AVRational) {
-                1, 30
+                40, 1000
             };
             vc->h264_encoder2->framerate = (AVRational) {
-                30, 1
+                1000, 40
             };
             // without these it won't work !! ---------------------
 
