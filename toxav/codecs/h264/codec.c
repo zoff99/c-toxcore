@@ -142,7 +142,7 @@
 // #define H264_WANT_DECODER_NAME "h264"
 #define X264_ENCODE_USED 1
 #define RAPI_HWACCEL_DEC 1
-#define H264_DECODER_THREADS 1
+#define H264_DECODER_THREADS 0
 #define H264_DECODER_THREAD_FRAME_ACTIVE 0
 #define X264_ENCODER_THREADS 1
 #define X264_ENCODER_SLICES 1
@@ -343,6 +343,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     vc->h264_encoder2->profile               = FF_PROFILE_H264_HIGH;
 
     av_opt_set(vc->h264_encoder2->priv_data, "level", "4.0", AV_OPT_SEARCH_CHILDREN);
+    vc->h264_encoder2->level = 40; // 4.0
     av_opt_set(vc->h264_encoder2->priv_data, "annex_b", "1", 0);
     av_opt_set(vc->h264_encoder2->priv_data, "repeat_headers", "1", 0);
     av_opt_set(vc->h264_encoder2->priv_data, "tune", "zerolatency", 0);
@@ -465,6 +466,8 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     vc->h264_decoder->flags |= AV_CODEC_FLAG_OUTPUT_CORRUPT;
     // vc->h264_decoder->flags |= AV_CODEC_FLAG2_SHOW_ALL;
     // vc->h264_decoder->flags2 |= AV_CODEC_FLAG2_FAST;
+    // vc->h264_decoder->flags |= AV_CODEC_FLAG_TRUNCATED;
+    // vc->h264_decoder->flags2 |= AV_CODEC_FLAG2_CHUNKS;
 
     if (H264_DECODER_THREADS > 0) {
         if (codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
@@ -616,6 +619,8 @@ void vc_reconfigure_decoder(Logger *log, VCSession *vc, const uint8_t *h264_fram
     vc->h264_decoder->flags |= AV_CODEC_FLAG_OUTPUT_CORRUPT;
     // vc->h264_decoder->flags |= AV_CODEC_FLAG2_SHOW_ALL;
     // vc->h264_decoder->flags2 |= AV_CODEC_FLAG2_FAST;
+    // vc->h264_decoder->flags |= AV_CODEC_FLAG_TRUNCATED;
+    // vc->h264_decoder->flags2 |= AV_CODEC_FLAG2_CHUNKS;
 
     if (H264_DECODER_THREADS > 0) {
         if (codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
@@ -936,6 +941,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             vc->h264_encoder2->profile               = FF_PROFILE_H264_HIGH;
 
             av_opt_set(vc->h264_encoder2->priv_data, "level", "4.0", AV_OPT_SEARCH_CHILDREN);
+            vc->h264_encoder2->level = 40; // 4.0
             av_opt_set(vc->h264_encoder2->priv_data, "annex_b", "1", 0);
             av_opt_set(vc->h264_encoder2->priv_data, "repeat_headers", "1", 0);
             av_opt_set(vc->h264_encoder2->priv_data, "tune", "zerolatency", 0);
@@ -1063,6 +1069,8 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
     AVPacket *compr_data;
     compr_data = av_packet_alloc();
 
+    uint64_t h_frame_record_timestamp = header_v3->frame_record_timestamp;
+
 #if 0
     compr_data->pts = AV_NOPTS_VALUE;
     compr_data->dts = AV_NOPTS_VALUE;
@@ -1152,16 +1160,16 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
                     (current_time_monotonic(m->mono_time) + vc->timestamp_difference_to_sender) -
                     frame->pkt_pts;
 
-                LOGGER_DEBUG(vc->log,
-                             "real play delay=%d header_v3->frame_record_timestamp=%d, mono=%d, vc->timestamp_difference_to_sender=%d frame->pkt_pts=%ld, frame->pkt_dts=%ld, frame->pts=%ld",
-                             (int)vc->video_play_delay_real,
-                             (int)header_v3->frame_record_timestamp,
-                             (int)current_time_monotonic(m->mono_time),
-                             (int)vc->timestamp_difference_to_sender,
-                             frame->pkt_pts,
-                             frame->pkt_dts,
-                             frame->pts
-                            );
+                LOGGER_WARNING(vc->log,
+                               "real play delay=%d header_v3->frame_record_timestamp=%d, mono=%d, vc->timestamp_difference_to_sender=%d frame->pkt_pts=%ld, frame->pkt_dts=%ld, frame->pts=%ld",
+                               (int)vc->video_play_delay_real,
+                               (int)header_v3->frame_record_timestamp,
+                               (int)current_time_monotonic(m->mono_time),
+                               (int)vc->timestamp_difference_to_sender,
+                               frame->pkt_pts,
+                               frame->pkt_dts,
+                               frame->pts
+                              );
             }
 
             // start_time_ms = current_time_monotonic(m->mono_time);
