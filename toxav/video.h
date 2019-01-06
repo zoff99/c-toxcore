@@ -196,6 +196,7 @@ typedef struct VCSession_s {
     int32_t video_play_delay_real;
     uint32_t video_frame_buffer_entries;
     uint64_t last_incoming_frame_ts;
+    uint64_t last_parsed_h264_sps_ts;
 
     uint32_t dummy_ntp_local_start;
     uint32_t dummy_ntp_local_end;
