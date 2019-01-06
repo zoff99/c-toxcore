@@ -900,7 +900,7 @@ void get_info_from_sps(const Messenger *m, VCSession *vc, const Logger *log,
                        const uint8_t data[], const uint32_t data_len)
 {
     if (data_len > 6) {
-        LOGGER_DEBUG(log, "SPS:len=%d", data_len, data[4], data[5], data[7]);
+        LOGGER_DEBUG(log, "SPS:len=%d bytes:%d %d %d", data_len, data[4], data[5], data[7]);
 
         if (
             (data[0] == 0x00)
