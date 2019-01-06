@@ -924,24 +924,35 @@ void get_info_from_sps(const Messenger *m, VCSession *vc, const Logger *log,
                 uint8_t h264_level = data[7];
 
                 if ((h264_profile == 66) && (h264_constraint_set3_flag = 0)) {
-                    LOGGER_WARNING(log, "profile=%s level=%d", "baseline", h264_level);
+                    LOGGER_DEBUG(log, "profile=%s level=%d", "baseline", h264_level);
+                    vc->parsed_h264_sps_profile_i = h264_profile;
                 } else if ((h264_profile == 66) && (h264_constraint_set3_flag = 1)) {
-                    LOGGER_WARNING(log, "profile=%s level=%d", "contrained baseline", h264_level);
+                    LOGGER_DEBUG(log, "profile=%s level=%d", "contrained baseline", h264_level);
+                    vc->parsed_h264_sps_profile_i = h264_profile;
                 } else if ((h264_profile == 77) && (h264_constraint_set0_flag = 0)) {
-                    LOGGER_WARNING(log, "profile=%s level=%d", "main", h264_level);
+                    LOGGER_DEBUG(log, "profile=%s level=%d", "main", h264_level);
+                    vc->parsed_h264_sps_profile_i = h264_profile;
                 } else if ((h264_profile == 77) && (h264_constraint_set0_flag = 1)) {
-                    LOGGER_WARNING(log, "profile=%s level=%d", "extended", h264_level);
+                    LOGGER_DEBUG(log, "profile=%s level=%d", "extended", h264_level);
+                    vc->parsed_h264_sps_profile_i = h264_profile;
                 } else if (h264_profile == 100) {
-                    LOGGER_WARNING(log, "profile=%s level=%d", "high", h264_level);
+                    LOGGER_DEBUG(log, "profile=%s level=%d", "high", h264_level);
+                    vc->parsed_h264_sps_profile_i = h264_profile;
                 } else if (h264_profile == 110) {
-                    LOGGER_WARNING(log, "profile=%s level=%d", "high10", h264_level);
+                    LOGGER_DEBUG(log, "profile=%s level=%d", "high10", h264_level);
+                    vc->parsed_h264_sps_profile_i = h264_profile;
                 } else if (h264_profile == 122) {
-                    LOGGER_WARNING(log, "profile=%s level=%d", "high422", h264_level);
+                    LOGGER_DEBUG(log, "profile=%s level=%d", "high422", h264_level);
+                    vc->parsed_h264_sps_profile_i = h264_profile;
                 } else if (h264_profile == 244) {
-                    LOGGER_WARNING(log, "profile=%s level=%d", "high444", h264_level);
+                    LOGGER_DEBUG(log, "profile=%s level=%d", "high444", h264_level);
+                    vc->parsed_h264_sps_profile_i = h264_profile;
                 } else {
-                    LOGGER_WARNING(log, "profile=%s level=%d", "unkwn", h264_level);
+                    LOGGER_DEBUG(log, "profile=%s level=%d", "unkwn", h264_level);
+                    vc->parsed_h264_sps_profile_i = 0;
                 }
+
+                vc->parsed_h264_sps_level_i = h264_level;
             }
         }
     }
