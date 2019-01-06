@@ -32,6 +32,9 @@
 // for H264 ----------
 
 
+int global_h264_enc_profile_high_enabled = 0;
+int global_h264_enc_profile_high_enabled_switch = 0;
+
 /* ---------------------------------------------------
  *
  * Hardware specific defines for encoders and decoder
@@ -142,10 +145,10 @@
 //#define H264_WANT_DECODER_NAME "h264"
 #define X264_ENCODE_USED 1
 #define RAPI_HWACCEL_DEC 1
-#define H264_DECODER_THREADS 4
-#define H264_DECODER_THREAD_FRAME_ACTIVE 1
-#define X264_ENCODER_THREADS 1
-#define X264_ENCODER_SLICES 1
+#define H264_DECODER_THREADS 0
+#define H264_DECODER_THREAD_FRAME_ACTIVE 0
+#define X264_ENCODER_THREADS 0
+#define X264_ENCODER_SLICES 0
 /* ---------------------------------------------------
  * RPI3 tbw-TV
  */
@@ -262,7 +265,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     //#// param.i_sync_lookahead = 0;
     //#// param.i_lookahead_threads = 0;
     param.b_intra_refresh = 1;
-    //y// param.i_bframe = 0;
+    param.i_bframe = 0;
     // param.b_open_gop = 20;
     param.i_keyint_max = VIDEO_MAX_KF_H264;
     // param.rc.i_rc_method = X264_RC_CRF; // X264_RC_ABR;
@@ -341,10 +344,17 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     vc->h264_out_pic2 = av_packet_alloc();
 
 
-    av_opt_set(vc->h264_encoder2->priv_data, "profile", "baseline", 0);
-    vc->h264_encoder2->profile               = FF_PROFILE_H264_BASELINE; // FF_PROFILE_H264_HIGH;
-    // av_opt_set(vc->h264_encoder2->priv_data, "level", "3.0", AV_OPT_SEARCH_CHILDREN);
-    // vc->h264_encoder2->level = 30; // 3.0
+    if (global_h264_enc_profile_high_enabled == 1) {
+        av_opt_set(vc->h264_encoder2->priv_data, "profile", "high", 0);
+        vc->h264_encoder2->profile               = FF_PROFILE_H264_HIGH; // FF_PROFILE_H264_HIGH;
+        // av_opt_set(vc->h264_encoder2->priv_data, "level", "4.0", AV_OPT_SEARCH_CHILDREN);
+        // vc->h264_encoder2->level = 40; // 4.0
+    } else {
+        av_opt_set(vc->h264_encoder2->priv_data, "profile", "baseline", 0);
+        vc->h264_encoder2->profile               = FF_PROFILE_H264_BASELINE; // FF_PROFILE_H264_HIGH;
+        // av_opt_set(vc->h264_encoder2->priv_data, "level", "4.0", AV_OPT_SEARCH_CHILDREN);
+        // vc->h264_encoder2->level = 40; // 4.0
+    }
 
 #if 0
     //print
@@ -371,8 +381,9 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     av_opt_set_int(vc->h264_encoder2->priv_data, "cbr", true, 0);
     av_opt_set(vc->h264_encoder2->priv_data, "rc", "cbr", 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "delay", 0, 0);
+    // av_opt_set_int(vc->h264_encoder2->priv_data, "rc-lookahead", 0, 0);
     av_opt_set(vc->h264_encoder2->priv_data, "preset", "llhp", 0);
-    //y// av_opt_set_int(vc->h264_encoder2->priv_data, "bf", 0, 0);
+    av_opt_set_int(vc->h264_encoder2->priv_data, "bf", 0, 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "qmin", 3, 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "qmax", 51, 0);
     av_opt_set(vc->h264_encoder2->priv_data, "forced-idr", "true", 0);
@@ -380,7 +391,13 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     //y// av_opt_set_int(vc->h264_encoder2->priv_data, "refs", 0, 0);
 
     av_opt_set_int(vc->h264_encoder2->priv_data, "threads", X264_ENCODER_THREADS, 0);
-    av_opt_set(vc->h264_encoder2->priv_data, "sliced_threads", "1", 0);
+
+    if (X264_ENCODER_SLICES > 0) {
+        av_opt_set(vc->h264_encoder2->priv_data, "sliced_threads", "1", 0);
+    } else {
+        av_opt_set(vc->h264_encoder2->priv_data, "sliced_threads", "0", 0);
+    }
+
     av_opt_set_int(vc->h264_encoder2->priv_data, "i_slice_count", X264_ENCODER_SLICES, 0);
 
     /* put sample parameters */
@@ -411,11 +428,10 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     };
     // without these it won't work !! ---------------------
 
-    // vc->h264_encoder2->flags |= ;
     // vc->h264_encoder2->flags2 |= AV_CODEC_FLAG2_LOCAL_HEADER;
+    // vc->h264_encoder2->flags2 |= AV_CODEC_FLAG2_FAST;
 
     AVDictionary *opts = NULL;
-
 
     if (avcodec_open2(vc->h264_encoder2, codec2, &opts) < 0) {
         LOGGER_ERROR(log, "could not open codec H264 on encoder");
@@ -479,8 +495,8 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     }
 
     // vc->h264_decoder->flags |= AV_CODEC_FLAG_OUTPUT_CORRUPT;
-    // vc->h264_decoder->flags |= AV_CODEC_FLAG2_SHOW_ALL;
-    vc->h264_decoder->flags2 |= AV_CODEC_FLAG2_FAST;
+    vc->h264_decoder->flags |= AV_CODEC_FLAG2_SHOW_ALL;
+    // vc->h264_decoder->flags2 |= AV_CODEC_FLAG2_FAST;
     // vc->h264_decoder->flags |= AV_CODEC_FLAG_TRUNCATED;
     // vc->h264_decoder->flags2 |= AV_CODEC_FLAG2_CHUNKS;
 
@@ -588,201 +604,18 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     return vc;
 }
 
-void vc_reconfigure_decoder(Logger *log, VCSession *vc, const uint8_t *h264_frame_data,
-                            const uint8_t h264_frame_data_len)
-{
-    // decoder
-    if (vc->h264_decoder->extradata) {
-        av_freep(vc->h264_decoder->extradata);
-        // vc->h264_decoder->extradata = NULL;
-    }
-
-    avcodec_free_context(&vc->h264_decoder);
-
-
-    // DECODER -------
-    AVCodec *codec = NULL;
-    vc->h264_decoder = NULL;
-
-    // avcodec_register_all();
-
-    codec = NULL;
-
-#ifdef RAPI_HWACCEL_DEC
-
-    codec = avcodec_find_decoder_by_name(H264_WANT_DECODER_NAME);
-
-    if (!codec) {
-        LOGGER_WARNING(log, "codec not found HW Accel H264 on decoder, trying software decoder ...");
-        codec = avcodec_find_decoder(AV_CODEC_ID_H264);
-    } else {
-        LOGGER_WARNING(log, "FOUND: *HW Accel* H264 on decoder");
-    }
-
-#else
-    codec = avcodec_find_decoder(AV_CODEC_ID_H264);
-#endif
-
-
-    if (!codec) {
-        LOGGER_WARNING(log, "codec not found H264 on decoder");
-    }
-
-    vc->h264_decoder = avcodec_alloc_context3(codec);
-
-    if (codec->capabilities & AV_CODEC_CAP_TRUNCATED) {
-        vc->h264_decoder->flags |= AV_CODEC_FLAG_TRUNCATED; /* we do not send complete frames */
-    }
-
-    if (codec->capabilities & AV_CODEC_FLAG_LOW_DELAY) {
-        vc->h264_decoder->flags |= AV_CODEC_FLAG_LOW_DELAY;
-    }
-
-    // vc->h264_decoder->flags |= AV_CODEC_FLAG_OUTPUT_CORRUPT;
-    // vc->h264_decoder->flags |= AV_CODEC_FLAG2_SHOW_ALL;
-    vc->h264_decoder->flags2 |= AV_CODEC_FLAG2_FAST;
-    // vc->h264_decoder->flags |= AV_CODEC_FLAG_TRUNCATED;
-    // vc->h264_decoder->flags2 |= AV_CODEC_FLAG2_CHUNKS;
-
-    if (H264_DECODER_THREADS > 0) {
-        if (codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
-            vc->h264_decoder->thread_count = H264_DECODER_THREADS;
-            vc->h264_decoder->thread_type = FF_THREAD_SLICE;
-            vc->h264_decoder->active_thread_type = FF_THREAD_SLICE;
-        }
-
-        if (H264_DECODER_THREAD_FRAME_ACTIVE == 1) {
-            if (codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) {
-                vc->h264_decoder->thread_count = H264_DECODER_THREADS;
-                vc->h264_decoder->thread_type |= FF_THREAD_FRAME;
-                vc->h264_decoder->active_thread_type |= FF_THREAD_FRAME;
-            }
-        }
-    }
-
-    vc->h264_decoder->refcounted_frames = 0;
-    /*   When AVCodecContext.refcounted_frames is set to 0, the returned
-    *             reference belongs to the decoder and is valid only until the
-    *             next call to this function or until closing or flushing the
-    *             decoder. The caller may not write to it.
-    */
-
-    vc->h264_decoder->delay = 0;
-    // av_opt_set_int(vc->h264_decoder->priv_data, "delay", 0, 0);
-
-#ifdef _TRIFA_CODEC_DECODER_
-
-    LOGGER_WARNING(log, "reconfiguring up h264_mediacodec decoder ...");
-
-    uint8_t h264_frame_data_len2 = h264_frame_data_len;
-
-    if (h264_frame_data_len > 300) {
-        h264_frame_data_len2 = 300;
-    }
-
-    if (vc->h264_decoder->extradata) {
-        av_freep(vc->h264_decoder->extradata);
-        // vc->h264_decoder->extradata = NULL;
-    }
-
-    /*
-        vc->h264_decoder->extradata = (uint8_t *)av_malloc(h264_frame_data_len2 + AV_INPUT_BUFFER_PADDING_SIZE);
-        vc->h264_decoder->extradata_size = h264_frame_data_len2;
-        memset(&vc->h264_decoder->extradata[vc->h264_decoder->extradata_size], 0, AV_INPUT_BUFFER_PADDING_SIZE);
-        LOGGER_WARNING(log, "reconfiguring up h264_mediacodec decoder: %p %d", h264_frame_data, h264_frame_data_len2);
-        memcpy(vc->h264_decoder->extradata, h264_frame_data, h264_frame_data_len2);
-    */
-
-
-    int j = h264_frame_data_len2;
-    char *str_bytes = calloc(1, (h264_frame_data_len2 + 1) * 2);
-    char *str_bytes_p = str_bytes;
-    memset(str_bytes, 0, j + 2);
-
-    for (int i = 0; i < j; i++) {
-        LOGGER_WARNING(log, "reconfiguring up h264_mediacodec decoder ... SPS: %02x", h264_frame_data[i]);
-        sprintf(str_bytes_p, "%02x ", h264_frame_data[i]);
-        str_bytes_p++;
-        str_bytes_p++;
-    }
-
-    sprintf(str_bytes_p, "\n");
-    LOGGER_WARNING(log, "reconfiguring up h264_mediacodec decoder ... incmoning SPS: %s", str_bytes);
-    free(str_bytes);
-
-
-
-    const uint8_t sps[] = {0x00, 0x00, 0x00, 0x01, 0x67, 0x42, 0x00, 0x0a, 0xf8, 0x41, 0xa2};
-    const uint8_t pps[] = {0x00, 0x00, 0x00, 0x01, 0x68, 0xce, 0x38, 0x80};
-    const size_t sps_pps_size = sizeof(sps) + sizeof(pps);
-
-    vc->h264_decoder->extradata = (uint8_t *)av_mallocz(sps_pps_size + AV_INPUT_BUFFER_PADDING_SIZE);
-    vc->h264_decoder->extradata_size = sps_pps_size;
-    // memset(&vc->h264_decoder->extradata[vc->h264_decoder->extradata_size], 0, AV_INPUT_BUFFER_PADDING_SIZE);
-    memcpy(vc->h264_decoder->extradata, sps, sizeof(sps));
-    memcpy(vc->h264_decoder->extradata + sizeof(sps), pps, sizeof(pps));
-
-
-
-    vc->h264_decoder->codec_type = AVMEDIA_TYPE_VIDEO;
-    vc->h264_decoder->codec_id   = AV_CODEC_ID_H264;
-
-    // vc->h264_decoder->codec_tag  = 0x31637661; // ('1'<<24) + ('c'<<16) + ('v'<<8) + 'a';
-
-    /*
-        vc->h264_decoder->bit_rate              = 2500 * 1000;
-        vc->h264_decoder->bits_per_raw_sample   = 8;
-        vc->h264_decoder->profile               = FF_PROFILE_H264_HIGH;
-        vc->h264_decoder->level                 = 40;
-        vc->h264_decoder->has_b_frames          = 2;
-
-        vc->h264_decoder->pix_fmt                = AV_PIX_FMT_YUV420P;
-        vc->h264_decoder->width                  = 1280;
-        vc->h264_decoder->height                 = 720;
-    */
-
-    /*
-        codec->field_order            = par->field_order;
-        codec->color_range            = par->color_range;
-        codec->color_primaries        = par->color_primaries;
-        codec->color_trc              = par->color_trc;
-        codec->colorspace             = par->color_space;
-        codec->chroma_sample_location = par->chroma_location;
-        codec->sample_aspect_ratio    = par->sample_aspect_ratio;
-        codec->has_b_frames           = par->video_delay;
-    */
-
-    LOGGER_WARNING(log, "reconfiguring up h264_mediacodec decoder ... DONE");
-
-    //av_log_set_level(AV_LOG_ERROR);
-    //av_log_set_level(AV_LOG_DEBUG);
-    //global__log = log;
-    //av_log_set_callback(my_log_callback);
-
-#endif
-
-
-    if (avcodec_open2(vc->h264_decoder, codec, NULL) < 0) {
-        LOGGER_WARNING(log, "could not open codec H264 on decoder");
-    }
-
-    vc->h264_decoder->refcounted_frames = 0;
-    /*   When AVCodecContext.refcounted_frames is set to 0, the returned
-    *             reference belongs to the decoder and is valid only until the
-    *             next call to this function or until closing or flushing the
-    *             decoder. The caller may not write to it.
-    */
-
-    // DECODER -------
-
-}
-
 int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
                                 uint16_t width, uint16_t height,
                                 int16_t kf_max_dist)
 {
     if (!vc) {
         return -1;
+    }
+
+    if (global_h264_enc_profile_high_enabled_switch == 1) {
+        global_h264_enc_profile_high_enabled_switch = 0;
+        kf_max_dist = -2;
+        LOGGER_WARNING(log, "switching H264 encoder profile ...");
     }
 
     if ((vc->h264_enc_width == width) &&
@@ -859,7 +692,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
                 //#// param.i_sync_lookahead = 0;
                 //#// param.i_lookahead_threads = 0;
                 param.b_intra_refresh = 1;
-                //y// param.i_bframe = 0;
+                param.i_bframe = 0;
                 // param.b_open_gop = 20;
                 param.i_keyint_max = VIDEO_MAX_KF_H264;
                 // param.rc.i_rc_method = X264_RC_ABR;
@@ -959,10 +792,20 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
             vc->h264_encoder2 = avcodec_alloc_context3(codec2);
 
-            av_opt_set(vc->h264_encoder2->priv_data, "profile", "baseline", 0);
-            vc->h264_encoder2->profile               = FF_PROFILE_H264_BASELINE; // FF_PROFILE_H264_HIGH;
-            // av_opt_set(vc->h264_encoder2->priv_data, "level", "3.0", AV_OPT_SEARCH_CHILDREN);
-            // vc->h264_encoder2->level = 30; // 3.0
+            if (global_h264_enc_profile_high_enabled == 1) {
+                av_opt_set(vc->h264_encoder2->priv_data, "profile", "high", 0);
+                vc->h264_encoder2->profile               = FF_PROFILE_H264_HIGH; // FF_PROFILE_H264_HIGH;
+                // av_opt_set(vc->h264_encoder2->priv_data, "level", "4.0", AV_OPT_SEARCH_CHILDREN);
+                // vc->h264_encoder2->level = 40; // 4.0
+                LOGGER_WARNING(log, "switching H264 encoder profile ... HIGH");
+
+            } else {
+                av_opt_set(vc->h264_encoder2->priv_data, "profile", "baseline", 0);
+                vc->h264_encoder2->profile               = FF_PROFILE_H264_BASELINE; // FF_PROFILE_H264_HIGH;
+                // av_opt_set(vc->h264_encoder2->priv_data, "level", "4.0", AV_OPT_SEARCH_CHILDREN);
+                // vc->h264_encoder2->level = 40; // 4.0
+                LOGGER_WARNING(log, "switching H264 encoder profile ... baseline");
+            }
 
             av_opt_set(vc->h264_encoder2->priv_data, "annex_b", "1", 0);
             av_opt_set(vc->h264_encoder2->priv_data, "repeat_headers", "1", 0);
@@ -975,8 +818,9 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             av_opt_set_int(vc->h264_encoder2->priv_data, "cbr", true, 0);
             av_opt_set(vc->h264_encoder2->priv_data, "rc", "cbr", 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "delay", 0, 0);
+            // av_opt_set_int(vc->h264_encoder2->priv_data, "rc-lookahead", 0, 0);
             av_opt_set(vc->h264_encoder2->priv_data, "preset", "llhp", 0);
-            //y// av_opt_set_int(vc->h264_encoder2->priv_data, "bf", 0, 0);
+            av_opt_set_int(vc->h264_encoder2->priv_data, "bf", 0, 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "qmin", 3, 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "qmax", 51, 0);
             av_opt_set(vc->h264_encoder2->priv_data, "forced-idr", "true", 0);
@@ -984,7 +828,13 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             //y// av_opt_set_int(vc->h264_encoder2->priv_data, "refs", 1, 0);
 
             av_opt_set_int(vc->h264_encoder2->priv_data, "threads", X264_ENCODER_THREADS, 0);
-            av_opt_set(vc->h264_encoder2->priv_data, "sliced_threads", "1", 0);
+
+            if (X264_ENCODER_SLICES > 0) {
+                av_opt_set(vc->h264_encoder2->priv_data, "sliced_threads", "1", 0);
+            } else {
+                av_opt_set(vc->h264_encoder2->priv_data, "sliced_threads", "0", 0);
+            }
+
             av_opt_set_int(vc->h264_encoder2->priv_data, "i_slice_count", X264_ENCODER_SLICES, 0);
 
             /* put sample parameters */
@@ -1025,6 +875,9 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             av_free(val_str);
             */
 
+            // vc->h264_encoder2->flags2 |= AV_CODEC_FLAG2_LOCAL_HEADER;
+            // vc->h264_encoder2->flags2 |= AV_CODEC_FLAG2_FAST;
+
             AVDictionary *opts = NULL;
 
             if (avcodec_open2(vc->h264_encoder2, codec2, NULL) < 0) {
@@ -1041,6 +894,57 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
     }
 
     return 0;
+}
+
+void get_info_from_sps(const Messenger *m, VCSession *vc, const Logger *log,
+                       const uint8_t data[], const uint32_t data_len)
+{
+    if (data_len > 6) {
+        LOGGER_DEBUG(log, "SPS:len=%d", data_len, data[4], data[5], data[7]);
+
+        if (
+            (data[0] == 0x00)
+            &&
+            (data[1] == 0x00)
+            &&
+            (data[2] == 0x00)
+            &&
+            (data[3] == 0x01)
+            &&
+            (data[4] == 0x67)
+        ) {
+            // parse only every 5 seconds
+            if ((vc->last_parsed_h264_sps_ts + 5000) < current_time_monotonic(m->mono_time)) {
+                vc->last_parsed_h264_sps_ts = current_time_monotonic(m->mono_time);
+
+                // we found a NAL unit containing the SPS
+                uint8_t h264_profile = data[5];
+                uint8_t h264_constraint_set0_flag = ((data[6] >> 3)  & 0x01);
+                uint8_t h264_constraint_set3_flag = (data[6]  & 0x01);
+                uint8_t h264_level = data[7];
+
+                if ((h264_profile == 66) && (h264_constraint_set3_flag = 0)) {
+                    LOGGER_WARNING(log, "profile=%s level=%d", "baseline", h264_level);
+                } else if ((h264_profile == 66) && (h264_constraint_set3_flag = 1)) {
+                    LOGGER_WARNING(log, "profile=%s level=%d", "contrained baseline", h264_level);
+                } else if ((h264_profile == 77) && (h264_constraint_set0_flag = 0)) {
+                    LOGGER_WARNING(log, "profile=%s level=%d", "main", h264_level);
+                } else if ((h264_profile == 77) && (h264_constraint_set0_flag = 1)) {
+                    LOGGER_WARNING(log, "profile=%s level=%d", "extended", h264_level);
+                } else if (h264_profile == 100) {
+                    LOGGER_WARNING(log, "profile=%s level=%d", "high", h264_level);
+                } else if (h264_profile == 110) {
+                    LOGGER_WARNING(log, "profile=%s level=%d", "high10", h264_level);
+                } else if (h264_profile == 122) {
+                    LOGGER_WARNING(log, "profile=%s level=%d", "high422", h264_level);
+                } else if (h264_profile == 244) {
+                    LOGGER_WARNING(log, "profile=%s level=%d", "high444", h264_level);
+                } else {
+                    LOGGER_WARNING(log, "profile=%s level=%d", "unkwn", h264_level);
+                }
+            }
+        }
+    }
 }
 
 //int32_t global_first_video_frame_data = 0;
@@ -1078,20 +982,9 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
 
 #endif
 
-    /*
-        if (global_first_video_frame_data > 0) {
-            global_first_video_frame_data--;
-
-            if (global_first_video_frame_data == 1) {
-                global_first_video_frame_data = 0;
-
-                if ((p) && (p->data) && (full_data_len > 0)) {
-                    vc_reconfigure_decoder(vc->log, vc, p->data, full_data_len);
-                    global_first_video_frame_data = 1;
-                }
-            }
-        }
-    */
+    if ((p) && (p->data)) {
+        get_info_from_sps(m, vc, vc->log, p->data, full_data_len);
+    }
 
     /*
      For decoding, call avcodec_send_packet() to give the decoder raw
