@@ -387,7 +387,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     av_opt_set_int(vc->h264_encoder2->priv_data, "qmin", 3, 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "qmax", 51, 0);
     av_opt_set(vc->h264_encoder2->priv_data, "forced-idr", "true", 0);
-    av_opt_set_int(vc->h264_encoder2->priv_data, "zerolatency", 1, 0);
+    av_opt_set_int(vc->h264_encoder2->priv_data, "zerolatency", 1, AV_OPT_SEARCH_CHILDREN);
     //y// av_opt_set_int(vc->h264_encoder2->priv_data, "refs", 0, 0);
 
     av_opt_set_int(vc->h264_encoder2->priv_data, "threads", X264_ENCODER_THREADS, 0);
@@ -398,7 +398,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         av_opt_set(vc->h264_encoder2->priv_data, "sliced_threads", "0", 0);
     }
 
-    av_opt_set_int(vc->h264_encoder2->priv_data, "i_slice_count", X264_ENCODER_SLICES, 0);
+    av_opt_set_int(vc->h264_encoder2->priv_data, "slice_count", X264_ENCODER_SLICES, 0);
 
     /* put sample parameters */
     vc->h264_encoder2->bit_rate = 100 * 1000;
@@ -518,8 +518,8 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
 #if (defined (HW_CODEC_CONFIG_RPI3_TBW_TV) || defined (HW_CODEC_CONFIG_RPI3_TBW_BIDI)) && defined (RAPI_HWACCEL_DEC)
     LOGGER_WARNING(log, "setting up h264_mmal decoder ...");
-    av_opt_set_int(vc->h264_decoder->priv_data, "extra_buffers)", 80, 0);
-    av_opt_set_int(vc->h264_decoder->priv_data, "extra_decoder_buffers)", 80, 0);
+    av_opt_set_int(vc->h264_decoder->priv_data, "extra_buffers)", 20, AV_OPT_SEARCH_CHILDREN);
+    av_opt_set_int(vc->h264_decoder->priv_data, "extra_decoder_buffers)", 20, AV_OPT_SEARCH_CHILDREN);
     LOGGER_WARNING(log, "extra_buffers, extra_decoder_buffers");
 #endif
 
@@ -532,6 +532,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     */
 
     vc->h264_decoder->delay = 0;
+    av_opt_set_int(vc->h264_decoder->priv_data, "delay", 0, AV_OPT_SEARCH_CHILDREN);
 
     vc->h264_decoder->time_base = (AVRational) {
         40, 1000
@@ -539,62 +540,6 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     vc->h264_decoder->framerate = (AVRational) {
         1000, 40
     };
-
-
-#ifdef _TRIFA_CODEC_DECODER_
-
-    LOGGER_WARNING(log, "setting up h264_mediacodec decoder ...");
-
-
-    const uint8_t sps[] = {0x00, 0x00, 0x00, 0x01, 0x67, 0x42, 0x00, 0x0a, 0xf8, 0x41, 0xa2};
-    const uint8_t pps[] = {0x00, 0x00, 0x00, 0x01, 0x68, 0xce, 0x38, 0x80};
-    const size_t sps_pps_size = sizeof(sps) + sizeof(pps);
-
-    vc->h264_decoder->extradata = (uint8_t *)av_mallocz(sps_pps_size + AV_INPUT_BUFFER_PADDING_SIZE);
-    vc->h264_decoder->extradata_size = sps_pps_size;
-    // memset(&vc->h264_decoder->extradata[vc->h264_decoder->extradata_size], 0, AV_INPUT_BUFFER_PADDING_SIZE);
-    memcpy(vc->h264_decoder->extradata, sps, sizeof(sps));
-    memcpy(vc->h264_decoder->extradata + sizeof(sps), pps, sizeof(pps));
-
-    vc->h264_decoder->codec_type = AVMEDIA_TYPE_VIDEO;
-    vc->h264_decoder->codec_id   = AV_CODEC_ID_H264;
-
-    /*
-        vc->h264_decoder->codec_tag  = 0x31637661; // ('1'<<24) + ('c'<<16) + ('v'<<8) + 'a';
-
-        vc->h264_decoder->bit_rate              = 2500 * 1000;
-        // codec->bits_per_coded_sample = par->bits_per_coded_sample;
-        vc->h264_decoder->bits_per_raw_sample   = 8;
-        vc->h264_decoder->profile               = FF_PROFILE_H264_HIGH;
-        vc->h264_decoder->level                 = 40;
-        vc->h264_decoder->has_b_frames          = 2;
-    */
-
-
-    vc->h264_decoder->pix_fmt                = AV_PIX_FMT_YUV420P;
-    vc->h264_decoder->width                  = 1280;
-    vc->h264_decoder->height                 = 720;
-
-    /*
-        codec->field_order            = par->field_order;
-        codec->color_range            = par->color_range;
-        codec->color_primaries        = par->color_primaries;
-        codec->color_trc              = par->color_trc;
-        codec->colorspace             = par->color_space;
-        codec->chroma_sample_location = par->chroma_location;
-        codec->sample_aspect_ratio    = par->sample_aspect_ratio;
-        codec->has_b_frames           = par->video_delay;
-    */
-
-    LOGGER_WARNING(log, "setting up h264_mediacodec decoder ... DONE");
-
-    // av_log_set_level(AV_LOG_ERROR);
-    // av_log_set_level(AV_LOG_DEBUG);
-    // global__log = log;
-    // av_log_set_callback(my_log_callback);
-
-#endif
-
 
     if (avcodec_open2(vc->h264_decoder, codec, NULL) < 0) {
         LOGGER_WARNING(log, "could not open codec H264 on decoder");
@@ -832,7 +777,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             av_opt_set_int(vc->h264_encoder2->priv_data, "qmin", 3, 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "qmax", 51, 0);
             av_opt_set(vc->h264_encoder2->priv_data, "forced-idr", "true", 0);
-            av_opt_set_int(vc->h264_encoder2->priv_data, "zerolatency", 1, 0);
+            av_opt_set_int(vc->h264_encoder2->priv_data, "zerolatency", 1, AV_OPT_SEARCH_CHILDREN);
             //y// av_opt_set_int(vc->h264_encoder2->priv_data, "refs", 1, 0);
 
             av_opt_set_int(vc->h264_encoder2->priv_data, "threads", X264_ENCODER_THREADS, 0);
@@ -843,7 +788,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
                 av_opt_set(vc->h264_encoder2->priv_data, "sliced_threads", "0", 0);
             }
 
-            av_opt_set_int(vc->h264_encoder2->priv_data, "i_slice_count", X264_ENCODER_SLICES, 0);
+            av_opt_set_int(vc->h264_encoder2->priv_data, "slice_count", X264_ENCODER_SLICES, 0);
 
             /* put sample parameters */
             vc->h264_encoder2->bit_rate = bit_rate;
