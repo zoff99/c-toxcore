@@ -1100,9 +1100,9 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
 
                 if (global_decoder_delay_counter > 60) {
                     global_decoder_delay_counter = 0;
-                    LOGGER_WARNING(vc->log, "dec:delay=%ld",
-                                   (long int)(h_frame_record_timestamp - frame->pkt_pts)
-                                  );
+                    LOGGER_DEBUG(vc->log, "dec:delay=%ld",
+                                 (long int)(h_frame_record_timestamp - frame->pkt_pts)
+                                );
                 }
             }
 
@@ -1179,9 +1179,9 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
 
     if (global_encoder_delay_counter > 60) {
         global_encoder_delay_counter = 0;
-        LOGGER_WARNING(av->m->log, "enc:delay=%ld",
-                       (long int)(call->video->h264_in_pic.i_pts - (int64_t)call->video->h264_out_pic.i_pts)
-                      );
+        LOGGER_DEBUG(av->m->log, "enc:delay=%ld",
+                     (long int)(call->video->h264_in_pic.i_pts - (int64_t)call->video->h264_out_pic.i_pts)
+                    );
     }
 
 
