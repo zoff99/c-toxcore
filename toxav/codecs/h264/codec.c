@@ -852,8 +852,10 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 void get_info_from_sps(const Messenger *m, VCSession *vc, const Logger *log,
                        const uint8_t data[], const uint32_t data_len)
 {
-    if (data_len > 6) {
-        LOGGER_DEBUG(log, "SPS:len=%d bytes:%d %d %d", data_len, data[4], data[5], data[7]);
+
+    if (data_len > 7) {
+        LOGGER_DEBUG(log, "SPS:len=%d bytes:%d %d %d %d %d %d %d %d", data_len, data[0], data[1], data[2], data[3], data[4],
+                     data[5], data[6], data[7]);
 
         if (
             (data[0] == 0x00)
@@ -864,7 +866,10 @@ void get_info_from_sps(const Messenger *m, VCSession *vc, const Logger *log,
             &&
             (data[3] == 0x01)
             &&
-            (data[4] == 0x67)
+            ((data[4] & 0x1F) == 7) // only the lower 5bits of the 4th byte denote the NAL type
+            // 7 --> SPS
+            // 8 --> PPS
+            // (data[4] == 0x67)
         ) {
             // parse only every 5 seconds
             if ((vc->last_parsed_h264_sps_ts + 5000) < current_time_monotonic(m->mono_time)) {
