@@ -60,6 +60,7 @@ int global_h264_enc_profile_high_enabled_switch = 0;
 #define X264_ENCODER_THREADS 4
 #define X264_ENCODER_SLICES 4
 #define H264_ENCODE_MAX_BITRATE_OVER_ALLOW 1.3
+#define H264_ENCODER_STARTWITH_PROFILE_HIGH 0
 /* ---------------------------------------------------
  * DEFAULT
  */
@@ -79,6 +80,7 @@ int global_h264_enc_profile_high_enabled_switch = 0;
 #undef H264_DECODER_THREAD_FRAME_ACTIVE
 #undef X264_ENCODER_THREADS
 #undef X264_ENCODER_SLICES
+#undef H264_ENCODER_STARTWITH_PROFILE_HIGH
 // --
 #define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_TRIFA"
 // #define _TRIFA_CODEC_DECODER_ 1
@@ -90,6 +92,7 @@ int global_h264_enc_profile_high_enabled_switch = 0;
 #define H264_DECODER_THREAD_FRAME_ACTIVE 0
 #define X264_ENCODER_THREADS 3
 #define X264_ENCODER_SLICES 3
+#define H264_ENCODER_STARTWITH_PROFILE_HIGH 0
 /* ---------------------------------------------------
  * TRIfA
  */
@@ -109,6 +112,7 @@ int global_h264_enc_profile_high_enabled_switch = 0;
 #undef H264_DECODER_THREAD_FRAME_ACTIVE
 #undef X264_ENCODER_THREADS
 #undef X264_ENCODER_SLICES
+#undef H264_ENCODER_STARTWITH_PROFILE_HIGH
 // --
 #define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_RPI3_TBW_BIDI"
 #define H264_WANT_ENCODER_NAME "h264_omx"
@@ -120,6 +124,7 @@ int global_h264_enc_profile_high_enabled_switch = 0;
 #define H264_DECODER_THREAD_FRAME_ACTIVE 0
 #define X264_ENCODER_THREADS 1
 #define X264_ENCODER_SLICES 1
+#define H264_ENCODER_STARTWITH_PROFILE_HIGH 1
 /* ---------------------------------------------------
  * RPI3 bidi
  */
@@ -139,6 +144,7 @@ int global_h264_enc_profile_high_enabled_switch = 0;
 #undef H264_DECODER_THREAD_FRAME_ACTIVE
 #undef X264_ENCODER_THREADS
 #undef X264_ENCODER_SLICES
+#undef H264_ENCODER_STARTWITH_PROFILE_HIGH
 // --
 #define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_RPI3_TBW_TV"
 #define H264_WANT_DECODER_NAME "h264_mmal"
@@ -149,6 +155,7 @@ int global_h264_enc_profile_high_enabled_switch = 0;
 #define H264_DECODER_THREAD_FRAME_ACTIVE 0
 #define X264_ENCODER_THREADS 0
 #define X264_ENCODER_SLICES 0
+#define H264_ENCODER_STARTWITH_PROFILE_HIGH 0
 /* ---------------------------------------------------
  * RPI3 tbw-TV
  */
@@ -168,6 +175,7 @@ int global_h264_enc_profile_high_enabled_switch = 0;
 #undef H264_DECODER_THREAD_FRAME_ACTIVE
 #undef X264_ENCODER_THREADS
 #undef X264_ENCODER_SLICES
+#undef H264_ENCODER_STARTWITH_PROFILE_HIGH
 // --
 #define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_UTOX_LINNVENC"
 #define H264_WANT_ENCODER_NAME "h264_nvenc"
@@ -178,6 +186,7 @@ int global_h264_enc_profile_high_enabled_switch = 0;
 #define H264_DECODER_THREAD_FRAME_ACTIVE 0
 #define X264_ENCODER_THREADS 4
 #define X264_ENCODER_SLICES 4
+#define H264_ENCODER_STARTWITH_PROFILE_HIGH 0
 /* ---------------------------------------------------
  * UTOX linux
  */
@@ -197,6 +206,7 @@ int global_h264_enc_profile_high_enabled_switch = 0;
 #undef H264_DECODER_THREAD_FRAME_ACTIVE
 #undef X264_ENCODER_THREADS
 #undef X264_ENCODER_SLICES
+#undef H264_ENCODER_STARTWITH_PROFILE_HIGH
 // --
 #define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_UTOX_WIN7"
 #define H264_WANT_ENCODER_NAME "h264_nvenc"
@@ -208,6 +218,7 @@ int global_h264_enc_profile_high_enabled_switch = 0;
 #define H264_DECODER_THREAD_FRAME_ACTIVE 1
 #define X264_ENCODER_THREADS 4
 #define X264_ENCODER_SLICES 4
+#define H264_ENCODER_STARTWITH_PROFILE_HIGH 1
 /* ---------------------------------------------------
  * UTOX win7
  */
@@ -343,6 +354,9 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     vc->h264_out_pic2 = av_packet_alloc();
 
+    // -- set inital value for H264 encoder profile --
+    global_h264_enc_profile_high_enabled = H264_ENCODER_STARTWITH_PROFILE_HIGH;
+    // -- set inital value for H264 encoder profile --
 
     if (global_h264_enc_profile_high_enabled == 1) {
         av_opt_set(vc->h264_encoder2->priv_data, "profile", "high", 0);
