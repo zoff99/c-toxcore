@@ -22,7 +22,6 @@
 #define DISABLE_H264_DECODER_FEATURE    0
 
 // H264 settings -----------
-#define x264_param_profile_str "baseline" // "baseline" "main" "high"
 #define VIDEO_BITRATE_INITIAL_VALUE_H264 1500
 #define VIDEO_BITRATE_MIN_AUTO_VALUE_H264 95
 #define VIDEO_BITRATE_SCALAR_AUTO_VALUE_H264 1400
@@ -47,7 +46,7 @@
 
 #define VIDEO_MAX_KF_H264 200
 #define VIDEO_BUF_FACTOR_H264 1
-#define VIDEO_F_RATE_TOLERANCE_H264 1.2
+#define VIDEO_F_RATE_TOLERANCE_H264 1.3
 #define VIDEO_BITRATE_FACTOR_H264 0.7
 // H264 settings -----------
 

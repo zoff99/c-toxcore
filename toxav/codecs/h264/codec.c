@@ -211,13 +211,13 @@ int global_h264_enc_profile_high_enabled_switch = 0;
 #define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_UTOX_WIN7"
 #define H264_WANT_ENCODER_NAME "h264_nvenc"
 #define H264_WANT_DECODER_NAME "h264"
-// #define X264_ENCODE_USED 1
+#define X264_ENCODE_USED 1
 #define RAPI_HWACCEL_ENC 1
 // #define RAPI_HWACCEL_DEC 1
 #define H264_DECODER_THREADS 2
 #define H264_DECODER_THREAD_FRAME_ACTIVE 1
-#define X264_ENCODER_THREADS 4
-#define X264_ENCODER_SLICES 4
+#define X264_ENCODER_THREADS 6
+#define X264_ENCODER_SLICES 6
 #define H264_ENCODER_STARTWITH_PROFILE_HIGH 1
 /* ---------------------------------------------------
  * UTOX win7
@@ -256,8 +256,20 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     x264_param_t param;
 
-    if (x264_param_default_preset(&param, "ultrafast", "zerolatency,fastdecode") < 0) {
-        // goto fail;
+    // -- set inital value for H264 encoder profile --
+    global_h264_enc_profile_high_enabled = H264_ENCODER_STARTWITH_PROFILE_HIGH;
+    // -- set inital value for H264 encoder profile --
+
+    // "ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo"
+
+    if (global_h264_enc_profile_high_enabled == 1) {
+        if (x264_param_default_preset(&param, "superfast", "zerolatency,fastdecode") < 0) {
+            // goto fail;
+        }
+    } else {
+        if (x264_param_default_preset(&param, "ultrafast", "zerolatency,fastdecode") < 0) {
+            // goto fail;
+        }
     }
 
     /* Configure non-default params */
@@ -269,13 +281,13 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     vc->h264_enc_height = param.i_height;
 
     param.i_threads = X264_ENCODER_THREADS;
-    param.b_sliced_threads = 1;
+    param.b_sliced_threads = true;
     param.i_slice_count = X264_ENCODER_SLICES;
 
-    param.b_deterministic = 0;
+    param.b_deterministic = false;
     //#// param.i_sync_lookahead = 0;
     //#// param.i_lookahead_threads = 0;
-    param.b_intra_refresh = 1;
+    //**// param.b_intra_refresh = 1;
     param.i_bframe = 0;
     // param.b_open_gop = 20;
     param.i_keyint_max = VIDEO_MAX_KF_H264;
@@ -309,9 +321,23 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 #endif
 
     /* Apply profile restrictions. */
-    if (x264_param_apply_profile(&param,
-                                 x264_param_profile_str) < 0) { // "baseline", "main", "high", "high10", "high422", "high444"
-        // goto fail;
+
+    if (global_h264_enc_profile_high_enabled == 1) {
+        if (x264_param_apply_profile(&param,
+                                     "high") < 0) { // "baseline", "main", "high", "high10", "high422", "high444"
+            // goto fail;
+            LOGGER_WARNING(log, "h264: setting high encoder failed");
+        } else {
+            LOGGER_WARNING(log, "h264: setting high encoder OK");
+        }
+    } else {
+        if (x264_param_apply_profile(&param,
+                                     "baseline") < 0) { // "baseline", "main", "high", "high10", "high422", "high444"
+            // goto fail;
+            LOGGER_WARNING(log, "h264: setting BASELINE encoder failed");
+        } else {
+            LOGGER_WARNING(log, "h264: setting BASELINE encoder OK");
+        }
     }
 
     if (x264_picture_alloc(&(vc->h264_in_pic), param.i_csp, param.i_width, param.i_height) < 0) {
@@ -639,10 +665,15 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
                 x264_param_t param;
 
-                if (x264_param_default_preset(&param, "ultrafast", "zerolatency,fastdecode") < 0) {
-                    // goto fail;
+                if (global_h264_enc_profile_high_enabled == 1) {
+                    if (x264_param_default_preset(&param, "superfast", "zerolatency,fastdecode") < 0) {
+                        // goto fail;
+                    }
+                } else {
+                    if (x264_param_default_preset(&param, "ultrafast", "zerolatency,fastdecode") < 0) {
+                        // goto fail;
+                    }
                 }
-
 
                 /* Configure non-default params */
                 // param.i_bitdepth = 8;
@@ -652,13 +683,13 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
                 vc->h264_enc_width = param.i_width;
                 vc->h264_enc_height = param.i_height;
                 param.i_threads = X264_ENCODER_THREADS;
-                param.b_sliced_threads = 1;
+                param.b_sliced_threads = true;
                 param.i_slice_count = X264_ENCODER_SLICES;
 
-                param.b_deterministic = 0;
+                param.b_deterministic = false;
                 //#// param.i_sync_lookahead = 0;
                 //#// param.i_lookahead_threads = 0;
-                param.b_intra_refresh = 1;
+                //**// param.b_intra_refresh = 1;
                 param.i_bframe = 0;
                 // param.b_open_gop = 20;
                 param.i_keyint_max = VIDEO_MAX_KF_H264;
@@ -700,9 +731,22 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 #endif
 
                 /* Apply profile restrictions. */
-                if (x264_param_apply_profile(&param,
-                                             x264_param_profile_str) < 0) { // "baseline", "main", "high", "high10", "high422", "high444"
-                    // goto fail;
+                if (global_h264_enc_profile_high_enabled == 1) {
+                    if (x264_param_apply_profile(&param,
+                                                 "high") < 0) { // "baseline", "main", "high", "high10", "high422", "high444"
+                        // goto fail;
+                        LOGGER_WARNING(log, "h264: setting high encoder failed (2)");
+                    } else {
+                        LOGGER_WARNING(log, "h264: setting high encoder OK (2)");
+                    }
+                } else {
+                    if (x264_param_apply_profile(&param,
+                                                 "baseline") < 0) { // "baseline", "main", "high", "high10", "high422", "high444"
+                        // goto fail;
+                        LOGGER_WARNING(log, "h264: setting BASELINE encoder failed (2)");
+                    } else {
+                        LOGGER_WARNING(log, "h264: setting BASELINE encoder OK (2)");
+                    }
                 }
 
                 LOGGER_ERROR(log, "H264: reconfigure encoder:001: w:%d h:%d w_new:%d h_new:%d BR:%d\n",
