@@ -84,7 +84,20 @@ enum RTPFlags {
      */
     RTP_ENCODER_HAS_RECORD_TIMESTAMP = 1 << 3,
 
-};
+    /**
+     * The orientation angle of this video frame
+     *
+     * possible values:
+     *
+     * 0   -> b0=0,b1=0
+     * 90  -> b0=1,b1=0
+     * 180 -> b0=0,b1=1
+     * 270 -> b0=1,b1=1
+     */
+    RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT0 = 1 << 4,
+    RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT1 = 1 << 5,
+
+} RTPFlags;
 
 
 struct RTPHeader {
