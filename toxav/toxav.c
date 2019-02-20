@@ -769,6 +769,19 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
                 LOGGER_WARNING(av->m->log, "video video_encoder_coded_used to: %d", (int)value);
             }
         }
+    } else if (option == TOXAV_CLIENT_INPUT_VIDEO_ORIENTATION) {
+        VCSession *vc = (VCSession *)call->video;
+
+        if (((int32_t)value >= TOXAV_CLIENT_INPUT_VIDEO_ORIENTATION_0)
+                && ((int32_t)value <= TOXAV_CLIENT_INPUT_VIDEO_ORIENTATION_270)) {
+
+            if (vc->video_encoder_frame_orientation_angle == (int32_t)value) {
+                LOGGER_WARNING(av->m->log, "video video_encoder_frame_orientation_angle already set to: %d", (int)value);
+            } else {
+                vc->video_encoder_frame_orientation_angle = (int32_t)value;
+                LOGGER_WARNING(av->m->log, "video video_encoder_frame_orientation_angle to: %d", (int)value);
+            }
+        }
     } else if (option == TOXAV_ENCODER_VP8_QUALITY) {
         VCSession *vc = (VCSession *)call->video.second;
 
@@ -1282,6 +1295,7 @@ bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pc
                               0,
                               call->audio_bit_rate,
                               0,
+                              0,
                               av->m->log) != 0) {
                 LOGGER_WARNING(av->m->log, "Failed to send audio packet");
                 rc = TOXAV_ERR_SEND_FRAME_RTP_FAILED;
@@ -1298,6 +1312,7 @@ bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pc
                               VIDEO_FRAGMENT_NUM_NO_FRAG,
                               0,
                               call->audio_bit_rate,
+                              0,
                               0,
                               av->m->log) != 0) {
             }
@@ -1871,6 +1886,7 @@ bool toxav_video_send_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t wid
                       TOXAV_ENCODER_CODEC_USED_H264,
                       call->video_bit_rate,
                       call->video->client_video_capture_delay_ms,
+                      call->video->video_encoder_frame_orientation_angle,
                       av->m->log
                   );
 
