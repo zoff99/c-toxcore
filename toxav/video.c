@@ -1269,8 +1269,10 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
         data_type = (uint8_t)((frame_flags & RTP_KEY_FRAME) != 0);
         h264_encoded_video_frame = (uint8_t)((frame_flags & RTP_ENCODER_IS_H264) != 0);
 
-        bool video_orientation_bit0 = (frame_flags & RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT0);
-        bool video_orientation_bit1 = (frame_flags & RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT1);
+        uint8_t video_orientation_bit0 = (uint8_t)((frame_flags & RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT0) != 0);
+        uint8_t video_orientation_bit1 = (uint8_t)((frame_flags & RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT1) != 0);
+
+        // LOGGER_WARNING(vc->log, "FRAMEFLAGS:%d", (int)frame_flags);
 
         if ((video_orientation_bit0 == 0) && (video_orientation_bit1 == 0)) {
             vc->video_incoming_frame_orientation = TOXAV_CLIENT_INPUT_VIDEO_ORIENTATION_0;
