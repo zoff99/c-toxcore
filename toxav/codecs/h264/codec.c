@@ -1346,9 +1346,9 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
 
         if (global_encoder_delay_counter > 60) {
             global_encoder_delay_counter = 0;
-            LOGGER_WARNING(av->m->log, "enc:delay=%ld",
-                           (long int)(frame->pts - (int64_t)call->video->h264_out_pic2->pts)
-                          );
+            LOGGER_DEBUG(av->m->log, "enc:delay=%ld",
+                         (long int)(frame->pts - (int64_t)call->video->h264_out_pic2->pts)
+                        );
         }
 
 
