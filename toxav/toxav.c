@@ -1469,6 +1469,7 @@ bool toxav_video_send_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t wid
                       TOXAV_ENCODER_CODEC_USED_H264,
                       call->video_bit_rate,
                       call->video->client_video_capture_delay_ms,
+                      call->video->video_encoder_frame_orientation_angle,
                       av->m->log
                   );
 

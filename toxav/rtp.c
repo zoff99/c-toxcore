@@ -1098,6 +1098,15 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
         header.flags = header.flags | RTP_ENCODER_IS_H264;
     }
 
+    if (video_frame_orientation_angle == 90) {
+        header.flags = header.flags | RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT0;
+    } else if (video_frame_orientation_angle == 180) {
+        header.flags = header.flags | RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT1;
+    } else if (video_frame_orientation_angle == 270) {
+        header.flags = header.flags | RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT0;
+        header.flags = header.flags | RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT1;
+    }
+
     header.frame_record_timestamp = frame_record_timestamp;
 
     header.fragment_num = fragment_num;

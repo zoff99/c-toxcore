@@ -815,6 +815,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     vc->video_rc_min_quantizer = TOXAV_ENCODER_VP8_RC_MIN_QUANTIZER_NORMAL;
     vc->video_rc_min_quantizer_prev = vc->video_rc_min_quantizer;
     vc->video_encoder_coded_used = TOXAV_ENCODER_CODEC_USED_VP8; // DEFAULT: VP8 !!
+    vc->video_encoder_frame_orientation_angle = TOXAV_CLIENT_INPUT_VIDEO_ORIENTATION_0;
     vc->video_encoder_coded_used_prev = vc->video_encoder_coded_used;
 #ifdef RASPBERRY_PI_OMX
     vc->video_encoder_coded_used_hw_accel = TOXAV_ENCODER_CODEC_HW_ACCEL_OMX_PI;
