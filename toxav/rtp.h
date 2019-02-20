@@ -99,7 +99,20 @@ enum RTPFlags {
      */
     RTP_ENCODER_HAS_RECORD_TIMESTAMP = 1 << 3,
 
-};
+    /**
+     * The orientation angle of this video frame
+     *
+     * possible values:
+     *
+     * 0   -> b0=0,b1=0
+     * 90  -> b0=1,b1=0
+     * 180 -> b0=0,b1=1
+     * 270 -> b0=1,b1=1
+     */
+    RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT0 = 1 << 4,
+    RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT1 = 1 << 5,
+
+} RTPFlags;
 
 
 struct RTPHeader {
@@ -268,8 +281,11 @@ int rtp_stop_receiving(RTPSession *session);
  *   audio frame, this parameter is ignored.
  */
 int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, bool is_keyframe,
-                  uint64_t frame_record_timestamp, int32_t fragment_num, uint32_t codec_used,
-                  uint32_t bit_rate_used, uint32_t client_capture_delay_ms, Logger *log);
+                  uint64_t frame_record_timestamp, int32_t fragment_num,
+                  uint32_t codec_used, uint32_t bit_rate_used,
+                  uint32_t client_capture_delay_ms,
+                  uint32_t video_frame_orientation_angle,
+                  Logger *log);
 
 #ifdef __cplusplus
 }  // extern "C"

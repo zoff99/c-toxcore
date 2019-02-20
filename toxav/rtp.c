@@ -1119,6 +1119,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
                   uint64_t frame_record_timestamp, int32_t fragment_num,
                   uint32_t codec_used, uint32_t bit_rate_used,
                   uint32_t client_capture_delay_ms,
+                  uint32_t video_frame_orientation_angle,
                   Logger *log)
 {
     if (!session) {
@@ -1156,11 +1157,22 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
 
     header.data_length_lower = length;
 
+    header.flags = 0; // just to be safe, initialize the flags to zero
+
     header.flags = RTP_LARGE_FRAME | RTP_ENCODER_HAS_RECORD_TIMESTAMP;
 
     if ((codec_used == TOXAV_ENCODER_CODEC_USED_H264) &&
             (is_video_payload == 1)) {
         header.flags = header.flags | RTP_ENCODER_IS_H264;
+    }
+
+    if (video_frame_orientation_angle == 90) {
+        header.flags = header.flags | RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT0;
+    } else if (video_frame_orientation_angle == 180) {
+        header.flags = header.flags | RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT1;
+    } else if (video_frame_orientation_angle == 270) {
+        header.flags = header.flags | RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT0;
+        header.flags = header.flags | RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT1;
     }
 
     header.frame_record_timestamp = frame_record_timestamp;

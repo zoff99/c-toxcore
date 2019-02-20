@@ -254,6 +254,7 @@ typedef struct VCSession_s {
     int32_t video_decoder_adjustment_base_ms;
     int32_t client_video_capture_delay_ms;
     int32_t remote_client_video_capture_delay_ms;
+    int32_t video_encoder_frame_orientation_angle;
     // options ---
 
     void *vpx_frames_buf_list[VIDEO_MAX_FRAGMENT_BUFFER_COUNT];
