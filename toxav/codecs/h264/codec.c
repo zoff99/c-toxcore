@@ -1429,6 +1429,10 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
         *video_frame_record_timestamp = current_time_monotonic(av->m->mono_time);
         // LOGGER_ERROR(av->m->log, "video packet record time[2]: %lu", (*video_frame_record_timestamp));
 
+
+        LOGGER_DEBUG(av->m->log, "call->video->video_encoder_frame_orientation_angle==%d",
+                     call->video->video_encoder_frame_orientation_angle);
+
         int res = rtp_send_data
                   (
                       call->video_rtp,
