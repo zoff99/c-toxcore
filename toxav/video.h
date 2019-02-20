@@ -223,6 +223,7 @@ typedef struct VCSession_s {
     uint64_t last_parsed_h264_sps_ts;
     uint32_t parsed_h264_sps_profile_i;
     uint32_t parsed_h264_sps_level_i;
+    uint32_t video_incoming_frame_orientation;
 
     uint32_t dummy_ntp_local_start;
     uint32_t dummy_ntp_local_end;

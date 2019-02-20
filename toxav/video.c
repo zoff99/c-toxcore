@@ -103,6 +103,7 @@ VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_re
     vc->parsed_h264_sps_profile_i = 0;
     vc->parsed_h264_sps_level_i = 0;
     vc->last_sent_keyframe_ts = 0;
+    vc->video_incoming_frame_orientation = TOXAV_CLIENT_INPUT_VIDEO_ORIENTATION_0;
 
     vc->last_incoming_frame_ts = 0;
     vc->last_parsed_h264_sps_ts = 0;
@@ -525,6 +526,19 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
         data_type = (uint8_t)((frame_flags & RTP_KEY_FRAME) != 0);
         h264_encoded_video_frame = (uint8_t)((frame_flags & RTP_ENCODER_IS_H264) != 0);
 
+        bool video_orientation_bit0 = (frame_flags & RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT0);
+        bool video_orientation_bit1 = (frame_flags & RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT1);
+
+        if ((video_orientation_bit0 == 0) && (video_orientation_bit1 == 0)) {
+            vc->video_incoming_frame_orientation = TOXAV_CLIENT_INPUT_VIDEO_ORIENTATION_0;
+        } else if ((video_orientation_bit0 == 1) && (video_orientation_bit1 == 0)) {
+            vc->video_incoming_frame_orientation = TOXAV_CLIENT_INPUT_VIDEO_ORIENTATION_90;
+        } else if ((video_orientation_bit0 == 0) && (video_orientation_bit1 == 1)) {
+            vc->video_incoming_frame_orientation = TOXAV_CLIENT_INPUT_VIDEO_ORIENTATION_180;
+        } else if ((video_orientation_bit0 == 1) && (video_orientation_bit1 == 1)) {
+            vc->video_incoming_frame_orientation = TOXAV_CLIENT_INPUT_VIDEO_ORIENTATION_270;
+        }
+
         bwc_add_recv(bwc, header_v3_0->data_length_full);
 
         if ((int32_t)header_v3_0->sequnum < (int32_t)vc->last_seen_fragment_seqnum) {
@@ -934,6 +948,11 @@ int vc_queue_message(void *vcp, struct RTPMessage *msg)
                     vc->av->call_comm_cb(vc->av, vc->friend_number,
                                          TOXAV_CALL_COMM_DECODER_H264_LEVEL,
                                          (int64_t)vc->parsed_h264_sps_level_i,
+                                         vc->av->call_comm_cb_user_data);
+
+                    vc->av->call_comm_cb(vc->av, vc->friend_number,
+                                         TOXAV_CALL_COMM_PLAY_VIDEO_ORIENTATION,
+                                         (int64_t)vc->video_incoming_frame_orientation,
                                          vc->av->call_comm_cb_user_data);
 
                     if (vc->incoming_video_frames_gap_ms_mean_value == 0) {
