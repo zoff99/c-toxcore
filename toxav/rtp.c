@@ -1166,14 +1166,17 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
         header.flags = header.flags | RTP_ENCODER_IS_H264;
     }
 
-    if (video_frame_orientation_angle == 90) {
+    if (video_frame_orientation_angle == TOXAV_CLIENT_INPUT_VIDEO_ORIENTATION_90) {
         header.flags = header.flags | RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT0;
-    } else if (video_frame_orientation_angle == 180) {
+    } else if (video_frame_orientation_angle == TOXAV_CLIENT_INPUT_VIDEO_ORIENTATION_180) {
         header.flags = header.flags | RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT1;
-    } else if (video_frame_orientation_angle == 270) {
+    } else if (video_frame_orientation_angle == TOXAV_CLIENT_INPUT_VIDEO_ORIENTATION_270) {
         header.flags = header.flags | RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT0;
         header.flags = header.flags | RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT1;
     }
+
+    LOGGER_DEBUG(session->m->log, "FRAMEFLAGS:%d angle=%d", (int)header.flags, video_frame_orientation_angle);
+
 
     header.frame_record_timestamp = frame_record_timestamp;
 
