@@ -243,7 +243,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
                     int64_t diff = (m->header.sequnum - ac->lp_seqnum_new);
 
                     if (diff > 1) {
-                        LOGGER_WARNING(log, "AudioFramesIN: missing %d audio frames sequnum missing=%d",
+                        LOGGER_DEBUG(log, "AudioFramesIN: missing %d audio frames sequnum missing=%d",
                                        (int)(diff - 1),
                                        (ac->lp_seqnum_new + 1));
                         lost_frame = 1;
