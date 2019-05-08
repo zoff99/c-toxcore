@@ -89,6 +89,10 @@ ACSession *ac_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_audio_re
     if (ac->encoder == NULL) {
         goto DECODER_CLEANUP;
     }
+    else
+    {
+        LOGGER_INFO(log, "audio encoder successfully created");
+    }
 
     ac->le_bit_rate = AUDIO_START_BITRATE_RATE;
     ac->le_sample_rate = AUDIO_START_SAMPLING_RATE;
@@ -691,11 +695,21 @@ OpusEncoder *create_audio_encoder(Logger *log, int32_t bit_rate, int32_t samplin
         OPUS_APPLICATION_AUDIO Favor faithfulness to the original input
         OPUS_APPLICATION_RESTRICTED_LOWDELAY Configure the minimum possible coding delay
     */
+#ifdef RPIZEROW
+    LOGGER_INFO(log, "starting audio encoder: OPUS_APPLICATION_RESTRICTED_LOWDELAY");
+    OpusEncoder *rc = opus_encoder_create(sampling_rate, channel_count, OPUS_APPLICATION_RESTRICTED_LOWDELAY, &status);
+#else
+    LOGGER_INFO(log, "starting audio encoder: OPUS_APPLICATION_VOIP");
     OpusEncoder *rc = opus_encoder_create(sampling_rate, channel_count, OPUS_APPLICATION_VOIP, &status);
+#endif
 
     if (status != OPUS_OK) {
         LOGGER_ERROR(log, "Error while starting audio encoder: %s", opus_strerror(status));
         return NULL;
+    }
+    else
+    {
+        LOGGER_INFO(log, "starting audio encoder OK: %s", opus_strerror(status));
     }
 
     /*
@@ -769,6 +783,7 @@ OpusEncoder *create_audio_encoder(Logger *log, int32_t bit_rate, int32_t samplin
         [in]    x   int: 0-10, inclusive
      */
     /* Set algorithm to the highest complexity, maximizing compression */
+    LOGGER_INFO(log, "starting audio encoder complexity: %d", (int)AUDIO_OPUS_COMPLEXITY);
     status = opus_encoder_ctl(rc, OPUS_SET_COMPLEXITY(AUDIO_OPUS_COMPLEXITY));
 
     if (status != OPUS_OK) {
