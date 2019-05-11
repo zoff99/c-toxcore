@@ -1336,12 +1336,14 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                 //       kicked out of the ringbuffer because the sender is sending at too much FPS
                 //       which out client cant handle. so in the future signal sender to send less FPS!
 
+#ifndef RPIZEROW
                 LOGGER_WARNING(vc->log, "missing? sn=%d lastseen=%d",
                                (int)header_v3_0->sequnum,
                                (int)vc->last_seen_fragment_seqnum);
 
 
                 LOGGER_DEBUG(vc->log, "missing %d video frames (m1)", (int)missing_frames_count);
+#endif
 
                 if (vc->video_decoder_codec_used != TOXAV_ENCODER_CODEC_USED_H264) {
                     rc = vpx_codec_decode(vc->decoder, NULL, 0, NULL, VPX_DL_REALTIME);
