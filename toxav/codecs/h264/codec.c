@@ -1122,10 +1122,14 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
             */
 
             // calculate the real play delay (from toxcore-in to toxcore-out)
+            // this seems to give incorrect values :-(
             if (header_v3->frame_record_timestamp > 0) {
-                vc->video_play_delay_real =
-                    (current_time_monotonic(m->mono_time) + vc->timestamp_difference_to_sender) -
-                    frame->pkt_pts;
+
+                //vc->video_play_delay_real =
+                //    (current_time_monotonic(m->mono_time) + vc->timestamp_difference_to_sender) -
+                //    frame->pkt_pts;
+                // use the calculated values instead
+                //vc->video_play_delay_real = vc->video_play_delay;
 
                 /*
                  * TODO: there is some memory issue in the log line. DO NOT ENABLE !! ---------

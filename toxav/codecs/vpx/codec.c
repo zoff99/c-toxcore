@@ -772,7 +772,7 @@ void decode_frame_vpx(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint
     if (header_v3->frame_record_timestamp > 0) {
 
         // TODO: calculate real play delay for VPX codec also!!
-        vc->video_play_delay_real = vc->video_play_delay;
+        // vc->video_play_delay_real = vc->video_play_delay;
 
 #ifdef VIDEO_CODEC_ENCODER_USE_FRAGMENTS
         // --- //
