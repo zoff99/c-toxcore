@@ -728,8 +728,10 @@ static OpusEncoder *create_audio_encoder(const Logger *log, int32_t bit_rate, in
         OPUS_APPLICATION_RESTRICTED_LOWDELAY Configure the minimum possible coding delay
     */
 #ifdef RPIZEROW
-    LOGGER_INFO(log, "starting audio encoder: OPUS_APPLICATION_RESTRICTED_LOWDELAY");
-    OpusEncoder *rc = opus_encoder_create(sampling_rate, channel_count, OPUS_APPLICATION_RESTRICTED_LOWDELAY, &status);
+    // LOGGER_INFO(log, "starting audio encoder: OPUS_APPLICATION_RESTRICTED_LOWDELAY");
+    // OpusEncoder *rc = opus_encoder_create(sampling_rate, channel_count, OPUS_APPLICATION_RESTRICTED_LOWDELAY, &status);
+    LOGGER_INFO(log, "starting audio encoder: OPUS_APPLICATION_VOIP");
+    OpusEncoder *rc = opus_encoder_create(sampling_rate, channel_count, OPUS_APPLICATION_VOIP, &status);
 #else
     LOGGER_INFO(log, "starting audio encoder: OPUS_APPLICATION_VOIP");
     OpusEncoder *rc = opus_encoder_create(sampling_rate, channel_count, OPUS_APPLICATION_VOIP, &status);
