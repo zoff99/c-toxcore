@@ -931,11 +931,11 @@ void decode_frame_vpx(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint
                              (const uint8_t *)dest->planes[1],
                              (const uint8_t *)dest->planes[2]);
 
-                vc->vcb.first(vc->av, vc->friend_number, dest->d_w, dest->d_h,
-                              (const uint8_t *)dest->planes[0],
-                              (const uint8_t *)dest->planes[1],
-                              (const uint8_t *)dest->planes[2],
-                              dest->stride[0], dest->stride[1], dest->stride[2], vc->vcb.second);
+                vc->vcb(vc->av, vc->friend_number, dest->d_w, dest->d_h,
+                        (const uint8_t *)dest->planes[0],
+                        (const uint8_t *)dest->planes[1],
+                        (const uint8_t *)dest->planes[2],
+                        dest->stride[0], dest->stride[1], dest->stride[2], vc->vcb_user_data);
             }
 
             vpx_img_free(dest); // is this needed? none of the VPx examples show that
@@ -1079,7 +1079,7 @@ uint32_t send_frames_vpx(ToxAV *av, uint32_t friend_number, uint16_t width, uint
 
             LOGGER_DEBUG(av->m->log, "+ _sending_FRAME_TYPE_==%s bytes=%d frame_len=%d", keyframe ? "K" : ".",
                          (int)pkt->data.frame.sz, (int)frame_length_in_bytes);
-            LOGGER_DEBUG(av->m->log, "+ _sending_FRAME_ b0=%d b1=%d", ((const uint8_t *)pkt->data.frame.buf)[0] ,
+            LOGGER_DEBUG(av->m->log, "+ _sending_FRAME_ b0=%d b1=%d", ((const uint8_t *)pkt->data.frame.buf)[0],
                          ((const uint8_t *)pkt->data.frame.buf)[1]);
 
             (*video_frame_record_timestamp)++;

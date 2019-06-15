@@ -489,7 +489,8 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
         vc->video_frame_buffer_entries = (uint32_t)tsb_size((TSBuffer *)vc->vbuf_raw);
 
-        LOGGER_DEBUG(vc->log, "seq:%d FC:%d min=%d max=%d want=%d got=%d diff=%d rm=%d pdelay=%d pdelayr=%d adj=%d dts=%d rtt=%d",
+        LOGGER_DEBUG(vc->log,
+                     "seq:%d FC:%d min=%d max=%d want=%d got=%d diff=%d rm=%d pdelay=%d pdelayr=%d adj=%d dts=%d rtt=%d",
                      (int)header_v3_0->sequnum,
                      (int)tsb_size((TSBuffer *)vc->vbuf_raw),
                      timestamp_min,

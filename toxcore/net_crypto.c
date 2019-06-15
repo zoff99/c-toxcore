@@ -38,7 +38,7 @@
 
 
 // #define TOX_CONGESTION_CONTROL_DISABLE 1
-
+// #define DEBUG_SEND_RATE_HIGH_VALUE 99999
 
 typedef struct Packet_Data {
     uint64_t sent_time;
@@ -1164,7 +1164,6 @@ static int64_t send_lossless_packet(Net_Crypto *c, int crypt_connection_id, cons
         return -1;
     }
 
-#ifndef TOX_CONGESTION_CONTROL_DISABLE
     /* If last packet send failed, try to send packet again.
        If sending it fails we won't be able to send the new packet. */
     reset_max_speed_reached(c, crypt_connection_id);
@@ -1172,8 +1171,6 @@ static int64_t send_lossless_packet(Net_Crypto *c, int crypt_connection_id, cons
     if (conn->maximum_speed_reached && congestion_control) {
         return -1;
     }
-
-#endif
 
     Packet_Data dt;
     dt.sent_time = 0;
@@ -1187,13 +1184,9 @@ static int64_t send_lossless_packet(Net_Crypto *c, int crypt_connection_id, cons
         return -1;
     }
 
-#ifndef TOX_CONGESTION_CONTROL_DISABLE
-
     if (!congestion_control && conn->maximum_speed_reached) {
         return packet_num;
     }
-
-#endif
 
     if (send_data_packet_helper(c, crypt_connection_id, conn->recv_array.buffer_start, packet_num, data, length) == 0) {
         Packet_Data *dt1 = nullptr;
@@ -1783,9 +1776,16 @@ static int create_crypto_connection(Net_Crypto *c)
         memset(&c->crypto_connections[id], 0, sizeof(Crypto_Connection));
         // Memsetting float/double to 0 is non-portable, so we explicitly set them to 0
         c->crypto_connections[id].packet_recv_rate = 0;
+
+#ifdef TOX_CONGESTION_CONTROL_DISABLE
+        c->crypto_connections[id].packet_send_rate = DEBUG_SEND_RATE_HIGH_VALUE;
+        c->crypto_connections[id].packet_send_rate_requested = DEBUG_SEND_RATE_HIGH_VALUE;
+#else
         c->crypto_connections[id].packet_send_rate = 0;
-        c->crypto_connections[id].last_packets_left_rem = 0;
         c->crypto_connections[id].packet_send_rate_requested = 0;
+#endif
+
+        c->crypto_connections[id].last_packets_left_rem = 0;
         c->crypto_connections[id].last_packets_left_requested_rem = 0;
 
         if (pthread_mutex_init(&c->crypto_connections[id].mutex, nullptr) != 0) {
@@ -2015,8 +2015,14 @@ int accept_crypto_connection(Net_Crypto *c, New_Connection *n_c)
     }
 
     memcpy(conn->dht_public_key, n_c->dht_public_key, CRYPTO_PUBLIC_KEY_SIZE);
+#ifdef TOX_CONGESTION_CONTROL_DISABLE
+    //
+    conn->packet_send_rate = DEBUG_SEND_RATE_HIGH_VALUE;
+    conn->packet_send_rate_requested = DEBUG_SEND_RATE_HIGH_VALUE;
+#else
     conn->packet_send_rate = CRYPTO_PACKET_MIN_RATE;
     conn->packet_send_rate_requested = CRYPTO_PACKET_MIN_RATE;
+#endif
     conn->packets_left = CRYPTO_MIN_QUEUE_LENGTH;
     conn->rtt_time = DEFAULT_PING_CONNECTION;
     crypto_connection_add_source(c, crypt_connection_id, n_c->source);
@@ -2058,8 +2064,13 @@ int new_crypto_connection(Net_Crypto *c, const uint8_t *real_public_key, const u
     random_nonce(conn->sent_nonce);
     crypto_new_keypair(conn->sessionpublic_key, conn->sessionsecret_key);
     conn->status = CRYPTO_CONN_COOKIE_REQUESTING;
+#ifdef TOX_CONGESTION_CONTROL_DISABLE
+    conn->packet_send_rate = DEBUG_SEND_RATE_HIGH_VALUE;
+    conn->packet_send_rate_requested = DEBUG_SEND_RATE_HIGH_VALUE;
+#else
     conn->packet_send_rate = CRYPTO_PACKET_MIN_RATE;
     conn->packet_send_rate_requested = CRYPTO_PACKET_MIN_RATE;
+#endif
     conn->packets_left = CRYPTO_MIN_QUEUE_LENGTH;
     conn->rtt_time = DEFAULT_PING_CONNECTION;
     memcpy(conn->dht_public_key, dht_public_key, CRYPTO_PUBLIC_KEY_SIZE);
@@ -2595,6 +2606,10 @@ static void send_crypto_packets(Net_Crypto *c)
 
                     double send_array_ratio = (((double)npackets) / min_speed);
 
+#ifdef TOX_CONGESTION_CONTROL_DISABLE
+                    //
+#else
+
                     // TODO(irungentoo): Improve formula?
                     if (send_array_ratio > SEND_QUEUE_RATIO && CRYPTO_MIN_QUEUE_LENGTH < npackets) {
                         conn->packet_send_rate = min_speed * (1.0 / (send_array_ratio / SEND_QUEUE_RATIO));
@@ -2613,6 +2628,9 @@ static void send_crypto_packets(Net_Crypto *c)
                     if (conn->packet_send_rate_requested < conn->packet_send_rate) {
                         conn->packet_send_rate_requested = conn->packet_send_rate;
                     }
+
+#endif
+
                 }
             }
 
@@ -2758,13 +2776,9 @@ int64_t write_cryptpacket(Net_Crypto *c, int crypt_connection_id, const uint8_t 
         return -1;
     }
 
-#ifndef TOX_CONGESTION_CONTROL_DISABLE
-
     if (congestion_control && conn->packets_left == 0) {
         return -1;
     }
-
-#endif
 
     int64_t ret = send_lossless_packet(c, crypt_connection_id, data, length, congestion_control);
 
@@ -2772,15 +2786,11 @@ int64_t write_cryptpacket(Net_Crypto *c, int crypt_connection_id, const uint8_t 
         return -1;
     }
 
-#ifndef TOX_CONGESTION_CONTROL_DISABLE
-
     if (congestion_control) {
         --conn->packets_left;
         --conn->packets_left_requested;
         ++conn->packets_sent;
     }
-
-#endif
 
     return ret;
 }
