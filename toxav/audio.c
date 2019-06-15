@@ -88,9 +88,7 @@ ACSession *ac_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_audio_re
 
     if (ac->encoder == NULL) {
         goto DECODER_CLEANUP;
-    }
-    else
-    {
+    } else {
         LOGGER_INFO(log, "audio encoder successfully created");
     }
 
@@ -252,8 +250,8 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
 
                     if (diff > 1) {
                         LOGGER_DEBUG(log, "AudioFramesIN: missing %d audio frames sequnum missing=%d",
-                                       (int)(diff - 1),
-                                       (ac->lp_seqnum_new + 1));
+                                     (int)(diff - 1),
+                                     (ac->lp_seqnum_new + 1));
                         lost_frame = 1;
                     }
                 }
@@ -708,9 +706,7 @@ OpusEncoder *create_audio_encoder(Logger *log, int32_t bit_rate, int32_t samplin
     if (status != OPUS_OK) {
         LOGGER_ERROR(log, "Error while starting audio encoder: %s", opus_strerror(status));
         return NULL;
-    }
-    else
-    {
+    } else {
         LOGGER_INFO(log, "starting audio encoder OK: %s", opus_strerror(status));
     }
 
