@@ -224,6 +224,31 @@ int global_h264_enc_profile_high_enabled_switch = 0;
  */
 #endif
 
+
+#ifdef HW_CODEC_CONFIG_UTOX_UB81
+/* ---------------------------------------------------
+ * UTOX win7
+ */
+#undef ACTIVE_HW_CODEC_CONFIG_NAME
+//#undef H264_WANT_ENCODER_NAME
+//#undef H264_WANT_DECODER_NAME
+#undef H264_DECODER_THREADS
+#undef H264_DECODER_THREAD_FRAME_ACTIVE
+#undef X264_ENCODER_THREADS
+#undef X264_ENCODER_SLICES
+#undef H264_ENCODER_STARTWITH_PROFILE_HIGH
+// --
+#define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_UTOX_UB81"
+#define H264_DECODER_THREADS 2
+#define H264_DECODER_THREAD_FRAME_ACTIVE 1
+#define X264_ENCODER_THREADS 6
+#define X264_ENCODER_SLICES 6
+#define H264_ENCODER_STARTWITH_PROFILE_HIGH 1
+/* ---------------------------------------------------
+ * UTOX win7
+ */
+#endif
+
 Logger *global__log = NULL;
 
 void my_log_callback(void *ptr, int level, const char *fmt, va_list vargs)
