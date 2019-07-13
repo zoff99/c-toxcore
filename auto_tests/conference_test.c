@@ -234,20 +234,6 @@ static void run_conference_tests(Tox **toxes, State *state)
     uint8_t *save[NUM_GROUP_TOX];
     size_t save_size[NUM_GROUP_TOX];
 
-    for (uint16_t i = 0; i < NUM_GROUP_TOX; ++i) {
-        if (restarting[i]) {
-            save_size[i] = tox_get_savedata_size(toxes[i]);
-            ck_assert_msg(save_size[i] != 0, "save is invalid size %u", (unsigned)save_size[i]);
-            save[i] = (uint8_t *)malloc(save_size[i]);
-            ck_assert_msg(save[i] != nullptr, "malloc failed");
-            tox_get_savedata(toxes[i], save[i]);
-            tox_kill(toxes[i]);
-        }
-    }
-
-    uint8_t *save[NUM_GROUP_TOX];
-    size_t save_size[NUM_GROUP_TOX];
-
     for (uint32_t i = 0; i < NUM_GROUP_TOX; ++i) {
         if (restarting[i]) {
             save_size[i] = tox_get_savedata_size(toxes[i]);
@@ -274,17 +260,6 @@ static void run_conference_tests(Tox **toxes, State *state)
 
             set_mono_time_callback(toxes[i], &state[i]);
             tox_conference_set_max_offline(toxes[i], 0, max_frozen, nullptr);
-        }
-    }
-
-    for (uint16_t i = 0; i < NUM_GROUP_TOX; ++i) {
-        if (restarting[i]) {
-            struct Tox_Options *const options = tox_options_new(nullptr);
-            tox_options_set_savedata_type(options, TOX_SAVEDATA_TYPE_TOX_SAVE);
-            tox_options_set_savedata_data(options, save[i], save_size[i]);
-            toxes[i] = tox_new_log(options, nullptr, &state[i].index);
-            tox_options_free(options);
-            free(save[i]);
         }
     }
 
