@@ -29,13 +29,14 @@
 #include "ccompat.h"
 
 #ifndef MIN_LOGGER_LEVEL
-#define MIN_LOGGER_LEVEL LOG_INFO
+#define MIN_LOGGER_LEVEL LOGGER_LEVEL_INFO
 #endif
 
 #ifndef LOGGER_MAX_MSG_LENGTH
 #define LOGGER_MAX_MSG_LENGTH (2048) // ORIG 1024
 #endif
 
+// NOTE: Don't forget to update build system files after modifying the enum.
 typedef enum Logger_Level {
     LOGGER_LEVEL_TRACE,
     LOGGER_LEVEL_DEBUG,

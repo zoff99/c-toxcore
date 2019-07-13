@@ -28,7 +28,8 @@
 #include "../toxcore/Messenger.h"
 
 #include "bwcontroller.h"
-#include "pair.h"
+#include "ring_buffer.h"
+#include "rtp.h"
 
 // for VPX ----------
 #include <vpx/vpx_decoder.h>
@@ -147,8 +148,6 @@ typedef enum PACKET_TOXAV_COMM_CHANNEL_FUNCTION {
 
 #include <pthread.h>
 
-struct RTPMessage;
-struct RingBuffer;
 struct TSBuffer;
 
 
@@ -278,14 +277,15 @@ typedef struct VCSession_s {
 
 
 
-VCSession *vc_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data);
+VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t friend_number,
+                  toxav_video_receive_frame_cb *cb, void *cb_data);
 void vc_kill(VCSession *vc);
 uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_t *a_r_timestamp,
                    uint64_t *a_l_timestamp,
                    uint64_t *v_r_timestamp, uint64_t *v_l_timestamp, BWController *bwc,
                    int64_t *timestamp_difference_adjustment_,
                    int64_t *timestamp_difference_to_sender_);
-int vc_queue_message(void *vcp, struct RTPMessage *msg);
+int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg);
 int vc_reconfigure_encoder(Logger *log, VCSession *vc, uint32_t bit_rate, uint16_t width, uint16_t height,
                            int16_t kf_max_dist);
 int vc_reconfigure_encoder_bitrate_only(VCSession *vc, uint32_t bit_rate);
