@@ -1314,7 +1314,7 @@ bool tox_file_seek(Tox *tox, uint32_t friend_number, uint32_t file_number, uint6
                    Tox_Err_File_Seek *error)
 {
     Messenger *m = tox->m;
-    int ret = file_seek(m, friend_number, file_number, position, false);
+    const int ret = file_seek(m, friend_number, file_number, position, false);
 
     if (ret == 0) {
         SET_ERROR_PARAMETER(error, TOX_ERR_FILE_SEEK_OK);
@@ -1536,7 +1536,7 @@ bool tox_conference_delete(Tox *tox, uint32_t conference_number, Tox_Err_Confere
 {
     Messenger *m = tox->m;
     group_leave(m->conferences_object, conference_number);
-    int ret = del_groupchat(m->conferences_object, conference_number, true);
+    const int ret = del_groupchat(m->conferences_object, conference_number, true);
 
     if (ret == -1) {
         SET_ERROR_PARAMETER(error, TOX_ERR_CONFERENCE_DELETE_CONFERENCE_NOT_FOUND);
