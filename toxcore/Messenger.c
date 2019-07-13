@@ -2088,11 +2088,7 @@ int m_callback_rtp_packet(Messenger *m, int32_t friendnumber, uint8_t byte, m_lo
         return 0;
     }
 
-    if (byte < PACKET_ID_LOSSY_RANGE_START) {
-        return -1;
-    }
-
-    if (byte >= (PACKET_ID_LOSSY_RANGE_START + PACKET_LOSSY_AV_RESERVED)) {
+    if (byte < PACKET_ID_RANGE_LOSSY_AV_START || byte > PACKET_ID_RANGE_LOSSY_AV_END) {
         return -1;
     }
 
@@ -2165,11 +2161,7 @@ static int handle_custom_lossless_packet(void *object, int friend_num, const uin
         return 1;
     }
 
-    if (packet[0] < PACKET_ID_LOSSLESS_RANGE_START) {
-        return -1;
-    }
-
-    if (packet[0] >= (PACKET_ID_LOSSLESS_RANGE_START + PACKET_ID_LOSSLESS_RANGE_SIZE)) {
+    if (packet[0] < PACKET_ID_RANGE_LOSSLESS_CUSTOM_START || packet[0] > PACKET_ID_RANGE_LOSSLESS_CUSTOM_END) {
         return -1;
     }
 
@@ -3656,8 +3648,7 @@ static uint8_t *save_tcp_relays(const Messenger *m, uint8_t *data)
     return data;
 }
 
-static State_Load_Status messenger_load_state_callback(void *outer, const uint8_t *data, uint32_t length,
-        uint16_t type)
+static State_Load_Status load_tcp_relays(Messenger *m, const uint8_t *data, uint32_t length)
 {
     if (length != 0) {
         m->num_loaded_relays = unpack_nodes(m->loaded_relays, NUM_SAVED_TCP_RELAYS, nullptr, data, length, 1);
