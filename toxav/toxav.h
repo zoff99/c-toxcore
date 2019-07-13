@@ -857,13 +857,39 @@ int toxav_group_send_audio(Tox *tox, uint32_t groupnumber, const int16_t *pcm, u
                            uint32_t sample_rate);
 
 
-typedef TOXAV_ERR_CALL Toxav_Err_Call;
-typedef TOXAV_ERR_NEW Toxav_Err_New;
-typedef TOXAV_ERR_ANSWER Toxav_Err_Answer;
-typedef TOXAV_ERR_CALL_CONTROL Toxav_Err_Call_Control;
-typedef TOXAV_ERR_BIT_RATE_SET Toxav_Err_Bit_Rate_Set;
-typedef TOXAV_ERR_SEND_FRAME Toxav_Err_Send_Frame;
-typedef TOXAV_CALL_CONTROL Toxav_Call_Control;
+/* Enable A/V in a groupchat.
+ *
+ * A/V must be enabled on a groupchat for audio to be sent to it and for
+ * received audio to be handled.
+ *
+ * An A/V group created with toxav_add_av_groupchat or toxav_join_av_groupchat
+ * will start with A/V enabled.
+ *
+ * An A/V group loaded from a savefile will start with A/V disabled.
+ *
+ * return 0 on success.
+ * return -1 on failure.
+ *
+ * Audio data callback format (same as the one for toxav_add_av_groupchat()):
+ *   audio_callback(Tox *tox, uint32_t groupnumber, uint32_t peernumber, const int16_t *pcm, unsigned int samples, uint8_t channels, uint32_t sample_rate, void *userdata)
+ *
+ * Note that total size of pcm in bytes is equal to (samples * channels * sizeof(int16_t)).
+ */
+int toxav_groupchat_enable_av(Tox *tox, uint32_t groupnumber,
+                              void (*audio_callback)(void *, uint32_t, uint32_t, const int16_t *, unsigned int, uint8_t, uint32_t, void *),
+                              void *userdata);
+
+/* Disable A/V in a groupchat.
+ *
+ * return 0 on success.
+ * return -1 on failure.
+ */
+int toxav_groupchat_disable_av(Tox *tox, uint32_t groupnumber);
+
+/* Return whether A/V is enabled in the groupchat.
+ */
+bool toxav_groupchat_av_enabled(Tox *tox, uint32_t groupnumber);
+
 
 /*******************************************************************************
  *
