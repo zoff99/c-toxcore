@@ -58,6 +58,7 @@ libtool
 .deps
 .libs
 .dirstamp
+build/
 
 #kdevelop
 .kdev/
