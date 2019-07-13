@@ -1536,7 +1536,7 @@ bool tox_conference_delete(Tox *tox, uint32_t conference_number, Tox_Err_Confere
 {
     Messenger *m = tox->m;
     group_leave(m->conferences_object, conference_number);
-    int ret = del_groupchat(m->conferences_object, conference_number);
+    int ret = del_groupchat(m->conferences_object, conference_number, true);
 
     if (ret == -1) {
         SET_ERROR_PARAMETER(error, TOX_ERR_CONFERENCE_DELETE_CONFERENCE_NOT_FOUND);
