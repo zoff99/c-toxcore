@@ -112,7 +112,7 @@ static void tsb_close_hole(TSBuffer *b, Logger *log, uint16_t start_index, uint1
         const struct RTPHeader *header_v3_0 = & (msg->header);
         int seq = header_v3_0->sequnum;
 
-        if (header_v3_0->pt == rtp_TypeVideo % 128) {
+        if (header_v3_0->pt == RTP_TYPE_VIDEO % 128) {
             LOGGER_DEBUG(log, "tsb:hole index:seq=%d", (int)seq);
         }
     }
@@ -162,7 +162,7 @@ static uint16_t tsb_delete_old_entries(TSBuffer *b, Logger *log, const uint32_t 
                 const struct RTPHeader *header_v3_0 = & (msg->header);
                 int seq = header_v3_0->sequnum;
 
-                if (header_v3_0->pt == rtp_TypeVideo % 128) {
+                if (header_v3_0->pt == RTP_TYPE_VIDEO % 128) {
                     LOGGER_DEBUG(log, "tsb:kick:seq=%d diff=%d", (int)seq,
                                  (int)(timestamp_threshold - b->timestamp[current_element]));
                 }
@@ -226,7 +226,7 @@ static bool tsb_return_oldest_entry_in_range(TSBuffer *b, Logger *log, void **p,
                 const struct RTPHeader *header_v3_0 = & (msg->header);
                 int seq = header_v3_0->sequnum;
 
-                if (header_v3_0->pt == rtp_TypeVideo % 128) {
+                if (header_v3_0->pt == RTP_TYPE_VIDEO % 128) {
                     LOGGER_DEBUG(log, "XLS02:%d,%d",
                                  (int)seq, (int)header_v3_0->frame_record_timestamp);
                 }
@@ -245,7 +245,7 @@ static bool tsb_return_oldest_entry_in_range(TSBuffer *b, Logger *log, void **p,
                     const struct RTPHeader *header_v3_0 = & (msg->header);
                     int seq = header_v3_0->sequnum;
 
-                    if (header_v3_0->pt == rtp_TypeVideo % 128) {
+                    if (header_v3_0->pt == RTP_TYPE_VIDEO % 128) {
                         LOGGER_DEBUG(log, "tsb_old:in range:seq=%d range=(%d - %d) -> want=%d prevfound=%d",
                                      (int)seq,
                                      (int)(timestamp_in - timestamp_range),
@@ -269,7 +269,7 @@ static bool tsb_return_oldest_entry_in_range(TSBuffer *b, Logger *log, void **p,
                         const struct RTPHeader *header_v3_0 = & (msg->header);
                         int seq = header_v3_0->sequnum;
 
-                        if (header_v3_0->pt == rtp_TypeVideo % 128) {
+                        if (header_v3_0->pt == RTP_TYPE_VIDEO % 128) {
                             LOGGER_DEBUG(log, "tsb_old:iter:seq=%d found_timestamp=%d",
                                          (int)seq, (int)found_timestamp);
                         }

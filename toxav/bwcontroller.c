@@ -11,6 +11,7 @@
 #include "ring_buffer.h"
 
 #include "../toxcore/logger.h"
+#include "../toxcore/mono_time.h"
 #include "../toxcore/util.h"
 
 /*
@@ -26,8 +27,8 @@ static void dummy()
 // #define LOGGER_INFO(log, ...) dummy()
 
 #define BWC_PACKET_ID (196)
-#define BWC_SEND_INTERVAL_MS (950)     /* 0.95s  */
-#define BWC_REFRESH_INTERVAL_MS (2000) /* 2.00s */
+#define BWC_SEND_INTERVAL_MS (950)     // 0.95s
+#define BWC_REFRESH_INTERVAL_MS (2000) // 2.00s
 #define BWC_AVG_PKT_COUNT (20)
 #define BWC_AVG_LOSS_OVER_CYCLES_COUNT (50)
 
@@ -55,10 +56,7 @@ struct BWController_s {
 
     uint32_t friend_number;
 
-    struct {
-        uint32_t last_recv_timestamp; /* Last recv update time stamp */
-        uint32_t last_sent_timestamp; /* Last sent update time stamp */
-        uint32_t last_refresh_timestamp; /* Last refresh time stamp */
+    BWCCycle cycle;
 
         uint32_t lost;
         uint32_t recv;
@@ -116,7 +114,7 @@ BWController *bwc_new(Tox *t, uint32_t friendnumber, m_cb *mcb, void *mcb_user_d
     retu->packet_loss_counted_cycles = 0;
 
     /* Fill with zeros */
-    for (i = 0; i < BWC_AVG_PKT_COUNT; i++) {
+    for (i = 0; i < BWC_AVG_PKT_COUNT; ++i) {
         uint32_t *j = (retu->rcvpkt.packet_length_array + i);
         *j = 0;
         rb_write(retu->rcvpkt.rb, j, 0);
@@ -198,7 +196,7 @@ static void send_update(BWController *bwc)
 #if 0
 static int on_update(BWController *bwc, const struct BWCMessage *msg)
 {
-    LOGGER_DEBUG(bwc->m->log, "%p Got update from peer", bwc);
+    LOGGER_DEBUG(bwc->m->log, "%p Got update from peer", (void *)bwc);
 
 #if 1
 
@@ -223,11 +221,11 @@ static int on_update(BWController *bwc, const struct BWCMessage *msg)
 
             bwc->mcb(bwc, bwc->friend_number,
                      ((float) lost / (recv + lost)),
-                     bwc->mcb_data);
+                     bwc->mcb_user_data);
         } else {
             bwc->mcb(bwc, bwc->friend_number,
                      0,
-                     bwc->mcb_data);
+                     bwc->mcb_user_data);
         }
     }
 

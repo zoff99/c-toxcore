@@ -33,10 +33,10 @@ extern "C" {
 /**
  * Payload type identifier. Also used as rtp callback prefix.
  */
-enum {
-    rtp_TypeAudio = 192,
-    rtp_TypeVideo = 193,
-};
+typedef enum RTP_Type {
+    RTP_TYPE_AUDIO = 192,
+    RTP_TYPE_VIDEO = 193,
+} RTP_Type;
 
 
 enum {
@@ -63,7 +63,7 @@ Note
  * A bit mask (up to 64 bits) specifying features of the current frame affecting
  * the behaviour of the decoder.
  */
-enum RTPFlags {
+typedef enum RTPFlags {
     /**
      * Support frames larger than 64KiB. The full 32 bit length and offset are
      * set in \ref RTPHeader::data_length_full and \ref RTPHeader::offset_full.
@@ -278,6 +278,8 @@ struct RTPWorkBufferList {
 #define DISMISS_FIRST_LOST_VIDEO_PACKET_COUNT 10
 #define INCOMING_PACKETS_TS_ENTRIES 10
 
+typedef int rtp_m_cb(Mono_Time *mono_time, void *cs, struct RTPMessage *msg);
+
 /**
  * RTP control session.
  */
@@ -346,4 +348,4 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
 }  // extern "C"
 #endif
 
-#endif /* RTP_H */
+#endif // C_TOXCORE_TOXAV_RTP_H

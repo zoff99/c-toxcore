@@ -47,7 +47,8 @@ bool reconfigure_audio_decoder(ACSession *ac, int32_t sampling_rate, int8_t chan
 
 
 
-ACSession *ac_new(Logger *log, ToxAV *av, uint32_t friend_number, toxav_audio_receive_frame_cb *cb, void *cb_data)
+ACSession *ac_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t friend_number,
+                  toxav_audio_receive_frame_cb *cb, void *cb_data)
 {
     ACSession *ac = (ACSession *)calloc(sizeof(ACSession), 1);
 
@@ -148,7 +149,7 @@ void ac_kill(ACSession *ac)
 
     pthread_mutex_destroy(ac->queue_mutex);
 
-    LOGGER_DEBUG(ac->log, "Terminated audio handler: %p", ac);
+    LOGGER_DEBUG(ac->log, "Terminated audio handler: %p", (void *)ac);
     free(ac);
 }
 
@@ -165,7 +166,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     void *ret = NULL;
     uint64_t lost_frame = 0;
     uint32_t timestamp_out_ = 0;
-    int64_t want_remote_video_ts = (current_time_monotonic() + timestamp_difference_to_sender_ +
+    int64_t want_remote_video_ts = (current_time_monotonic(ac->mono_time) + timestamp_difference_to_sender_ +
                                     timestamp_difference_adjustment_);
     *success = 0;
     uint16_t removed_entries;
@@ -408,12 +409,12 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
                 // what is the audio to video latency?
                 const struct RTPHeader *header_v3 = (void *) & (msg->header);
 
-                // LOGGER_ERROR(ac->log, "AUDIO:TTx: %llu %lld now=%llu", header_v3->frame_record_timestamp, (long long)*a_r_timestamp, current_time_monotonic());
+                // LOGGER_ERROR(ac->log, "AUDIO:TTx: %llu %lld now=%llu", header_v3->frame_record_timestamp, (long long)*a_r_timestamp, current_time_monotonic(ac->mono_time));
                 if (header_v3->frame_record_timestamp > 0) {
                     if (*a_r_timestamp < header_v3->frame_record_timestamp) {
                         // LOGGER_ERROR(ac->log, "AUDIO:TTx:2: %llu", header_v3->frame_record_timestamp);
                         *a_r_timestamp = header_v3->frame_record_timestamp;
-                        *a_l_timestamp = current_time_monotonic();
+                        *a_l_timestamp = current_time_monotonic(ac->mono_time);
                     } else {
                         // TODO: this should not happen here!
                         LOGGER_DEBUG(ac->log, "AUDIO: remote timestamp older");

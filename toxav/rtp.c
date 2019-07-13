@@ -556,7 +556,7 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
 
                 if (m_new) {
                     LOGGER_DEBUG(log, "FPATH:11x:slot num=%d:VSEQ:%d", slot_id, (int)m_new->header.sequnum);
-                    session->mcb(session->cs, m_new);
+                    session->mcb(session->m->mono_time, session->cs, m_new);
                     m_new = NULL;
                 }
 
@@ -678,17 +678,17 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         }
     }
 
-    LOGGER_DEBUG(m->log, "header.pt %d, video %d", (uint8_t)header.pt, (rtp_TypeVideo % 128));
+    LOGGER_DEBUG(m->log, "header.pt %d, video %d", (uint8_t)header.pt, (RTP_TYPE_VIDEO % 128));
 
-    LOGGER_DEBUG(m->log, "rtp packet record time: %llu", header.frame_record_timestamp);
+    LOGGER_DEBUG(m->log, "rtp packet record time: %lu", (unsigned long)header.frame_record_timestamp);
 
 
     // check flag indicating that we have real record-timestamps for frames ---
     if ((header.flags & RTP_ENCODER_HAS_RECORD_TIMESTAMP) == 0) {
-        if (header.pt == (rtp_TypeVideo % 128)) {
+        if (header.pt == (RTP_TYPE_VIDEO % 128)) {
             LOGGER_DEBUG(m->log, "RTP_ENCODER_HAS_RECORD_TIMESTAMP:VV");
             ((VCSession *)(session->cs))->encoder_frame_has_record_timestamp = 0;
-        } else if (header.pt == (rtp_TypeAudio % 128)) {
+        } else if (header.pt == (RTP_TYPE_AUDIO % 128)) {
             LOGGER_DEBUG(m->log, "RTP_ENCODER_HAS_RECORD_TIMESTAMP:AA");
             ((ACSession *)(session->cs))->encoder_frame_has_record_timestamp = 0;
         }
@@ -712,7 +712,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         uint8_t pkg_buf[pkg_buf_len];
         pkg_buf[0] = PACKET_TOXAV_COMM_CHANNEL;
         pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_REQUEST;
-        uint32_t tmp = current_time_monotonic();
+        uint32_t tmp = current_time_monotonic(m->mono_time);
         pkg_buf[2] = tmp >> 24 & 0xFF;
         pkg_buf[3] = tmp >> 16 & 0xFF;
         pkg_buf[4] = tmp >> 8  & 0xFF;
@@ -731,17 +731,17 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
     // The sender uses the new large-frame capable protocol and is sending a
     // video packet.
-    if ((header.flags & RTP_LARGE_FRAME) && (header.pt == (rtp_TypeVideo % 128))) {
+    if ((header.flags & RTP_LARGE_FRAME) && (header.pt == (RTP_TYPE_VIDEO % 128))) {
 
         if (session->incoming_packets_ts_last_ts == -1) {
             session->incoming_packets_ts[session->incoming_packets_ts_index] = 0;
             session->incoming_packets_ts_average = 0;
         } else {
-            session->incoming_packets_ts[session->incoming_packets_ts_index] = current_time_monotonic() -
+            session->incoming_packets_ts[session->incoming_packets_ts_index] = current_time_monotonic(m->mono_time) -
                     session->incoming_packets_ts_last_ts;
         }
 
-        session->incoming_packets_ts_last_ts = current_time_monotonic();
+        session->incoming_packets_ts_last_ts = current_time_monotonic(m->mono_time);
         session->incoming_packets_ts_index++;
 
         if (session->incoming_packets_ts_index >= INCOMING_PACKETS_TS_ENTRIES) {
@@ -773,7 +773,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
 
 
-    if (header.pt == (rtp_TypeAudio % 128)) {
+    if (header.pt == (RTP_TYPE_AUDIO % 128)) {
         // HINT: we have an audio packet
         // LOGGER_ERROR(m->log, "AADEBUG:**** incoming audio packet ****");
     }
@@ -960,7 +960,7 @@ size_t rtp_header_unpack(const uint8_t *data, struct RTPHeader *header)
     //      custom fields here      //
     // ---------------------------- //
     p += net_unpack_u64(p, &header->frame_record_timestamp);
-    p += net_unpack_u32(p, &header->fragment_num);
+    p += net_unpack_u32(p, (uint32_t *)&header->fragment_num);
     p += net_unpack_u32(p, &header->real_frame_num);
     p += net_unpack_u32(p, &header->encoder_bit_rate_used);
     p += net_unpack_u32(p, &header->client_video_capture_delay_ms);
@@ -1224,13 +1224,13 @@ RTPSession *rtp_new(int payload_type, Messenger *m, uint32_t friendnumber,
         memcpy(rdata + 1 + RTP_HEADER_SIZE, data, length);
 
 
-        if ((session->payload_type == rtp_TypeVideo) && (TOXAV_SEND_VIDEO_LOSSLESS_PACKETS == 1)) {
+        if ((session->payload_type == RTP_TYPE_VIDEO) && (TOXAV_SEND_VIDEO_LOSSLESS_PACKETS == 1)) {
             if (-1 == send_custom_lossless_packet(session->m, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
-                LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
+                LOGGER_WARNING(session->m->log, "RTP send failed (len: %zu)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
             }
         } else {
             if (-1 == m_send_custom_lossy_packet(session->m, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
-                LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
+                LOGGER_WARNING(session->m->log, "RTP send failed (len: %zu)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
             }
         }
     } else {
@@ -1279,6 +1279,6 @@ RTPSession *rtp_new(int payload_type, Messenger *m, uint32_t friendnumber,
         }
     }
 
-    session->sequnum++;
+    ++session->sequnum;
     return 0;
 }
