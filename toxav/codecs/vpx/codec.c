@@ -465,10 +465,10 @@ VCSession *vc_new_vpx(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vide
     // VP8E_SET_STATIC_THRESHOLD
 
 
-    vc->linfts = current_time_monotonic();
+    vc->linfts = current_time_monotonic(av->m->mono_time);
     vc->lcfd = 10; // initial value in ms for av_iterate sleep
-    vc->vcb.first = cb;
-    vc->vcb.second = cb_data;
+    vc->vcb = cb;
+    vc->vcb_user_data = cb_data;
     vc->friend_number = friend_number;
     vc->av = av;
     vc->log = log;
@@ -561,7 +561,7 @@ int vc_reconfigure_encoder_vpx(Logger *log, VCSession *vc, uint32_t bit_rate,
          * TODO: Zoff in 2018: i wonder if this is still the case with libvpx 1.7.x ?
          */
 
-        LOGGER_DEBUG(vc->log, "Have to reinitialize vpx encoder on session %p", vc);
+        LOGGER_DEBUG(vc->log, "Have to reinitialize vpx encoder on session %p", (void *)vc);
 
 
         vpx_codec_ctx_t new_c;
@@ -900,21 +900,21 @@ void decode_frame_vpx(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint
             // we have a frame, set return code
             *ret_value = 1;
 
-            if (vc->vcb.first) {
+            if (vc->vcb) {
 
                 // what is the audio to video latency?
                 //
                 if (dest->user_priv != NULL) {
                     uint64_t frame_record_timestamp_vpx = ((struct vpx_frame_user_data *)(dest->user_priv))->record_timestamp;
 
-                    //LOGGER_ERROR(vc->log, "VIDEO:TTx: %llu now=%llu", frame_record_timestamp_vpx, current_time_monotonic());
+                    //LOGGER_ERROR(vc->log, "VIDEO:TTx: %llu now=%llu", frame_record_timestamp_vpx, current_time_monotonic(m->mono_time));
                     if (frame_record_timestamp_vpx > 0) {
                         *ret_value = 1;
 
                         if (*v_r_timestamp < frame_record_timestamp_vpx) {
                             // LOGGER_ERROR(vc->log, "VIDEO:TTx:2: %llu", frame_record_timestamp_vpx);
                             *v_r_timestamp = frame_record_timestamp_vpx;
-                            *v_l_timestamp = current_time_monotonic();
+                            *v_l_timestamp = current_time_monotonic(m->mono_time);
                         } else {
                             // TODO: this should not happen here!
                             LOGGER_DEBUG(vc->log, "VIDEO: remote timestamp older");
@@ -1009,7 +1009,7 @@ uint32_t encode_frame_vpx(ToxAV *av, uint32_t friend_number, uint16_t width, uin
     uint32_t duration = (41 * 10); // HINT: 24fps ~= 41ms
 #endif
 
-    vpx_codec_err_t vrc = vpx_codec_encode(call->video.second->encoder, &img,
+    vpx_codec_err_t vrc = vpx_codec_encode(call->video->encoder, &img,
                                            (int64_t) * video_frame_record_timestamp, duration,
                                            vpx_encode_flags,
                                            VPX_DL_REALTIME);
@@ -1037,12 +1037,12 @@ uint32_t send_frames_vpx(ToxAV *av, uint32_t friend_number, uint16_t width, uint
     vpx_codec_iter_t iter = NULL;
     const vpx_codec_cx_pkt_t *pkt;
 
-    while ((pkt = vpx_codec_get_cx_data(call->video.second->encoder, &iter)) != NULL) {
+    while ((pkt = vpx_codec_get_cx_data(call->video->encoder, &iter)) != NULL) {
         if (pkt->kind == VPX_CODEC_CX_FRAME_PKT) {
             const int keyframe = (pkt->data.frame.flags & VPX_FRAME_IS_KEY) != 0;
 
             if (keyframe) {
-                call->video.second->last_sent_keyframe_ts = current_time_monotonic();
+                call->video->last_sent_keyframe_ts = current_time_monotonic(av->m->mono_time);
             }
 
             if ((pkt->data.frame.flags & VPX_FRAME_IS_FRAGMENT) != 0) {
@@ -1064,7 +1064,7 @@ uint32_t send_frames_vpx(ToxAV *av, uint32_t friend_number, uint16_t width, uint
 
             int res = rtp_send_data
                       (
-                          call->video.first,
+                          call->video_rtp,
                           (const uint8_t *)pkt->data.frame.buf,
                           frame_length_in_bytes,
                           keyframe,
