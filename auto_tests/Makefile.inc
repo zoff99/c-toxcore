@@ -15,6 +15,9 @@ TESTS = \
 	file_transfer_test \
 	friend_connection_test \
 	friend_request_test \
+	invalid_tcp_proxy_test \
+	invalid_udp_proxy_test \
+	lan_discovery_test \
 	lossless_packet_test \
 	lossy_packet_test \
 	messenger_test \
@@ -118,6 +121,18 @@ friend_connection_test_LDADD = $(AUTOTEST_LDADD)
 friend_request_test_SOURCES = ../auto_tests/friend_request_test.c
 friend_request_test_CFLAGS = $(AUTOTEST_CFLAGS)
 friend_request_test_LDADD = $(AUTOTEST_LDADD)
+
+invalid_tcp_proxy_test_SOURCES = ../auto_tests/invalid_tcp_proxy_test.c
+invalid_tcp_proxy_test_CFLAGS = $(AUTOTEST_CFLAGS)
+invalid_tcp_proxy_test_LDADD = $(AUTOTEST_LDADD)
+
+invalid_udp_proxy_test_SOURCES = ../auto_tests/invalid_udp_proxy_test.c
+invalid_udp_proxy_test_CFLAGS = $(AUTOTEST_CFLAGS)
+invalid_udp_proxy_test_LDADD = $(AUTOTEST_LDADD)
+
+lan_discovery_test_SOURCES = ../auto_tests/lan_discovery_test.c
+lan_discovery_test_CFLAGS = $(AUTOTEST_CFLAGS)
+lan_discovery_test_LDADD = $(AUTOTEST_LDADD)
 
 lossless_packet_test_SOURCES = ../auto_tests/lossless_packet_test.c
 lossless_packet_test_CFLAGS = $(AUTOTEST_CFLAGS)

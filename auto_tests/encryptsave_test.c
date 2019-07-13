@@ -151,13 +151,24 @@ static void test_keys(void)
     bool ret = tox_pass_key_encrypt(key, string, 44, encrypted, &encerr);
     ck_assert_msg(ret, "generic failure 2: %d", encerr);
 
+    // Testing how tox handles encryption of large messages.
     int size_large = 30 * 1024 * 1024;
-    uint8_t *encrypted2a = malloc(size_large + TOX_PASS_ENCRYPTION_EXTRA_LENGTH);
-    uint8_t *unencrypted2a = malloc(size_large);
-    ret = tox_pass_encrypt(unencrypted2a, size_large, (const uint8_t *)"123qweasdzxc", 12, encrypted2a, &encerr);
+    int ciphertext_length2a = size_large + TOX_PASS_ENCRYPTION_EXTRA_LENGTH;
+    int plaintext_length2a = size_large;
+    uint8_t *encrypted2a = (uint8_t *)malloc(ciphertext_length2a);
+    uint8_t *in_plaintext2a = (uint8_t *)malloc(plaintext_length2a);
+    ret = tox_pass_encrypt(in_plaintext2a, plaintext_length2a, key_char, 12, encrypted2a, &encerr);
     ck_assert_msg(ret, "tox_pass_encrypt failure 2a: %d", encerr);
+
+    // Decryption of same message.
+    uint8_t *out_plaintext2a = (uint8_t *) malloc(plaintext_length2a);
+    ret = tox_pass_decrypt(encrypted2a, ciphertext_length2a, key_char, 12, out_plaintext2a, &decerr);
+    ck_assert_msg(ret, "tox_pass_decrypt failure 2a: %d", decerr);
+    ck_assert_msg(memcmp(in_plaintext2a, out_plaintext2a, plaintext_length2a) == 0, "Large message decryption failed");
     free(encrypted2a);
-    free(unencrypted2a);
+    free(in_plaintext2a);
+    free(out_plaintext2a);
+
 
     uint8_t encrypted2[44 + TOX_PASS_ENCRYPTION_EXTRA_LENGTH];
     ret = tox_pass_encrypt(string, 44, key_char, 12, encrypted2, &encerr);
