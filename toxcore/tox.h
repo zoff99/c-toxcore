@@ -1905,20 +1905,6 @@ void tox_callback_friend_message(Tox *tox, tox_friend_message_cb *callback);
  */
 bool tox_hash(uint8_t *hash, const uint8_t *data, size_t length);
 
-typedef enum TOX_MESSAGEV2_ALTER_TYPE {
-
-    /**
-     * TODO: Generate doc
-     */
-    TOX_MESSAGEV2_ALTER_TYPE_DELETE,
-
-    /**
-     * TODO: Generate doc
-     */
-    TOX_MESSAGEV2_ALTER_TYPE_CORRECT,
-
-} TOX_MESSAGEV2_ALTER_TYPE;
-
 
 /**
  * A list of pre-defined file kinds. Toxcore itself does not behave

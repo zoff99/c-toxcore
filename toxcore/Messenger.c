@@ -3485,8 +3485,7 @@ static uint8_t *save_tcp_relays(const Messenger *m, uint8_t *data)
     return data;
 }
 
-static State_Load_Status messenger_load_state_callback(void *outer, const uint8_t *data, uint32_t length,
-        uint16_t type)
+static State_Load_Status load_tcp_relays(Messenger *m, const uint8_t *data, uint32_t length)
 {
     if (length != 0) {
         const int num = unpack_nodes(m->loaded_relays, NUM_SAVED_TCP_RELAYS, nullptr, data, length, 1);
