@@ -1068,12 +1068,12 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
     compr_data->post = -1;
 #endif
 
-    // uint32_t start_time_ms = current_time_monotonic();
+    // uint32_t start_time_ms = current_time_monotonic(m->mono_time);
     // HINT: dirty hack to add FF_INPUT_BUFFER_PADDING_SIZE bytes!! ----------
     uint8_t *tmp_buf = calloc(1, full_data_len + AV_INPUT_BUFFER_PADDING_SIZE);
     memcpy(tmp_buf, p->data, full_data_len);
     // HINT: dirty hack to add FF_INPUT_BUFFER_PADDING_SIZE bytes!! ----------
-    // uint32_t end_time_ms = current_time_monotonic();
+    // uint32_t end_time_ms = current_time_monotonic(m->mono_time);
     // LOGGER_WARNING(vc->log, "decode_frame_h264:001: %d ms", (int)(end_time_ms - start_time_ms));
 
     compr_data->data = tmp_buf; // p->data;
@@ -1091,9 +1091,9 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
     /* HINT: this is the only part that takes all the time !!! */
     /* HINT: this is the only part that takes all the time !!! */
 
-    // uint32_t start_time_ms = current_time_monotonic();
+    // uint32_t start_time_ms = current_time_monotonic(m->mono_time);
     avcodec_send_packet(vc->h264_decoder, compr_data);
-    // uint32_t end_time_ms = current_time_monotonic();
+    // uint32_t end_time_ms = current_time_monotonic(m->mono_time);
     // if ((int)(end_time_ms - start_time_ms) > 4) {
     //    LOGGER_WARNING(vc->log, "decode_frame_h264:002: %d ms", (int)(end_time_ms - start_time_ms));
     //}
@@ -1109,14 +1109,14 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
 
     while (ret_ >= 0) {
 
-        // start_time_ms = current_time_monotonic();
+        // start_time_ms = current_time_monotonic(m->mono_time);
         AVFrame *frame = av_frame_alloc();
-        // end_time_ms = current_time_monotonic();
+        // end_time_ms = current_time_monotonic(m->mono_time);
         // LOGGER_WARNING(vc->log, "decode_frame_h264:003: %d ms", (int)(end_time_ms - start_time_ms));
 
-        // start_time_ms = current_time_monotonic();
+        // start_time_ms = current_time_monotonic(m->mono_time);
         ret_ = avcodec_receive_frame(vc->h264_decoder, frame);
-        // end_time_ms = current_time_monotonic();
+        // end_time_ms = current_time_monotonic(m->mono_time);
         // LOGGER_WARNING(vc->log, "decode_frame_h264:004: %d ms", (int)(end_time_ms - start_time_ms));
 
         // LOGGER_ERROR(vc->log, "H264:decoder:ret_=%d\n", (int)ret_);
@@ -1212,15 +1212,15 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
             // some other error
         }
 
-        // start_time_ms = current_time_monotonic();
+        // start_time_ms = current_time_monotonic(m->mono_time);
         av_frame_free(&frame);
-        // end_time_ms = current_time_monotonic();
+        // end_time_ms = current_time_monotonic(m->mono_time);
         // LOGGER_WARNING(vc->log, "decode_frame_h264:006: %d ms", (int)(end_time_ms - start_time_ms));
     }
 
-    // start_time_ms = current_time_monotonic();
+    // start_time_ms = current_time_monotonic(m->mono_time);
     av_packet_free(&compr_data);
-    // end_time_ms = current_time_monotonic();
+    // end_time_ms = current_time_monotonic(m->mono_time);
     // LOGGER_WARNING(vc->log, "decode_frame_h264:007: %d ms", (int)(end_time_ms - start_time_ms));
 
     // HINT: dirty hack to add FF_INPUT_BUFFER_PADDING_SIZE bytes!! ----------
@@ -1250,22 +1250,22 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
 
     int i_nal;
 
-    call->video.second->h264_in_pic.i_pts = (int64_t)(*video_frame_record_timestamp);
+    call->video->h264_in_pic.i_pts = (int64_t)(*video_frame_record_timestamp);
 
     if ((vpx_encode_flags & VPX_EFLAG_FORCE_KF) > 0) {
-        call->video.second->h264_in_pic.i_type = X264_TYPE_IDR; // real full i-frame
-        call->video.second->last_sent_keyframe_ts = current_time_monotonic();
+        call->video->h264_in_pic.i_type = X264_TYPE_IDR; // real full i-frame
+        call->video->last_sent_keyframe_ts = current_time_monotonic(av->m->mono_time);
     } else {
-        call->video.second->h264_in_pic.i_type = X264_TYPE_AUTO;
+        call->video->h264_in_pic.i_type = X264_TYPE_AUTO;
     }
 
-    LOGGER_DEBUG(av->m->log, "X264 IN frame type=%d", (int)call->video.second->h264_in_pic.i_type);
+    LOGGER_DEBUG(av->m->log, "X264 IN frame type=%d", (int)call->video->h264_in_pic.i_type);
 
-    *i_frame_size = x264_encoder_encode(call->video.second->h264_encoder,
+    *i_frame_size = x264_encoder_encode(call->video->h264_encoder,
                                         nal,
                                         &i_nal,
-                                        &(call->video.second->h264_in_pic),
-                                        &(call->video.second->h264_out_pic));
+                                        &(call->video->h264_in_pic),
+                                        &(call->video->h264_out_pic));
 
     global_encoder_delay_counter++;
 
@@ -1299,7 +1299,7 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
         // LOGGER_ERROR(av->m->log, "H264: i_frame_size=%d nal_buf=%p KF=%d\n",
         //             (int)*i_frame_size,
         //             (*nal)->p_payload,
-        //             (int)call->video.second->h264_out_pic.b_keyframe
+        //             (int)call->video->h264_out_pic.b_keyframe
         //            );
         // -- WARN -- : this could crash !! ----
 
@@ -1413,13 +1413,13 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
         // use the record timestamp that was actually used for this frame
         *video_frame_record_timestamp = (uint64_t)call->video->h264_in_pic.i_pts; // TODO: --> is this wrong?
         const uint32_t frame_length_in_bytes = *i_frame_size;
-        const int keyframe = (int)call->video.second->h264_out_pic.b_keyframe;
+        const int keyframe = (int)call->video->h264_out_pic.b_keyframe;
 
         // LOGGER_ERROR(av->m->log, "video packet record time[1]: %lu", (*video_frame_record_timestamp));
 
         int res = rtp_send_data
                   (
-                      call->video.first,
+                      call->video_rtp,
                       (const uint8_t *)((*nal)->p_payload),
                       frame_length_in_bytes,
                       keyframe,
