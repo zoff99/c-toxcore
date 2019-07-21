@@ -882,7 +882,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
             /* Push the previous message for processing */
             session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, session->mp);
 
-            session->mp = NULL;
+            session->mp = nullptr;
             goto NEW_MULTIPARTED;
         }
     } else {
