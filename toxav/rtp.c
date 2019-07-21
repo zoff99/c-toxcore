@@ -1,5 +1,5 @@
 /*
- * Copyright © 2016-2017 The TokTok team.
+ * Copyright © 2016-2018 The TokTok team.
  * Copyright © 2013-2015 Tox project.
  *
  * This file is part of Tox, the free peer to peer instant messenger.
@@ -52,8 +52,8 @@ static struct RTPMessage *new_message(const struct RTPHeader *header, size_t all
     assert(allocate_len >= data_length);
     struct RTPMessage *msg = (struct RTPMessage *)calloc(1, sizeof(struct RTPMessage) + allocate_len);
 
-    if (msg == NULL) {
-        return NULL;
+    if (msg == nullptr) {
+        return nullptr;
     }
 
     msg->len = data_length; // result without header
@@ -179,7 +179,7 @@ static struct RTPMessage *process_frame(Logger *log, struct RTPWorkBufferList *w
     if (wkbl->next_free_entry == 0) {
         // There are no frames in any slot.
         LOGGER_DEBUG(log, "process_frame:workbuffer empty");
-        return NULL;
+        return nullptr;
     }
 
     // Either slot_id is 0 and slot 0 is a key frame, or there is no key frame
@@ -194,7 +194,7 @@ static struct RTPMessage *process_frame(Logger *log, struct RTPWorkBufferList *w
         LOGGER_DEBUG(log, "process_frame:1:m_new seq#=%d", (int)m_new->header.sequnum);
     }
 
-    slot->buf = NULL;
+    slot->buf = nullptr;
 
     assert(wkbl->next_free_entry >= 1);
 
@@ -244,17 +244,17 @@ static bool fill_data_into_slot(Logger *log, struct RTPWorkBufferList *wkbl, con
     assert(slot_id <= wkbl->next_free_entry);
     struct RTPWorkBuffer *const slot = &wkbl->work_buffer[slot_id];
 
-    assert(header != NULL);
+    assert(header != nullptr);
     // ** // assert(is_keyframe == (bool)(header->flags & RTP_KEY_FRAME));
 
     if (slot->received_len == 0) {
-        assert(slot->buf == NULL);
+        assert(slot->buf == nullptr);
 
         // No data for this slot has been received, yet, so we create a new
         // message for it with enough memory for the entire frame.
         struct RTPMessage *msg = (struct RTPMessage *)calloc(1, sizeof(struct RTPMessage) + header->data_length_full);
 
-        if (msg == NULL) {
+        if (msg == nullptr) {
             LOGGER_DEBUG(log, "Out of memory while trying to allocate for frame of size %u\n",
                          (unsigned)header->data_length_full);
             // Out of memory: throw away the incoming data.
@@ -822,7 +822,7 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
         /* Invoke processing of active multiparted message */
         if (session->mp) {
             session->mcb(session->m->mono_time, session->cs, session->mp);
-            session->mp = NULL;
+            session->mp = nullptr;
         }
 
         /* The message came in the allowed time;
@@ -865,7 +865,7 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
                  * processing.
                  */
                 session->mcb(session->m->mono_time, session->cs, session->mp);
-                session->mp = NULL;
+                session->mp = nullptr;
             }
         } else {
             /* Second case */
@@ -879,7 +879,7 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
             /* Push the previous message for processing */
             session->mcb(session->m->mono_time, session->cs, session->mp);
 
-            session->mp = NULL;
+            session->mp = nullptr;
             goto NEW_MULTIPARTED;
         }
     } else {
@@ -988,23 +988,23 @@ size_t rtp_header_unpack(const uint8_t *data, struct RTPHeader *header)
 RTPSession *rtp_new(int payload_type, Messenger *m, uint32_t friendnumber,
                     BWController *bwc, void *cs, rtp_m_cb *mcb)
 {
-    assert(mcb != NULL);
-    assert(cs != NULL);
-    assert(m != NULL);
+    assert(mcb != nullptr);
+    assert(cs != nullptr);
+    assert(m != nullptr);
 
     RTPSession *session = (RTPSession *)calloc(1, sizeof(RTPSession));
 
     if (!session) {
         LOGGER_WARNING(m->log, "Alloc failed! Program might misbehave!");
-        return NULL;
+        return nullptr;
     }
 
     session->work_buffer_list = (struct RTPWorkBufferList *)calloc(1, sizeof(struct RTPWorkBufferList));
 
-    if (session->work_buffer_list == NULL) {
+    if (session->work_buffer_list == nullptr) {
         LOGGER_ERROR(m->log, "out of memory while allocating work buffer list");
         free(session);
-        return NULL;
+        return nullptr;
     }
 
     // First entry is free.
@@ -1016,7 +1016,7 @@ RTPSession *rtp_new(int payload_type, Messenger *m, uint32_t friendnumber,
     session->friend_number = friendnumber;
 
     // set NULL just in case
-    session->mp = NULL;
+    session->mp = nullptr;
     session->first_packets_counter = 1;
 
     /* Also set payload type as prefix */
@@ -1036,7 +1036,7 @@ RTPSession *rtp_new(int payload_type, Messenger *m, uint32_t friendnumber,
         LOGGER_WARNING(m->log, "Failed to start rtp receiving mode");
         free(session->work_buffer_list);
         free(session);
-        return NULL;
+        return nullptr;
     }
 
     return session;
@@ -1060,7 +1060,7 @@ void rtp_kill(RTPSession *session)
 
 int rtp_allow_receiving(RTPSession *session)
 {
-    if (session == NULL) {
+    if (session == nullptr) {
         return -1;
     }
 
@@ -1092,7 +1092,7 @@ int rtp_allow_receiving(RTPSession *session)
 
 int rtp_stop_receiving(RTPSession *session)
 {
-    if (session == NULL) {
+    if (session == nullptr) {
         return -1;
     }
 
