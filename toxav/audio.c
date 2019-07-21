@@ -58,13 +58,13 @@ ACSession *ac_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
 
     if (!ac) {
         LOGGER_WARNING(log, "Allocation failed! Application might misbehave!");
-        return NULL;
+        return nullptr;
     }
 
     if (create_recursive_mutex(ac->queue_mutex) != 0) {
         LOGGER_WARNING(log, "Failed to create recursive mutex!");
         free(ac);
-        return NULL;
+        return nullptr;
     }
 
     int status;
@@ -87,7 +87,7 @@ ACSession *ac_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     /* Initialize encoders with default values */
     ac->encoder = create_audio_encoder(log, AUDIO_START_BITRATE_RATE, AUDIO_START_SAMPLING_RATE, AUDIO_START_CHANNEL_COUNT);
 
-    if (ac->encoder == NULL) {
+    if (ac->encoder == nullptr) {
         goto DECODER_CLEANUP;
     } else {
         LOGGER_INFO(log, "audio encoder successfully created");
@@ -133,7 +133,7 @@ DECODER_CLEANUP:
 BASE_CLEANUP:
     pthread_mutex_destroy(ac->queue_mutex);
     free(ac);
-    return NULL;
+    return nullptr;
 }
 
 void ac_kill(ACSession *ac)
@@ -706,7 +706,7 @@ OpusEncoder *create_audio_encoder(Logger *log, int32_t bit_rate, int32_t samplin
 
     if (status != OPUS_OK) {
         LOGGER_ERROR(log, "Error while starting audio encoder: %s", opus_strerror(status));
-        return NULL;
+        return nullptr;
     } else {
         LOGGER_INFO(log, "starting audio encoder OK: %s", opus_strerror(status));
     }
@@ -794,7 +794,7 @@ OpusEncoder *create_audio_encoder(Logger *log, int32_t bit_rate, int32_t samplin
 
 FAILURE:
     opus_encoder_destroy(rc);
-    return NULL;
+    return nullptr;
 }
 
 bool reconfigure_audio_encoder(Logger *log, OpusEncoder **e, int32_t new_br, int32_t new_sr, uint8_t new_ch,
@@ -804,7 +804,7 @@ bool reconfigure_audio_encoder(Logger *log, OpusEncoder **e, int32_t new_br, int
     if (*old_sr != new_sr || *old_ch != new_ch) {
         OpusEncoder *new_encoder = create_audio_encoder(log, new_br, new_sr, new_ch);
 
-        if (new_encoder == NULL) {
+        if (new_encoder == nullptr) {
             return false;
         }
 

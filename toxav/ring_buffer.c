@@ -19,6 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include "ccompat.h"
 #include "ring_buffer.h"
 
 #include <stdlib.h>
@@ -47,7 +48,7 @@ bool rb_empty(const RingBuffer *b)
  */
 void *rb_write(RingBuffer *b, void *p, uint64_t data_type_)
 {
-    void *rc = NULL;
+    void *rc = nullptr;
 
     if ((b->end + 1) % b->size == b->start) { /* full */
         rc = b->data[b->start];
@@ -67,7 +68,7 @@ void *rb_write(RingBuffer *b, void *p, uint64_t data_type_)
 bool rb_read(RingBuffer *b, void **p, uint64_t *data_type_)
 {
     if (b->end == b->start) { /* Empty */
-        *p = NULL;
+        *p = nullptr;
         return false;
     }
 
@@ -83,20 +84,20 @@ RingBuffer *rb_new(int size)
     RingBuffer *buf = (RingBuffer *)calloc(sizeof(RingBuffer), 1);
 
     if (!buf) {
-        return NULL;
+        return nullptr;
     }
 
     buf->size = size + 1; /* include empty elem */
 
     if (!(buf->data = (void **)calloc(buf->size, sizeof(void *)))) {
         free(buf);
-        return NULL;
+        return nullptr;
     }
 
     if (!(buf->type = (uint64_t *)calloc(buf->size, sizeof(uint64_t)))) {
         free(buf->data);
         free(buf);
-        return NULL;
+        return nullptr;
     }
 
     return buf;
