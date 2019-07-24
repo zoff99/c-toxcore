@@ -4,7 +4,7 @@
  * Copyright © 2013 plutooo
  */
 #include "ccompat.h"
-#include "ring_buffer.h"
+#include "../toxcore/ccompat.h"
 
 #include <stdlib.h>
 
