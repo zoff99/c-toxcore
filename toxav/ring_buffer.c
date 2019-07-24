@@ -3,7 +3,6 @@
  * Copyright © 2013 Tox project.
  * Copyright © 2013 plutooo
  */
-#include "ccompat.h"
 #include "../toxcore/ccompat.h"
 
 #include <stdlib.h>
