@@ -20,6 +20,7 @@
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "../toxcore/ccompat.h"
+#include "ring_buffer.h"
 
 #include <stdlib.h>
 
