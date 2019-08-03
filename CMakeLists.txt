@@ -272,6 +272,7 @@ set(toxcore_API_HEADERS ${toxcore_API_HEADERS} ${toxcore_SOURCE_DIR}/toxcore/tox
 
 set(toxcore_SOURCES ${toxcore_SOURCES}
   toxutil/toxutil.c)
+set(toxcore_API_HEADERS ${toxcore_API_HEADERS} ${toxcore_SOURCE_DIR}/toxutil/toxutil.h^tox)
 
 if(BUILD_TOXAV)
   apidsl(toxav/toxav.api.h)
