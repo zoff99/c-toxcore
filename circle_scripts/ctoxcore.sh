@@ -33,8 +33,8 @@ cat toxav/rtp.c |grep 'define DISABLE_H264_ENCODER_FEATURE'
 ./autogen.sh
 make clean
 export CFLAGS_=" $CF2 -D_GNU_SOURCE -I$_INST_/include/ -O3 -g -fstack-protector-all "
-export CFLAGS="$CFLAGS"
-export CFLAGS=" $CFLAGS -Werror=div-by-zero -Werror=format=2 -Werror=implicit-function-declaration "
+export CFLAGS="$CFLAGS_"
+export CFLAGS=" $CFLAGS -Wformat=0 -Werror=div-by-zero -Werror=format=2 -Werror=implicit-function-declaration "
 export LDFLAGS=-L$_INST_/lib
 
 ./configure \
