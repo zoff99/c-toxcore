@@ -73,6 +73,16 @@ typedef void tox_util_friend_message_v2_cb(Tox *tox, uint32_t friend_number,
 
 void tox_utils_callback_friend_message_v2(Tox *tox, tox_util_friend_message_v2_cb *callback);
 
+
+// HINT: receive a sync message in new messageV2 format
+// params: message       raw messageV2 data incl. header
+//         length        length of raw messageV2 data incl. header
+typedef void tox_util_friend_sync_message_v2_cb(Tox *tox, uint32_t friend_number,
+        const uint8_t *message, size_t length);
+
+void tox_utils_callback_friend_sync_message_v2(Tox *tox, tox_util_friend_sync_message_v2_cb *callback);
+
+
 // HINT: receive message receipt (ACK)
 // params: friend_number friend
 //         ts_sec        unixtimestamp when message was received by the friend (in seconds since epoch)
@@ -114,6 +124,14 @@ bool tox_util_friend_resend_message_v2(Tox *tox, uint32_t friend_number,
                                        const uint32_t raw_msg_len,
                                        TOX_ERR_FRIEND_SEND_MESSAGE *error);
 
+// send a sync message
+// params: friend_number friend to send message to
+//         raw_message   buffer of the raw message (incl. header)
+//         raw_msg_len   number of bytes length of raw message
+// return: bool          true -> if message was sent OK
+bool tox_util_friend_send_sync_message_v2(Tox *tox, uint32_t friend_number,
+                                          const uint8_t *raw_message, const uint32_t raw_msg_len,
+                                          TOX_ERR_FRIEND_SEND_MESSAGE *error);
 // send message receipt
 // params: friend_number friend to send message to
 //         msgid         buffer of the message hash, exactly TOX_PUBLIC_KEY_SIZE byte long
