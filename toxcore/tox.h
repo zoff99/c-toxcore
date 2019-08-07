@@ -1965,6 +1965,11 @@ enum TOX_FILE_KIND {
      */
     TOX_FILE_KIND_MESSAGEV2_ALTER = 4,
 
+    /**
+     * TODO: Generate doc
+     */
+    TOX_FILE_KIND_MESSAGEV2_SYNC = 4,
+
 };
 
 typedef enum TOX_MESSAGEV2_ALTER_TYPE {
@@ -3286,6 +3291,10 @@ uint16_t tox_self_get_tcp_port(const Tox *tox, TOX_ERR_GET_PORT *error);
 * sending
 */
 uint32_t tox_messagev2_size(uint32_t text_length, uint32_t type, uint32_t alter_type);
+bool tox_messagev2_sync_wrap(uint32_t text_length, const uint8_t *original_sender_pubkey_bin,
+                             const uint8_t *message_text, uint32_t ts_sec,
+                             uint16_t ts_ms, uint8_t *raw_message,
+                             uint8_t *msgid);
 bool tox_messagev2_wrap(uint32_t text_length, uint32_t type,
                         uint32_t alter_type,
                         const uint8_t *message_text, uint32_t ts_sec,
@@ -3296,9 +3305,12 @@ bool tox_messagev2_wrap(uint32_t text_length, uint32_t type,
 */
 bool tox_messagev2_get_message_id(const uint8_t *raw_message, uint8_t *msg_id);
 bool tox_messagev2_get_message_alter_id(uint8_t *raw_message, uint8_t *alter_id);
+bool tox_messagev2_get_sync_message_pubkey(const uint8_t *raw_message, uint8_t *pubkey);
 uint8_t tox_messagev2_get_alter_type(uint8_t *raw_message);
 uint32_t tox_messagev2_get_ts_sec(const uint8_t *raw_message);
 uint16_t tox_messagev2_get_ts_ms(const uint8_t *raw_message);
+bool tox_messagev2_get_sync_message_text(const uint8_t *raw_message, uint32_t raw_message_len,
+                                    uint8_t *message_text, uint32_t *text_length);
 bool tox_messagev2_get_message_text(const uint8_t *raw_message, uint32_t raw_message_len,
                                     bool is_alter_msg,
                                     uint32_t alter_type, uint8_t *message_text,
