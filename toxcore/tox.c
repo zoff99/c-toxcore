@@ -2144,6 +2144,8 @@ uint32_t tox_messagev2_size(uint32_t text_length, uint32_t type, uint32_t alter_
 {
     if (type == TOX_FILE_KIND_MESSAGEV2_SEND) {
         return (TOX_PUBLIC_KEY_SIZE + 4 + 2 + text_length);
+    } else if (type == TOX_FILE_KIND_MESSAGEV2_SYNC) {
+        return (TOX_PUBLIC_KEY_SIZE + 4 + 2 + TOX_PUBLIC_KEY_SIZE);
     } else if (type == TOX_FILE_KIND_MESSAGEV2_ANSWER) {
         return (TOX_PUBLIC_KEY_SIZE + 4 + 2);
     } else { // TOX_FILE_KIND_MESSAGEV2_ALTER
@@ -2156,6 +2158,65 @@ uint32_t tox_messagev2_size(uint32_t text_length, uint32_t type, uint32_t alter_
     }
 }
 
+bool tox_messagev2_sync_wrap(uint32_t text_length, const uint8_t *original_sender_pubkey_bin,
+                             const uint8_t *message_text, uint32_t ts_sec,
+                             uint16_t ts_ms, uint8_t *raw_message,
+                             uint8_t *msgid)
+{
+
+    bool result_code = false;
+    uint32_t type = TOX_FILE_KIND_MESSAGEV2_SYNC;
+
+    if (raw_message == NULL) {
+        return false;
+    }
+
+    if (msgid == NULL) {
+        return false;
+    }
+
+    if (original_sender_pubkey_bin == NULL) {
+        return false;
+    }
+
+    if (message_text == NULL) {
+        return false;
+    }
+
+    if (text_length == 0) {
+        return false;
+    }
+
+    // uint8_t nonce[CRYPTO_NONCE_SIZE];
+    // random_nonce(nonce);
+
+
+    if (type == TOX_FILE_KIND_MESSAGEV2_SEND) {
+
+        uint8_t *raw_message_cpy = raw_message;
+
+        memcpy(raw_message_cpy, msgid, TOX_PUBLIC_KEY_SIZE);
+        raw_message_cpy += TOX_PUBLIC_KEY_SIZE;
+
+        memcpy(raw_message_cpy, &ts_sec, 4);
+        raw_message_cpy += 4;
+
+        memcpy(raw_message_cpy, &ts_ms, 2);
+        raw_message_cpy += 2;
+
+        memcpy(raw_message_cpy, original_sender_pubkey_bin, TOX_PUBLIC_KEY_SIZE);
+        raw_message_cpy += TOX_PUBLIC_KEY_SIZE;
+
+        memcpy(raw_message_cpy, message_text, text_length);
+        raw_message_cpy += text_length;
+
+        result_code = true;
+
+    }
+
+    return result_code;
+}
+
 bool tox_messagev2_wrap(uint32_t text_length, uint32_t type,
                         uint32_t alter_type,
                         const uint8_t *message_text, uint32_t ts_sec,
@@ -2164,6 +2225,10 @@ bool tox_messagev2_wrap(uint32_t text_length, uint32_t type,
 {
 
     bool result_code = false;
+
+    if (type == TOX_FILE_KIND_MESSAGEV2_SYNC) {
+        return false;
+    }
 
     if (raw_message == NULL) {
         return false;
@@ -2277,6 +2342,21 @@ bool tox_messagev2_get_message_alter_id(uint8_t *raw_message, uint8_t *alter_id)
     return true;
 }
 
+bool tox_messagev2_get_sync_message_pubkey(const uint8_t *raw_message, uint8_t *pubkey)
+{
+    if (raw_message == NULL) {
+        return false;
+    }
+
+    if (pubkey == NULL) {
+        return false;
+    }
+
+    memcpy(pubkey, (raw_message + TOX_PUBLIC_KEY_SIZE + 4 + 2), TOX_PUBLIC_KEY_SIZE);
+
+    return true;
+}
+
 uint8_t tox_messagev2_get_alter_type(uint8_t *raw_message)
 {
     if (raw_message == NULL) {
@@ -2316,6 +2396,35 @@ uint16_t tox_messagev2_get_ts_ms(const uint8_t *raw_message)
     memcpy(&return_value, raw_message + TOX_PUBLIC_KEY_SIZE + 4, sizeof(return_value));
 
     return return_value;
+}
+
+bool tox_messagev2_get_sync_message_text(const uint8_t *raw_message, uint32_t raw_message_len,
+                                    uint8_t *message_text, uint32_t *text_length)
+{
+    bool result = false;
+
+    if (raw_message == NULL) {
+        return false;
+    }
+
+    if (message_text == NULL) {
+        return false;
+    }
+
+    if (text_length == NULL) {
+        return false;
+    }
+
+    // HINT: we want at least 1 byte of real message text
+    if (raw_message_len < (TOX_PUBLIC_KEY_SIZE + TOX_PUBLIC_KEY_SIZE + 4 + 2 + 1)) {
+        return false;
+    }
+
+    *text_length = (raw_message_len - (TOX_PUBLIC_KEY_SIZE + TOX_PUBLIC_KEY_SIZE + 4 + 2));
+    memcpy(message_text, raw_message + TOX_PUBLIC_KEY_SIZE + TOX_PUBLIC_KEY_SIZE + 4 + 2, *text_length);
+
+    return result;
+
 }
 
 bool tox_messagev2_get_message_text(const uint8_t *raw_message, uint32_t raw_message_len,
