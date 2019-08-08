@@ -652,12 +652,12 @@ void tox_utils_callback_friend_message_v2(Tox *tox, tox_util_friend_message_v2_c
 }
 
 void (*tox_utils_friend_sync_message_v2)(struct Tox *tox, uint32_t, const uint8_t *,
-                                    size_t) = NULL;
+        size_t) = NULL;
 
 void tox_utils_callback_friend_sync_message_v2(Tox *tox, tox_util_friend_sync_message_v2_cb *callback)
 {
     tox_utils_friend_sync_message_v2 = (void (*)(Tox * tox, uint32_t, const uint8_t *,
-                                            size_t))callback;
+                                        size_t))callback;
 }
 
 void (*tox_utils_friend_read_receipt_message_v2)(struct Tox *tox, uint32_t, uint32_t,
@@ -1303,8 +1303,8 @@ bool tox_util_friend_resend_message_v2(Tox *tox, uint32_t friend_number,
 }
 
 bool tox_util_friend_send_sync_message_v2(Tox *tox, uint32_t friend_number,
-                                          const uint8_t *raw_message, const uint32_t raw_msg_len,
-                                          TOX_ERR_FRIEND_SEND_MESSAGE *error)
+        const uint8_t *raw_message, const uint32_t raw_msg_len,
+        TOX_ERR_FRIEND_SEND_MESSAGE *error)
 {
 
     if (error) {
