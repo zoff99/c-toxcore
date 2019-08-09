@@ -26,6 +26,7 @@
 #endif
 
 #include "group.h"
+#include "logger.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -1578,7 +1579,12 @@ int join_groupchat(Group_Chats *g_c, uint32_t friendnumber, uint8_t expected_typ
     memcpy(response + 1, &group_num, sizeof(uint16_t));
     memcpy(response + 1 + sizeof(uint16_t), data, sizeof(uint16_t) + 1 + GROUP_ID_LENGTH);
 
+    LOGGER_DEBUG(g_c->m->log, "call send_conference_invite_packet");
+
     if (send_conference_invite_packet(g_c->m, friendnumber, response, sizeof(response))) {
+
+        LOGGER_DEBUG(g_c->m->log, "send_conference_invite_packet:OK");
+
         uint16_t other_groupnum;
         memcpy(&other_groupnum, data, sizeof(other_groupnum));
         other_groupnum = net_ntohs(other_groupnum);
@@ -1592,6 +1598,9 @@ int join_groupchat(Group_Chats *g_c, uint32_t friendnumber, uint8_t expected_typ
         }
 
         send_peer_query(g_c, friendcon_id, other_groupnum);
+
+        LOGGER_DEBUG(g_c->m->log, "send_peer_query:called");
+
         return groupnumber;
     }
 
@@ -1911,6 +1920,8 @@ static void handle_friend_invite_packet(Messenger *m, uint32_t friendnumber, con
     const uint8_t *invite_data = data + 1;
     const uint16_t invite_length = length - 1;
 
+    LOGGER_DEBUG(g_c->m->log, "PKT ID:%d", (int)data[0]);
+
     switch (data[0]) {
         case INVITE_ID: {
             if (length != INVITE_PACKET_SIZE) {
@@ -2060,6 +2071,8 @@ static int handle_packet_online(Group_Chats *g_c, int friendcon_id, const uint8_
     }
 
     const int groupnumber = get_group_num(g_c, data[sizeof(uint16_t)], data + sizeof(uint16_t) + 1);
+
+    LOGGER_DEBUG(g_c->m->log, "groupnumber:%d", (int)groupnumber);
 
     if (groupnumber == -1) {
         return -1;
