@@ -11,6 +11,7 @@
 #endif
 
 #include "group.h"
+#include "logger.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -1929,6 +1930,8 @@ static void handle_friend_invite_packet(Messenger *m, uint32_t friendnumber, con
     const uint8_t *invite_data = data + 1;
     const uint16_t invite_length = length - 1;
 
+    LOGGER_DEBUG(g_c->m->log, "PKT ID:%d", (int)data[0]);
+
     switch (data[0]) {
         case INVITE_ID: {
             if (length != INVITE_PACKET_SIZE) {
@@ -2093,6 +2096,8 @@ static int handle_packet_online(Group_Chats *g_c, int friendcon_id, const uint8_
     }
 
     const int groupnumber = get_group_num(g_c, data[sizeof(uint16_t)], data + sizeof(uint16_t) + 1);
+
+    LOGGER_DEBUG(g_c->m->log, "groupnumber:%d", (int)groupnumber);
 
     if (groupnumber == -1) {
         return -1;
