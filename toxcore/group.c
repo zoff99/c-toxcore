@@ -1905,11 +1905,16 @@ static void handle_friend_invite_packet(Messenger *m, uint32_t friendnumber, con
 
     switch (data[0]) {
         case INVITE_ID: {
+
+            LOGGER_DEBUG(g_c->m->log, "PKT ID:INVITE_ID");
+
             if (length != INVITE_PACKET_SIZE) {
                 return;
             }
 
             const int groupnumber = get_group_num(g_c, data[1 + sizeof(uint16_t)], data + 1 + sizeof(uint16_t) + 1);
+
+            LOGGER_DEBUG(g_c->m->log, "PKT ID:INVITE_ID:group number:%d", groupnumber);
 
             if (groupnumber == -1) {
                 if (g_c->invite_callback) {
@@ -1940,6 +1945,8 @@ static void handle_friend_invite_packet(Messenger *m, uint32_t friendnumber, con
             uint16_t groupnum;
             net_unpack_u16(data + 1, &other_groupnum);
             net_unpack_u16(data + 1 + sizeof(uint16_t), &groupnum);
+
+            LOGGER_DEBUG(g_c->m->log, "PKT ID:INVITE_RESPONSE_ID:group number:%d", groupnum);
 
             Group_c *g = get_group_c(g_c, groupnum);
 
@@ -1984,8 +1991,9 @@ static void handle_friend_invite_packet(Messenger *m, uint32_t friendnumber, con
                 return;
             }
 
-            uint8_t real_pk[CRYPTO_PUBLIC_KEY_SIZE];
-            uint8_t temp_pk[CRYPTO_PUBLIC_KEY_SIZE];
+            LOGGER_DEBUG(g_c->m->log, "PKT ID:INVITE_RESPONSE_ID:friendcon_id:%d", friendcon_id);
+
+            uint8_t real_pk[CRYPTO_PUBLIC_KEY_SIZE], temp_pk[CRYPTO_PUBLIC_KEY_SIZE];
             get_friendcon_public_keys(real_pk, temp_pk, g_c->fr_c, friendcon_id);
 
             addpeer(g_c, groupnum, real_pk, temp_pk, peer_number, userdata, true, true);
@@ -2080,6 +2088,8 @@ static int handle_packet_online(Group_Chats *g_c, int friendcon_id, const uint8_
     memcpy(&other_groupnum, data, sizeof(uint16_t));
     other_groupnum = net_ntohs(other_groupnum);
 
+    LOGGER_DEBUG(g_c->m->log, "other_groupnum:%d", (int)other_groupnum);
+
     Group_c *g = get_group_c(g_c, groupnumber);
 
     if (!g) {
@@ -2087,6 +2097,8 @@ static int handle_packet_online(Group_Chats *g_c, int friendcon_id, const uint8_
     }
 
     const int index = friend_in_connections(g, friendcon_id);
+
+    LOGGER_DEBUG(g_c->m->log, "index:%d", (int)index);
 
     if (index == -1) {
         return -1;
@@ -2119,6 +2131,8 @@ static int handle_packet_online(Group_Chats *g_c, int friendcon_id, const uint8_
     }
 
     ping_groupchat(g_c, groupnumber);
+
+    LOGGER_DEBUG(g_c->m->log, "return");
 
     return 0;
 }
