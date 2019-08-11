@@ -148,7 +148,7 @@ int main(void)
 
 
 
-    for (int j=1;j<301;j++)
+    for (int j=1;j<10;j++)
     {
         randombytes_buf(key, TOX_PUBLIC_KEY_SIZE);
         res = tox_friend_add_norequest(tox1, key, &error_add);  // tox1 -> random dummy
@@ -166,7 +166,7 @@ int main(void)
     }
 
 
-    for (int j=1;j<301;j++)
+    for (int j=1;j<10;j++)
     {
         randombytes_buf(key, TOX_PUBLIC_KEY_SIZE);
         res = tox_friend_add_norequest(tox2, key, &error_add);  // tox2 -> random dummy
@@ -184,7 +184,7 @@ int main(void)
     }
 
 
-    for (int j=1;j<301;j++)
+    for (int j=1;j<10;j++)
     {
         randombytes_buf(key, TOX_PUBLIC_KEY_SIZE);
         res = tox_friend_add_norequest(tox3, key, &error_add);  // tox3 -> random dummy
