@@ -14,7 +14,7 @@
 
 #include "check_compat.h"
 
-#define NUM_GROUP_TOX 16
+#define NUM_GROUP_TOX 301 // 16
 #define NUM_DISCONNECT 8
 #define GROUP_MESSAGE "Install Gentoo"
 
@@ -252,6 +252,8 @@ static void run_conference_tests(Tox **toxes, State *state)
             struct Tox_Options *const options = tox_options_new(nullptr);
             tox_options_set_savedata_type(options, TOX_SAVEDATA_TYPE_TOX_SAVE);
             tox_options_set_savedata_data(options, save[i], save_size[i]);
+            tox_options_set_ipv6_enabled(options, false);
+            // tox_options_set_udp_enabled(options, false);
             toxes[i] = tox_new_log(options, nullptr, &state[i].index);
             tox_options_free(options);
             free(save[i]);
