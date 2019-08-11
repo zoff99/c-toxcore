@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <sodium.h>
 
 #include "../testing/misc_tools.h"
 #include "../toxcore/tox.h"
@@ -34,10 +35,18 @@ static void handle_self_connection_status(Tox *tox, Tox_Connection connection_st
 static void handle_friend_connection_status(Tox *tox, uint32_t friend_number, Tox_Connection connection_status,
         void *user_data)
 {
-    State *state = (State *)user_data;
+    if (friend_number < 3)
+    {
+        State *state = (State *)user_data;
 
-    fprintf(stderr, "handle_friend_connection_status(#%u, %u, %d, _)\n", state->id, friend_number, connection_status);
-    state->friend_online = connection_status != TOX_CONNECTION_NONE;
+        fprintf(stderr, "handle_friend_connection_status(#%u, %u, %d, _)\n", state->id, friend_number, connection_status);
+        state->friend_online = (connection_status != TOX_CONNECTION_NONE);
+        fprintf(stderr, "handle_friend_connection_status(friend online status=%d)\n", (int)state->friend_online);
+    }
+    else
+    {
+        fprintf(stderr, "handle_friend_connection_status(    %u, %d, _)\n", friend_number, connection_status);
+    }
 }
 
 static void handle_conference_invite(Tox *tox, uint32_t friend_number, Tox_Conference_Type type, const uint8_t *cookie,
@@ -112,6 +121,8 @@ int main(void)
     State state2 = {2};
     State state3 = {3};
 
+    uint32_t res;
+
     // Create toxes.
     Tox *tox1 = tox_new_log(nullptr, nullptr, &state1.id);
     Tox *tox2 = tox_new_log(nullptr, nullptr, &state2.id);
@@ -119,8 +130,12 @@ int main(void)
 
     // tox1 <-> tox2, tox2 <-> tox3
     uint8_t key[TOX_PUBLIC_KEY_SIZE];
+    Tox_Err_Friend_Add error_add;
+
+
     tox_self_get_public_key(tox2, key);
-    tox_friend_add_norequest(tox1, key, nullptr);  // tox1 -> tox2
+    res = tox_friend_add_norequest(tox1, key, nullptr);  // tox1 -> tox2
+    ck_assert_msg(res != UINT32_MAX, "failed to invite friend tox2");
     tox_self_get_public_key(tox1, key);
     tox_friend_add_norequest(tox2, key, nullptr);  // tox2 -> tox1
     tox_self_get_public_key(tox3, key);
@@ -184,6 +199,9 @@ int main(void)
         tox_iterate(tox3, &state3);
 
         c_sleep(100);
+
+        // fprintf(stderr, "%d %d %d\n", state1.friend_online, state2.friend_online, state3.friend_online);
+
     } while (!state1.friend_online || !state2.friend_online || !state3.friend_online);
 
     fprintf(stderr, "Friends are connected\n");
@@ -196,6 +214,67 @@ int main(void)
         ck_assert_msg(err == TOX_ERR_CONFERENCE_NEW_OK, "failed to create a conference: err = %d", err);
         fprintf(stderr, "Created conference: id = %u\n", state1.conference);
     }
+
+
+
+
+
+    for (int j=1;j<501;j++)
+    {
+        randombytes_buf(key, TOX_PUBLIC_KEY_SIZE);
+        res = tox_friend_add_norequest(tox1, key, &error_add);  // tox1 -> random dummy
+
+        if (error_add != 6)
+        {
+            // printf("add friend number: %d\n", j);
+            ck_assert_msg(res != UINT32_MAX, "failed to invite a random friend number: %d res=%d errnum=%d", j, res, error_add);
+            tox_iterate(tox1, &state1);
+        }
+        else
+        {
+            j--;
+        }
+    }
+
+
+    for (int j=1;j<501;j++)
+    {
+        randombytes_buf(key, TOX_PUBLIC_KEY_SIZE);
+        res = tox_friend_add_norequest(tox2, key, &error_add);  // tox2 -> random dummy
+
+        if (error_add != 6)
+        {
+            // printf("add friend number: %d\n", j);
+            ck_assert_msg(res != UINT32_MAX, "failed to invite a random friend number: %d res=%d errnum=%d", j, res, error_add);
+            tox_iterate(tox2, &state2);
+        }
+        else
+        {
+            j--;
+        }
+    }
+
+
+    for (int j=1;j<501;j++)
+    {
+        randombytes_buf(key, TOX_PUBLIC_KEY_SIZE);
+        res = tox_friend_add_norequest(tox3, key, &error_add);  // tox3 -> random dummy
+
+        if (error_add != 6)
+        {
+            // printf("add friend number: %d\n", j);
+            ck_assert_msg(res != UINT32_MAX, "failed to invite a random friend number: %d res=%d errnum=%d", j, res, error_add);
+            tox_iterate(tox3, &state3);
+        }
+        else
+        {
+            j--;
+        }
+    }
+
+
+
+
 
     {
         // Invite friend.
