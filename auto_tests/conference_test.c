@@ -14,7 +14,7 @@
 
 #include "check_compat.h"
 
-#define NUM_GROUP_TOX 301 // 16
+#define NUM_GROUP_TOX 16
 #define NUM_DISCONNECT 8
 #define GROUP_MESSAGE "Install Gentoo"
 
