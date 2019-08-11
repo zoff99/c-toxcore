@@ -122,6 +122,7 @@ int main(void)
     State state3 = {3};
 
     uint32_t res;
+    int iteration_sleep_ms = 2;
 
     // Create toxes.
     Tox *tox1 = tox_new_log(nullptr, nullptr, &state1.id);
@@ -142,78 +143,6 @@ int main(void)
     tox_friend_add_norequest(tox2, key, nullptr);  // tox2 -> tox3
     tox_self_get_public_key(tox2, key);
     tox_friend_add_norequest(tox3, key, nullptr);  // tox3 -> tox2
-
-    printf("bootstrapping tox2 and tox3 off tox1\n");
-    uint8_t dht_key[TOX_PUBLIC_KEY_SIZE];
-    tox_self_get_dht_id(tox1, dht_key);
-    const uint16_t dht_port = tox_self_get_udp_port(tox1, nullptr);
-
-    tox_bootstrap(tox2, "localhost", dht_port, dht_key, nullptr);
-    tox_bootstrap(tox3, "localhost", dht_port, dht_key, nullptr);
-
-    // Connection callbacks.
-    tox_callback_self_connection_status(tox1, handle_self_connection_status);
-    tox_callback_self_connection_status(tox2, handle_self_connection_status);
-    tox_callback_self_connection_status(tox3, handle_self_connection_status);
-
-    tox_callback_friend_connection_status(tox1, handle_friend_connection_status);
-    tox_callback_friend_connection_status(tox2, handle_friend_connection_status);
-    tox_callback_friend_connection_status(tox3, handle_friend_connection_status);
-
-    // Conference callbacks.
-    tox_callback_conference_invite(tox1, handle_conference_invite);
-    tox_callback_conference_invite(tox2, handle_conference_invite);
-    tox_callback_conference_invite(tox3, handle_conference_invite);
-
-    tox_callback_conference_connected(tox1, handle_conference_connected);
-    tox_callback_conference_connected(tox2, handle_conference_connected);
-    tox_callback_conference_connected(tox3, handle_conference_connected);
-
-    tox_callback_conference_message(tox1, handle_conference_message);
-    tox_callback_conference_message(tox2, handle_conference_message);
-    tox_callback_conference_message(tox3, handle_conference_message);
-
-    tox_callback_conference_peer_list_changed(tox1, handle_conference_peer_list_changed);
-    tox_callback_conference_peer_list_changed(tox2, handle_conference_peer_list_changed);
-    tox_callback_conference_peer_list_changed(tox3, handle_conference_peer_list_changed);
-
-    // Wait for self connection.
-    fprintf(stderr, "Waiting for toxes to come online\n");
-
-    do {
-        tox_iterate(tox1, &state1);
-        tox_iterate(tox2, &state2);
-        tox_iterate(tox3, &state3);
-
-        c_sleep(100);
-    } while (!state1.self_online || !state2.self_online || !state3.self_online);
-
-    fprintf(stderr, "Toxes are online\n");
-
-    // Wait for friend connection.
-    fprintf(stderr, "Waiting for friends to connect\n");
-
-    do {
-        tox_iterate(tox1, &state1);
-        tox_iterate(tox2, &state2);
-        tox_iterate(tox3, &state3);
-
-        c_sleep(100);
-
-        // fprintf(stderr, "%d %d %d\n", state1.friend_online, state2.friend_online, state3.friend_online);
-
-    } while (!state1.friend_online || !state2.friend_online || !state3.friend_online);
-
-    fprintf(stderr, "Friends are connected\n");
-
-    {
-        // Create new conference, tox1 is the founder.
-        Tox_Err_Conference_New err;
-        state1.conference = tox_conference_new(tox1, &err);
-        state1.joined = true;
-        ck_assert_msg(err == TOX_ERR_CONFERENCE_NEW_OK, "failed to create a conference: err = %d", err);
-        fprintf(stderr, "Created conference: id = %u\n", state1.conference);
-    }
 
 
 
@@ -276,6 +205,79 @@ int main(void)
 
 
 
+
+    printf("bootstrapping tox2 and tox3 off tox1\n");
+    uint8_t dht_key[TOX_PUBLIC_KEY_SIZE];
+    tox_self_get_dht_id(tox1, dht_key);
+    const uint16_t dht_port = tox_self_get_udp_port(tox1, nullptr);
+
+    tox_bootstrap(tox2, "localhost", dht_port, dht_key, nullptr);
+    tox_bootstrap(tox3, "localhost", dht_port, dht_key, nullptr);
+
+    // Connection callbacks.
+    tox_callback_self_connection_status(tox1, handle_self_connection_status);
+    tox_callback_self_connection_status(tox2, handle_self_connection_status);
+    tox_callback_self_connection_status(tox3, handle_self_connection_status);
+
+    tox_callback_friend_connection_status(tox1, handle_friend_connection_status);
+    tox_callback_friend_connection_status(tox2, handle_friend_connection_status);
+    tox_callback_friend_connection_status(tox3, handle_friend_connection_status);
+
+    // Conference callbacks.
+    tox_callback_conference_invite(tox1, handle_conference_invite);
+    tox_callback_conference_invite(tox2, handle_conference_invite);
+    tox_callback_conference_invite(tox3, handle_conference_invite);
+
+    tox_callback_conference_connected(tox1, handle_conference_connected);
+    tox_callback_conference_connected(tox2, handle_conference_connected);
+    tox_callback_conference_connected(tox3, handle_conference_connected);
+
+    tox_callback_conference_message(tox1, handle_conference_message);
+    tox_callback_conference_message(tox2, handle_conference_message);
+    tox_callback_conference_message(tox3, handle_conference_message);
+
+    tox_callback_conference_peer_list_changed(tox1, handle_conference_peer_list_changed);
+    tox_callback_conference_peer_list_changed(tox2, handle_conference_peer_list_changed);
+    tox_callback_conference_peer_list_changed(tox3, handle_conference_peer_list_changed);
+
+    // Wait for self connection.
+    fprintf(stderr, "Waiting for toxes to come online\n");
+
+    do {
+        tox_iterate(tox1, &state1);
+        tox_iterate(tox2, &state2);
+        tox_iterate(tox3, &state3);
+
+        c_sleep(iteration_sleep_ms);
+    } while (!state1.self_online || !state2.self_online || !state3.self_online);
+
+    fprintf(stderr, "Toxes are online\n");
+
+    // Wait for friend connection.
+    fprintf(stderr, "Waiting for friends to connect\n");
+
+    do {
+        tox_iterate(tox1, &state1);
+        tox_iterate(tox2, &state2);
+        tox_iterate(tox3, &state3);
+
+        c_sleep(iteration_sleep_ms);
+
+        // fprintf(stderr, "%d %d %d\n", state1.friend_online, state2.friend_online, state3.friend_online);
+
+    } while (!state1.friend_online || !state2.friend_online || !state3.friend_online);
+
+    fprintf(stderr, "Friends are connected\n");
+
+    {
+        // Create new conference, tox1 is the founder.
+        Tox_Err_Conference_New err;
+        state1.conference = tox_conference_new(tox1, &err);
+        state1.joined = true;
+        ck_assert_msg(err == TOX_ERR_CONFERENCE_NEW_OK, "failed to create a conference: err = %d", err);
+        fprintf(stderr, "Created conference: id = %u\n", state1.conference);
+    }
+
     {
         // Invite friend.
         Tox_Err_Conference_Invite err;
@@ -292,7 +294,7 @@ int main(void)
         tox_iterate(tox2, &state2);
         tox_iterate(tox3, &state3);
 
-        c_sleep(100);
+        c_sleep(iteration_sleep_ms);
     } while (!state1.joined || !state2.joined || !state3.joined);
 
     fprintf(stderr, "Invitations accepted\n");
@@ -304,7 +306,7 @@ int main(void)
         tox_iterate(tox2, &state2);
         tox_iterate(tox3, &state3);
 
-        c_sleep(100);
+        c_sleep(iteration_sleep_ms);
     } while (state1.peers == 0 || state2.peers == 0 || state3.peers == 0);
 
     fprintf(stderr, "All peers are online\n");
@@ -328,7 +330,7 @@ int main(void)
         tox_iterate(tox2, &state2);
         tox_iterate(tox3, &state3);
 
-        c_sleep(100);
+        c_sleep(iteration_sleep_ms);
     } while (!state2.received || !state3.received);
 
     fprintf(stderr, "Messages received. Test complete.\n");
