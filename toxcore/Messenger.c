@@ -204,7 +204,7 @@ static int send_online_packet(Messenger *m, int32_t friendnumber)
         return -1;
     }
 
-    LOGGER_DEBUG(m->log, "send capabilties: %llu for friendnum: %d", TOX_CAPABILITIES_CURRENT, (int)friendnumber);
+    LOGGER_DEBUG(m->log, "send capabilties: %llu for friendnum: %d", (long long unsigned int)TOX_CAPABILITIES_CURRENT, (int)friendnumber);
 
     uint8_t packet = PACKET_ID_ONLINE;
     LOGGER_DEBUG(m->log, "send online packet for friendnum: %d", (int)friendnumber);
@@ -2467,7 +2467,7 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
                 net_unpack_u64(data, &received_caps);
                 m->friendlist[i].toxcore_capabilities = received_caps;
                 LOGGER_DEBUG(m->log, "got capabilties: %llu friendnum: %d",
-                             m->friendlist[i].toxcore_capabilities, (int)i);
+                             (long long unsigned int)m->friendlist[i].toxcore_capabilities, (int)i);
             } else if (len == 1) {
                 set_friend_status(m, i, FRIEND_ONLINE, userdata);
                 send_online_packet(m, i);

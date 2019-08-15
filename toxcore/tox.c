@@ -2158,13 +2158,13 @@ uint32_t tox_messagev2_size(uint32_t text_length, uint32_t type, uint32_t alter_
     }
 }
 
-bool tox_messagev2_sync_wrap(uint32_t text_length, const uint8_t *original_sender_pubkey_bin,
-                             const uint8_t *message_text, uint32_t ts_sec,
+
+bool tox_messagev2_sync_wrap(uint32_t data_length, const uint8_t *original_sender_pubkey_bin,
+                             uint32_t data_msg_type,
+                             const uint8_t *raw_data, uint32_t ts_sec,
                              uint16_t ts_ms, uint8_t *raw_message,
                              uint8_t *msgid)
 {
-
-    uint32_t type = TOX_FILE_KIND_MESSAGEV2_SYNC;
 
     if (raw_message == NULL) {
         return false;
@@ -2178,11 +2178,11 @@ bool tox_messagev2_sync_wrap(uint32_t text_length, const uint8_t *original_sende
         return false;
     }
 
-    if (message_text == NULL) {
+    if (raw_data == NULL) {
         return false;
     }
 
-    if (text_length == 0) {
+    if (data_length == 0) {
         return false;
     }
 
@@ -2203,8 +2203,11 @@ bool tox_messagev2_sync_wrap(uint32_t text_length, const uint8_t *original_sende
     memcpy(raw_message_cpy, original_sender_pubkey_bin, TOX_PUBLIC_KEY_SIZE);
     raw_message_cpy += TOX_PUBLIC_KEY_SIZE;
 
-    memcpy(raw_message_cpy, message_text, text_length);
-    raw_message_cpy += text_length;
+    memcpy(raw_message_cpy, &data_msg_type, 4);
+    raw_message_cpy += 4;
+
+    memcpy(raw_message_cpy, raw_data, data_length);
+    raw_message_cpy += data_length;
 
     return true;
 }
@@ -2349,6 +2352,19 @@ bool tox_messagev2_get_sync_message_pubkey(const uint8_t *raw_message, uint8_t *
     return true;
 }
 
+uint32_t tox_messagev2_get_sync_message_type(const uint8_t *raw_message)
+{
+    if (raw_message == NULL) {
+        return false;
+    }
+
+    uint32_t sync_msg_type;
+    memcpy(&sync_msg_type, (raw_message + TOX_PUBLIC_KEY_SIZE + 4 + 2 + TOX_PUBLIC_KEY_SIZE), 4);
+
+    return true;
+}
+
+
 uint8_t tox_messagev2_get_alter_type(uint8_t *raw_message)
 {
     if (raw_message == NULL) {
@@ -2390,7 +2406,7 @@ uint16_t tox_messagev2_get_ts_ms(const uint8_t *raw_message)
     return return_value;
 }
 
-bool tox_messagev2_get_sync_message_text(const uint8_t *raw_message, uint32_t raw_message_len,
+bool tox_messagev2_get_sync_message_data(const uint8_t *raw_message, uint32_t raw_message_len,
         uint8_t *message_text, uint32_t *text_length)
 {
     bool result = false;
