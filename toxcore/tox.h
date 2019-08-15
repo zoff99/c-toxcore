@@ -3266,10 +3266,33 @@ uint16_t tox_self_get_tcp_port(const Tox *tox, TOX_ERR_GET_PORT *error);
 * sending
 */
 uint32_t tox_messagev2_size(uint32_t text_length, uint32_t type, uint32_t alter_type);
-bool tox_messagev2_sync_wrap(uint32_t text_length, const uint8_t *original_sender_pubkey_bin,
-                             const uint8_t *message_text, uint32_t ts_sec,
+
+// wrap a sync message
+//         data_length                  length of the input data
+//         original_sender_pubkey_bin   pubkey of original sender
+//         data_msg_type                type of msg to wrap
+//         raw_data                     input data of the msg to wrap
+//         ts_sec                       unixtimestamp when message was sent (in seconds since epoch)
+//         ts_ms                        unixtimestamp when message was sent (millisecond part)
+//         raw_message                  filled buffer with the wrapped data of the message
+//         msgid                        filled buffer of the message hash, exactly TOX_PUBLIC_KEY_SIZE byte long
+// return: bool                         true -> if message was wrapped OK
+bool tox_messagev2_sync_wrap(uint32_t data_length, const uint8_t *original_sender_pubkey_bin,
+                             uint32_t data_msg_type,
+                             const uint8_t *raw_data, uint32_t ts_sec,
                              uint16_t ts_ms, uint8_t *raw_message,
                              uint8_t *msgid);
+
+// wrap a message
+//         text_length      length of the input text
+//         type             type of msg to wrap
+//         alter_type       alter type of msg to wrap (only if it is an alter msg)
+//         message_text     input text of the msg to wrap
+//         ts_sec           uixtimestamp when message was sent (in seconds since epoch)
+//         ts_ms            unixtimestamp when message was sent (millisecond part)
+//         raw_message      filled buffer with the wrapped data of the message
+//         msgid            filled buffer of the message hash, exactly TOX_PUBLIC_KEY_SIZE byte long
+// return: bool             true -> if message was wrapped OK
 bool tox_messagev2_wrap(uint32_t text_length, uint32_t type,
                         uint32_t alter_type,
                         const uint8_t *message_text, uint32_t ts_sec,
@@ -3281,11 +3304,12 @@ bool tox_messagev2_wrap(uint32_t text_length, uint32_t type,
 bool tox_messagev2_get_message_id(const uint8_t *raw_message, uint8_t *msg_id);
 bool tox_messagev2_get_message_alter_id(uint8_t *raw_message, uint8_t *alter_id);
 bool tox_messagev2_get_sync_message_pubkey(const uint8_t *raw_message, uint8_t *pubkey);
+uint32_t tox_messagev2_get_sync_message_type(const uint8_t *raw_message);
 uint8_t tox_messagev2_get_alter_type(uint8_t *raw_message);
 uint32_t tox_messagev2_get_ts_sec(const uint8_t *raw_message);
 uint16_t tox_messagev2_get_ts_ms(const uint8_t *raw_message);
-bool tox_messagev2_get_sync_message_text(const uint8_t *raw_message, uint32_t raw_message_len,
-                                    uint8_t *message_text, uint32_t *text_length);
+bool tox_messagev2_get_sync_message_data(const uint8_t *raw_message, uint32_t raw_message_len,
+                                    uint8_t *data, uint32_t *data_length);
 bool tox_messagev2_get_message_text(const uint8_t *raw_message, uint32_t raw_message_len,
                                     bool is_alter_msg,
                                     uint32_t alter_type, uint8_t *message_text,
