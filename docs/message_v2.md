@@ -81,6 +81,30 @@ msg txt     |[0, 4096]  | Altered Message as a UTF8 byte string or 0 length on d
  4096 = TOX_MESSAGEV2_MAX_TEXT_LENGTH
 ```
 
+new filetransfer type:
+----------------------
+
+TOX_FILE_KIND_MESSAGEV2_SYNC
+sync a message from 1 client to another
+
+filename shall be 'messagev2.txt'
+
+## raw data:
+
+```
+what           |Length     | Contents
+----------------------------------------------------------------
+msg id         |32         | *uint8_t hash (what hash function?) to uniquely identify the message
+create ts      |4          | uint32_t unixtimestamp in UTC of local clock (NTP time if poosible -> client?)
+               |           | when the user typed the message
+create ts ms   |2          | uint16_t unixtimestamp ms part
+orig sender    |32         | pubkey of the original sender
+msgV2 type     |4          | what msgV2 type is this sync message
+msgv2 data     |[0, 4167]  | msgV2 raw data including header as raw bytes
+```
+
+# 4167 = TOX_MESSAGEV2_MAX_NON_SYNC_HEADER_SIZE + TOX_MESSAGEV2_MAX_TEXT_LENGTH
+# 4241 = TOX_MAX_FILETRANSFER_SIZE_MSGV2
 
 add helper functions for sending:
 ---------------------------------
@@ -91,6 +115,7 @@ uint32_t tox_messagev2_size(uint32_t text_length, uint32_t type)
   type is of TOX_FILE_KIND_MESSAGEV2_SEND
              TOX_FILE_KIND_MESSAGEV2_ANSWER
              TOX_FILE_KIND_MESSAGEV2_ALTER
+             TOX_FILE_KIND_MESSAGEV2_SYNC
 
 bool tox_messagev2_wrap(uint32_t text_length, uint32_t type, *uint8_t message_text, uint32_t ts_sec, uint16_t ts_ms, *uint8_t raw_message)
   if ts_sec and ts_ms are both "0" timestamp will be filled in my toxcore
