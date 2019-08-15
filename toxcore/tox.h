@@ -327,16 +327,21 @@ uint32_t tox_max_custom_packet_size(void);
 uint32_t tox_messagev2_max_text_length(void);
 
 /**
- * Maximum size of MessageV2 Messagetext
+ * Maximum size of MessageV2 Header
  */
-#define TOX_MESSAGEV2_MAX_HEADER_SIZE  (TOX_PUBLIC_KEY_SIZE + 4 + 2 + 1)
+#define TOX_MESSAGEV2_MAX_HEADER_SIZE  (TOX_PUBLIC_KEY_SIZE + 4 + 2 + TOX_PUBLIC_KEY_SIZE + 4)
 
 uint32_t tox_messagev2_max_header_size(void);
 
 /**
+ * Maximum size of MessageV2 Header of non sync messages
+ */
+#define TOX_MESSAGEV2_MAX_NON_SYNC_HEADER_SIZE  (TOX_PUBLIC_KEY_SIZE + 4 + 2 + 1 + TOX_PUBLIC_KEY_SIZE)
+
+/**
  * Maximum size of MessageV2 Filetransfers (overall size including any overhead)
  */
-#define TOX_MAX_FILETRANSFER_SIZE_MSGV2 (TOX_MESSAGEV2_MAX_TEXT_LENGTH + TOX_MESSAGEV2_MAX_HEADER_SIZE)
+#define TOX_MAX_FILETRANSFER_SIZE_MSGV2 (TOX_MESSAGEV2_MAX_TEXT_LENGTH + TOX_MESSAGEV2_MAX_HEADER_SIZE + TOX_MESSAGEV2_MAX_NON_SYNC_HEADER_SIZE)
 
 uint32_t tox_max_filetransfer_size_msgv2(void);
 
