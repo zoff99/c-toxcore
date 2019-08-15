@@ -2145,7 +2145,7 @@ uint32_t tox_messagev2_size(uint32_t text_length, uint32_t type, uint32_t alter_
     if (type == TOX_FILE_KIND_MESSAGEV2_SEND) {
         return (TOX_PUBLIC_KEY_SIZE + 4 + 2 + text_length);
     } else if (type == TOX_FILE_KIND_MESSAGEV2_SYNC) {
-        return (TOX_PUBLIC_KEY_SIZE + 4 + 2 + TOX_PUBLIC_KEY_SIZE + text_length);
+        return (TOX_PUBLIC_KEY_SIZE + 4 + 2 + TOX_PUBLIC_KEY_SIZE + 4 + text_length);
     } else if (type == TOX_FILE_KIND_MESSAGEV2_ANSWER) {
         return (TOX_PUBLIC_KEY_SIZE + 4 + 2);
     } else { // TOX_FILE_KIND_MESSAGEV2_ALTER
@@ -2424,12 +2424,12 @@ bool tox_messagev2_get_sync_message_data(const uint8_t *raw_message, uint32_t ra
     }
 
     // HINT: we want at least 1 byte of real message text
-    if (raw_message_len < (TOX_PUBLIC_KEY_SIZE + TOX_PUBLIC_KEY_SIZE + 4 + 2 + 1)) {
+    if (raw_message_len < (TOX_PUBLIC_KEY_SIZE + 4 + 2 + TOX_PUBLIC_KEY_SIZE + 4 + 1)) {
         return false;
     }
 
-    *text_length = (raw_message_len - (TOX_PUBLIC_KEY_SIZE + TOX_PUBLIC_KEY_SIZE + 4 + 2));
-    memcpy(message_text, raw_message + TOX_PUBLIC_KEY_SIZE + TOX_PUBLIC_KEY_SIZE + 4 + 2, *text_length);
+    *text_length = (raw_message_len - (TOX_PUBLIC_KEY_SIZE + 4 + 2 + TOX_PUBLIC_KEY_SIZE + 4));
+    memcpy(message_text, raw_message + TOX_PUBLIC_KEY_SIZE + 4 + 2 + TOX_PUBLIC_KEY_SIZE + 4, *text_length);
 
     return result;
 
