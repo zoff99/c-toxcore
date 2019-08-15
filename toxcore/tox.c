@@ -2355,13 +2355,13 @@ bool tox_messagev2_get_sync_message_pubkey(const uint8_t *raw_message, uint8_t *
 uint32_t tox_messagev2_get_sync_message_type(const uint8_t *raw_message)
 {
     if (raw_message == NULL) {
-        return false;
+        return UINT32_MAX;
     }
 
     uint32_t sync_msg_type;
     memcpy(&sync_msg_type, (raw_message + TOX_PUBLIC_KEY_SIZE + 4 + 2 + TOX_PUBLIC_KEY_SIZE), 4);
 
-    return true;
+    return sync_msg_type;
 }
 
 
