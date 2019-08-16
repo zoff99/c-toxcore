@@ -2191,6 +2191,9 @@ bool tox_messagev2_sync_wrap(uint32_t data_length, const uint8_t *original_sende
 
     uint8_t *raw_message_cpy = raw_message;
 
+    /* Tox keys are 32 bytes, so we use this directly as new "message id" */
+    new_symmetric_key(msgid);
+
     memcpy(raw_message_cpy, msgid, TOX_PUBLIC_KEY_SIZE);
     raw_message_cpy += TOX_PUBLIC_KEY_SIZE;
 
