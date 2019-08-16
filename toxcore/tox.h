@@ -1973,7 +1973,7 @@ enum TOX_FILE_KIND {
     /**
      * TODO: Generate doc
      */
-    TOX_FILE_KIND_MESSAGEV2_SYNC = 4,
+    TOX_FILE_KIND_MESSAGEV2_SYNC = 5,
 
 };
 
