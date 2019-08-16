@@ -2443,8 +2443,6 @@ bool tox_messagev2_get_message_text(const uint8_t *raw_message, uint32_t raw_mes
                                     uint32_t alter_type, uint8_t *message_text,
                                     uint32_t *text_length)
 {
-    bool result = false;
-
     if (raw_message == NULL) {
         return false;
     }
@@ -2477,7 +2475,7 @@ bool tox_messagev2_get_message_text(const uint8_t *raw_message, uint32_t raw_mes
         memcpy(message_text, raw_message + TOX_PUBLIC_KEY_SIZE + 4 + 2, *text_length);
     }
 
-    return result;
+    return true;
 }
 
 void tox_set_filetransfer_resumable(bool value)
