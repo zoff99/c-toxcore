@@ -29,12 +29,20 @@
 #define VIDEO_BITRATE_SCALAR2_AUTO_VALUE_H264 5000
 #define VIDEO_BITRATE_SCALAR2_INC_BY_AUTO_VALUE_H264 15
 #define VIDEO_BITRATE_SCALAR3_AUTO_VALUE_H264 7000
-#define VIDEO_BITRATE_MAX_AUTO_VALUE_H264 8000
+
+// default max video bitrate
+#define VIDEO_BITRATE_MAX_AUTO_VALUE_H264 2700
 
 #ifdef HW_CODEC_CONFIG_RPI3_TBW_BIDI
-    // lower max video bitrate on ToxPhone
+    // max video bitrate on ToxPhone
     #undef VIDEO_BITRATE_MAX_AUTO_VALUE_H264
     #define VIDEO_BITRATE_MAX_AUTO_VALUE_H264 2700
+#endif
+
+#ifdef HW_CODEC_CONFIG_RPI3_TBW_TV
+    // max video bitrate for ToxTV
+    #undef VIDEO_BITRATE_MAX_AUTO_VALUE_H264
+    #define VIDEO_BITRATE_MAX_AUTO_VALUE_H264 8000
 #endif
 
 // -- these control how agressive the bandwidth control is --
