@@ -39,10 +39,13 @@
     #define VIDEO_BITRATE_MAX_AUTO_VALUE_H264 2700
 #endif
 
-#ifdef HW_CODEC_CONFIG_RPI3_TBW_TV
+#ifdef HW_CODEC_CONFIG_UTOX_LINNVENC
     // max video bitrate for ToxTV
     #undef VIDEO_BITRATE_MAX_AUTO_VALUE_H264
-    #define VIDEO_BITRATE_MAX_AUTO_VALUE_H264 8000
+    #define VIDEO_BITRATE_MAX_AUTO_VALUE_H264 20000
+
+    #undef VIDEO_BITRATE_INITIAL_VALUE_H264
+    #define VIDEO_BITRATE_INITIAL_VALUE_H264 8000
 #endif
 
 // -- these control how agressive the bandwidth control is --
