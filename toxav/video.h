@@ -51,7 +51,7 @@ VPX_DL_BEST_QUALITY   (0)       deadline parameter analogous to VPx BEST QUALITY
 // more buffering for TV usecase
 #undef MIN_AV_BUFFERING_MS
 #undef AV_BUFFERING_DELTA_MS
-#define MIN_AV_BUFFERING_MS 300
+#define MIN_AV_BUFFERING_MS 90
 #define AV_BUFFERING_DELTA_MS 5
 #endif
 
