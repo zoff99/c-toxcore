@@ -186,7 +186,7 @@ int global_h264_enc_profile_high_enabled_switch = 0;
 #define H264_DECODER_THREAD_FRAME_ACTIVE 0
 #define X264_ENCODER_THREADS 4
 #define X264_ENCODER_SLICES 4
-#define H264_ENCODER_STARTWITH_PROFILE_HIGH 0
+#define H264_ENCODER_STARTWITH_PROFILE_HIGH 1
 /* ---------------------------------------------------
  * UTOX linux
  */
