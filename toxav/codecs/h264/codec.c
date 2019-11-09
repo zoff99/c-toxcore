@@ -525,7 +525,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     AVCodec *codec = NULL;
     vc->h264_decoder = NULL;
 
-    // avcodec_register_all();
+    avcodec_register_all();
 
     codec = NULL;
 
@@ -551,71 +551,75 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     vc->h264_decoder = avcodec_alloc_context3(codec);
 
-    if (codec->capabilities & AV_CODEC_CAP_TRUNCATED) {
-        vc->h264_decoder->flags |= AV_CODEC_FLAG_TRUNCATED; /* we do not send complete frames */
-    }
-
-    if (codec->capabilities & AV_CODEC_FLAG_LOW_DELAY) {
-        vc->h264_decoder->flags |= AV_CODEC_FLAG_LOW_DELAY;
-    }
-
-    // vc->h264_decoder->flags |= AV_CODEC_FLAG_OUTPUT_CORRUPT;
-    vc->h264_decoder->flags |= AV_CODEC_FLAG2_SHOW_ALL;
-    // vc->h264_decoder->flags2 |= AV_CODEC_FLAG2_FAST;
-    // vc->h264_decoder->flags |= AV_CODEC_FLAG_TRUNCATED;
-    // vc->h264_decoder->flags2 |= AV_CODEC_FLAG2_CHUNKS;
-
-    if (H264_DECODER_THREADS > 0) {
-        if (codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
-            vc->h264_decoder->thread_count = H264_DECODER_THREADS;
-            vc->h264_decoder->thread_type = FF_THREAD_SLICE;
-            vc->h264_decoder->active_thread_type = FF_THREAD_SLICE;
+    if (codec)
+    {
+        if (codec->capabilities & AV_CODEC_CAP_TRUNCATED) {
+            vc->h264_decoder->flags |= AV_CODEC_FLAG_TRUNCATED; /* we do not send complete frames */
         }
 
-        if (H264_DECODER_THREAD_FRAME_ACTIVE == 1) {
-            if (codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) {
+        if (codec->capabilities & AV_CODEC_FLAG_LOW_DELAY) {
+            vc->h264_decoder->flags |= AV_CODEC_FLAG_LOW_DELAY;
+        }
+
+        // vc->h264_decoder->flags |= AV_CODEC_FLAG_OUTPUT_CORRUPT;
+        vc->h264_decoder->flags |= AV_CODEC_FLAG2_SHOW_ALL;
+        // vc->h264_decoder->flags2 |= AV_CODEC_FLAG2_FAST;
+        // vc->h264_decoder->flags |= AV_CODEC_FLAG_TRUNCATED;
+        // vc->h264_decoder->flags2 |= AV_CODEC_FLAG2_CHUNKS;
+
+        if (H264_DECODER_THREADS > 0) {
+            if (codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
                 vc->h264_decoder->thread_count = H264_DECODER_THREADS;
-                vc->h264_decoder->thread_type |= FF_THREAD_FRAME;
-                vc->h264_decoder->active_thread_type |= FF_THREAD_FRAME;
+                vc->h264_decoder->thread_type = FF_THREAD_SLICE;
+                vc->h264_decoder->active_thread_type = FF_THREAD_SLICE;
+            }
+
+            if (H264_DECODER_THREAD_FRAME_ACTIVE == 1) {
+                if (codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) {
+                    vc->h264_decoder->thread_count = H264_DECODER_THREADS;
+                    vc->h264_decoder->thread_type |= FF_THREAD_FRAME;
+                    vc->h264_decoder->active_thread_type |= FF_THREAD_FRAME;
+                }
             }
         }
+
+    #if (defined (HW_CODEC_CONFIG_RPI3_TBW_TV) || defined (HW_CODEC_CONFIG_RPI3_TBW_BIDI)) && defined (RAPI_HWACCEL_DEC)
+        LOGGER_WARNING(log, "setting up h264_mmal decoder ...");
+        av_opt_set_int(vc->h264_decoder->priv_data, "extra_buffers)", 20, AV_OPT_SEARCH_CHILDREN);
+        av_opt_set_int(vc->h264_decoder->priv_data, "extra_decoder_buffers)", 20, AV_OPT_SEARCH_CHILDREN);
+        LOGGER_WARNING(log, "extra_buffers, extra_decoder_buffers");
+    #endif
+
+
+        vc->h264_decoder->refcounted_frames = 0;
+        /*   When AVCodecContext.refcounted_frames is set to 0, the returned
+        *             reference belongs to the decoder and is valid only until the
+        *             next call to this function or until closing or flushing the
+        *             decoder. The caller may not write to it.
+        */
+
+        vc->h264_decoder->delay = 0;
+        av_opt_set_int(vc->h264_decoder->priv_data, "delay", 0, AV_OPT_SEARCH_CHILDREN);
+
+        vc->h264_decoder->time_base = (AVRational) {
+            40, 1000
+        };
+        vc->h264_decoder->framerate = (AVRational) {
+            1000, 40
+        };
+
+        if (avcodec_open2(vc->h264_decoder, codec, NULL) < 0) {
+            LOGGER_WARNING(log, "could not open codec H264 on decoder");
+        }
+
+        vc->h264_decoder->refcounted_frames = 0;
+        /*   When AVCodecContext.refcounted_frames is set to 0, the returned
+        *             reference belongs to the decoder and is valid only until the
+        *             next call to this function or until closing or flushing the
+        *             decoder. The caller may not write to it.
+        */
     }
 
-#if (defined (HW_CODEC_CONFIG_RPI3_TBW_TV) || defined (HW_CODEC_CONFIG_RPI3_TBW_BIDI)) && defined (RAPI_HWACCEL_DEC)
-    LOGGER_WARNING(log, "setting up h264_mmal decoder ...");
-    av_opt_set_int(vc->h264_decoder->priv_data, "extra_buffers)", 20, AV_OPT_SEARCH_CHILDREN);
-    av_opt_set_int(vc->h264_decoder->priv_data, "extra_decoder_buffers)", 20, AV_OPT_SEARCH_CHILDREN);
-    LOGGER_WARNING(log, "extra_buffers, extra_decoder_buffers");
-#endif
-
-
-    vc->h264_decoder->refcounted_frames = 0;
-    /*   When AVCodecContext.refcounted_frames is set to 0, the returned
-    *             reference belongs to the decoder and is valid only until the
-    *             next call to this function or until closing or flushing the
-    *             decoder. The caller may not write to it.
-    */
-
-    vc->h264_decoder->delay = 0;
-    av_opt_set_int(vc->h264_decoder->priv_data, "delay", 0, AV_OPT_SEARCH_CHILDREN);
-
-    vc->h264_decoder->time_base = (AVRational) {
-        40, 1000
-    };
-    vc->h264_decoder->framerate = (AVRational) {
-        1000, 40
-    };
-
-    if (avcodec_open2(vc->h264_decoder, codec, NULL) < 0) {
-        LOGGER_WARNING(log, "could not open codec H264 on decoder");
-    }
-
-    vc->h264_decoder->refcounted_frames = 0;
-    /*   When AVCodecContext.refcounted_frames is set to 0, the returned
-    *             reference belongs to the decoder and is valid only until the
-    *             next call to this function or until closing or flushing the
-    *             decoder. The caller may not write to it.
-    */
 
     // DECODER -------
 
