@@ -192,6 +192,37 @@ int global_h264_enc_profile_high_enabled_switch = 0;
  */
 #endif
 
+#ifdef HW_CODEC_CONFIG_TBW_LINNVENC
+/* ---------------------------------------------------
+ * tbw usb linux
+ */
+#undef ACTIVE_HW_CODEC_CONFIG_NAME
+#undef H264_WANT_ENCODER_NAME
+#undef H264_WANT_DECODER_NAME
+#undef X264_ENCODE_USED
+#undef RAPI_HWACCEL_ENC
+#undef RAPI_HWACCEL_DEC
+#undef H264_DECODER_THREADS
+#undef H264_DECODER_THREAD_FRAME_ACTIVE
+#undef X264_ENCODER_THREADS
+#undef X264_ENCODER_SLICES
+#undef H264_ENCODER_STARTWITH_PROFILE_HIGH
+// --
+#define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_TBW_LINNVENC"
+#define H264_WANT_ENCODER_NAME "h264_nvenc"
+#define H264_WANT_DECODER_NAME "h264"
+// #define X264_ENCODE_USED 1
+#define RAPI_HWACCEL_ENC 1
+#define H264_DECODER_THREADS 4
+#define H264_DECODER_THREAD_FRAME_ACTIVE 0
+#define X264_ENCODER_THREADS 4
+#define X264_ENCODER_SLICES 4
+#define H264_ENCODER_STARTWITH_PROFILE_HIGH 1
+/* ---------------------------------------------------
+ * tbw usb linux
+ */
+#endif
+
 #ifdef HW_CODEC_CONFIG_UTOX_WIN7
 /* ---------------------------------------------------
  * UTOX win7
