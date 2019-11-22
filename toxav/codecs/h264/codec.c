@@ -415,7 +415,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     AVCodec *codec2 = NULL;
     vc->h264_encoder2 = NULL;
 
-    avcodec_register_all();
+    // avcodec_register_all();
 
     codec2 = NULL;
 
@@ -426,25 +426,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         LOGGER_WARNING(log, "codec not found HW Accel H264 on encoder, trying software decoder ...");
         codec2 = avcodec_find_encoder_by_name("libx264");
     } else {
-
-        vc->h264_encoder2 = avcodec_alloc_context3(codec2);
-        AVDictionary *opts = NULL;
-        if (avcodec_open2(vc->h264_encoder2, codec2, &opts) < 0) {
-            LOGGER_ERROR(log, "TEST: could not open codec H264 on encoder --> falling back to libx264");
-            vc->h264_encoder2 = NULL;
-            avcodec_free_context(&vc->h264_encoder2);
-            // avcodec_close(vc->h264_encoder2);
-            codec2 = avcodec_find_encoder_by_name("libx264");
-        }
-        else
-        {
-            av_dict_free(&opts);
-            avcodec_free_context(&vc->h264_encoder2);
-            // avcodec_close(vc->h264_encoder2);
-            vc->h264_encoder2 = NULL;
-            
-            LOGGER_ERROR(log, "FOUND: *HW Accel* H264 encoder: %s", H264_WANT_ENCODER_NAME);
-        }
+        LOGGER_ERROR(log, "FOUND: *HW Accel* H264 encoder: %s", H264_WANT_ENCODER_NAME);
     }
 
 #else
@@ -575,7 +557,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     AVCodec *codec = NULL;
     vc->h264_decoder = NULL;
 
-    avcodec_register_all();
+    // avcodec_register_all();
 
     codec = NULL;
 
@@ -857,12 +839,12 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
             // --- ffmpeg encoder ---
             avcodec_free_context(&vc->h264_encoder2);
-            // avcodec_close(vc->h264_encoder2);
+
 
             AVCodec *codec2 = NULL;
             vc->h264_encoder2 = NULL;
 
-            avcodec_register_all();
+            // avcodec_register_all();
 
             codec2 = NULL;
 
@@ -873,26 +855,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
                 LOGGER_WARNING(log, "codec not found HW Accel H264 on encoder, trying software decoder ...");
                 codec2 = avcodec_find_encoder_by_name("libx264");
             } else {
-
-                vc->h264_encoder2 = avcodec_alloc_context3(codec2);
-                AVDictionary *opts = NULL;
-                if (avcodec_open2(vc->h264_encoder2, codec2, &opts) < 0) {
-                    LOGGER_ERROR(log, "TEST: could not open codec H264 on encoder --> falling back to libx264");
-                    vc->h264_encoder2 = NULL;
-                    avcodec_free_context(&vc->h264_encoder2);
-                    // avcodec_close(vc->h264_encoder2);
-                    codec2 = avcodec_find_encoder_by_name("libx264");
-                }
-                else
-                {
-                    av_dict_free(&opts);
-                    avcodec_free_context(&vc->h264_encoder2);
-                    // avcodec_close(vc->h264_encoder2);
-                    vc->h264_encoder2 = NULL;
-                    
-                    LOGGER_ERROR(log, "FOUND: *HW Accel* H264 encoder: %s", H264_WANT_ENCODER_NAME);
-                }
-
+                LOGGER_ERROR(log, "FOUND: *HW Accel* H264 encoder: %s", H264_WANT_ENCODER_NAME);
             }
 
 #else
@@ -1586,7 +1549,6 @@ void vc_kill_h264(VCSession *vc)
     // --- ffmpeg encoder ---
     av_packet_free(&(vc->h264_out_pic2));
     avcodec_free_context(&(vc->h264_encoder2));
-    // avcodec_close(vc->h264_encoder2);
     // --- ffmpeg encoder ---
 
 #endif
@@ -1598,7 +1560,6 @@ void vc_kill_h264(VCSession *vc)
     }
 
     avcodec_free_context(&vc->h264_decoder);
-    // avcodec_close(vc->h264_decoder);
 }
 
 
