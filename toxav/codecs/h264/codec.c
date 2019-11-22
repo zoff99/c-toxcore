@@ -210,10 +210,10 @@ int global_h264_enc_profile_high_enabled_switch = 0;
 // --
 #define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_TBW_LINNVENC"
 #define H264_WANT_ENCODER_NAME "h264_nvenc"
-#define H264_WANT_DECODER_NAME "h264_cuvid"
+#define H264_WANT_DECODER_NAME "h264" // "h264_cuvid"
 // #define X264_ENCODE_USED 1
 #define RAPI_HWACCEL_ENC 1
-#define RAPI_HWACCEL_DEC 1
+// #define RAPI_HWACCEL_DEC 1
 #define H264_DECODER_THREADS 4
 #define H264_DECODER_THREAD_FRAME_ACTIVE 0
 #define X264_ENCODER_THREADS 4
