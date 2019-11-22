@@ -862,7 +862,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             AVCodec *codec2 = NULL;
             vc->h264_encoder2 = NULL;
 
-            vcodec_register_all();
+            avcodec_register_all();
 
             codec2 = NULL;
 
