@@ -1122,7 +1122,7 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
     AVPacket *compr_data = NULL;
     compr_data = av_packet_alloc();
 
-    if (compr_data = NULL)
+    if (compr_data == NULL)
     {
         LOGGER_DEBUG(vc->log, "av_packet_alloc:ERROR");
         free(p);
