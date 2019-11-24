@@ -1049,6 +1049,34 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
 
     LOGGER_DEBUG(vc->log, "decode_frame_h264:len=%d", full_data_len);
 
+    if (p == NULL)
+    {
+        LOGGER_DEBUG(vc->log, "decode_frame_h264:NO data");
+        return;
+    }
+
+    if (p->data == NULL)
+    {
+        LOGGER_DEBUG(vc->log, "decode_frame_h264:NO data p->data");
+        return;
+    }
+
+    if (full_data_len < 1)
+    {
+        LOGGER_DEBUG(vc->log, "decode_frame_h264:not enough data");
+        free(p);
+        p = NULL;
+        return;
+    }
+
+    if (vc->h264_decoder = NULL)
+    {
+        LOGGER_DEBUG(vc->log, "vc->h264_decoder:not ready");
+        free(p);
+        p = NULL;
+        return;
+    }
+
 #if 0
 
     if ((p) && (p->data)) {
@@ -1091,8 +1119,16 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
 
      */
 
-    AVPacket *compr_data;
+    AVPacket *compr_data = NULL;
     compr_data = av_packet_alloc();
+
+    if (compr_data = NULL)
+    {
+        LOGGER_DEBUG(vc->log, "av_packet_alloc:ERROR");
+        free(p);
+        p = NULL;
+        return;
+    }
 
     uint64_t h_frame_record_timestamp = header_v3->frame_record_timestamp;
 
@@ -1128,7 +1164,25 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
     /* HINT: this is the only part that takes all the time !!! */
 
     // uint32_t start_time_ms = current_time_monotonic(m->mono_time);
-    avcodec_send_packet(vc->h264_decoder, compr_data);
+
+    /* ------------------------------------------------------- */
+    /* ------------------------------------------------------- */
+    // The input buffer, avpkt->data must be AV_INPUT_BUFFER_PADDING_SIZE larger than the actual
+    // read bytes because some optimized bitstream readers read 32 or 64 bits at once and
+    // could read over the end.
+    /* ------------------------------------------------------- */
+    /* ------------------------------------------------------- */
+
+    int result_send_packet = avcodec_send_packet(vc->h264_decoder, compr_data);
+    if (result_send_packet != 0)
+    {
+        LOGGER_DEBUG(vc->log, "avcodec_send_packet:ERROR=%d", result_send_packet);
+        av_packet_free(&compr_data);
+        free(tmp_buf);
+        free(p);
+        p = NULL;
+        return;
+    }
     // uint32_t end_time_ms = current_time_monotonic(m->mono_time);
     // if ((int)(end_time_ms - start_time_ms) > 4) {
     //    LOGGER_WARNING(vc->log, "decode_frame_h264:002: %d ms", (int)(end_time_ms - start_time_ms));
@@ -1147,6 +1201,11 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
 
         // start_time_ms = current_time_monotonic(m->mono_time);
         AVFrame *frame = av_frame_alloc();
+        if (frame == NULL)
+        {
+            // stop decoding
+            break;
+        }
         // end_time_ms = current_time_monotonic(m->mono_time);
         // LOGGER_WARNING(vc->log, "decode_frame_h264:003: %d ms", (int)(end_time_ms - start_time_ms));
 
@@ -1235,12 +1294,15 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
             }
 
             // start_time_ms = current_time_monotonic(m->mono_time);
-            vc->vcb(vc->av, vc->friend_number, frame->width, frame->height,
-                    (const uint8_t *)frame->data[0],
-                    (const uint8_t *)frame->data[1],
-                    (const uint8_t *)frame->data[2],
-                    frame->linesize[0], frame->linesize[1],
-                    frame->linesize[2], vc->vcb_user_data);
+            if ((frame->data[0] != NULL) && (frame->data[1] != NULL) && (frame->data[2] != NULL))
+            {
+                vc->vcb(vc->av, vc->friend_number, frame->width, frame->height,
+                        (const uint8_t *)frame->data[0],
+                        (const uint8_t *)frame->data[1],
+                        (const uint8_t *)frame->data[2],
+                        frame->linesize[0], frame->linesize[1],
+                        frame->linesize[2], vc->vcb_user_data);
+            }
             // end_time_ms = current_time_monotonic(m->mono_time);
             // LOGGER_WARNING(vc->log, "decode_frame_h264:005: %d ms", (int)(end_time_ms - start_time_ms));
 
