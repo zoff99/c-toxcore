@@ -1069,7 +1069,7 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
         return;
     }
 
-    if (vc->h264_decoder = NULL)
+    if (vc->h264_decoder == NULL)
     {
         LOGGER_DEBUG(vc->log, "vc->h264_decoder:not ready");
         free(p);
