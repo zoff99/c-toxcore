@@ -146,6 +146,8 @@ struct ToxAV {
     /* Video frame receive callback */
     toxav_video_receive_frame_cb *vcb;
     void *vcb_user_data;
+    toxav_video_receive_frame_h264_cb *vcb_h264;
+    void *vcb_h264_user_data;
     /* Bit rate control callback */
     toxav_bit_rate_status_cb *bcb;
     void *bcb_user_data;
