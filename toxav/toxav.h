@@ -803,6 +803,23 @@ typedef void toxav_video_receive_frame_cb(ToxAV *av, uint32_t friend_number, uin
  */
 void toxav_callback_video_receive_frame(ToxAV *av, toxav_video_receive_frame_cb *callback, void *user_data);
 
+
+
+
+
+typedef void toxav_video_receive_frame_h264_cb(ToxAV *av, uint32_t friend_number,
+        const uint8_t *buf, const uint32_t buf_size, void *user_data);
+
+
+/**
+ * Set the callback for the `video_receive_frame_h264` event. Pass NULL to unset.
+ *
+ */
+void toxav_callback_video_receive_frame_h264(ToxAV *av, toxav_video_receive_frame_h264_cb *callback, void *user_data);
+
+
+
+
 /**
  * NOTE Compatibility with old toxav group calls. TODO(iphydf): remove
  *

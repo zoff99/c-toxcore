@@ -1077,6 +1077,16 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
         return;
     }
 
+
+    if (vc->vcb_h264 != NULL)
+    {
+        // call callback function to give H264 buffer directly to the client
+        vc->vcb_h264(vc->av, vc->friend_number, p->data, full_data_len, vc->vcb_h264_user_data);
+        free(p);
+        p = NULL;
+        return;
+    }
+
 #if 0
 
     if ((p) && (p->data)) {
