@@ -1935,6 +1935,14 @@ void toxav_callback_video_receive_frame(ToxAV *av, toxav_video_receive_frame_cb 
     pthread_mutex_unlock(av->mutex);
 }
 
+void toxav_callback_video_receive_frame_h264(ToxAV *av, toxav_video_receive_frame_h264_cb *callback, void *user_data)
+{
+    pthread_mutex_lock(av->mutex);
+    av->vcb_h264 = callback;
+    av->vcb_h264_user_data = user_data;
+    pthread_mutex_unlock(av->mutex);
+}
+
 
 /*******************************************************************************
  *
