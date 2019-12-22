@@ -83,9 +83,9 @@ int global_h264_enc_profile_high_enabled_switch = 0;
 #undef H264_ENCODER_STARTWITH_PROFILE_HIGH
 // --
 #define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_TRIFA"
-// #define _TRIFA_CODEC_DECODER_ 1
-// #define H264_WANT_DECODER_NAME "h264_mediacodec"
-#define H264_WANT_DECODER_NAME "h264"
+#define _TRIFA_CODEC_DECODER_ 1
+#define H264_WANT_DECODER_NAME "h264_mediacodec"
+// #define H264_WANT_DECODER_NAME "h264"
 #define X264_ENCODE_USED 1
 // #define RAPI_HWACCEL_DEC 1
 #define H264_DECODER_THREADS 3
@@ -283,21 +283,63 @@ int global_h264_enc_profile_high_enabled_switch = 0;
 
 Logger *global__log = NULL;
 
-void my_log_callback(void *ptr, int level, const char *fmt, va_list vargs)
+#if 0
+void my_printf(char* format, ...)
 {
-    LOGGER_WARNING(global__log, fmt, vargs);
-    /*
-        FILE *pFile;
-        pFile=fopen("/sdcard/log.txt", "a");
-        if(pFile==NULL)
+    uint8_t *output_chars = calloc(1, 5000);
+    uint32_t pos = 0;
+
+    va_list argp;
+    va_start(argp, format);
+    while (*format != '\0')
+    {
+        if (*format == '%')
         {
+            format++;
+            if (*format == '%')
+            {
+                output_chars[pos] = '%';
+                pos++;
+            }
+            else if (*format == 'c')
+            {
+                char char_to_print = (char)va_arg(argp, int);
+                output_chars[pos] = char_to_print;
+                pos++;
+            }
+            else if (*format == 's')
+            {
+                char* char_to_print = va_arg(argp, char *);
+                output_chars[pos] = char_to_print;
+                pos++;
+                output_chars[pos] = char_to_print;
+                pos++;
+                output_chars[pos] = char_to_print;
+                pos++;
+            }
+            else
+            {
+                // fputs("Not implemented", stdout);
+            }
         }
         else
         {
-            fprintf(pFile, fmt, vargs);
+            // putchar(*format);
         }
-        fclose(pFile);
-    */
+        format++;
+    }
+    va_end(argp);
+
+    LOGGER_WARNING(global__log, output_chars);
+}
+#endif
+
+void my_log_callback(void *ptr, int level, const char *fmt, va_list vargs)
+{
+    // !!WARNING!! ffmpeg somehow gives back bad strings, calling "strlen" will crash
+    //             so no printf type of function will work!!
+    // my_printf(fmt, vargs);
+    // LOGGER_WARNING(global__log, fmt, vargs);
 }
 
 VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data,
@@ -639,6 +681,65 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         vc->h264_decoder->framerate = (AVRational) {
             1000, 40
         };
+
+
+
+
+    #ifdef _TRIFA_CODEC_DECODER_
+
+        LOGGER_WARNING(log, "setting up h264_mediacodec decoder ...");
+
+
+        const uint8_t sps[] = {0x00, 0x00, 0x00, 0x01, 0x67, 0x42, 0x80, 0x0C, 0xE4, 0x40, 0xA0, 0xFD, 0x00, 0xDA, 0x14, 0x26, 0xA0};
+        const uint8_t pps[] = {0x00, 0x00, 0x00, 0x01, 0x68, 0xCE, 0x38, 0x80};
+        const size_t sps_pps_size = sizeof(sps) + sizeof(pps);
+
+        vc->h264_decoder->extradata = (uint8_t *)av_mallocz(sps_pps_size + AV_INPUT_BUFFER_PADDING_SIZE);
+        vc->h264_decoder->extradata_size = sps_pps_size;
+        // memset(&vc->h264_decoder->extradata[vc->h264_decoder->extradata_size], 0, AV_INPUT_BUFFER_PADDING_SIZE);
+        memcpy(vc->h264_decoder->extradata, sps, sizeof(sps));
+        memcpy(vc->h264_decoder->extradata + sizeof(sps), pps, sizeof(pps));
+
+
+        vc->h264_decoder->codec_type = AVMEDIA_TYPE_VIDEO;
+        vc->h264_decoder->codec_id   = AV_CODEC_ID_H264;
+
+    /*
+        vc->h264_decoder->codec_tag  = 0x31637661; // ('1'<<24) + ('c'<<16) + ('v'<<8) + 'a';
+        vc->h264_decoder->bit_rate              = 2500 * 1000;
+        // codec->bits_per_coded_sample = par->bits_per_coded_sample;
+        vc->h264_decoder->bits_per_raw_sample   = 8;
+        vc->h264_decoder->profile               = FF_PROFILE_H264_HIGH;
+        vc->h264_decoder->level                 = 40;
+        vc->h264_decoder->has_b_frames          = 2;
+    */
+
+
+        vc->h264_decoder->pix_fmt                = AV_PIX_FMT_YUV420P;
+        vc->h264_decoder->width                  = 480;
+        vc->h264_decoder->height                 = 640;
+
+        /*
+            codec->field_order            = par->field_order;
+            codec->color_range            = par->color_range;
+            codec->color_primaries        = par->color_primaries;
+            codec->color_trc              = par->color_trc;
+            codec->colorspace             = par->color_space;
+            codec->chroma_sample_location = par->chroma_location;
+            codec->sample_aspect_ratio    = par->sample_aspect_ratio;
+            codec->has_b_frames           = par->video_delay;
+        */
+
+        LOGGER_WARNING(log, "setting up h264_mediacodec decoder ... DONE");
+
+        // av_log_set_level(AV_LOG_ERROR);
+        av_log_set_level(AV_LOG_DEBUG);
+        global__log = log;
+        // av_log_set_callback(my_log_callback);
+
+    #endif
+
+
 
         if (avcodec_open2(vc->h264_decoder, codec, NULL) < 0) {
             LOGGER_WARNING(log, "could not open codec H264 on decoder");
@@ -1627,7 +1728,7 @@ void vc_kill_h264(VCSession *vc)
 
     // decoder
     if (vc->h264_decoder->extradata) {
-        free(vc->h264_decoder->extradata);
+        av_free(vc->h264_decoder->extradata);
         vc->h264_decoder->extradata = NULL;
     }
 
