@@ -815,11 +815,26 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
                 LOGGER_WARNING(av->m->log, "video encoder setting rc_max_quantizer to: %d", (int)value);
             }
         }
+    } else if (option == TOXAV_DECODER_VIDEO_ADD_DELAY_MS) {
+        VCSession *vc = (VCSession *)call->video;
+
+        if (vc->video_decoder_add_delay_ms == (int32_t)value) {
+            LOGGER_WARNING(av->m->log, "video decoder video_decoder_add_delay_ms already set to: %d", (int)value);
+        } else {
+
+            if (((int32_t)value < 0) || ((int32_t)value > 1000)) {
+                LOGGER_WARNING(av->m->log, "video decoder video_decoder_add_delay_ms value outside of valid range: %d", (int)value);
+            } else {
+                vc->video_decoder_add_delay_ms = (int32_t)value;
+            }
+
+            LOGGER_WARNING(av->m->log, "video decoder setting video_decoder_add_delay_ms to: %d", (int)value);
+        }
     } else if (option == TOXAV_DECODER_VIDEO_BUFFER_MS) {
         VCSession *vc = (VCSession *)call->video;
 
         if (vc->video_decoder_buffer_ms == (int32_t)value) {
-            LOGGER_WARNING(av->m->log, "video encoder video_decoder_buffer_ms already set to: %d", (int)value);
+            LOGGER_WARNING(av->m->log, "video decoder video_decoder_buffer_ms already set to: %d", (int)value);
         } else {
             vc->video_decoder_buffer_ms = (int32_t)value;
 
@@ -829,7 +844,7 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
                 vc->video_decoder_adjustment_base_ms = 1;
             }
 
-            LOGGER_WARNING(av->m->log, "video encoder setting video_decoder_buffer_ms to: %d", (int)value);
+            LOGGER_WARNING(av->m->log, "video decoder setting video_decoder_buffer_ms to: %d", (int)value);
         }
     } else if (option == TOXAV_ENCODER_VIDEO_MAX_BITRATE) {
         VCSession *vc = (VCSession *)call->video;
