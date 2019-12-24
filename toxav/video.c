@@ -119,6 +119,7 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     vc->encoder_frame_has_record_timestamp = 1;
     vc->video_max_bitrate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264;
     vc->video_decoder_buffer_ms = MIN_AV_BUFFERING_MS;
+    vc->video_decoder_add_delay_ms = 0;
     vc->video_decoder_adjustment_base_ms = MIN_AV_BUFFERING_MS - AV_BUFFERING_DELTA_MS;
     vc->client_video_capture_delay_ms = 0;
     vc->remote_client_video_capture_delay_ms = 0;
@@ -389,9 +390,10 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
     uint16_t is_skipping = 0;
 
     // HINT: give me video frames that happend "now" minus some diff
+    //       get a videoframe for timestamp [timestamp_want_get + (uint32_t)(video_decoder_add_delay_ms)]
     if (tsb_read((TSBuffer *)vc->vbuf_raw, vc->log, (void **)&p, &frame_flags,
                  &timestamp_out_,
-                 timestamp_want_get,
+                 timestamp_want_get + (uint32_t)(vc->video_decoder_add_delay_ms),
                  vc->tsb_range_ms + vc->startup_video_timespan,
                  &removed_entries,
                  &is_skipping)) {
