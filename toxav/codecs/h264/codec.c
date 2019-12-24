@@ -704,6 +704,18 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         vc->h264_decoder->codec_type = AVMEDIA_TYPE_VIDEO;
         vc->h264_decoder->codec_id   = AV_CODEC_ID_H264;
 
+        if (codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
+            vc->h264_decoder->thread_count = 1;
+            vc->h264_decoder->thread_type = FF_THREAD_SLICE;
+            vc->h264_decoder->active_thread_type = FF_THREAD_SLICE;
+        }
+
+        //if (codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) {
+        //    vc->h264_decoder->thread_count = 1;
+        //    vc->h264_decoder->thread_type |= FF_THREAD_FRAME;
+        //    vc->h264_decoder->active_thread_type |= FF_THREAD_FRAME;
+        //}
+
     /*
         vc->h264_decoder->codec_tag  = 0x31637661; // ('1'<<24) + ('c'<<16) + ('v'<<8) + 'a';
         vc->h264_decoder->bit_rate              = 2500 * 1000;
@@ -732,8 +744,8 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
         LOGGER_WARNING(log, "setting up h264_mediacodec decoder ... DONE");
 
-        // av_log_set_level(AV_LOG_ERROR);
-        av_log_set_level(AV_LOG_DEBUG);
+        av_log_set_level(AV_LOG_ERROR);
+        // av_log_set_level(AV_LOG_DEBUG);
         global__log = log;
         // av_log_set_callback(my_log_callback);
 
