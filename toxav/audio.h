@@ -16,7 +16,7 @@
 #include <pthread.h>
 
 
-#define AUDIO_JITTERBUFFER_COUNT 100 // (5) // ORIG = 3
+#define AUDIO_JITTERBUFFER_COUNT 100 // ~ (5ms * AUDIO_JITTERBUFFER_COUNT) --> to hold that many ms audio data for audio-to-video delay
 #define AUDIO_JITTERBUFFER_FILL_THRESHOLD (98) // this should be lower than the above value!
 #define AUDIO_JITTERBUFFER_SKIP_THRESHOLD (99)
 
