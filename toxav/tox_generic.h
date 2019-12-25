@@ -101,7 +101,7 @@ typedef struct ToxAVCall_s {
 
     int64_t call_timestamp_difference_to_sender;
     int64_t call_timestamp_difference_adjustment;
-    uint32_t call_rountrip_time_ms;
+    // uint32_t call_rountrip_time_ms;
 
     uint64_t reference_rtimestamp;
     uint64_t reference_ltimestamp;
