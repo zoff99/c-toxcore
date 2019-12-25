@@ -1423,7 +1423,7 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
-#if 1
+#if 0
                 *v_r_timestamp = h_frame_record_timestamp;
                 *v_l_timestamp = current_time_monotonic(m->mono_time);
 #endif

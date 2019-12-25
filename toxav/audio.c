@@ -171,7 +171,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     int64_t want_remote_video_ts = (current_time_monotonic(ac->mono_time) + timestamp_difference_to_sender_ +
                                     timestamp_difference_adjustment_);
 
-    LOGGER_WARNING(log, "audio_read:before:%ld,%d", want_remote_video_ts, (int)ac->video_decoder_add_delay_ms_copy);
+    LOGGER_DEBUG(log, "audio_read:before:%ld,%d", want_remote_video_ts, (int)ac->video_decoder_add_delay_ms_copy);
 
     *success = 0;
     uint16_t removed_entries;
@@ -188,14 +188,14 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     // HINT: compensate for older clients ----------------
 
 
-#if 1
+#if 0
 
     uint32_t timestamp_min = 0;
     uint32_t timestamp_max = 0;
     tsb_get_range_in_buffer(q, &timestamp_min, &timestamp_max);
 
     if ((int)tsb_size(q) > 0) {
-        LOGGER_ERROR(log, "FC:%d min=%ld max=%ld want=%d diff=%d adj=%d",
+        LOGGER_DEBUG(log, "FC:%d min=%ld max=%ld want=%d diff=%d adj=%d",
                      (int)tsb_size(q),
                      timestamp_min,
                      timestamp_max,
@@ -223,7 +223,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
         *success = 1;
 
 
-        LOGGER_WARNING(log, "audio_read:done:%ld,%ld", want_remote_video_ts, (int64_t)timestamp_out_);
+        LOGGER_DEBUG(log, "audio_read:done:%ld,%ld", want_remote_video_ts, (int64_t)timestamp_out_);
 
 
         struct RTPMessage *m = (struct RTPMessage *)ret;
@@ -414,7 +414,7 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
-#if 1
+#if 0
             if (rc >= 0) {
                 // what is the audio to video latency?
                 const struct RTPHeader *header_v3 = (void *) & (msg->header);
