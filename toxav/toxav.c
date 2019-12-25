@@ -354,7 +354,7 @@ void toxav_iterate(ToxAV *av)
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
-#if 1
+#if 0
             if ((i->last_incoming_audio_frame_ltimestamp != 0)
                     &&
                     (i->last_incoming_video_frame_ltimestamp != 0)) {
