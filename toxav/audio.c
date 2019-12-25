@@ -102,6 +102,8 @@ ACSession *ac_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     ac->last_incoming_frame_ts = 0;
     ac->timestamp_difference_to_sender = 0; // no difference to sender as start value
 
+    ac->video_decoder_add_delay_ms_copy = 0;
+
     /* These need to be set in order to properly
      * do error correction with opus */
     ac->lp_frame_duration = AUDIO_MAX_FRAME_DURATION_MS;
@@ -168,6 +170,9 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     uint32_t timestamp_out_ = 0;
     int64_t want_remote_video_ts = (current_time_monotonic(ac->mono_time) + timestamp_difference_to_sender_ +
                                     timestamp_difference_adjustment_);
+
+    LOGGER_WARNING(log, "audio_read:before:%ld,%d", want_remote_video_ts, (int)ac->video_decoder_add_delay_ms_copy);
+
     *success = 0;
     uint16_t removed_entries;
 
@@ -183,7 +188,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     // HINT: compensate for older clients ----------------
 
 
-#if 0
+#if 1
 
     uint32_t timestamp_min = 0;
     uint32_t timestamp_max = 0;
@@ -216,6 +221,9 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
 
     if (res == true) {
         *success = 1;
+
+
+        LOGGER_WARNING(log, "audio_read:done:%ld,%ld", want_remote_video_ts, (int64_t)timestamp_out_);
 
 
         struct RTPMessage *m = (struct RTPMessage *)ret;
@@ -403,8 +411,10 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
              */
             rc = opus_decode(ac->decoder, msg->data + 4, msg->len - 4, ac->temp_audio_buffer, 5760, use_fec);
 
-#if 0
-
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+#if 1
             if (rc >= 0) {
                 // what is the audio to video latency?
                 const struct RTPHeader *header_v3 = (void *) & (msg->header);
@@ -420,12 +430,13 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
                         LOGGER_DEBUG(ac->log, "AUDIO: remote timestamp older");
                     }
                 }
+                // what is the audio to video latency?
             }
 
 #endif
-
-            // what is the audio to video latency?
-
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 
             free(msg);
             msg = NULL;
