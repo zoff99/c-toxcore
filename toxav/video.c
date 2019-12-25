@@ -840,7 +840,7 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     vc->dummy_ntp_local_end = 0;
     vc->dummy_ntp_remote_start = 0;
     vc->dummy_ntp_remote_end = 0;
-    vc->rountrip_time_ms = 0;
+    vc->rountrip_time_ms = 50; // set 50ms rountrip network time, before we get an actual value calculated
     vc->video_play_delay = 0;
     vc->video_play_delay_real = 0;
     vc->video_frame_buffer_entries = 0;
@@ -863,6 +863,7 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     vc->video_max_bitrate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264;
     vc->video_decoder_buffer_ms = MIN_AV_BUFFERING_MS;
     vc->video_decoder_add_delay_ms = 0;
+    vc->video_decoder_buffer_sum_ms = vc->video_decoder_buffer_ms + vc->video_decoder_add_delay_ms;
     vc->video_decoder_adjustment_base_ms = MIN_AV_BUFFERING_MS - AV_BUFFERING_DELTA_MS;
     vc->client_video_capture_delay_ms = 0;
     vc->remote_client_video_capture_delay_ms = 0;
@@ -1068,10 +1069,23 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
     tsb_get_range_in_buffer((TSBuffer *)vc->vbuf_raw, &timestamp_min, &timestamp_max);
 
 
-    int64_t want_remote_video_ts = (current_time_monotonic(m->mono_time) + vc->timestamp_difference_to_sender +
-                                    vc->timestamp_difference_adjustment);
+    /**
+     * this is the magic value that drifts with network delay changes:
+     * vc->timestamp_difference_adjustment
+     */
 
-    uint32_t timestamp_want_get = (uint32_t)want_remote_video_ts;
+    int want_remote_video_ts = ((int)current_time_monotonic(m->mono_time) + (int)vc->timestamp_difference_to_sender +
+                                    (int)vc->timestamp_difference_adjustment - (int)vc->video_decoder_buffer_sum_ms);
+
+    LOGGER_WARNING(vc->log, "VC_TS_CALC:01:%d %d %d %d %d",
+                        (int)want_remote_video_ts,
+                        (int)(current_time_monotonic(m->mono_time)),
+                        (int)vc->timestamp_difference_to_sender,
+                        (int)vc->timestamp_difference_adjustment,
+                        (int)vc->video_decoder_buffer_sum_ms
+                        );
+
+    uint32_t timestamp_want_get = (int)want_remote_video_ts;
 
 
     // HINT: compensate for older clients ----------------
@@ -1084,7 +1098,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
     // HINT: compensate for older clients ----------------
 
-#if 0
+#if 1
 
     if ((int)tsb_size((TSBuffer *)vc->vbuf_raw) > 0) {
         LOGGER_ERROR(vc->log, "FC:%d min=%ld max=%ld want=%d diff=%d adj=%d roundtrip=%d",
@@ -1099,6 +1113,9 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
 #endif
 
+
+// --------------- TODO: check this 001 --------------------
+#if 0
     // HINT: correct for very false values ------------
     if ((int)tsb_size((TSBuffer *)vc->vbuf_raw) > (VIDEO_RINGBUFFER_BUFFER_ELEMENTS - 2)) {
         // HINT: buffer with incoming video frames is very full
@@ -1125,6 +1142,40 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
             timestamp_want_get = (uint32_t)want_remote_video_ts;
         }
     }
+#endif
+// --------------- TODO: check this 001 --------------------
+
+
+
+
+
+
+
+
+
+
+#if 1
+        LOGGER_WARNING(vc->log, "rtt:drift:1:%d %d %d", (int)(vc->rountrip_time_ms),
+                     (int)(-vc->timestamp_difference_adjustment),
+                     (int)vc->video_decoder_adjustment_base_ms);
+
+        if (vc->rountrip_time_ms > (-vc->timestamp_difference_adjustment)) {
+            // drift
+            vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment - 1;
+            LOGGER_WARNING(vc->log, "rtt:drift:4:--1:%d", (int)(vc->timestamp_difference_adjustment));
+        } else if (vc->rountrip_time_ms < (-vc->timestamp_difference_adjustment)) {
+            // drift
+            vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment + 1;
+            LOGGER_WARNING(vc->log, "rtt:drift:7:+1:%d", (int)(vc->timestamp_difference_adjustment));
+        }
+
+#endif
+
+
+
+
+
+
 
 
     // HINT: correct for very false values ------------
@@ -1133,10 +1184,10 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
     uint16_t is_skipping = 0;
 
     // HINT: give me video frames that happend "now" minus some diff
-    //       get a videoframe for timestamp [timestamp_want_get + (uint32_t)(video_decoder_add_delay_ms)]
+    //       get a videoframe for timestamp [timestamp_want_get]
     if (tsb_read((TSBuffer *)vc->vbuf_raw, vc->log, (void **)&p, &frame_flags,
                  &timestamp_out_,
-                 timestamp_want_get + (uint32_t)(vc->video_decoder_add_delay_ms),
+                 timestamp_want_get,
                  vc->tsb_range_ms + vc->startup_video_timespan,
                  &removed_entries,
                  &is_skipping)) {
@@ -1185,7 +1236,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
 
 
-#if 1
+#if 0
         LOGGER_DEBUG(vc->log, "rtt:drift:1:%d %d %d", (int)(vc->rountrip_time_ms),
                      (int)(-vc->timestamp_difference_adjustment),
                      (int)vc->video_decoder_adjustment_base_ms);
@@ -1196,7 +1247,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                          (int)(-vc->timestamp_difference_adjustment - vc->video_decoder_adjustment_base_ms));
 
             LOGGER_DEBUG(vc->log, "rtt:drift:3:%d < %d", (int)(vc->timestamp_difference_adjustment),
-                         (int)(-vc->video_decoder_buffer_ms));
+                         (int)(-vc->video_decoder_buffer_sum_ms));
 
             if (tsb_size((TSBuffer *)vc->vbuf_raw) < 10) {
                 vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment - 1;
@@ -1209,9 +1260,9 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
             LOGGER_DEBUG(vc->log, "rtt:drift:5:%d << %d", (int)(vc->rountrip_time_ms),
                          (int)(-vc->timestamp_difference_adjustment - vc->video_decoder_adjustment_base_ms));
 
-            if (vc->timestamp_difference_adjustment <= -vc->video_decoder_buffer_ms) {
+            if (vc->timestamp_difference_adjustment <= -vc->video_decoder_buffer_sum_ms) {
                 LOGGER_DEBUG(vc->log, "rtt:drift:6:%d < %d", (int)(vc->timestamp_difference_adjustment),
-                             (int)(-vc->video_decoder_buffer_ms));
+                             (int)(-vc->video_decoder_buffer_sum_ms));
 
                 vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment + 1;
                 LOGGER_DEBUG(vc->log, "rtt:drift:7:+1:%d", (int)(vc->timestamp_difference_adjustment));
@@ -1235,7 +1286,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
         vc->video_frame_buffer_entries = (uint32_t)tsb_size((TSBuffer *)vc->vbuf_raw);
 
-        LOGGER_DEBUG(vc->log,
+        LOGGER_WARNING(vc->log,
                      "seq:%d FC:%d min=%d max=%d want=%d got=%d diff=%d rm=%d pdelay=%d pdelayr=%d adj=%d dts=%d rtt=%d",
                      (int)header_v3_0->sequnum,
                      (int)tsb_size((TSBuffer *)vc->vbuf_raw),
@@ -1255,7 +1306,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
         int32_t diff_want_to_got = (int)timestamp_want_get - (int)timestamp_out_;
 
 
-        LOGGER_DEBUG(vc->log, "values:diff_to_sender=%d adj=%d tsb_range=%d bufsize=%d",
+        LOGGER_WARNING(vc->log, "values:diff_to_sender=%d adj=%d tsb_range=%d bufsize=%d",
                      (int)vc->timestamp_difference_to_sender, (int)vc->timestamp_difference_adjustment,
                      (int)vc->tsb_range_ms,
                      (int)buf_size);
@@ -1269,7 +1320,12 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
         // TODO: make it available to the audio session
         // bad hack -> make better!
-        *timestamp_difference_adjustment_ = vc->timestamp_difference_adjustment;
+        // ----------
+        // give only the "vc->video_decoder_buffer_ms" to the audio track
+        // not the "video_decoder_buffer_sum_ms"
+        // so to have video delayed in reference to the audio track
+        // ----------
+        *timestamp_difference_adjustment_ = vc->timestamp_difference_adjustment - vc->video_decoder_buffer_ms;
 
 
         LOGGER_DEBUG(vc->log, "--VSEQ:%d", (int)header_v3_0->sequnum);
