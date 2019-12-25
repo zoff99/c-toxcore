@@ -375,6 +375,11 @@ void toxav_iterate(ToxAV *av)
                 break;
             }
 
+
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+#if 1
             if ((i->last_incoming_audio_frame_ltimestamp != 0)
                     &&
                     (i->last_incoming_video_frame_ltimestamp != 0)) {
@@ -391,12 +396,12 @@ void toxav_iterate(ToxAV *av)
                                          );
 
 
-                    LOGGER_DEBUG(av->m->log, "VIDEO:delay-to-audio-in-ms=%lld", (long long)latency_ms);
+                    LOGGER_WARNING(av->m->log, "VIDEO:delay-to-audio-in-ms=%lld", (long long)latency_ms);
                     // LOGGER_INFO(av->m->log, "CLOCK:delay-to-rmote-in-ms=%lld", (long long)(i->reference_diff_timestamp));
-                    LOGGER_DEBUG(av->m->log, "VIDEO:delay-to-refnc-in-ms=%lld",
+                    LOGGER_WARNING(av->m->log, "VIDEO:delay-to-refnc-in-ms=%lld",
                                  (long long) - ((i->last_incoming_video_frame_ltimestamp - i->reference_diff_timestamp) -
                                                 i->last_incoming_video_frame_rtimestamp));
-                    LOGGER_DEBUG(av->m->log, "AUDIO:delay-to-refnc-in-ms=%lld",
+                    LOGGER_WARNING(av->m->log, "AUDIO:delay-to-refnc-in-ms=%lld",
                                  (long long) - ((i->last_incoming_audio_frame_ltimestamp - i->reference_diff_timestamp) -
                                                 i->last_incoming_audio_frame_rtimestamp));
 
@@ -413,6 +418,12 @@ void toxav_iterate(ToxAV *av)
                     //);
                 }
             }
+#endif
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+
+
         }
     }
 
@@ -822,13 +833,16 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
             LOGGER_WARNING(av->m->log, "video decoder video_decoder_add_delay_ms already set to: %d", (int)value);
         } else {
 
-            if (((int32_t)value < 0) || ((int32_t)value > 1000)) {
+            if (((int32_t)value < 0) || ((int32_t)value > 1200)) {
                 LOGGER_WARNING(av->m->log, "video decoder video_decoder_add_delay_ms value outside of valid range: %d", (int)value);
             } else {
                 vc->video_decoder_add_delay_ms = (int32_t)value;
             }
 
-            LOGGER_WARNING(av->m->log, "video decoder setting video_decoder_add_delay_ms to: %d", (int)value);
+            ACSession *ac = (ACSession *)call->audio;
+            ac->video_decoder_add_delay_ms_copy = vc->video_decoder_add_delay_ms;
+            vc->video_decoder_buffer_sum_ms = vc->video_decoder_buffer_ms + vc->video_decoder_add_delay_ms;
+            LOGGER_WARNING(av->m->log, "video decoder setting video_decoder_add_delay_ms to: %d", (int)vc->video_decoder_buffer_sum_ms);
         }
     } else if (option == TOXAV_DECODER_VIDEO_BUFFER_MS) {
         VCSession *vc = (VCSession *)call->video;
@@ -843,6 +857,8 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
             } else {
                 vc->video_decoder_adjustment_base_ms = 1;
             }
+
+            vc->video_decoder_buffer_sum_ms = vc->video_decoder_buffer_ms + vc->video_decoder_add_delay_ms;
 
             LOGGER_WARNING(av->m->log, "video decoder setting video_decoder_buffer_ms to: %d", (int)value);
         }

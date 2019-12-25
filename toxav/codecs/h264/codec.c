@@ -1419,6 +1419,18 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
             // start_time_ms = current_time_monotonic(m->mono_time);
             if ((frame->data[0] != NULL) && (frame->data[1] != NULL) && (frame->data[2] != NULL))
             {
+
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+#if 1
+                *v_r_timestamp = h_frame_record_timestamp;
+                *v_l_timestamp = current_time_monotonic(m->mono_time);
+#endif
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+
                 vc->vcb(vc->av, vc->friend_number, frame->width, frame->height,
                         (const uint8_t *)frame->data[0],
                         (const uint8_t *)frame->data[1],
