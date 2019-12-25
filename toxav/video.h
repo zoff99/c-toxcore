@@ -125,7 +125,7 @@ typedef enum PACKET_TOXAV_COMM_CHANNEL_FUNCTION {
 #else
 // -------------------------------------
 //  can buffer ~ (VIDEO_RINGBUFFER_BUFFER_ELEMENTS * 40ms@25fps) --> can hold this much video data in ms for audio-to-video delay
-#define VIDEO_RINGBUFFER_BUFFER_ELEMENTS (42) // this buffer has normally max. ~2 entry
+#define VIDEO_RINGBUFFER_BUFFER_ELEMENTS (142) // this buffer has normally max. ~2 entry
 // -------------------------------------
 #define VIDEO_RINGBUFFER_FILL_THRESHOLD (2) // start decoding at lower quality
 #define VIDEO_RINGBUFFER_DROP_THRESHOLD (5) // start dropping incoming frames (except index frames)
@@ -255,6 +255,7 @@ typedef struct VCSession_s {
     uint8_t encoder_frame_has_record_timestamp;
     int32_t video_decoder_buffer_ms;
     int32_t video_decoder_add_delay_ms;
+    int32_t video_decoder_buffer_sum_ms;
     int32_t video_decoder_adjustment_base_ms;
     int32_t client_video_capture_delay_ms;
     int32_t remote_client_video_capture_delay_ms;
