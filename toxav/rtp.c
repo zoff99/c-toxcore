@@ -39,6 +39,11 @@
 #include <stdlib.h>
 
 
+// for H264 ----------
+#include <libavcodec/avcodec.h>
+// for H264 ----------
+
+
 #define DISABLE_H264_ENCODER_FEATURE    0
 
 
@@ -50,7 +55,8 @@ static struct RTPMessage *new_message(const struct RTPHeader *header, size_t all
                                       uint16_t data_length)
 {
     assert(allocate_len >= data_length);
-    struct RTPMessage *msg = (struct RTPMessage *)calloc(1, sizeof(struct RTPMessage) + allocate_len);
+    // AV_INPUT_BUFFER_PADDING_SIZE --> is needed later if we give it to ffmpeg!
+    struct RTPMessage *msg = (struct RTPMessage *)calloc(1, sizeof(struct RTPMessage) + allocate_len + AV_INPUT_BUFFER_PADDING_SIZE);
 
     if (msg == nullptr) {
         return nullptr;
@@ -252,7 +258,8 @@ static bool fill_data_into_slot(Logger *log, struct RTPWorkBufferList *wkbl, con
 
         // No data for this slot has been received, yet, so we create a new
         // message for it with enough memory for the entire frame.
-        struct RTPMessage *msg = (struct RTPMessage *)calloc(1, sizeof(struct RTPMessage) + header->data_length_full);
+        // AV_INPUT_BUFFER_PADDING_SIZE --> is needed later if we give it to ffmpeg!
+        struct RTPMessage *msg = (struct RTPMessage *)calloc(1, sizeof(struct RTPMessage) + header->data_length_full + AV_INPUT_BUFFER_PADDING_SIZE);
 
         if (msg == nullptr) {
             LOGGER_DEBUG(log, "Out of memory while trying to allocate for frame of size %u\n",
