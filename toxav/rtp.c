@@ -369,7 +369,8 @@ static bool fill_data_into_slot(Tox *tox, struct RTPWorkBufferList *wkbl, const 
 
         // No data for this slot has been received, yet, so we create a new
         // message for it with enough memory for the entire frame.
-        struct RTPMessage *msg = (struct RTPMessage *)calloc(1, sizeof(struct RTPMessage) + header->data_length_full);
+        // AV_INPUT_BUFFER_PADDING_SIZE --> is needed later if we give it to ffmpeg!
+        struct RTPMessage *msg = (struct RTPMessage *)calloc(1, sizeof(struct RTPMessage) + header->data_length_full + AV_INPUT_BUFFER_PADDING_SIZE);
 
         if (msg == nullptr) {
             LOGGER_API_ERROR(tox, "Out of memory while trying to allocate for frame of size %u\n",
