@@ -296,11 +296,15 @@ void toxav_iterate(ToxAV *av)
                                             &(i->call_timestamp_difference_to_sender)
                                            );
 
+#if 0
                 if (res_ac == 2) {
                     i->skip_video_flag = 1;
                 } else {
                     i->skip_video_flag = 0;
                 }
+#else
+                i->skip_video_flag = 0;
+#endif
             }
 
             // ------- av_iterate for audio -------
