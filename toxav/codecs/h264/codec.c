@@ -1271,7 +1271,7 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
     // uint32_t end_time_ms = current_time_monotonic(m->mono_time);
     // LOGGER_WARNING(vc->log, "decode_frame_h264:001: %d ms", (int)(end_time_ms - start_time_ms));
 
-    compr_data->data = tmp_buf; // p->data;
+    compr_data->data = p->data; // tmp_buf; // p->data;
     compr_data->size = (int)full_data_len; // hmm, "int" again
 
     if (header_v3->frame_record_timestamp > 0) {
@@ -1301,7 +1301,7 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
     {
         LOGGER_DEBUG(vc->log, "avcodec_send_packet:ERROR=%d", result_send_packet);
         av_packet_free(&compr_data);
-        free(tmp_buf);
+        // free(tmp_buf);
         free(p);
         p = NULL;
         return;
@@ -1457,7 +1457,7 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
     // LOGGER_WARNING(vc->log, "decode_frame_h264:007: %d ms", (int)(end_time_ms - start_time_ms));
 
     // HINT: dirty hack to add FF_INPUT_BUFFER_PADDING_SIZE bytes!! ----------
-    free(tmp_buf);
+    // free(tmp_buf);
     // HINT: dirty hack to add FF_INPUT_BUFFER_PADDING_SIZE bytes!! ----------
 
     free(p);
