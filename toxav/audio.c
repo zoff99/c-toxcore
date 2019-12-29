@@ -144,14 +144,15 @@ void ac_kill(ACSession *ac)
     free(ac);
 }
 
+// int global_last_aiterate_ts = 0;
+
 static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int32_t *success,
         int64_t timestamp_difference_adjustment_,
         int64_t timestamp_difference_to_sender_,
         uint8_t encoder_frame_has_record_timestamp,
         ACSession *ac)
 {
-#define AUDIO_CURRENT_TS_SPAN_MS 60
-// #define AUDIO_AHEAD_OF_VIDEO_MS 20
+#define AUDIO_CURRENT_TS_SPAN_MS 65
 
     void *ret = NULL;
     uint64_t lost_frame = 0;
@@ -183,7 +184,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     tsb_get_range_in_buffer(q, &timestamp_min, &timestamp_max);
 
     if ((int)tsb_size(q) > 0) {
-        LOGGER_DEBUG(log, "FC:%d min=%ld max=%ld want=%d diff=%d adj=%d",
+        LOGGER_WARNING(log, "FC:%d min=%ld max=%ld want=%d diff=%d adj=%d",
                      (int)tsb_size(q),
                      timestamp_min,
                      timestamp_max,
@@ -202,6 +203,18 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
                         tsb_range_ms,
                         &removed_entries,
                         &is_skipping);
+
+//     if (res == true) {
+//         struct RTPMessage *m_debug = (struct RTPMessage *)ret;
+//         LOGGER_WARNING(log, "tsb_read got: now=%d iter=%d seq:%d FC:%d is_skipping=%d",
+//                           (int)current_time_monotonic(ac->mono_time),
+//                           (int)current_time_monotonic(ac->mono_time) - global_last_aiterate_ts,
+//                           (int)m_debug->header.sequnum,
+//                           (int)tsb_size(q),
+//                           (int)is_skipping);
+// 
+//         global_last_aiterate_ts = (int)current_time_monotonic(ac->mono_time);
+//     }
 
     if (removed_entries > 0) {
         LOGGER_DEBUG(log, "removed entries=%d", (int)removed_entries);
@@ -283,7 +296,6 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
     if (jbuf_is_empty(jbuffer)) {
         return 0;
     }
-
 
     /* Enough space for the maximum frame size (120 ms 48 KHz stereo audio) */
     //int16_t temp_audio_buffer[AUDIO_MAX_BUFFER_SIZE_PCM16_FOR_FRAME_PER_CHANNEL *
