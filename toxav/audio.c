@@ -140,7 +140,7 @@ void ac_kill(ACSession *ac)
     free(ac);
 }
 
-// int global_last_aiterate_ts = 0;
+// static int global_last_aiterate_ts = 0;
 
 static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int32_t *success,
         int64_t timestamp_difference_adjustment_,
@@ -200,17 +200,19 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
                         &removed_entries,
                         &is_skipping);
 
-//     if (res == true) {
-//         struct RTPMessage *m_debug = (struct RTPMessage *)ret;
-//         LOGGER_WARNING(log, "tsb_read got: now=%d iter=%d seq:%d FC:%d is_skipping=%d",
-//                           (int)current_time_monotonic(ac->mono_time),
-//                           (int)current_time_monotonic(ac->mono_time) - global_last_aiterate_ts,
-//                           (int)m_debug->header.sequnum,
-//                           (int)tsb_size(q),
-//                           (int)is_skipping);
-// 
-//         global_last_aiterate_ts = (int)current_time_monotonic(ac->mono_time);
-//     }
+#if 0
+    if (res == true) {
+        struct RTPMessage *m_debug = (struct RTPMessage *)ret;
+        LOGGER_WARNING(log, "tsb_read got: now=%d iter=%d seq:%d FC:%d is_skipping=%d",
+                          (int)current_time_monotonic(ac->mono_time),
+                          (int)current_time_monotonic(ac->mono_time) - global_last_aiterate_ts,
+                          (int)m_debug->header.sequnum,
+                          (int)tsb_size(q),
+                          (int)is_skipping);
+
+        global_last_aiterate_ts = (int)current_time_monotonic(ac->mono_time);
+    }
+#endif
 
     if (removed_entries > 0) {
         LOGGER_DEBUG(log, "removed entries=%d", (int)removed_entries);
