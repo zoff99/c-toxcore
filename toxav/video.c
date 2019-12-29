@@ -287,8 +287,8 @@ void video_switch_decoder(VCSession *vc, TOXAV_ENCODER_CODEC_USED_VALUE decoder_
     }
 }
 
-// int global_last_viterate_ts = 0;
-// int global___ts1 = 0;
+// static int global_last_viterate_ts = 0;
+// static int global___ts1 = 0;
 
 /* --- VIDEO DECODING happens here --- */
 /* --- VIDEO DECODING happens here --- */
