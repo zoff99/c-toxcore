@@ -1005,6 +1005,12 @@ static Toxav_Err_Send_Frame send_frames(ToxAV *av, ToxAVCall *call)
 bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height, const uint8_t *y,
                             const uint8_t *u, const uint8_t *v, TOXAV_ERR_SEND_FRAME *error)
 {
+    return toxav_video_send_frame_age(av, friend_number, width, height, y, u, v, error, 0);
+}
+
+bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height, const uint8_t *y,
+                            const uint8_t *u, const uint8_t *v, TOXAV_ERR_SEND_FRAME *error, uint32_t age_ms)
+{
     TOXAV_ERR_SEND_FRAME rc = TOXAV_ERR_SEND_FRAME_OK;
     ToxAVCall *call;
 
@@ -1347,14 +1353,20 @@ END:
 /* --- VIDEO EN-CODING happens here --- */
 /* --- VIDEO EN-CODING happens here --- */
 
-
 bool toxav_video_send_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height, const uint8_t *buf,
                                  uint32_t data_len, TOXAV_ERR_SEND_FRAME *error)
+{
+    return toxav_video_send_frame_h264_age(av, friend_number, width, height, buf, data_len, error, 0);
+}
+
+bool toxav_video_send_frame_h264_age(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height, const uint8_t *buf,
+                                 uint32_t data_len, TOXAV_ERR_SEND_FRAME *error, uint32_t age_ms)
 {
     TOXAV_ERR_SEND_FRAME rc = TOXAV_ERR_SEND_FRAME_OK;
     ToxAVCall *call;
 
-    uint64_t video_frame_record_timestamp = current_time_monotonic(av->m->mono_time);
+    // add the time the data has already aged (in the client)
+    uint64_t video_frame_record_timestamp = current_time_monotonic(av->m->mono_time) + age_ms;
 
     if (m_friend_exists(av->m, friend_number) == 0) {
         rc = TOXAV_ERR_SEND_FRAME_FRIEND_NOT_FOUND;
