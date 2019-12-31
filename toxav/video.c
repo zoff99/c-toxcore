@@ -1077,8 +1077,18 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
      * vc->timestamp_difference_adjustment
      */
 
-    int want_remote_video_ts = ((int)current_time_monotonic(m->mono_time) + (int)vc->timestamp_difference_to_sender +
-                                    (int)vc->timestamp_difference_adjustment - (int)vc->video_decoder_buffer_sum_ms);
+    int want_remote_video_ts;
+    if ((int)vc->video_decoder_buffer_sum_ms < (int)vc->video_decoder_buffer_ms)
+    {
+        want_remote_video_ts = ((int)current_time_monotonic(m->mono_time) + (int)vc->timestamp_difference_to_sender +
+                                        (int)vc->timestamp_difference_adjustment - (int)vc->video_decoder_buffer_ms);
+    }
+    else
+    {
+        want_remote_video_ts = ((int)current_time_monotonic(m->mono_time) + (int)vc->timestamp_difference_to_sender +
+                                        (int)vc->timestamp_difference_adjustment - (int)vc->video_decoder_buffer_sum_ms);
+    }
+
 
     LOGGER_DEBUG(vc->log, "VC_TS_CALC:01:%d %d %d %d %d",
                         (int)want_remote_video_ts,
@@ -1204,14 +1214,17 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
 
 
-        // TODO: make it available to the audio session
+        // TODO: calculate the delay for the audio stream, and pass ist back
         // bad hack -> make better!
-        // ----------
-        // give only the "vc->video_decoder_buffer_ms" to the audio track
-        // not the "video_decoder_buffer_sum_ms"
-        // so to have video delayed in reference to the audio track
-        // ----------
-        *timestamp_difference_adjustment_ = vc->timestamp_difference_adjustment - vc->video_decoder_buffer_ms;
+        // -----------------------------
+        if ((int)vc->video_decoder_buffer_sum_ms < (int)vc->video_decoder_buffer_ms)
+        {
+            *timestamp_difference_adjustment_ = vc->timestamp_difference_adjustment - (vc->video_decoder_buffer_ms - vc->video_decoder_add_delay_ms);
+        }
+        else
+        {
+            *timestamp_difference_adjustment_ = vc->timestamp_difference_adjustment - vc->video_decoder_buffer_ms;
+        }
 
 
         LOGGER_DEBUG(vc->log, "--VSEQ:%d", (int)header_v3_0->sequnum);
