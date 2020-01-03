@@ -1564,8 +1564,8 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
         LOGGER_ERROR(av->m->log, "av_frame_make_writable:ERROR");
     }
 
+    LOGGER_DEBUG(av->m->log, "video packet record time[ECN:4a]: %d mtime=%d", (int)(*video_frame_record_timestamp), (int)current_time_monotonic(av->m->mono_time));
     frame->pts = (int64_t)(*video_frame_record_timestamp);
-
 
     // copy YUV frame data into buffers
     memcpy(frame->data[0], y, width * height);
@@ -1600,9 +1600,11 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
                         );
         }
 
+        LOGGER_DEBUG(av->m->log, "video packet record time[ECN:4b]: %d mtime=%d", (int)(*video_frame_record_timestamp), (int)current_time_monotonic(av->m->mono_time));
+        *video_frame_record_timestamp = (uint64_t)call->video->h264_out_pic2->pts;
+        LOGGER_DEBUG(av->m->log, "video packet record time[ECN:4c]: %d mtime=%d", (int)(*video_frame_record_timestamp), (int)current_time_monotonic(av->m->mono_time));
 
         *i_frame_size = call->video->h264_out_pic2->size;
-        *video_frame_record_timestamp = (uint64_t)call->video->h264_out_pic2->pts;
 
         result = 0;
     }
@@ -1670,12 +1672,13 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
 
     if (*i_frame_size > 0) {
 
-        *video_frame_record_timestamp = (uint64_t)call->video->h264_out_pic2->pts;
+        LOGGER_DEBUG(av->m->log, "video packet record time[1a]: %d", (int)(*video_frame_record_timestamp));
+        // *video_frame_record_timestamp = (uint64_t)call->video->h264_out_pic2->pts;
+        LOGGER_DEBUG(av->m->log, "video packet record time[1b]: %d mtime=%d", (int)(*video_frame_record_timestamp), (int)current_time_monotonic(av->m->mono_time));
         const uint32_t frame_length_in_bytes = *i_frame_size;
         const int keyframe = (int)1;
 
-        // LOGGER_ERROR(av->m->log, "video packet record time[1]: %lu", (*video_frame_record_timestamp));
-        *video_frame_record_timestamp = current_time_monotonic(av->m->mono_time);
+        // *video_frame_record_timestamp = current_time_monotonic(av->m->mono_time);
         // LOGGER_ERROR(av->m->log, "video packet record time[2]: %lu", (*video_frame_record_timestamp));
 
 
