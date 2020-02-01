@@ -222,9 +222,6 @@ void toxav_audio_iterate(ToxAV *av)
     for (; i; i = i->next) {
 
         if (i->active) {
-            // pthread_mutex_lock(i->mutex);
-            // pthread_mutex_unlock(av->mutex);
-
             uint8_t res_ac = ac_iterate(i->audio,
                                         &(i->last_incoming_audio_frame_rtimestamp),
                                         &(i->last_incoming_audio_frame_ltimestamp),
@@ -233,12 +230,6 @@ void toxav_audio_iterate(ToxAV *av)
                                         &(i->call_timestamp_difference_adjustment),
                                         &(i->call_timestamp_difference_to_sender)
                                        );
-
-            // uint32_t fid = i->friend_number;
-
-            // pthread_mutex_unlock(i->mutex);
-            // pthread_mutex_lock(av->mutex);
-
         }
     }
 }
