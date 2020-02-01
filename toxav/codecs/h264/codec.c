@@ -1526,14 +1526,10 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
     }
 
     if (*nal == NULL) {
-        //pthread_mutex_unlock(call->mutex_video);
-        //goto END;
         return 1;
     }
 
     if ((*nal)->p_payload == NULL) {
-        //pthread_mutex_unlock(call->mutex_video);
-        //goto END;
         return 1;
     }
 
