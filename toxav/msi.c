@@ -221,16 +221,16 @@ int msi_hangup(MSICall *call)
 
     MSISession *session = call->session;
 
-    LOGGER_DEBUG(session->messenger->log, "Session: %p Hanging up call with friend: %u", (void *)call->session,
-                 call->friend_number);
+    // LOGGER_DEBUG(session->messenger->log, "Session: %p Hanging up call with friend: %u", (void *)call->session,
+    //             call->friend_number);
 
     if (pthread_mutex_trylock(session->mutex) != 0) {
-        LOGGER_ERROR(session->messenger->log, "Failed to acquire lock on msi mutex");
+        // LOGGER_ERROR(session->messenger->log, "Failed to acquire lock on msi mutex");
         return -1;
     }
 
     if (call->state == MSI_CALL_INACTIVE) {
-        LOGGER_ERROR(session->messenger->log, "Call is in invalid state!");
+        // LOGGER_ERROR(session->messenger->log, "Call is in invalid state!");
         pthread_mutex_unlock(session->mutex);
         return -1;
     }
