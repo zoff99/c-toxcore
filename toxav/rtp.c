@@ -406,7 +406,6 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
 
 
         // LOGGER_DEBUG(log, "-- handle_video_packet -- CALLBACK-001a b0=%d b1=%d", (int)m_new->data[0], (int)m_new->data[1]);
-        //**// update_bwc_values(log, session, m_new);
         // Pass ownership of m_new to the callback.
         session->mcb(session->m->mono_time, session->cs, m_new);
         // Now we no longer own m_new.
@@ -482,7 +481,6 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
         LOGGER_DEBUG(log, "FPATH:11:slot num=%d:VSEQ:%d", slot_id, (int)m_new->header.sequnum);
 
         // LOGGER_DEBUG(log, "-- handle_video_packet -- CALLBACK-003a b0=%d b1=%d", (int)m_new->data[0], (int)m_new->data[1]);
-        //**//update_bwc_values(log, session, m_new);
         session->mcb(session->m->mono_time, session->cs, m_new);
 
         m_new = NULL;
@@ -824,7 +822,6 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
         /* Message is not late; pick up the latest parameters */
         session->rsequnum = header.sequnum;
         session->rtimestamp = header.timestamp;
-        // bwc_add_recv(session->bwc, length);
 
         /* Invoke processing of active multiparted message */
         if (session->mp) {
@@ -865,7 +862,6 @@ static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t 
             memcpy(session->mp->data + header.offset_lower, data + RTP_HEADER_SIZE,
                    length - RTP_HEADER_SIZE);
             session->mp->len += length - RTP_HEADER_SIZE;
-            // bwc_add_recv(session->bwc, length);
 
             if (session->mp->len == session->mp->header.data_length_lower) {
                 /* Received a full message; now push it for the further
@@ -898,7 +894,6 @@ NEW_MULTIPARTED:
         /* Message is not late; pick up the latest parameters */
         session->rsequnum = header.sequnum;
         session->rtimestamp = header.timestamp;
-        // bwc_add_recv(session->bwc, length);
 
         /* Store message.
          */

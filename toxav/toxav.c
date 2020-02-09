@@ -1305,8 +1305,8 @@ bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pc
             _debug_count_sent_audio_frames = 0;
         } else {
 #endif
-            LOGGER_DEBUG(av->m->log, "audio packet record time: seqnum=%d %llu", (int)call->audio_rtp->sequnum,
-                         audio_frame_record_timestamp);
+            LOGGER_DEBUG(av->m->log, "audio packet record time: seqnum=%d %d", (int)call->audio_rtp->sequnum,
+                         (int)audio_frame_record_timestamp);
 
             uint16_t seq_num_save = call->audio_rtp->sequnum;
 
@@ -1890,7 +1890,7 @@ bool toxav_video_send_frame_h264_age(ToxAV *av, uint32_t friend_number, uint16_t
         const uint32_t frame_length_in_bytes = data_len;
         const int keyframe = (int)0; // TODO: use the actual value!
 
-        LOGGER_DEBUG(av->m->log, "video packet record time: %llu", (video_frame_record_timestamp));
+        LOGGER_DEBUG(av->m->log, "video packet record time: %d", (int)(video_frame_record_timestamp));
 
         int res = rtp_send_data
                   (
