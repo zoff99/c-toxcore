@@ -27,7 +27,7 @@ static void dummy()
 // #define LOGGER_INFO(log, ...) dummy()
 
 #define BWC_PACKET_ID (196)
-#define BWC_SEND_INTERVAL_MS (950)     // 0.95s
+#define BWC_SEND_INTERVAL_MS (200)     // in milliseconds
 
 /**
  *
@@ -124,19 +124,7 @@ void bwc_kill(BWController *bwc)
     free(bwc);
 }
 
-void bwc_feed_avg(BWController *bwc, uint32_t bytes)
-{
-}
-
-/*
- * this function name is confusing
- * it should be called for every packet that has lost bytes, and called with how many bytes are ok
- */
-void bwc_add_lost(BWController *bwc, uint32_t bytes_received_ok)
-{
-}
-
-void bwc_add_lost_v3(BWController *bwc, uint32_t bytes_lost, bool force_update_now)
+void bwc_add_lost_v3(BWController *bwc, uint32_t bytes_lost, bool dummy)
 {
     if (!bwc) {
         return;
@@ -145,7 +133,7 @@ void bwc_add_lost_v3(BWController *bwc, uint32_t bytes_lost, bool force_update_n
     LOGGER_DEBUG(bwc->m->log, "BWC lost(1): %d", (int)bytes_lost);
 
     bwc->cycle.lost = bwc->cycle.lost + bytes_lost;
-    send_update(bwc, force_update_now);
+    send_update(bwc, dummy);
 }
 
 static void send_update(BWController *bwc)
@@ -175,6 +163,9 @@ static void send_update(BWController *bwc)
 
 #endif
         }
+        else
+        {
+            bwc->cycle.last_sent_timestamp = current_time_monotonic(bwc->m->mono_time);
 
         bwc->cycle.last_sent_timestamp = current_time_monotonic(bwc->bwc_mono_time);
         bwc->cycle.lost = 0;
@@ -186,8 +177,6 @@ static void send_update(BWController *bwc)
 static int on_update(BWController *bwc, const struct BWCMessage *msg)
 {
     LOGGER_DEBUG(bwc->m->log, "%p Got update from peer", (void *)bwc);
-
-#if 1
 
     /* Peers sent update too soon */
     if (bwc->cycle.last_recv_timestamp + BWC_SEND_INTERVAL_MS > current_time_monotonic(bwc->bwc_mono_time)) {
