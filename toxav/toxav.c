@@ -1477,7 +1477,7 @@ bool toxav_video_send_frame_h264_age(ToxAV *av, uint32_t friend_number, uint16_t
         const uint32_t frame_length_in_bytes = data_len;
         const int keyframe = (int)0; // TODO: use the actual value!
 
-        LOGGER_DEBUG(av->m->log, "video packet record time: %llu", (video_frame_record_timestamp));
+        LOGGER_DEBUG(av->m->log, "video packet record time: %d", (int)(video_frame_record_timestamp));
 
         int res = rtp_send_data
                   (
