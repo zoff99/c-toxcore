@@ -2000,46 +2000,14 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
 
     pthread_mutex_lock(call->av->mutex);
 
-    // HINT: on high bitrates we lower the bitrate even on small data loss
-    if (call->video_bit_rate > VIDEO_BITRATE_SCALAR3_AUTO_VALUE_H264) {
-        if ((loss * 100) > VIDEO_BITRATE_AUTO_INC_THRESHOLD) {
-            int64_t tmp = (int64_t)((float)call->video_bit_rate * ((1.0f - loss) * VIDEO_BITRATE_AUTO_DEC_FACTOR));
-
-            if (tmp <= 0) {
-                tmp = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
-            }
-
-            call->video_bit_rate = (uint32_t)tmp;
-
-            // HINT: sanity check --------------
-            if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
-                call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
-            } else if (call->video_bit_rate > VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
-                call->video_bit_rate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264;
-            }
-
-            if (call->video_bit_rate > (uint32_t)call->video->video_max_bitrate) {
-                call->video_bit_rate = (uint32_t)call->video->video_max_bitrate;
-            }
-
-            // HINT: sanity check --------------
-
-            LOGGER_ERROR(call->av->m->log, "callback_bwc:DEC:1:H:vb=%d loss=%d", (int)call->video_bit_rate, (int)(loss * 100));
-
-            pthread_mutex_unlock(call->av->mutex);
-            return;
-        }
-    }
-
     if ((loss * 100) < VIDEO_BITRATE_AUTO_INC_THRESHOLD) {
         if (call->video_bit_rate < VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
 
-            if (call->video_bit_rate < VIDEO_BITRATE_SCALAR_AUTO_VALUE_H264) {
-                call->video_bit_rate = call->video_bit_rate + VIDEO_BITRATE_SCALAR_INC_BY_AUTO_VALUE_H264;
-            } else if (call->video_bit_rate > VIDEO_BITRATE_SCALAR2_AUTO_VALUE_H264) {
+            if (call->video_bit_rate > VIDEO_BITRATE_SCALAR2_AUTO_VALUE_H264) {
                 call->video_bit_rate = call->video_bit_rate + VIDEO_BITRATE_SCALAR2_INC_BY_AUTO_VALUE_H264;
-            } else {
-                call->video_bit_rate = (uint32_t)((float)call->video_bit_rate * (float)VIDEO_BITRATE_AUTO_INC_TO);
+            }
+            else {
+                call->video_bit_rate = call->video_bit_rate + VIDEO_BITRATE_SCALAR_INC_BY_AUTO_VALUE_H264;
             }
 
             // HINT: sanity check --------------
@@ -2060,9 +2028,9 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
     } else if ((loss * 100) > VIDEO_BITRATE_AUTO_DEC_THRESHOLD) {
         if (call->video_bit_rate > VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
 
-            int64_t tmp = (int64_t)((float)call->video_bit_rate * ((1.0f - loss) * VIDEO_BITRATE_AUTO_DEC_FACTOR));
+            int64_t tmp = (int64_t)call->video_bit_rate - (VIDEO_BITRATE_SCALAR_DEC_BY_AUTO_VALUE_H264 * (int)(loss * 100));
 
-            if (tmp <= 0) {
+            if (tmp <= VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
                 tmp = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
             }
 
