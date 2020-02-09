@@ -36,9 +36,6 @@
 
 #define BWC_PACKET_ID (196)
 #define BWC_SEND_INTERVAL_MS (950)     // 0.95s
-#define BWC_REFRESH_INTERVAL_MS (2000) // 2.00s
-#define BWC_AVG_PKT_COUNT (20)
-#define BWC_AVG_LOSS_OVER_CYCLES_COUNT (50)
 
 /**
  *
@@ -53,22 +50,12 @@ typedef struct BWCCycle {
     uint32_t recv;
 } BWCCycle;
 
-typedef struct BWCRcvPkt {
-    uint32_t packet_length_array[BWC_AVG_PKT_COUNT];
-    RingBuffer *rb;
-} BWCRcvPkt;
-
 struct BWController_s {
     m_cb *mcb;
     void *mcb_user_data;
-
     Messenger *m;
     uint32_t friend_number;
-
     BWCCycle cycle;
-
-    BWCRcvPkt rcvpkt; /* To calculate average received packet (this means split parts, not the full message!) */
-
     uint32_t packet_loss_counted_cycles;
 };
 
@@ -95,18 +82,10 @@ BWController *bwc_new(Messenger *m, uint32_t friendnumber, m_cb *mcb, void *mcb_
     uint64_t now = current_time_monotonic(m->mono_time);
     retu->cycle.last_sent_timestamp = now;
     retu->cycle.last_refresh_timestamp = now;
-    retu->rcvpkt.rb = rb_new(BWC_AVG_PKT_COUNT);
 
     retu->cycle.lost = 0;
     retu->cycle.recv = 0;
     retu->packet_loss_counted_cycles = 0;
-
-    /* Fill with zeros */
-    for (i = 0; i < BWC_AVG_PKT_COUNT; ++i) {
-        uint32_t *j = (retu->rcvpkt.packet_length_array + i);
-        *j = 0;
-        rb_write(retu->rcvpkt.rb, j, 0);
-    }
 
     m_callback_rtp_packet(m, friendnumber, BWC_PACKET_ID, bwc_handle_data, retu);
 
@@ -121,7 +100,6 @@ void bwc_kill(BWController *bwc)
 
     m_callback_rtp_packet(bwc->m, bwc->friend_number, BWC_PACKET_ID, NULL, NULL);
 
-    rb_kill(bwc->rcvpkt.rb);
     free(bwc);
 }
 
@@ -164,11 +142,10 @@ void bwc_add_recv(BWController *bwc, uint32_t recv_bytes)
 }
 
 
-void send_update(BWController *bwc, bool force_update_now)
+void send_update(BWController *bwc, bool dummy)
 {
-    if ((current_time_monotonic(bwc->m->mono_time) - bwc->cycle.last_sent_timestamp > BWC_SEND_INTERVAL_MS)
-            || (force_update_now == true)) {
-
+    if (current_time_monotonic(bwc->m->mono_time) - bwc->cycle.last_sent_timestamp > BWC_SEND_INTERVAL_MS)
+    {
         bwc->packet_loss_counted_cycles = 0;
 
         if ((bwc->cycle.recv + bwc->cycle.lost) > 0) {
