@@ -30,9 +30,7 @@ BWController *bwc_new(Messenger *m, uint32_t friendnumber, m_cb *mcb, void *mcb_
 
 void bwc_kill(BWController *bwc);
 
-void bwc_feed_avg(BWController *bwc, uint32_t bytes);
-void bwc_add_lost(BWController *bwc, uint32_t bytes_lost);
-void bwc_add_lost_v3(BWController *bwc, uint32_t bytes, bool force_update_now);
+void bwc_add_lost_v3(BWController *bwc, uint32_t bytes, bool dummy);
 void bwc_add_recv(BWController *bwc, uint32_t recv_bytes);
 
 #endif // C_TOXCORE_TOXAV_BWCONTROLLER_H
