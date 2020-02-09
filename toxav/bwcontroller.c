@@ -28,9 +28,6 @@ static void dummy()
 
 #define BWC_PACKET_ID (196)
 #define BWC_SEND_INTERVAL_MS (950)     // 0.95s
-#define BWC_REFRESH_INTERVAL_MS (2000) // 2.00s
-#define BWC_AVG_PKT_COUNT (20)
-#define BWC_AVG_LOSS_OVER_CYCLES_COUNT (50)
 
 /**
  *
@@ -45,17 +42,11 @@ typedef struct BWCCycle {
     uint32_t recv;
 } BWCCycle;
 
-typedef struct BWCRcvPkt {
-    uint32_t packet_length_array[BWC_AVG_PKT_COUNT];
-    RingBuffer *rb;
-} BWCRcvPkt;
-
 struct BWController_s {
     m_cb *mcb;
     void *mcb_user_data;
 
     uint32_t friend_number;
-
     BWCCycle cycle;
 
         uint32_t lost;
@@ -106,7 +97,6 @@ BWController *bwc_new(Tox *t, uint32_t friendnumber, m_cb *mcb, void *mcb_user_d
     uint64_t now = current_time_monotonic(toxav_given_mono_time);
     retu->cycle.last_sent_timestamp = now;
     retu->cycle.last_refresh_timestamp = now;
-    retu->rcvpkt.rb = rb_new(BWC_AVG_PKT_COUNT);
 
     retu->cycle.lost = 0;
     retu->cycle.recv = 0;

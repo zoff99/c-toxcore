@@ -819,7 +819,6 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         /* Message is not late; pick up the latest parameters */
         session->rsequnum = header.sequnum;
         session->rtimestamp = header.timestamp;
-        // bwc_add_recv(session->bwc, length);
 
         /* Invoke processing of active multiparted message */
         if (session->mp) {
@@ -862,7 +861,6 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
             memcpy(session->mp->data + header.offset_lower, data + RTP_HEADER_SIZE,
                    length - RTP_HEADER_SIZE);
             session->mp->len += length - RTP_HEADER_SIZE;
-            // bwc_add_recv(session->bwc, length);
 
             if (session->mp->len == session->mp->header.data_length_lower) {
                 /* Received a full message; now push it for the further
@@ -895,7 +893,6 @@ NEW_MULTIPARTED:
         /* Message is not late; pick up the latest parameters */
         session->rsequnum = header.sequnum;
         session->rtimestamp = header.timestamp;
-        // bwc_add_recv(session->bwc, length);
 
         /* Store message.
          */
