@@ -1970,13 +1970,6 @@ void toxav_callback_video_receive_frame_h264(ToxAV *av, toxav_video_receive_fram
  ******************************************************************************/
 void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *user_data)
 {
-    /* Callback which is called when the internal measure mechanism reported packet loss.
-     * We report suggested lowered bitrate to an app. If app is sending both audio and video,
-     * we will report lowered bitrate for video only because in that case video probably
-     * takes more than 90% bandwidth. Otherwise, we report lowered bitrate on audio.
-     * The application may choose to disable video totally if the stream is too bad.
-     */
-
     ToxAVCall *call = (ToxAVCall *)user_data;
 
     if (!call) {
