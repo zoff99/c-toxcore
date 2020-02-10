@@ -798,7 +798,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             x264_param_t param;
             x264_encoder_parameters(vc->h264_encoder, &param);
 
-            LOGGER_DEBUG(log, "vc_reconfigure_encoder_h264:vb=%d [bitrate only]", (int)(bit_rate / 1000));
+            LOGGER_DEBUG(log, "vc_reconfigure_encoder_h264:1:vb=%d [bitrate only]", (int)(bit_rate / 1000));
 
             param.rc.f_rate_tolerance = VIDEO_F_RATE_TOLERANCE_H264;
             param.rc.i_vbv_buffer_size = (bit_rate / 1000) * VIDEO_BUF_FACTOR_H264;
@@ -814,7 +814,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             vc->h264_encoder2->bit_rate = bit_rate;
             vc->h264_enc_bitrate = bit_rate;
 
-            LOGGER_DEBUG(log, "vc_reconfigure_encoder_h264:vb=%d [bitrate only]", (int)(bit_rate / 1000));
+            LOGGER_DEBUG(log, "vc_reconfigure_encoder_h264:2:vb=%d [bitrate only]", (int)(bit_rate / 1000));
 
             av_opt_set_int(vc->h264_encoder2->priv_data, "b", bit_rate, 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "bitrate", bit_rate, 0);
