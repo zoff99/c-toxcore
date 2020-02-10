@@ -1598,11 +1598,15 @@ static void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, 
 
             int64_t tmp = (uint32_t)call->video_bit_rate_not_yet_set;
 
-            if (call->video_bit_rate_not_yet_set > VIDEO_BITRATE_SCALAR2_AUTO_VALUE_H264) {
+            if (call->video_bit_rate_not_yet_set < VIDEO_BITRATE_SCALAR_AUTO_VALUE_H264)
+            {
+                tmp = (uint32_t)call->video_bit_rate_not_yet_set + VIDEO_BITRATE_SCALAR_INC_BY_AUTO_VALUE_H264;
+            }
+            else if (call->video_bit_rate_not_yet_set < VIDEO_BITRATE_SCALAR2_AUTO_VALUE_H264) {
                 tmp = (uint32_t)call->video_bit_rate_not_yet_set + VIDEO_BITRATE_SCALAR2_INC_BY_AUTO_VALUE_H264;
             }
             else {
-                tmp = (uint32_t)call->video_bit_rate_not_yet_set + VIDEO_BITRATE_SCALAR_INC_BY_AUTO_VALUE_H264;
+                tmp = (uint32_t)call->video_bit_rate_not_yet_set + VIDEO_BITRATE_SCALAR3_INC_BY_AUTO_VALUE_H264;
             }
 
             LOGGER_DEBUG(call->av->m->log, "callback_bwc:INC:x:%d %d", (int)tmp, (int)call->video_bit_rate_not_yet_set);
@@ -1622,7 +1626,7 @@ static void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, 
 
             // HINT: sanity check --------------
 
-            if ( (call->video_bit_rate_encoder_last_changed_ts + (6 * VIDEO_ENCODER_CHANGE_BITRATE_MAX_EVERY_MS) )
+            if ( (call->video_bit_rate_encoder_last_changed_ts + (3 * VIDEO_ENCODER_CHANGE_BITRATE_MAX_EVERY_MS) )
                 < current_time_monotonic(call->av->m->mono_time) )
             {
 
