@@ -35,7 +35,7 @@
 #include <string.h>
 
 #define BWC_PACKET_ID (196)
-#define BWC_SEND_INTERVAL_MS (120)     // in milliseconds
+#define BWC_SEND_INTERVAL_MS (180)     // in milliseconds
 
 /**
  *

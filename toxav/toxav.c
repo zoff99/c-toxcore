@@ -2009,8 +2009,10 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
 
     pthread_mutex_lock(call->av->mutex);
 
+    int64_t tmp_bitrate = (uint32_t)call->video_bit_rate;
+
     if ((loss * 100) < VIDEO_BITRATE_AUTO_INC_THRESHOLD) {
-        if (call->video_bit_rate < VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
+        if (call->video_bit_rate_not_yet_set < VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
 
             int64_t tmp = (uint32_t)call->video_bit_rate_not_yet_set;
 
@@ -2038,18 +2040,18 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
 
             // HINT: sanity check --------------
 
-            if ( (call->video_bit_rate_encoder_last_changed_ts + (3 * VIDEO_ENCODER_CHANGE_BITRATE_MAX_EVERY_MS) )
+            if ( (call->video_bit_rate_encoder_last_changed_ts + (6 * VIDEO_ENCODER_CHANGE_BITRATE_MAX_EVERY_MS) )
                 < current_time_monotonic(call->av->m->mono_time) )
             {
 
-                call->video_bit_rate = (uint32_t)call->video_bit_rate_not_yet_set;
+                tmp_bitrate = (uint32_t)call->video_bit_rate_not_yet_set;
                 call->video_bit_rate_encoder_last_changed_ts = current_time_monotonic(call->av->m->mono_time);
 
-                LOGGER_DEBUG(call->av->m->log, "callback_bwc:INC:vb=%d loss=%d", (int)call->video_bit_rate, (int)(loss * 100));
+                LOGGER_DEBUG(call->av->m->log, "callback_bwc:INC:vb=%d loss=%d", (int)tmp_bitrate, (int)(loss * 100));
             }
         }
     } else if ((loss * 100) > VIDEO_BITRATE_AUTO_DEC_THRESHOLD) {
-        if (call->video_bit_rate > VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
+        if (call->video_bit_rate_not_yet_set > VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
 
             int64_t tmp = (int64_t)call->video_bit_rate_not_yet_set - (VIDEO_BITRATE_SCALAR_DEC_BY_AUTO_VALUE_H264 * (int)(loss * 100));
 
@@ -2072,13 +2074,13 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
                 ( (call->video_bit_rate_encoder_last_changed_ts + VIDEO_ENCODER_CHANGE_BITRATE_MAX_EVERY_MS)
                     < current_time_monotonic(call->av->m->mono_time) )
                 ||
-                ( ((uint32_t)call->video_bit_rate - (uint32_t)tmp) > 100 )
+                ( ((uint32_t)tmp_bitrate - (uint32_t)tmp) > 100 )
                 )
             {
-                call->video_bit_rate = (uint32_t)call->video_bit_rate_not_yet_set;
+                tmp_bitrate = (uint32_t)call->video_bit_rate_not_yet_set;
                 call->video_bit_rate_encoder_last_changed_ts = current_time_monotonic(call->av->m->mono_time);
 
-                LOGGER_DEBUG(call->av->m->log, "callback_bwc:DEC:vb=%d loss=%d", (int)call->video_bit_rate, (int)(loss * 100));
+                LOGGER_DEBUG(call->av->m->log, "callback_bwc:DEC:vb=%d loss=%d", (int)tmp_bitrate, (int)(loss * 100));
             }
         }
     }
@@ -2086,33 +2088,38 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
     // HINT: sanity check --------------
 
     if (call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H264) {
-        if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
-            call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
-        } else if (call->video_bit_rate > VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
-            call->video_bit_rate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264;
+        if (tmp_bitrate < VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
+            tmp_bitrate = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
+        } else if (tmp_bitrate > VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
+            tmp_bitrate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264;
         }
     } else {
-        if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_VP8) {
-            call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_VP8;
-        } else if (call->video_bit_rate > VIDEO_BITRATE_MAX_AUTO_VALUE_VP8) {
-            call->video_bit_rate = VIDEO_BITRATE_MAX_AUTO_VALUE_VP8;
+        if (tmp_bitrate < VIDEO_BITRATE_MIN_AUTO_VALUE_VP8) {
+            tmp_bitrate = VIDEO_BITRATE_MIN_AUTO_VALUE_VP8;
+        } else if (tmp_bitrate > VIDEO_BITRATE_MAX_AUTO_VALUE_VP8) {
+            tmp_bitrate = VIDEO_BITRATE_MAX_AUTO_VALUE_VP8;
         }
 
-        call->video_bit_rate = (uint32_t)((float)call->video_bit_rate * VIDEO_BITRATE_CORRECTION_FACTOR_VP8);
+        tmp_bitrate = (uint32_t)((float)tmp_bitrate * VIDEO_BITRATE_CORRECTION_FACTOR_VP8);
 
-        if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_VP8) {
-            call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_VP8;
+        if (tmp_bitrate < VIDEO_BITRATE_MIN_AUTO_VALUE_VP8) {
+            tmp_bitrate = VIDEO_BITRATE_MIN_AUTO_VALUE_VP8;
         }
 
     }
 
-    if (call->video_bit_rate > (uint32_t)call->video->video_max_bitrate) {
-        call->video_bit_rate = (uint32_t)call->video->video_max_bitrate;
+    if (tmp_bitrate > (uint32_t)call->video->video_max_bitrate) {
+        tmp_bitrate = (uint32_t)call->video->video_max_bitrate;
     }
 
     // HINT: sanity check --------------
 
-    LOGGER_DEBUG(call->av->m->log, "callback_bwc:FINAL:vb=%d", (int)call->video_bit_rate);
+    if ((uint32_t)call->video_bit_rate != (uint32_t)tmp_bitrate)
+    {
+        LOGGER_DEBUG(call->av->m->log, "callback_bwc:FINAL:cur=%d new=%d", (int)call->video_bit_rate, (int)tmp_bitrate);
+    }
+    call->video_bit_rate = (uint32_t)tmp_bitrate;
+    call->video_bit_rate_not_yet_set = call->video_bit_rate;
 
     pthread_mutex_unlock(call->av->mutex);
 }
