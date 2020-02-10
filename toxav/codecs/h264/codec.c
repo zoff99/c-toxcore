@@ -814,6 +814,8 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             vc->h264_encoder2->bit_rate = bit_rate;
             vc->h264_enc_bitrate = bit_rate;
 
+            LOGGER_DEBUG(log, "vc_reconfigure_encoder_h264:vb=%d [bitrate only]", (int)(bit_rate / 1000));
+
             av_opt_set_int(vc->h264_encoder2->priv_data, "b", bit_rate, 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "bitrate", bit_rate, 0);
             // av_opt_set_int(vc->h264_encoder2->priv_data, "minrate", bit_rate, 0);

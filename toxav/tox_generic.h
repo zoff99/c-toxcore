@@ -25,12 +25,14 @@
 #define VIDEO_BITRATE_INITIAL_VALUE_H264 180
 #define VIDEO_BITRATE_MIN_AUTO_VALUE_H264 95
 #define VIDEO_BITRATE_SCALAR_AUTO_VALUE_H264 1200
-#define VIDEO_BITRATE_SCALAR_INC_BY_AUTO_VALUE_H264 6
+#define VIDEO_BITRATE_SCALAR_INC_BY_AUTO_VALUE_H264 12
 #define VIDEO_BITRATE_SCALAR2_AUTO_VALUE_H264 2000
-#define VIDEO_BITRATE_SCALAR2_INC_BY_AUTO_VALUE_H264 1
+#define VIDEO_BITRATE_SCALAR2_INC_BY_AUTO_VALUE_H264 4
 #define VIDEO_BITRATE_SCALAR3_AUTO_VALUE_H264 5000
 
-#define VIDEO_BITRATE_SCALAR_DEC_BY_AUTO_VALUE_H264 100
+#define VIDEO_ENCODER_CHANGE_BITRATE_MAX_EVERY_MS 500
+
+#define VIDEO_BITRATE_SCALAR_DEC_BY_AUTO_VALUE_H264 60
 
 // default max video bitrate
 #define VIDEO_BITRATE_MAX_AUTO_VALUE_H264 2700
@@ -47,7 +49,7 @@
     #define VIDEO_BITRATE_MAX_AUTO_VALUE_H264 8400
 
     #undef VIDEO_BITRATE_INITIAL_VALUE_H264
-    #define VIDEO_BITRATE_INITIAL_VALUE_H264 8000
+    #define VIDEO_BITRATE_INITIAL_VALUE_H264 180
 #endif
 
 // -- these control how agressive the bandwidth control is --
@@ -90,8 +92,11 @@ typedef struct ToxAVCall_s {
 
     uint32_t audio_bit_rate; /* Sending audio bit rate */
     uint32_t video_bit_rate; /* Sending video bit rate */
+    uint32_t video_bit_rate_not_yet_set;
     uint32_t video_bit_rate_last_last_changed; // only for callback info
     uint32_t video_bit_rate_last_last_changed_cb_ts;
+
+    uint32_t video_bit_rate_encoder_last_changed_ts;
 
     uint64_t last_incoming_video_frame_rtimestamp;
     uint64_t last_incoming_video_frame_ltimestamp;
