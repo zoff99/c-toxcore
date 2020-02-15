@@ -99,7 +99,7 @@ typedef enum PACKET_TOXAV_COMM_CHANNEL_FUNCTION {
 
 // #define VIDEO_PTS_TIMESTAMPS 1
 
-#define VIDEO_SEND_X_KEYFRAMES_FIRST (1) // force the first n frames to be keyframes!
+#define VIDEO_SEND_X_KEYFRAMES_FIRST (10) // force the first n frames to be keyframes!
 #define VPX_MAX_DIST_START (100)
 
 

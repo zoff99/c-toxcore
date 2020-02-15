@@ -27,7 +27,7 @@ static void dummy()
 // #define LOGGER_INFO(log, ...) dummy()
 
 #define BWC_PACKET_ID (196)
-#define BWC_SEND_INTERVAL_MS (180)     // in milliseconds
+#define BWC_SEND_INTERVAL_MS (200)     // in milliseconds
 
 /**
  *
