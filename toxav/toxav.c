@@ -1447,7 +1447,7 @@ bool toxav_video_send_frame_h264_age(ToxAV *av, uint32_t friend_number, uint16_t
     // HINT: auto switch encoder, if we got capabilities packet from friend ------
 
 
-    if ((call->video_bit_rate_last_last_changed_cb_ts + 2000) < current_time_monotonic(av->m->mono_time)) {
+    if ((call->video_bit_rate_last_last_changed_cb_ts + 500) < current_time_monotonic(av->m->mono_time)) {
         if (call->video_bit_rate_last_last_changed != call->video_bit_rate) {
             if (av->call_comm_cb) {
                 av->call_comm_cb(av, friend_number,
