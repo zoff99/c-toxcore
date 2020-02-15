@@ -659,11 +659,10 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     #if (defined (HW_CODEC_CONFIG_RPI3_TBW_TV) || defined (HW_CODEC_CONFIG_RPI3_TBW_BIDI)) && defined (RAPI_HWACCEL_DEC)
         LOGGER_WARNING(log, "setting up h264_mmal decoder ...");
-        av_opt_set_int(vc->h264_decoder->priv_data, "extra_buffers)", 20, AV_OPT_SEARCH_CHILDREN);
-        av_opt_set_int(vc->h264_decoder->priv_data, "extra_decoder_buffers)", 20, AV_OPT_SEARCH_CHILDREN);
+        av_opt_set_int(vc->h264_decoder->priv_data, "extra_buffers)", 1, AV_OPT_SEARCH_CHILDREN);
+        av_opt_set_int(vc->h264_decoder->priv_data, "extra_decoder_buffers)", 1, AV_OPT_SEARCH_CHILDREN);
         LOGGER_WARNING(log, "extra_buffers, extra_decoder_buffers");
     #endif
-
 
         vc->h264_decoder->refcounted_frames = 0;
         /*   When AVCodecContext.refcounted_frames is set to 0, the returned
