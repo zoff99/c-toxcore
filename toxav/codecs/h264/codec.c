@@ -517,7 +517,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     // av_opt_set_int(vc->h264_encoder2->priv_data, "minrate", 100000, 0);
     // av_opt_set_int(vc->h264_encoder2->priv_data, "maxrate", (int)((float)100000 * H264_ENCODE_MAX_BITRATE_OVER_ALLOW), 0);
 
-    // **11** // av_opt_set_int(vc->h264_encoder2->priv_data, "cbr", true, 0);
+    av_opt_set_int(vc->h264_encoder2->priv_data, "cbr", true, 0);
     av_opt_set(vc->h264_encoder2->priv_data, "rc", "cbr_ld_hq", 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "delay", 0, 0);
     // av_opt_set_int(vc->h264_encoder2->priv_data, "rc-lookahead", 0, 0);
@@ -1001,7 +1001,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             // av_opt_set_int(vc->h264_encoder2->priv_data, "minrate", bit_rate, 0);
             // av_opt_set_int(vc->h264_encoder2->priv_data, "maxrate", (int)((float)bit_rate * H264_ENCODE_MAX_BITRATE_OVER_ALLOW), 0);
 
-            // **11** // av_opt_set_int(vc->h264_encoder2->priv_data, "cbr", true, 0);
+            av_opt_set_int(vc->h264_encoder2->priv_data, "cbr", true, 0);
             av_opt_set(vc->h264_encoder2->priv_data, "rc", "cbr_ld_hq", 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "delay", 0, 0);
             // av_opt_set_int(vc->h264_encoder2->priv_data, "rc-lookahead", 0, 0);
