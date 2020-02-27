@@ -3337,10 +3337,44 @@ static State_Load_Status m_dht_load(Messenger *m, const uint8_t *data, uint32_t 
 }
 
 // friendft state plugin
+static bool need_save_fts_for_friend(const Messenger *m, Friend *fr)
+{
+    // check if there are any resumable FTs in progress
+    bool ret = false;
+
+    for (uint32_t ff = 0; ff < MAX_CONCURRENT_FILE_PIPES; ++ff) {
+
+        if (fr->file_sending[ff].status != FILESTATUS_NONE) {
+            /* dont count avatar and msgV2 FTs*/
+            if (fr->file_sending[ff].file_type == TOX_FILE_KIND_DATA) {
+                ret = true;
+            }
+        }
+
+        if (fr->file_receiving[ff].status != FILESTATUS_NONE) {
+            /* dont count avatar and msgV2 FTs*/
+            if (fr->file_receiving[ff].file_type == TOX_FILE_KIND_DATA) {
+                ret = true;
+            }
+        }
+    }
+
+    return ret;
+}
+
 static uint32_t saved_friendsft_size(const Messenger *m)
 {
+    uint32_t num_friends_with_active_fts = 0;
+    for (uint32_t i = 0; i < m->numfriends; ++i) {
+        bool res = need_save_fts_for_friend(m, &(m->friendlist[i]));
+        if (res)
+        {
+            num_friends_with_active_fts++;
+        }
+    }
+
     uint32_t save_bytes = sizeof(uint32_t) +
-                          m->numfriends * (
+                          num_friends_with_active_fts * (
                               sizeof(uint8_t) * CRYPTO_PUBLIC_KEY_SIZE
                               + sizeof(uint32_t)
                               + (sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES * 2)
@@ -3360,31 +3394,47 @@ static uint8_t *friendsft_save(const Messenger *m, uint8_t *data)
     const uint32_t len1 = m_plugin_size(m, STATE_TYPE_FRIENDSFILETRANSFERS);
     data = state_write_section_header(data, STATE_COOKIE_TYPE, len1, STATE_TYPE_FRIENDSFILETRANSFERS);
 
+
+    uint32_t num_friends_with_active_fts = 0;
+    for (uint32_t i = 0; i < m->numfriends; ++i) {
+        bool res = need_save_fts_for_friend(m, &(m->friendlist[i]));
+        if (res)
+        {
+            num_friends_with_active_fts++;
+        }
+    }
+
     len = sizeof(uint32_t);
-    nf = m->numfriends;
+    nf = num_friends_with_active_fts;
     memcpy(data, &nf, len);
     data += len;
 
     for (uint32_t i = 0; i < m->numfriends; ++i) {
-        len = sizeof(uint8_t) * CRYPTO_PUBLIC_KEY_SIZE;
-        buf = m->friendlist[i].real_pk;
-        memcpy(data, buf, len);
-        data += len;
 
-        len = sizeof(uint32_t);
-        buf = &(m->friendlist[i].num_sending_files);
-        memcpy(data, buf, len);
-        data += len;
+        bool res = need_save_fts_for_friend(m, &(m->friendlist[i]));
 
-        len = sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES;
-        buf = m->friendlist[i].file_sending;
-        memcpy(data, buf, len);
-        data += len;
+        if (res)
+        {
+            len = sizeof(uint8_t) * CRYPTO_PUBLIC_KEY_SIZE;
+            buf = m->friendlist[i].real_pk;
+            memcpy(data, buf, len);
+            data += len;
 
-        len = sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES;
-        buf = m->friendlist[i].file_receiving;
-        memcpy(data, buf, len);
-        data += len;
+            len = sizeof(uint32_t);
+            buf = &(m->friendlist[i].num_sending_files);
+            memcpy(data, buf, len);
+            data += len;
+
+            len = sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES;
+            buf = m->friendlist[i].file_sending;
+            memcpy(data, buf, len);
+            data += len;
+
+            len = sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES;
+            buf = m->friendlist[i].file_receiving;
+            memcpy(data, buf, len);
+            data += len;
+        }
     }
 
     return data;
