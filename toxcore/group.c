@@ -1495,6 +1495,48 @@ static unsigned int send_lossy_group_peer(Friend_Connections *fr_c, int friendco
                                   packet, SIZEOF_VLA(packet)) != -1;
 }
 
+/* Send a rejoin packet to a friend.
+ * return true if a packet was sent.
+ * return false otherwise.
+ */
+static bool send_rejoin(Group_Chats *g_c, uint32_t groupnumber, int friendcon_id)
+{
+    Group_c *g = get_group_c(g_c, groupnumber);
+
+    if (!g) {
+        return false;
+    }
+
+    uint8_t packet[1 + 1 + GROUP_ID_LENGTH];
+    packet[0] = PACKET_ID_REJOIN_CONFERENCE;
+    packet[1] = g->type;
+    memcpy(packet + 2, g->id, GROUP_ID_LENGTH);
+
+    if (write_cryptpacket(friendconn_net_crypto(g_c->fr_c), friend_connection_crypt_connection_id(g_c->fr_c, friendcon_id),
+                          packet, sizeof(packet), 0) == -1) {
+        return false;
+    }
+
+    add_conn_to_groupchat(g_c, friendcon_id, groupnumber, GROUPCHAT_CLOSE_REASON_INTRODUCER, 1);
+
+    return true;
+}
+
+/* Send a rejoin packet to a peer if we have a friend connection to the peer.
+ * return true if a packet was sent.
+ * return false otherwise.
+ */
+static bool try_send_rejoin(Group_Chats *g_c, uint32_t groupnumber, const uint8_t *real_pk)
+{
+    const int friendcon_id = getfriend_conn_id_pk(g_c->fr_c, real_pk);
+
+    if (friendcon_id == -1) {
+        return false;
+    }
+
+    return send_rejoin(g_c, groupnumber, friendcon_id);
+}
+
 /* invite friendnumber to groupnumber.
  *
  * return 0 on success.
@@ -1521,83 +1563,22 @@ int invite_friend(Group_Chats *g_c, uint32_t friendnumber, uint32_t groupnumber)
     invite[1 + sizeof(groupchat_num)] = g->type;
     memcpy(invite + 1 + sizeof(groupchat_num) + 1, g->id, GROUP_ID_LENGTH);
 
-    if (send_conference_invite_packet(g_c->m, friendnumber, invite, sizeof(invite))) {
-        return 0;
+    if (!send_conference_invite_packet(g_c->m, friendnumber, invite, sizeof(invite))) {
+        return -2;
     }
 
-    return -2;
-}
+    // to handle the case that the friend is already in the group, also send a
+    // rejoin packet.
+    const int friendcon_id = getfriendcon_id(g_c->m, friendnumber);
 
-/* Send a rejoin packet to a peer if we have a friend connection to the peer.
- * return true if a packet was sent.
- * return false otherwise.
- */
-static bool try_send_rejoin(Group_Chats *g_c, uint32_t groupnumber, const uint8_t *real_pk)
-{
-    Group_c *g = get_group_c(g_c, groupnumber);
-
-    if (!g) {
-        return false;
+    if (friendcon_id != -1) {
+        send_rejoin(g_c, groupnumber, friendcon_id);
     }
 
-    const int friendcon_id = getfriend_conn_id_pk(g_c->fr_c, real_pk);
-
-    if (friendcon_id == -1) {
-        return false;
-    }
-
-    uint8_t packet[1 + 1 + GROUP_ID_LENGTH];
-    packet[0] = PACKET_ID_REJOIN_CONFERENCE;
-    packet[1] = g->type;
-    memcpy(packet + 2, g->id, GROUP_ID_LENGTH);
-
-    if (write_cryptpacket(friendconn_net_crypto(g_c->fr_c), friend_connection_crypt_connection_id(g_c->fr_c, friendcon_id),
-                          packet, sizeof(packet), 0) == -1) {
-        return false;
-    }
-
-    add_conn_to_groupchat(g_c, friendcon_id, groupnumber, GROUPCHAT_CLOSE_REASON_INTRODUCER, 1);
-
-    return true;
+    return 0;
 }
 
 static unsigned int send_peer_query(Group_Chats *g_c, int friendcon_id, uint16_t group_num);
-
-static bool accept_invite(Group_Chats *g_c, int groupnumber, uint32_t friendnumber, const uint8_t *data,
-                          uint16_t length)
-{
-    Group_c *g = get_group_c(g_c, groupnumber);
-
-    if (!g) {
-        return false;
-    }
-
-    const int friendcon_id = getfriendcon_id(g_c->m, friendnumber);
-    const uint16_t group_num = net_htons(groupnumber);
-    uint8_t response[INVITE_RESPONSE_PACKET_SIZE];
-    response[0] = INVITE_RESPONSE_ID;
-    memcpy(response + 1, &group_num, sizeof(uint16_t));
-    memcpy(response + 1 + sizeof(uint16_t), data, sizeof(uint16_t) + 1 + GROUP_ID_LENGTH);
-
-    if (!send_conference_invite_packet(g_c->m, friendnumber, response, sizeof(response))) {
-        return false;
-    }
-
-    uint16_t other_groupnum;
-    memcpy(&other_groupnum, data, sizeof(other_groupnum));
-    other_groupnum = net_ntohs(other_groupnum);
-    g->type = data[sizeof(uint16_t)];
-    memcpy(g->id, data + sizeof(uint16_t) + 1, GROUP_ID_LENGTH);
-    const int close_index = add_conn_to_groupchat(g_c, friendcon_id, groupnumber, GROUPCHAT_CLOSE_REASON_INTRODUCER, 1);
-
-    if (close_index != -1) {
-        g->close[close_index].group_number = other_groupnum;
-        g->close[close_index].type = GROUPCHAT_CLOSE_ONLINE;
-    }
-
-    send_peer_query(g_c, friendcon_id, other_groupnum);
-    return true;
-}
 
 /* Join a group (you need to have been invited first.)
  *
@@ -1639,10 +1620,29 @@ int join_groupchat(Group_Chats *g_c, uint32_t friendnumber, uint8_t expected_typ
 
     Group_c *g = &g_c->chats[groupnumber];
 
+    const uint16_t group_num = net_htons(groupnumber);
     g->status = GROUPCHAT_STATUS_VALID;
     memcpy(g->real_pk, nc_get_self_public_key(g_c->m->net_crypto), CRYPTO_PUBLIC_KEY_SIZE);
 
-    if (accept_invite(g_c, groupnumber, friendnumber, data, length)) {
+    uint8_t response[INVITE_RESPONSE_PACKET_SIZE];
+    response[0] = INVITE_RESPONSE_ID;
+    memcpy(response + 1, &group_num, sizeof(uint16_t));
+    memcpy(response + 1 + sizeof(uint16_t), data, sizeof(uint16_t) + 1 + GROUP_ID_LENGTH);
+
+    if (send_conference_invite_packet(g_c->m, friendnumber, response, sizeof(response))) {
+        uint16_t other_groupnum;
+        memcpy(&other_groupnum, data, sizeof(other_groupnum));
+        other_groupnum = net_ntohs(other_groupnum);
+        g->type = data[sizeof(uint16_t)];
+        memcpy(g->id, data + sizeof(uint16_t) + 1, GROUP_ID_LENGTH);
+        const int close_index = add_conn_to_groupchat(g_c, friendcon_id, groupnumber, GROUPCHAT_CLOSE_REASON_INTRODUCER, 1);
+
+        if (close_index != -1) {
+            g->close[close_index].group_number = other_groupnum;
+            g->close[close_index].type = GROUPCHAT_CLOSE_ONLINE;
+        }
+
+        send_peer_query(g_c, friendcon_id, other_groupnum);
         return groupnumber;
     }
 
@@ -1968,7 +1968,7 @@ static void handle_friend_invite_packet(Messenger *m, uint32_t friendnumber, con
                 return;
             }
 
-            const int groupnumber = get_group_num(g_c, invite_data[sizeof(uint16_t)], invite_data + sizeof(uint16_t) + 1);
+            const int groupnumber = get_group_num(g_c, data[1 + sizeof(uint16_t)], data + 1 + sizeof(uint16_t) + 1);
 
             if (groupnumber == -1) {
                 if (g_c->invite_callback) {
@@ -1977,27 +1977,13 @@ static void handle_friend_invite_packet(Messenger *m, uint32_t friendnumber, con
 
                 return;
             } else {
-                Group_c *g = get_group_c(g_c, groupnumber);
-
-                if (!g) {
-                    return;
-                }
-
+                // invitation to existing group: try rejoining the group via
+                // the inviter.
                 const int friendcon_id = getfriendcon_id(m, friendnumber);
 
-                if (friendcon_id == -1) {
-                    return;
+                if (friendcon_id != -1) {
+                    send_rejoin(g_c, groupnumber, friendcon_id);
                 }
-
-                uint8_t real_pk[CRYPTO_PUBLIC_KEY_SIZE];
-                get_friendcon_public_keys(real_pk, nullptr, g_c->fr_c, friendcon_id);
-
-                if (frozen_in_chat(g, real_pk) == -1 && peer_in_chat(g, real_pk) == -1) {
-                    return;
-                }
-
-                delete_any_peer_with_pk(g_c, groupnumber, real_pk, userdata);
-                accept_invite(g_c, groupnumber, friendnumber, invite_data, invite_length);
             }
 
             break;
