@@ -28,6 +28,8 @@ static void handle_conference_invite(
             state->index, friend_number, type, (unsigned)length);
     fprintf(stderr, "tox%u joining conference\n", state->index);
 
+    ck_assert_msg(!state->joined, "invitation callback generated for already joined conference");
+
     if (friend_number != -1) {
         Tox_Err_Conference_Join err;
         state->conference = tox_conference_join(tox, friend_number, cookie, length, &err);
@@ -54,6 +56,12 @@ static void conference_double_invite_test(Tox **toxes, State *state)
         fprintf(stderr, "Created conference: index=%u\n", state[0].conference);
     }
 
+    fprintf(stderr, "Saving tox0 state\n");
+    size_t save_size = tox_get_savedata_size(toxes[0]);
+    uint8_t *save = (uint8_t *)malloc(save_size);
+    ck_assert_msg(save != nullptr, "malloc failed");
+    tox_get_savedata(toxes[0], save);
+
     {
         // Invite friend.
         Tox_Err_Conference_Invite err;
@@ -71,10 +79,40 @@ static void conference_double_invite_test(Tox **toxes, State *state)
 
     fprintf(stderr, "Invitations accepted\n");
 
-    // Invite one more time, resulting in friend -1 inviting tox1 (toxes[1]).
+    fprintf(stderr, "Sending second invitation; should be ignored\n");
     tox_conference_invite(toxes[0], 0, state[0].conference, nullptr);
 
     iterate_all_wait(2, toxes, state, ITERATION_INTERVAL);
+
+    for (int i = 0; i < 2; i++) {
+        fprintf(stderr, "Reloading tox0 state from before invitation\n");
+        struct Tox_Options *const options = tox_options_new(nullptr);
+        tox_options_set_savedata_type(options, TOX_SAVEDATA_TYPE_TOX_SAVE);
+        tox_options_set_savedata_data(options, save, save_size);
+        toxes[0] = tox_new_log(options, nullptr, &state[0].index);
+        tox_options_free(options);
+        set_mono_time_callback(toxes[0], &state[0]);
+
+        fprintf(stderr, "Waiting for friend connection\n");
+
+        do {
+            iterate_all_wait(2, toxes, state, ITERATION_INTERVAL);
+        } while (!all_friends_connected(2, toxes));
+
+        tox_conference_invite(toxes[i], 0, state[i].conference, nullptr);
+        fprintf(stderr, "tox%d invited tox%d\n", i, 1 - i);
+
+        fprintf(stderr, "Waiting for group to reform\n");
+
+        do {
+            iterate_all_wait(2, toxes, state, ITERATION_INTERVAL);
+        } while (tox_conference_peer_count(toxes[0], 0, nullptr) != 2
+                 || tox_conference_peer_count(toxes[1], 0, nullptr) != 2);
+
+        fprintf(stderr, "Group successfully reformed\n");
+    }
+
+    free(save);
 }
 
 int main(void)
