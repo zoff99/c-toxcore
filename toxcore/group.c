@@ -26,7 +26,6 @@
 #endif
 
 #include "group.h"
-#include "logger.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -1564,6 +1563,42 @@ static bool try_send_rejoin(Group_Chats *g_c, uint32_t groupnumber, const uint8_
 
 static unsigned int send_peer_query(Group_Chats *g_c, int friendcon_id, uint16_t group_num);
 
+static bool accept_invite(Group_Chats *g_c, int groupnumber, uint32_t friendnumber, const uint8_t *data,
+                          uint16_t length)
+{
+    Group_c *g = get_group_c(g_c, groupnumber);
+
+    if (!g) {
+        return false;
+    }
+
+    const int friendcon_id = getfriendcon_id(g_c->m, friendnumber);
+    const uint16_t group_num = net_htons(groupnumber);
+    uint8_t response[INVITE_RESPONSE_PACKET_SIZE];
+    response[0] = INVITE_RESPONSE_ID;
+    memcpy(response + 1, &group_num, sizeof(uint16_t));
+    memcpy(response + 1 + sizeof(uint16_t), data, sizeof(uint16_t) + 1 + GROUP_ID_LENGTH);
+
+    if (!send_conference_invite_packet(g_c->m, friendnumber, response, sizeof(response))) {
+        return false;
+    }
+
+    uint16_t other_groupnum;
+    memcpy(&other_groupnum, data, sizeof(other_groupnum));
+    other_groupnum = net_ntohs(other_groupnum);
+    g->type = data[sizeof(uint16_t)];
+    memcpy(g->id, data + sizeof(uint16_t) + 1, GROUP_ID_LENGTH);
+    const int close_index = add_conn_to_groupchat(g_c, friendcon_id, groupnumber, GROUPCHAT_CLOSE_REASON_INTRODUCER, 1);
+
+    if (close_index != -1) {
+        g->close[close_index].group_number = other_groupnum;
+        g->close[close_index].type = GROUPCHAT_CLOSE_ONLINE;
+    }
+
+    send_peer_query(g_c, friendcon_id, other_groupnum);
+    return true;
+}
+
 /* Join a group (you need to have been invited first.)
  *
  * expected_type is the groupchat type we expect the chat we are joining is.
@@ -1592,18 +1627,7 @@ int join_groupchat(Group_Chats *g_c, uint32_t friendnumber, uint8_t expected_typ
         return -3;
     }
 
-    const int groupnumber_try = get_group_num(g_c, data[sizeof(uint16_t)], data + sizeof(uint16_t) + 1);
-    if (groupnumber_try != -1) {
-        const uint16_t group_num = net_htons(groupnumber_try);
-        uint8_t response[INVITE_RESPONSE_PACKET_SIZE];
-        response[0] = INVITE_RESPONSE_ID;
-        memcpy(response + 1, &group_num, sizeof(uint16_t));
-        memcpy(response + 1 + sizeof(uint16_t), data, sizeof(uint16_t) + 1 + GROUP_ID_LENGTH);
-
-        if (send_conference_invite_packet(g_c->m, friendnumber, response, sizeof(response))) {
-            LOGGER_DEBUG(g_c->m->log, "send_conference_invite_packet:OK");
-            return groupnumber_try;
-        }
+    if (get_group_num(g_c, data[sizeof(uint16_t)], data + sizeof(uint16_t) + 1) != -1) {
         return -4;
     }
 
@@ -1615,37 +1639,10 @@ int join_groupchat(Group_Chats *g_c, uint32_t friendnumber, uint8_t expected_typ
 
     Group_c *g = &g_c->chats[groupnumber];
 
-    const uint16_t group_num = net_htons(groupnumber);
     g->status = GROUPCHAT_STATUS_VALID;
     memcpy(g->real_pk, nc_get_self_public_key(g_c->m->net_crypto), CRYPTO_PUBLIC_KEY_SIZE);
 
-    uint8_t response[INVITE_RESPONSE_PACKET_SIZE];
-    response[0] = INVITE_RESPONSE_ID;
-    memcpy(response + 1, &group_num, sizeof(uint16_t));
-    memcpy(response + 1 + sizeof(uint16_t), data, sizeof(uint16_t) + 1 + GROUP_ID_LENGTH);
-
-    LOGGER_DEBUG(g_c->m->log, "call send_conference_invite_packet");
-
-    if (send_conference_invite_packet(g_c->m, friendnumber, response, sizeof(response))) {
-
-        LOGGER_DEBUG(g_c->m->log, "send_conference_invite_packet:OK");
-
-        uint16_t other_groupnum;
-        memcpy(&other_groupnum, data, sizeof(other_groupnum));
-        other_groupnum = net_ntohs(other_groupnum);
-        g->type = data[sizeof(uint16_t)];
-        memcpy(g->id, data + sizeof(uint16_t) + 1, GROUP_ID_LENGTH);
-        const int close_index = add_conn_to_groupchat(g_c, friendcon_id, groupnumber, GROUPCHAT_CLOSE_REASON_INTRODUCER, 1);
-
-        if (close_index != -1) {
-            g->close[close_index].group_number = other_groupnum;
-            g->close[close_index].type = GROUPCHAT_CLOSE_ONLINE;
-        }
-
-        send_peer_query(g_c, friendcon_id, other_groupnum);
-
-        LOGGER_DEBUG(g_c->m->log, "send_peer_query:called");
-
+    if (accept_invite(g_c, groupnumber, friendnumber, data, length)) {
         return groupnumber;
     }
 
@@ -1965,36 +1962,48 @@ static void handle_friend_invite_packet(Messenger *m, uint32_t friendnumber, con
     const uint8_t *invite_data = data + 1;
     const uint16_t invite_length = length - 1;
 
-    LOGGER_DEBUG(g_c->m->log, "PKT ID:%d", (int)data[0]);
-
     switch (data[0]) {
         case INVITE_ID: {
-
-            LOGGER_DEBUG(g_c->m->log, "PKT ID:INVITE_ID");
-
             if (length != INVITE_PACKET_SIZE) {
                 return;
             }
 
-            const int groupnumber = get_group_num(g_c, data[1 + sizeof(uint16_t)], data + 1 + sizeof(uint16_t) + 1);
+            const int groupnumber = get_group_num(g_c, invite_data[sizeof(uint16_t)], invite_data + sizeof(uint16_t) + 1);
 
-            LOGGER_DEBUG(g_c->m->log, "PKT ID:INVITE_ID:group number:%d", groupnumber);
-
-            //if (groupnumber == -1) {
+            if (groupnumber == -1) {
                 if (g_c->invite_callback) {
                     g_c->invite_callback(m, friendnumber, invite_data[sizeof(uint16_t)], invite_data, invite_length, userdata);
                 }
 
                 return;
-            //}
+            } else {
+                Group_c *g = get_group_c(g_c, groupnumber);
+
+                if (!g) {
+                    return;
+                }
+
+                const int friendcon_id = getfriendcon_id(m, friendnumber);
+
+                if (friendcon_id == -1) {
+                    return;
+                }
+
+                uint8_t real_pk[CRYPTO_PUBLIC_KEY_SIZE];
+                get_friendcon_public_keys(real_pk, nullptr, g_c->fr_c, friendcon_id);
+
+                if (frozen_in_chat(g, real_pk) == -1 && peer_in_chat(g, real_pk) == -1) {
+                    return;
+                }
+
+                delete_any_peer_with_pk(g_c, groupnumber, real_pk, userdata);
+                accept_invite(g_c, groupnumber, friendnumber, invite_data, invite_length);
+            }
 
             break;
         }
 
         case INVITE_RESPONSE_ID: {
-
-            LOGGER_DEBUG(g_c->m->log, "PKT ID:INVITE_RESPONSE_ID");
-
             if (length != INVITE_RESPONSE_PACKET_SIZE) {
                 return;
             }
@@ -2002,8 +2011,6 @@ static void handle_friend_invite_packet(Messenger *m, uint32_t friendnumber, con
             uint16_t other_groupnum, groupnum;
             memcpy(&groupnum, data + 1 + sizeof(uint16_t), sizeof(uint16_t));
             groupnum = net_ntohs(groupnum);
-
-            LOGGER_DEBUG(g_c->m->log, "PKT ID:INVITE_RESPONSE_ID:group number:%d", groupnum);
 
             Group_c *g = get_group_c(g_c, groupnum);
 
@@ -2037,16 +2044,12 @@ static void handle_friend_invite_packet(Messenger *m, uint32_t friendnumber, con
             memcpy(&other_groupnum, data + 1, sizeof(uint16_t));
             other_groupnum = net_ntohs(other_groupnum);
 
-            LOGGER_DEBUG(g_c->m->log, "PKT ID:INVITE_RESPONSE_ID:other_groupnum:%d", other_groupnum);
-
             const int friendcon_id = getfriendcon_id(m, friendnumber);
 
             if (friendcon_id == -1) {
                 // TODO(iphydf): Log something?
                 return;
             }
-
-            LOGGER_DEBUG(g_c->m->log, "PKT ID:INVITE_RESPONSE_ID:friendcon_id:%d", friendcon_id);
 
             uint8_t real_pk[CRYPTO_PUBLIC_KEY_SIZE], temp_pk[CRYPTO_PUBLIC_KEY_SIZE];
             get_friendcon_public_keys(real_pk, temp_pk, g_c->fr_c, friendcon_id);
@@ -2131,8 +2134,6 @@ static int handle_packet_online(Group_Chats *g_c, int friendcon_id, const uint8_
 
     const int groupnumber = get_group_num(g_c, data[sizeof(uint16_t)], data + sizeof(uint16_t) + 1);
 
-    LOGGER_DEBUG(g_c->m->log, "groupnumber:%d", (int)groupnumber);
-
     if (groupnumber == -1) {
         return -1;
     }
@@ -2141,8 +2142,6 @@ static int handle_packet_online(Group_Chats *g_c, int friendcon_id, const uint8_
     memcpy(&other_groupnum, data, sizeof(uint16_t));
     other_groupnum = net_ntohs(other_groupnum);
 
-    LOGGER_DEBUG(g_c->m->log, "other_groupnum:%d", (int)other_groupnum);
-
     Group_c *g = get_group_c(g_c, groupnumber);
 
     if (!g) {
@@ -2150,8 +2149,6 @@ static int handle_packet_online(Group_Chats *g_c, int friendcon_id, const uint8_
     }
 
     const int index = friend_in_close(g, friendcon_id);
-
-    LOGGER_DEBUG(g_c->m->log, "index:%d", (int)index);
 
     if (index == -1) {
         return -1;
@@ -2184,8 +2181,6 @@ static int handle_packet_online(Group_Chats *g_c, int friendcon_id, const uint8_
 
     ping_groupchat(g_c, groupnumber);
 
-    LOGGER_DEBUG(g_c->m->log, "return");
-
     return 0;
 }
 
@@ -2197,8 +2192,6 @@ static int handle_packet_rejoin(Group_Chats *g_c, int friendcon_id, const uint8_
     }
 
     const int32_t groupnum = get_group_num(g_c, *data, data + 1);
-
-    LOGGER_DEBUG(g_c->m->log, "rejoin:groupnum=%d", groupnum);
 
     const Group_c *g = get_group_c(g_c, groupnum);
 
