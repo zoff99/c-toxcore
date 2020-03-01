@@ -11,7 +11,6 @@
 #endif
 
 #include "group.h"
-#include "logger.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -1515,18 +1514,7 @@ int join_groupchat(Group_Chats *g_c, uint32_t friendnumber, uint8_t expected_typ
         return -3;
     }
 
-    const int groupnumber_try = get_group_num(g_c, data[sizeof(uint16_t)], data + sizeof(uint16_t) + 1);
-    if (groupnumber_try != -1) {
-        const uint16_t group_num = net_htons(groupnumber_try);
-        uint8_t response[INVITE_RESPONSE_PACKET_SIZE];
-        response[0] = INVITE_RESPONSE_ID;
-        memcpy(response + 1, &group_num, sizeof(uint16_t));
-        memcpy(response + 1 + sizeof(uint16_t), data, sizeof(uint16_t) + 1 + GROUP_ID_LENGTH);
-
-        if (send_conference_invite_packet(g_c->m, friendnumber, response, sizeof(response))) {
-            LOGGER_DEBUG(g_c->m->log, "send_conference_invite_packet:OK");
-            return groupnumber_try;
-        }
+    if (get_group_num(g_c, data[sizeof(uint16_t)], data + sizeof(uint16_t) + 1) != -1) {
         return -4;
     }
 
@@ -1912,22 +1900,15 @@ static void handle_friend_invite_packet(Messenger *m, uint32_t friendnumber, con
     const uint8_t *invite_data = data + 1;
     const uint16_t invite_length = length - 1;
 
-    LOGGER_DEBUG(g_c->m->log, "PKT ID:%d", (int)data[0]);
-
     switch (data[0]) {
         case INVITE_ID: {
-
-            LOGGER_DEBUG(g_c->m->log, "PKT ID:INVITE_ID");
-
             if (length != INVITE_PACKET_SIZE) {
                 return;
             }
 
-            const int groupnumber = get_group_num(g_c, data[1 + sizeof(uint16_t)], data + 1 + sizeof(uint16_t) + 1);
+            const int groupnumber = get_group_num(g_c, invite_data[sizeof(uint16_t)], invite_data + sizeof(uint16_t) + 1);
 
-            LOGGER_DEBUG(g_c->m->log, "PKT ID:INVITE_ID:group number:%d", groupnumber);
-
-            //if (groupnumber == -1) {
+            if (groupnumber == -1) {
                 if (g_c->invite_callback) {
                     g_c->invite_callback(m, friendnumber, invite_data[sizeof(uint16_t)], invite_data, invite_length, userdata);
                 }
@@ -1956,8 +1937,6 @@ static void handle_friend_invite_packet(Messenger *m, uint32_t friendnumber, con
             uint16_t groupnum;
             net_unpack_u16(data + 1, &other_groupnum);
             net_unpack_u16(data + 1 + sizeof(uint16_t), &groupnum);
-
-            LOGGER_DEBUG(g_c->m->log, "PKT ID:INVITE_RESPONSE_ID:group number:%d", groupnum);
 
             Group_c *g = get_group_c(g_c, groupnum);
 
@@ -2001,8 +1980,6 @@ static void handle_friend_invite_packet(Messenger *m, uint32_t friendnumber, con
                 // TODO(iphydf): Log something?
                 return;
             }
-
-            LOGGER_DEBUG(g_c->m->log, "PKT ID:INVITE_RESPONSE_ID:friendcon_id:%d", friendcon_id);
 
             uint8_t real_pk[CRYPTO_PUBLIC_KEY_SIZE], temp_pk[CRYPTO_PUBLIC_KEY_SIZE];
             get_friendcon_public_keys(real_pk, temp_pk, g_c->fr_c, friendcon_id);
@@ -2089,8 +2066,6 @@ static int handle_packet_online(Group_Chats *g_c, int friendcon_id, const uint8_
 
     const int groupnumber = get_group_num(g_c, data[sizeof(uint16_t)], data + sizeof(uint16_t) + 1);
 
-    LOGGER_DEBUG(g_c->m->log, "groupnumber:%d", (int)groupnumber);
-
     if (groupnumber == -1) {
         return -1;
     }
@@ -2099,8 +2074,6 @@ static int handle_packet_online(Group_Chats *g_c, int friendcon_id, const uint8_
     memcpy(&other_groupnum, data, sizeof(uint16_t));
     other_groupnum = net_ntohs(other_groupnum);
 
-    LOGGER_DEBUG(g_c->m->log, "other_groupnum:%d", (int)other_groupnum);
-
     Group_c *g = get_group_c(g_c, groupnumber);
 
     if (!g) {
@@ -2108,8 +2081,6 @@ static int handle_packet_online(Group_Chats *g_c, int friendcon_id, const uint8_
     }
 
     const int index = friend_in_connections(g, friendcon_id);
-
-    LOGGER_DEBUG(g_c->m->log, "index:%d", (int)index);
 
     if (index == -1) {
         return -1;
@@ -2142,8 +2113,6 @@ static int handle_packet_online(Group_Chats *g_c, int friendcon_id, const uint8_
     }
 
     ping_groupchat(g_c, groupnumber);
-
-    LOGGER_DEBUG(g_c->m->log, "return");
 
     return 0;
 }
