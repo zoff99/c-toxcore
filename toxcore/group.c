@@ -1592,7 +1592,18 @@ int join_groupchat(Group_Chats *g_c, uint32_t friendnumber, uint8_t expected_typ
         return -3;
     }
 
-    if (get_group_num(g_c, data[sizeof(uint16_t)], data + sizeof(uint16_t) + 1) != -1) {
+    const int groupnumber_try = get_group_num(g_c, data[sizeof(uint16_t)], data + sizeof(uint16_t) + 1);
+    if (groupnumber_try != -1) {
+        const uint16_t group_num = net_htons(groupnumber_try);
+        uint8_t response[INVITE_RESPONSE_PACKET_SIZE];
+        response[0] = INVITE_RESPONSE_ID;
+        memcpy(response + 1, &group_num, sizeof(uint16_t));
+        memcpy(response + 1 + sizeof(uint16_t), data, sizeof(uint16_t) + 1 + GROUP_ID_LENGTH);
+
+        if (send_conference_invite_packet(g_c->m, friendnumber, response, sizeof(response))) {
+            LOGGER_DEBUG(g_c->m->log, "send_conference_invite_packet:OK");
+            return groupnumber_try;
+        }
         return -4;
     }
 
@@ -1969,13 +1980,13 @@ static void handle_friend_invite_packet(Messenger *m, uint32_t friendnumber, con
 
             LOGGER_DEBUG(g_c->m->log, "PKT ID:INVITE_ID:group number:%d", groupnumber);
 
-            if (groupnumber == -1) {
+            //if (groupnumber == -1) {
                 if (g_c->invite_callback) {
                     g_c->invite_callback(m, friendnumber, invite_data[sizeof(uint16_t)], invite_data, invite_length, userdata);
                 }
 
                 return;
-            }
+            //}
 
             break;
         }
