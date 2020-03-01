@@ -1449,40 +1449,7 @@ static unsigned int send_lossy_group_peer(Friend_Connections *fr_c, int friendco
                                   packet, SIZEOF_VLA(packet)) != -1;
 }
 
-/* invite friendnumber to groupnumber.
- *
- * return 0 on success.
- * return -1 if groupnumber is invalid.
- * return -2 if invite packet failed to send.
- * return -3 if we are not connected to the group chat.
- */
-int invite_friend(Group_Chats *g_c, uint32_t friendnumber, uint32_t groupnumber)
-{
-    Group_c *g = get_group_c(g_c, groupnumber);
-
-    if (!g) {
-        return -1;
-    }
-
-    if (g->status != GROUPCHAT_STATUS_CONNECTED) {
-        return -3;
-    }
-
-    uint8_t invite[INVITE_PACKET_SIZE];
-    invite[0] = INVITE_ID;
-    const uint16_t groupchat_num = net_htons((uint16_t)groupnumber);
-    memcpy(invite + 1, &groupchat_num, sizeof(groupchat_num));
-    invite[1 + sizeof(groupchat_num)] = g->type;
-    memcpy(invite + 1 + sizeof(groupchat_num) + 1, g->id, GROUP_ID_LENGTH);
-
-    if (send_conference_invite_packet(g_c->m, friendnumber, invite, sizeof(invite))) {
-        return 0;
-    }
-
-    return -2;
-}
-
-/* Send a rejoin packet to a peer if we have a friend connection to the peer.
+/* Send a rejoin packet to a friend.
  * return true if a packet was sent.
  * return false otherwise.
  */
@@ -1509,7 +1476,13 @@ static bool try_send_rejoin(Group_Chats *g_c, Group_c *g, const uint8_t *real_pk
     return true;
 }
 
-static unsigned int send_peer_query(Group_Chats *g_c, int friendcon_id, uint16_t group_num);
+/* Send a rejoin packet to a peer if we have a friend connection to the peer.
+ * return true if a packet was sent.
+ * return false otherwise.
+ */
+static bool try_send_rejoin(Group_Chats *g_c, uint32_t groupnumber, const uint8_t *real_pk)
+{
+    const int friendcon_id = getfriend_conn_id_pk(g_c->fr_c, real_pk);
 
 static bool send_invite_response(Group_Chats *g_c, int groupnumber, uint32_t friendnumber, const uint8_t *data,
                                  uint16_t length);
@@ -1555,6 +1528,7 @@ int join_groupchat(Group_Chats *g_c, uint32_t friendnumber, uint8_t expected_typ
 
     Group_c *g = &g_c->chats[groupnumber];
 
+    const uint16_t group_num = net_htons(groupnumber);
     g->status = GROUPCHAT_STATUS_VALID;
     memcpy(g->real_pk, nc_get_self_public_key(g_c->m->net_crypto), CRYPTO_PUBLIC_KEY_SIZE);
 
@@ -1935,7 +1909,7 @@ static void handle_friend_invite_packet(Messenger *m, uint32_t friendnumber, con
                 return;
             }
 
-            const int groupnumber = get_group_num(g_c, invite_data[sizeof(uint16_t)], invite_data + sizeof(uint16_t) + 1);
+            const int groupnumber = get_group_num(g_c, data[1 + sizeof(uint16_t)], data + 1 + sizeof(uint16_t) + 1);
 
             if (groupnumber == -1) {
                 if (g_c->invite_callback) {
