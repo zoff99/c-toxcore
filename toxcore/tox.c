@@ -724,6 +724,8 @@ void tox_get_savedata(const Tox *tox, uint8_t *savedata)
         return;
     }
 
+    lock(tox);
+
     memset(savedata, 0, tox_get_savedata_size(tox));
 
     lock(tox);
@@ -2184,7 +2186,9 @@ uint32_t tox_conference_by_id(const Tox *tox, const uint8_t *id, Tox_Err_Confere
 uint32_t tox_conference_by_uid(const Tox *tox, const uint8_t *uid, Tox_Err_Conference_By_Uid *error)
 {
     Tox_Err_Conference_By_Id id_error;
+    lock(tox);
     const uint32_t res = tox_conference_by_id(tox, uid, &id_error);
+    unlock(tox);
 
     switch (id_error) {
         case TOX_ERR_CONFERENCE_BY_ID_OK:
