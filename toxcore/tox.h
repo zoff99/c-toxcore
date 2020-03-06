@@ -725,6 +725,16 @@ struct Tox_Options {
      */
     void *log_user_data;
 
+
+    /**
+     * Make public API functions thread-safe using a per-instance lock.
+     *
+     * This option is experimental, so avoid writing code that depends on it.
+     *
+     * Default: false.
+     */
+    bool thread_safety;
+
 };
 
 
@@ -787,6 +797,10 @@ void tox_options_set_log_callback(struct Tox_Options *options, tox_log_cb *callb
 void *tox_options_get_log_user_data(const struct Tox_Options *options);
 
 void tox_options_set_log_user_data(struct Tox_Options *options, void *user_data);
+
+bool tox_options_get_thread_safety(const struct Tox_Options *options);
+
+void tox_options_set_thread_safety(struct Tox_Options *options, bool thread_safety);
 
 /**
  * Initialises a Tox_Options object with the default options.

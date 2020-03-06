@@ -647,6 +647,15 @@ static class options {
        */
       any user_data;
     }
+
+    /**
+     * Make public API functions thread-safe using a per-instance lock.
+     *
+     * This option is experimental, so avoid writing code that depends on it.
+     *
+     * Default: false.
+     */
+    bool thread_safety;
   }
 
 
