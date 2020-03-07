@@ -85,16 +85,6 @@
 #define PACKET_LOSSLESS_VIDEO 171
 #define PACKET_TOXAV_COMM_CHANNEL 172
 
-/*** Crypto connections. ***/
-
-typedef enum Crypto_Conn_State {
-    CRYPTO_CONN_NO_CONNECTION = 0,
-    CRYPTO_CONN_COOKIE_REQUESTING = 1,  // send cookie request packets
-    CRYPTO_CONN_HANDSHAKE_SENT = 2,     // send handshake packets
-    CRYPTO_CONN_NOT_CONFIRMED = 3,      // send handshake packets, we have received one from the other
-    CRYPTO_CONN_ESTABLISHED = 4,
-} Crypto_Conn_State;
-
 /* Maximum size of receiving and sending packet buffers. */
 #define CRYPTO_PACKET_BUFFER_SIZE 32768 // Must be a power of 2
 
