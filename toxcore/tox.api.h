@@ -2739,18 +2739,6 @@ namespace friend {
     typedef void(uint32_t friend_number, const uint8_t[length <= MAX_CUSTOM_PACKET_SIZE] data);
   }
 
-  event lossy_packet_per_pktid const {
-    /**
-     * @param friend_number The friend number of the friend who sent a lossy packet.
-     * @param data A byte array containing the received packet data.
-     * @param length The length of the packet data byte array.
-     * @param pktid the packet ID to register the callback for. range from PACKET_ID_RANGE_LOSSY_START
-     *        to PACKET_ID_RANGE_LOSSY_END inclusive.
-     */
-    typedef void(uint32_t friend_number, const uint8_t[length <= MAX_CUSTOM_PACKET_SIZE] data, uint8_t pktid);
-  }
-
-
   event lossless_packet const {
     /**
      * @param friend_number The friend number of the friend who sent the packet.
@@ -2861,6 +2849,14 @@ typedef TOX_LOG_LEVEL Tox_Log_Level;
 typedef TOX_CONNECTION Tox_Connection;
 typedef TOX_FILE_CONTROL Tox_File_Control;
 typedef TOX_CONFERENCE_TYPE Tox_Conference_Type;
+
+/**
+ * Set the callback for the `friend_lossy_packet` event for a specific packet ID.
+ * to Pass NULL to unset.
+ * You need to set to NULL first, only then you are allowed to change it
+ *
+ */
+void tox_callback_friend_lossy_packet_per_pktid(Tox *tox, tox_friend_lossy_packet_cb *callback, uint8_t pktid);
 
 #endif // C_TOXCORE_TOXCORE_TOX_H
 %}
