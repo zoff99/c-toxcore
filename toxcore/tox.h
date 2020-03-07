@@ -3142,9 +3142,19 @@ typedef void tox_friend_lossy_packet_cb(Tox *tox, uint32_t friend_number, const 
 
 /**
  * Set the callback for the `friend_lossy_packet` event. Pass NULL to unset.
+ * compatibility function to set callback for all packet IDs except those reserved
+ * for ToxAV
  *
  */
 void tox_callback_friend_lossy_packet(Tox *tox, tox_friend_lossy_packet_cb *callback);
+
+/**
+ * Set the callback for the `friend_lossy_packet` event for a specific packet ID.
+ * to Pass NULL to unset.
+ * You need to set to NULL first, only then you are allowed to change it
+ *
+ */
+void tox_callback_friend_lossy_packet_per_pktid(Tox *tox, tox_friend_lossy_packet_cb *callback, uint8_t pktid);
 
 /**
  * @param friend_number The friend number of the friend who sent the packet.
