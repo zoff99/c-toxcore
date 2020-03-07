@@ -3132,6 +3132,9 @@ bool tox_friend_send_lossless_packet(Tox *tox, uint32_t friend_number, const uin
                                      TOX_ERR_FRIEND_CUSTOM_PACKET *error);
 
 /**
+ * tox_callback_friend_lossy_packet is the compatibility callback function to
+ * set callback for all packet IDs except those reserved for ToxAV
+ *
  * @param friend_number The friend number of the friend who sent a lossy packet.
  * @param data A byte array containing the received packet data.
  * @param length The length of the packet data byte array.
@@ -3142,19 +3145,9 @@ typedef void tox_friend_lossy_packet_cb(Tox *tox, uint32_t friend_number, const 
 
 /**
  * Set the callback for the `friend_lossy_packet` event. Pass NULL to unset.
- * compatibility function to set callback for all packet IDs except those reserved
- * for ToxAV
  *
  */
 void tox_callback_friend_lossy_packet(Tox *tox, tox_friend_lossy_packet_cb *callback);
-
-/**
- * Set the callback for the `friend_lossy_packet` event for a specific packet ID.
- * to Pass NULL to unset.
- * You need to set to NULL first, only then you are allowed to change it
- *
- */
-void tox_callback_friend_lossy_packet_per_pktid(Tox *tox, tox_friend_lossy_packet_cb *callback, uint8_t pktid);
 
 /**
  * @param friend_number The friend number of the friend who sent the packet.
@@ -3263,6 +3256,12 @@ typedef TOX_CONNECTION Tox_Connection;
 typedef TOX_FILE_CONTROL Tox_File_Control;
 typedef TOX_CONFERENCE_TYPE Tox_Conference_Type;
 
-//!TOKSTYLE+
+/**
+ * Set the callback for the `friend_lossy_packet` event for a specific packet ID.
+ * to Pass NULL to unset.
+ * You need to set to NULL first, only then you are allowed to change it
+ *
+ */
+void tox_callback_friend_lossy_packet_per_pktid(Tox *tox, tox_friend_lossy_packet_cb *callback, uint8_t pktid);
 
 #endif // C_TOXCORE_TOXCORE_TOX_H
