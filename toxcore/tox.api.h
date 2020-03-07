@@ -2733,6 +2733,17 @@ namespace friend {
     typedef void(uint32_t friend_number, const uint8_t[length <= MAX_CUSTOM_PACKET_SIZE] data);
   }
 
+  event lossy_packet_per_pktid const {
+    /**
+     * @param friend_number The friend number of the friend who sent a lossy packet.
+     * @param data A byte array containing the received packet data.
+     * @param length The length of the packet data byte array.
+     * @param pktid the packet ID to register the callback for. range from PACKET_ID_RANGE_LOSSY_START
+     *        to PACKET_ID_RANGE_LOSSY_END inclusive.
+     */
+    typedef void(uint32_t friend_number, const uint8_t[length <= MAX_CUSTOM_PACKET_SIZE] data, uint8_t pktid);
+  }
+
 
   event lossless_packet const {
     /**
