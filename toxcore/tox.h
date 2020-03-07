@@ -3128,7 +3128,7 @@ bool tox_friend_send_lossless_packet(Tox *tox, uint32_t friend_number, const uin
                                      TOX_ERR_FRIEND_CUSTOM_PACKET *error);
 
 /**
- * tox_callback_friend_lossy_packet is the compatibility callback function to
+ * tox_callback_friend_lossy_packet is the compatibility function to
  * set callback for all packet IDs except those reserved for ToxAV
  *
  * @param friend_number The friend number of the friend who sent a lossy packet.
