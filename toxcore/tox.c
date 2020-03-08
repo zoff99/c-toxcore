@@ -704,9 +704,9 @@ void tox_get_savedata(const Tox *tox, uint8_t *savedata)
         return;
     }
 
-    lock(tox);
-
     memset(savedata, 0, tox_get_savedata_size(tox));
+
+    lock(tox);
 
     const uint32_t size32 = sizeof(uint32_t);
 
@@ -1165,7 +1165,7 @@ void tox_self_get_friend_list(const Tox *tox, uint32_t *friend_list)
     if (friend_list) {
         lock(tox);
         // TODO(irungentoo): size parameter?
-        copy_friendlist(tox->m, friend_list, tox_self_get_friend_list_size(tox));
+        copy_friendlist(tox->m, friend_list, count_friendlist(tox->m));
         unlock(tox);
     }
 }
