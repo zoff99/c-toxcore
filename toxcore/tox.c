@@ -1486,7 +1486,7 @@ bool tox_file_seek(Tox *tox, uint32_t friend_number, uint32_t file_number, uint6
                    Tox_Err_File_Seek *error)
 {
     lock(tox);
-    const int ret = file_seek(tox->m, friend_number, file_number, position);
+    const int ret = file_seek(tox->m, friend_number, file_number, position, false);
     unlock(tox);
 
     if (ret == 0) {
