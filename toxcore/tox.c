@@ -724,8 +724,6 @@ void tox_get_savedata(const Tox *tox, uint8_t *savedata)
         return;
     }
 
-    lock(tox);
-
     memset(savedata, 0, tox_get_savedata_size(tox));
 
     lock(tox);
