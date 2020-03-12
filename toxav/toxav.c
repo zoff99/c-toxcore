@@ -205,7 +205,7 @@ void toxav_kill(ToxAV *av)
 
     // unregister callbacks
     for (uint8_t i = PACKET_ID_RANGE_LOSSY_AV_START; i <= PACKET_ID_RANGE_LOSSY_AV_END; ++i) {
-        tox_callback_friend_lossy_packet_per_pktid(av->tox, NULL, i);
+        tox_callback_friend_lossy_packet_per_pktid(av->tox, nullptr, i);
     }
 
     /* To avoid possible deadlocks */
