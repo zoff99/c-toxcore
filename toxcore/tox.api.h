@@ -2873,5 +2873,7 @@ void tox_callback_friend_lossy_packet_per_pktid(Tox *tox, tox_friend_lossy_packe
  */
 void tox_callback_friend_lossless_packet_per_pktid(Tox *tox, tox_friend_lossless_packet_cb *callback, uint8_t pktid);
 
+
+
 #endif // C_TOXCORE_TOXCORE_TOX_H
 %}

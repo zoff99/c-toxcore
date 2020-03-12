@@ -441,13 +441,14 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
 /**
  * @return -1 on error, 0 on success.
  */
-void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object)
+void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *dummy)
 {
     // TODO(iphydf): Don't rely on toxcore internals.
     Messenger *m;
     m = *(Messenger **)tox;
 
-    RTPSession *session = (RTPSession *)object;
+    RTPSession *session = NULL;
+    tox_get_av_object(tox, (void **)(&session));
 
     if (!session) {
         LOGGER_WARNING(m->log, "No session!");
