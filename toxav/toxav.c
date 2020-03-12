@@ -181,6 +181,9 @@ ToxAV *toxav_new(Tox *tox, Toxav_Err_New *error)
     av->interval = 200;
     av->msi->av = av;
 
+    // save Tox object into toxcore
+    tox_set_av_object(av->tox, (void *)av);
+
     // register callbacks
     tox_callback_friend_lossy_packet_per_pktid(av->tox, handle_rtp_packet, RTP_TYPE_AUDIO);
     tox_callback_friend_lossy_packet_per_pktid(av->tox, handle_rtp_packet, RTP_TYPE_VIDEO);
