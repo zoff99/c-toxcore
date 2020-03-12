@@ -1811,7 +1811,11 @@ static int handle_custom_lossless_packet(void *object, int friend_num, const uin
     }
 
     if (packet[0] < PACKET_ID_RANGE_LOSSLESS_CUSTOM_START || packet[0] > PACKET_ID_RANGE_LOSSLESS_CUSTOM_END) {
-        return -1;
+        // allow PACKET_ID_MSI packets to be handled by custom packet handler
+        if (packet[0] != PACKET_ID_MSI)
+        {
+            return -1;
+        }
     }
 
     if (m->lossless_packethandler) {
@@ -1823,7 +1827,8 @@ static int handle_custom_lossless_packet(void *object, int friend_num, const uin
 
 void custom_lossless_packet_registerhandler(Messenger *m, m_friend_lossless_packet_cb *lossless_packethandler)
 {
-    m->lossless_packethandler = lossless_packethandler;
+    // zzzzzzz
+    // m->lossless_packethandler = lossless_packethandler;
 }
 
 int send_custom_lossless_packet(const Messenger *m, int32_t friendnumber, const uint8_t *data, uint32_t length)
@@ -1836,9 +1841,12 @@ int send_custom_lossless_packet(const Messenger *m, int32_t friendnumber, const 
         return -2;
     }
 
-    if ((data[0] < PACKET_ID_RANGE_LOSSLESS_CUSTOM_START || data[0] > PACKET_ID_RANGE_LOSSLESS_CUSTOM_END)
-            && data[0] != PACKET_ID_MSI) {
-        return -3;
+    if (data[0] < PACKET_ID_RANGE_LOSSLESS_CUSTOM_START || data[0] > PACKET_ID_RANGE_LOSSLESS_CUSTOM_END) {
+        // allow PACKET_ID_MSI packets to be handled by custom packet handler
+        if (data[0] != PACKET_ID_MSI)
+        {
+            return -3;
+        }
     }
 
     if (m->friendlist[friendnumber].status != FRIEND_ONLINE) {
@@ -2367,14 +2375,8 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
         }
 
         case PACKET_ID_MSI: {
-            if (data_length == 0) {
-                break;
-            }
-
-            if (m->msi_packet) {
-                (*m->msi_packet)(m, i, data, data_length, m->msi_packet_userdata);
-            }
-
+            // allow MSI packets to be handled by custom packet handler
+            handle_custom_lossless_packet(object, i, temp, len, userdata);
             break;
         }
 
