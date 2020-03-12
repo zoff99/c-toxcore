@@ -82,6 +82,7 @@ struct Tox {
     // XXX: Messenger *must* be the first member, because toxav casts its
     // `Tox *` to `Messenger **`.
     Messenger *m;
+    void *toxav_object; // workaround to store a ToxAV object (setter and getter functions are available)
     Mono_Time *mono_time;
     pthread_mutex_t *mutex;
 
@@ -2356,4 +2357,18 @@ uint16_t tox_self_get_tcp_port(const Tox *tox, Tox_Err_Get_Port *error)
     SET_ERROR_PARAMETER(error, TOX_ERR_GET_PORT_NOT_BOUND);
     unlock(tox);
     return 0;
+}
+
+void tox_set_av_object(Tox *tox, const void *object)
+{
+    lock(tox);
+    tox->toxav_object = (void *)object;
+    unlock(tox);
+}
+
+void tox_get_av_object(const Tox *tox, void **object)
+{
+    lock(tox);
+    *object = (void *)tox->toxav_object;
+    unlock(tox);
 }
