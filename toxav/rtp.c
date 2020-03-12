@@ -441,18 +441,22 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
 /**
  * @return -1 on error, 0 on success.
  */
-void handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object)
+void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object)
 {
+    // TODO(iphydf): Don't rely on toxcore internals.
+    Messenger *m;
+    m = *(Messenger **)tox;
+
     RTPSession *session = (RTPSession *)object;
 
     if (!session) {
         LOGGER_WARNING(m->log, "No session!");
-        return -1;
+        return; // -1;
     }
 
     if (length < RTP_HEADER_SIZE + 1) {
         LOGGER_WARNING(m->log, "Invalid length of received buffer!");
-        return -1;
+        return; // -1;
     }
 
     // Get the packet type.
@@ -467,25 +471,25 @@ void handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data,
     if (header.pt != packet_type % 128) {
         LOGGER_WARNING(m->log, "RTPHeader packet type and Tox protocol packet type did not agree: %d != %d",
                        header.pt, packet_type % 128);
-        return -1;
+        return; // -1;
     }
 
     if (header.pt != session->payload_type % 128) {
         LOGGER_WARNING(m->log, "RTPHeader packet type does not match this session's payload type: %d != %d",
                        header.pt, session->payload_type % 128);
-        return -1;
+        return; // -1;
     }
 
     if (header.flags & RTP_LARGE_FRAME && header.offset_full >= header.data_length_full) {
         LOGGER_ERROR(m->log, "Invalid video packet: frame offset (%u) >= full frame length (%u)",
                      (unsigned)header.offset_full, (unsigned)header.data_length_full);
-        return -1;
+        return; // -1;
     }
 
     if (header.offset_lower >= header.data_length_lower) {
         LOGGER_ERROR(m->log, "Invalid old protocol video packet: frame offset (%u) >= full frame length (%u)",
                      (unsigned)header.offset_lower, (unsigned)header.data_length_lower);
-        return -1;
+        return; // -1;
     }
 
     LOGGER_DEBUG(m->log, "header.pt %d, video %d", (uint8_t)header.pt, (RTP_TYPE_VIDEO % 128));
@@ -493,7 +497,7 @@ void handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data,
     // The sender uses the new large-frame capable protocol and is sending a
     // video packet.
     if ((header.flags & RTP_LARGE_FRAME) && header.pt == (RTP_TYPE_VIDEO % 128)) {
-        return handle_video_packet(session, &header, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE, m->log);
+        return; // handle_video_packet(session, &header, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE, m->log);
     }
 
     // everything below here is for the old 16 bit protocol ------------------
@@ -515,7 +519,7 @@ void handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data,
         /* The message came in the allowed time;
          */
 
-        return session->mcb(session->m->mono_time, session->cs, new_message(&header, length - RTP_HEADER_SIZE,
+        session->mcb(session->m->mono_time, session->cs, new_message(&header, length - RTP_HEADER_SIZE,
                             data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE));
     }
 
@@ -539,7 +543,7 @@ void handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data,
                 /* There happened to be some corruption on the stream;
                  * continue wihtout this part
                  */
-                return 0;
+                return; // 0;
             }
 
             memcpy(session->mp->data + header.offset_lower, data + RTP_HEADER_SIZE,
@@ -560,7 +564,7 @@ void handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data,
                 /* The received message part is from the old message;
                  * discard it.
                  */
-                return 0;
+                return; // 0;
             }
 
             /* Push the previous message for processing */
@@ -586,7 +590,7 @@ NEW_MULTIPARTED:
         memmove(session->mp->data + header.offset_lower, session->mp->data, session->mp->len);
     }
 
-    return 0;
+    return; // 0;
 }
 
 size_t rtp_header_pack(uint8_t *const rdata, const struct RTPHeader *header)

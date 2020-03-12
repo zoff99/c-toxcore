@@ -157,11 +157,6 @@ ToxAV *toxav_new(Tox *tox, Toxav_Err_New *error)
     }
 
     av->tox = tox;
-
-    // register callbacks
-    tox_callback_friend_lossy_packet_per_pktid(av->tox, handle_rtp_packet, RTP_TYPE_AUDIO);
-    tox_callback_friend_lossy_packet_per_pktid(av->tox, handle_rtp_packet, RTP_TYPE_VIDEO);
-
     av->m = m;
     av->toxav_mono_time = mono_time_new();
     av->msi = msi_new(av->m);
@@ -174,6 +169,10 @@ ToxAV *toxav_new(Tox *tox, Toxav_Err_New *error)
 
     av->interval = 200;
     av->msi->av = av;
+
+    // register callbacks
+    tox_callback_friend_lossy_packet_per_pktid(av->tox, handle_rtp_packet, RTP_TYPE_AUDIO);
+    tox_callback_friend_lossy_packet_per_pktid(av->tox, handle_rtp_packet, RTP_TYPE_VIDEO);
 
     msi_register_callback(av->msi, callback_invite, MSI_ON_INVITE);
     msi_register_callback(av->msi, callback_start, MSI_ON_START);
