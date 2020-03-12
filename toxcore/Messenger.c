@@ -1812,8 +1812,7 @@ static int handle_custom_lossless_packet(void *object, int friend_num, const uin
 
     if (packet[0] < PACKET_ID_RANGE_LOSSLESS_CUSTOM_START || packet[0] > PACKET_ID_RANGE_LOSSLESS_CUSTOM_END) {
         // allow PACKET_ID_MSI packets to be handled by custom packet handler
-        if (packet[0] != PACKET_ID_MSI)
-        {
+        if (packet[0] != PACKET_ID_MSI) {
             return -1;
         }
     }
@@ -1843,8 +1842,7 @@ int send_custom_lossless_packet(const Messenger *m, int32_t friendnumber, const 
 
     if (data[0] < PACKET_ID_RANGE_LOSSLESS_CUSTOM_START || data[0] > PACKET_ID_RANGE_LOSSLESS_CUSTOM_END) {
         // allow PACKET_ID_MSI packets to be handled by custom packet handler
-        if (data[0] != PACKET_ID_MSI)
-        {
+        if (data[0] != PACKET_ID_MSI) {
             return -3;
         }
     }
