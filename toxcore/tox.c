@@ -2304,18 +2304,16 @@ void tox_callback_friend_lossless_packet_per_pktid(Tox *tox, tox_friend_lossless
 
     if (callback != nullptr) {
         if ((pktid >= PACKET_ID_RANGE_LOSSLESS_CUSTOM_START) && (pktid <= PACKET_ID_RANGE_LOSSLESS_CUSTOM_END)) {
-                tox->friend_lossless_packet_callback_per_pktid[pktid] = callback;
-        }
-        else if (pktid == PACKET_ID_MSI) {
-                tox->friend_lossless_packet_callback_per_pktid[pktid] = callback;
+            tox->friend_lossless_packet_callback_per_pktid[pktid] = callback;
+        } else if (pktid == PACKET_ID_MSI) {
+            tox->friend_lossless_packet_callback_per_pktid[pktid] = callback;
         }
     } else { // callback == nullptr
         if ((pktid >= PACKET_ID_RANGE_LOSSLESS_CUSTOM_START) && (pktid <= PACKET_ID_RANGE_LOSSLESS_CUSTOM_END)) {
             // want to UNset the callback
             tox->friend_lossless_packet_callback_per_pktid[pktid] = nullptr;
-        }
-        else if (pktid == PACKET_ID_MSI) {
-                tox->friend_lossless_packet_callback_per_pktid[pktid] = nullptr;
+        } else if (pktid == PACKET_ID_MSI) {
+            tox->friend_lossless_packet_callback_per_pktid[pktid] = nullptr;
         }
     }
 }

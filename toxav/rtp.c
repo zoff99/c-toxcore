@@ -516,7 +516,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, uin
          */
 
         session->mcb(session->m->mono_time, session->cs, new_message(&header, length - RTP_HEADER_SIZE,
-                            data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE));
+                     data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE));
     }
 
     /* The message is sent in multiple parts */
