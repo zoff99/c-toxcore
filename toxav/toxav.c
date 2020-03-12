@@ -22,6 +22,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "toxav.h"
+#include "tox.h"
 
 #include "msi.h"
 #include "rtp.h"
@@ -168,6 +169,11 @@ ToxAV *toxav_new(Tox *tox, Toxav_Err_New *error)
     }
 
     av->tox = tox;
+
+    // register callbacks
+    tox_callback_friend_lossy_packet_per_pktid(av->tox, handle_rtp_packet, RTP_TYPE_AUDIO);
+    tox_callback_friend_lossy_packet_per_pktid(av->tox, handle_rtp_packet, RTP_TYPE_VIDEO);
+
     av->m = m;
     av->msi = msi_new(av->m);
 
@@ -207,6 +213,11 @@ void toxav_kill(ToxAV *av)
     }
 
     pthread_mutex_lock(av->mutex);
+
+    // unregister callbacks
+    for (uint8_t i = PACKET_ID_RANGE_LOSSY_AV_START; i <= PACKET_ID_RANGE_LOSSY_AV_END; ++i) {
+        tox_callback_friend_lossy_packet_per_pktid(av->tox, NULL, i);
+    }
 
     /* To avoid possible deadlocks */
     while (av->msi && msi_kill(av->msi, av->m->log) != 0) {
