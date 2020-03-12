@@ -441,12 +441,17 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
 /**
  * @return -1 on error, 0 on success.
  */
-static int handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object)
+void handle_rtp_packet(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object)
 {
     RTPSession *session = (RTPSession *)object;
 
-    if (!session || length < RTP_HEADER_SIZE + 1) {
-        LOGGER_WARNING(m->log, "No session or invalid length of received buffer!");
+    if (!session) {
+        LOGGER_WARNING(m->log, "No session!");
+        return -1;
+    }
+
+    if (length < RTP_HEADER_SIZE + 1) {
+        LOGGER_WARNING(m->log, "Invalid length of received buffer!");
         return -1;
     }
 
@@ -711,29 +716,13 @@ void rtp_kill(RTPSession *session)
 
 int rtp_allow_receiving(RTPSession *session)
 {
-    if (session == nullptr) {
-        return -1;
-    }
-
-    if (m_callback_rtp_packet(session->m, session->friend_number, session->payload_type,
-                              handle_rtp_packet, session) == -1) {
-        LOGGER_WARNING(session->m->log, "Failed to register rtp receive handler");
-        return -1;
-    }
-
-    LOGGER_DEBUG(session->m->log, "Started receiving on session: %p", (void *)session);
+    // make it a NOOP for now
     return 0;
 }
 
 int rtp_stop_receiving(RTPSession *session)
 {
-    if (session == nullptr) {
-        return -1;
-    }
-
-    m_callback_rtp_packet(session->m, session->friend_number, session->payload_type, nullptr, nullptr);
-
-    LOGGER_DEBUG(session->m->log, "Stopped receiving on session: %p", (void *)session);
+    // make it a NOOP for now
     return 0;
 }
 

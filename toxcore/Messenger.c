@@ -1755,17 +1755,6 @@ static int m_handle_lossy_packet(void *object, int friend_num, const uint8_t *pa
         return 1;
     }
 
-    if (packet[0] <= PACKET_ID_RANGE_LOSSY_AV_END) {
-        const RTP_Packet_Handler *const ph =
-            &m->friendlist[friend_num].lossy_rtp_packethandlers[packet[0] % PACKET_ID_RANGE_LOSSY_AV_SIZE];
-
-        if (ph->function) {
-            return ph->function(m, friend_num, packet, length, ph->object);
-        }
-
-        return 1;
-    }
-
     if (m->lossy_packethandler) {
         m->lossy_packethandler(m, friend_num, packet[0], packet, length, userdata);
     }
@@ -1777,23 +1766,6 @@ void custom_lossy_packet_registerhandler(Messenger *m, m_friend_lossy_packet_cb 
 {
     m->lossy_packethandler = lossy_packethandler;
 }
-
-int m_callback_rtp_packet(Messenger *m, int32_t friendnumber, uint8_t byte, m_lossy_rtp_packet_cb *function,
-                          void *object)
-{
-    if (!friend_is_valid(m, friendnumber)) {
-        return -1;
-    }
-
-    if (byte < PACKET_ID_RANGE_LOSSY_AV_START || byte > PACKET_ID_RANGE_LOSSY_AV_END) {
-        return -1;
-    }
-
-    m->friendlist[friendnumber].lossy_rtp_packethandlers[byte % PACKET_ID_RANGE_LOSSY_AV_SIZE].function = function;
-    m->friendlist[friendnumber].lossy_rtp_packethandlers[byte % PACKET_ID_RANGE_LOSSY_AV_SIZE].object = object;
-    return 0;
-}
-
 
 /* TODO(oxij): this name is confusing, because this function sends both av and custom lossy packets.
  * Meanwhile, m_handle_lossy_packet routes custom packets to custom_lossy_packet_registerhandler

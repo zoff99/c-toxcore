@@ -87,7 +87,7 @@ BWController *bwc_new(Messenger *m, Tox *tox, uint32_t friendnumber, m_cb *mcb, 
         rb_write(retu->rcvpkt.rb, &retu->rcvpkt.packet_length_array[i]);
     }
 
-    m_callback_rtp_packet(m, friendnumber, BWC_PACKET_ID, bwc_handle_data, retu);
+    //*PP*// m_callback_rtp_packet(m, friendnumber, BWC_PACKET_ID, bwc_handle_data, retu);
     return retu;
 }
 
@@ -97,7 +97,7 @@ void bwc_kill(BWController *bwc)
         return;
     }
 
-    m_callback_rtp_packet(bwc->m, bwc->friend_number, BWC_PACKET_ID, nullptr, nullptr);
+    //*PP*// m_callback_rtp_packet(bwc->m, bwc->friend_number, BWC_PACKET_ID, nullptr, nullptr);
     rb_kill(bwc->rcvpkt.rb);
     free(bwc);
 }

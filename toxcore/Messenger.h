@@ -230,8 +230,6 @@ typedef struct Friend {
     uint32_t num_sending_files;
     struct File_Transfers file_receiving[MAX_CONCURRENT_FILE_PIPES];
 
-    RTP_Packet_Handler lossy_rtp_packethandlers[PACKET_ID_RANGE_LOSSY_AV_SIZE];
-
     struct Receipts *receipts_start;
     struct Receipts *receipts_end;
 } Friend;
@@ -664,15 +662,7 @@ void m_callback_msi_packet(Messenger *m, m_msi_packet_cb *function, void *userda
  */
 int m_msi_packet(const Messenger *m, int32_t friendnumber, const uint8_t *data, uint16_t length);
 
-/* Set handlers for lossy rtp packets.
- *
- * return -1 on failure.
- * return 0 on success.
- */
-int m_callback_rtp_packet(Messenger *m, int32_t friendnumber, uint8_t byte,
-                          m_lossy_rtp_packet_cb *function, void *object);
-
-/** CUSTOM PACKETS */
+/**********************************************/
 
 /* Set handlers for custom lossy packets.
  *
