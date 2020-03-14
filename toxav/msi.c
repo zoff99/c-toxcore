@@ -8,6 +8,7 @@
 
 #include "msi.h"
 
+#include "../toxcore/tox.h"
 #include "../toxcore/logger.h"
 #include "../toxcore/util.h"
 
@@ -17,6 +18,22 @@
 #include <string.h>
 
 #define MSI_MAXMSG_SIZE 256
+
+/*
+ * Zoff: disable logging in ToxAV for now
+ */
+#undef LOGGER_DEBUG
+#define LOGGER_DEBUG(log, ...) dummy()
+#undef LOGGER_ERROR
+#define LOGGER_ERROR(log, ...) dummy()
+#undef LOGGER_WARNING
+#define LOGGER_WARNING(log, ...) dummy()
+#undef LOGGER_INFO
+#define LOGGER_INFO(log, ...) dummy()
+
+void dummy()
+{
+}
 
 /**
  * Protocol:
@@ -61,21 +78,20 @@ typedef struct MSIMessage {
 } MSIMessage;
 
 
-static void msg_init(MSIMessage *dest, MSIRequest request);
-static int msg_parse_in(const Logger *log, MSIMessage *dest, const uint8_t *data, uint16_t length);
-static uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, uint8_t value_len,
-                                     uint16_t *length);
-static int send_message(Messenger *m, uint32_t friend_number, const MSIMessage *msg);
-static int send_error(Messenger *m, uint32_t friend_number, MSIError error);
+void msg_init(MSIMessage *dest, MSIRequest request);
+int msg_parse_in(const Logger *log, MSIMessage *dest, const uint8_t *data, uint16_t length);
+uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, uint8_t value_len, uint16_t *length);
+static int send_message(const Tox *tox, uint32_t friend_number, const MSIMessage *msg);
+int send_error(const Tox *tox, uint32_t friend_number, MSIError error);
 static int invoke_callback(MSICall *call, MSICallbackID cb);
 static MSICall *get_call(MSISession *session, uint32_t friend_number);
-static MSICall *new_call(MSISession *session, uint32_t friend_number);
-static void kill_call(MSICall *call);
-static void on_peer_status(Messenger *m, uint32_t friend_number, uint8_t status, void *data);
-static void handle_init(MSICall *call, const MSIMessage *msg);
-static void handle_push(MSICall *call, const MSIMessage *msg);
-static void handle_pop(MSICall *call, const MSIMessage *msg);
-static void handle_msi_packet(Messenger *m, uint32_t friend_number, const uint8_t *data, uint16_t length, void *object);
+MSICall *new_call(MSISession *session, uint32_t friend_number);
+void kill_call(MSICall *call);
+void on_peer_status(const Tox *tox, uint32_t friend_number, uint8_t status, void *data);
+void handle_init(MSICall *call, const MSIMessage *msg);
+void handle_push(MSICall *call, const MSIMessage *msg);
+void handle_pop(MSICall *call, const MSIMessage *msg);
+void handle_msi_packet(const Tox *tox, uint32_t friend_number, const uint8_t *data, uint16_t length, void *object);
 
 
 /**
@@ -92,8 +108,12 @@ void msi_register_callback(MSISession *session, msi_action_cb *callback, MSICall
     pthread_mutex_unlock(session->mutex);
 }
 
-MSISession *msi_new(Messenger *m)
+MSISession *msi_new(const Tox *tox)
 {
+    // TODO(iphydf): Don't rely on toxcore internals.
+    Messenger *m;
+    m = *(Messenger **)tox;
+    
     if (m == nullptr) {
         return nullptr;
     }
@@ -111,9 +131,10 @@ MSISession *msi_new(Messenger *m)
         return nullptr;
     }
 
-    retu->messenger = m;
+    retu->tox = tox;
 
-    m_callback_msi_packet(m, handle_msi_packet, retu);
+    // register callback
+    tox_callback_friend_lossless_packet_per_pktid(tox, handle_msi_packet, PACKET_ID_MSI);    
 
     /* This is called when remote terminates session */
     m_callback_connectionstatus_internal_av(m, on_peer_status, retu);
@@ -122,14 +143,15 @@ MSISession *msi_new(Messenger *m)
     return retu;
 }
 
-int msi_kill(MSISession *session, const Logger *log)
+int msi_kill(const Tox *tox, MSISession *session, const Logger *log)
 {
     if (session == nullptr) {
         LOGGER_ERROR(log, "Tried to terminate non-existing session");
         return -1;
     }
 
-    m_callback_msi_packet(session->messenger, nullptr, nullptr);
+    // UN-register callback
+    tox_callback_friend_lossless_packet_per_pktid(tox, nullptr, PACKET_ID_MSI);    
 
     if (pthread_mutex_trylock(session->mutex) != 0) {
         LOGGER_ERROR(log, "Failed to acquire lock on msi mutex");
@@ -143,7 +165,7 @@ int msi_kill(MSISession *session, const Logger *log)
         MSICall *it = get_call(session, session->calls_head);
 
         while (it) {
-            send_message(session->messenger, it->friend_number, &msg);
+            send_message(session->tox, it->friend_number, &msg);
             MSICall *temp_it = it;
             it = it->next;
             kill_call(temp_it); /* This will eventually free session->calls */
@@ -192,7 +214,7 @@ int msi_invite(MSISession *session, MSICall **call, uint32_t friend_number, uint
     msg.capabilities.exists = true;
     msg.capabilities.value = capabilities;
 
-    send_message(temp->session->messenger, temp->friend_number, &msg);
+    send_message(temp->session->tox, temp->friend_number, &msg);
 
     temp->state = MSI_CALL_REQUESTING;
 
@@ -228,7 +250,7 @@ int msi_hangup(MSICall *call)
     MSIMessage msg;
     msg_init(&msg, REQU_POP);
 
-    send_message(session->messenger, call->friend_number, &msg);
+    send_message(session->tox, call->friend_number, &msg);
 
     kill_call(call);
     pthread_mutex_unlock(session->mutex);
@@ -267,7 +289,7 @@ int msi_answer(MSICall *call, uint8_t capabilities)
     msg.capabilities.exists = true;
     msg.capabilities.value = capabilities;
 
-    send_message(session->messenger, call->friend_number, &msg);
+    send_message(session->tox, call->friend_number, &msg);
 
     call->state = MSI_CALL_ACTIVE;
     pthread_mutex_unlock(session->mutex);
@@ -305,7 +327,7 @@ int msi_change_capabilities(MSICall *call, uint8_t capabilities)
     msg.capabilities.exists = true;
     msg.capabilities.value = capabilities;
 
-    send_message(call->session->messenger, call->friend_number, &msg);
+    send_message(call->session->tox, call->friend_number, &msg);
 
     pthread_mutex_unlock(session->mutex);
     return 0;
@@ -421,10 +443,32 @@ uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, 
     return dest + value_len; /* Set to next position ready to be written */
 }
 
-int send_message(Messenger *m, uint32_t friend_number, const MSIMessage *msg)
+/* Send an msi packet.
+ *
+ *  return 1 on success
+ *  return 0 on failure
+ */
+static int m_msi_packet(const Tox *tox, int32_t friendnumber, const uint8_t *data, uint16_t length)
 {
-    /* Parse and send message */
+    TOX_ERR_FRIEND_CUSTOM_PACKET error;
+    bool res = tox_friend_send_lossless_packet(tox, friendnumber, data, length, &error);
+    
+    if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_OK)
+    {
+        return 1;
+    }
+    
+    return 0;
+}
+
+int send_message(const Tox *tox, uint32_t friend_number, const MSIMessage *msg)
+{
+    // TODO(iphydf): Don't rely on toxcore internals.
+    Messenger *m;
+    m = *(Messenger **)tox;
     assert(m);
+
+    /* Parse and send message */
 
     uint8_t parsed [MSI_MAXMSG_SIZE];
 
@@ -459,7 +503,7 @@ int send_message(Messenger *m, uint32_t friend_number, const MSIMessage *msg)
     *it = 0;
     ++size;
 
-    if (m_msi_packet(m, friend_number, parsed, size)) {
+    if (m_msi_packet(tox, friend_number, parsed, size)) {
         LOGGER_DEBUG(m->log, "Sent message");
         return 0;
     }
@@ -467,10 +511,14 @@ int send_message(Messenger *m, uint32_t friend_number, const MSIMessage *msg)
     return -1;
 }
 
-int send_error(Messenger *m, uint32_t friend_number, MSIError error)
+int send_error(const Tox *tox, uint32_t friend_number, MSIError error)
 {
-    /* Send error message */
+    // TODO(iphydf): Don't rely on toxcore internals.
+    Messenger *m;
+    m = *(Messenger **)tox;
     assert(m);
+
+    /* Send error message */
 
     LOGGER_DEBUG(m->log, "Sending error: %d to friend: %d", error, friend_number);
 
@@ -480,7 +528,7 @@ int send_error(Messenger *m, uint32_t friend_number, MSIError error)
     msg.error.exists = true;
     msg.error.value = error;
 
-    send_message(m, friend_number, &msg);
+    send_message(tox, friend_number, &msg);
     return 0;
 }
 
@@ -619,8 +667,12 @@ CLEAR_CONTAINER:
     session->calls = nullptr;
 }
 
-void on_peer_status(Messenger *m, uint32_t friend_number, uint8_t status, void *data)
+void on_peer_status(const Tox *tox, uint32_t friend_number, uint8_t status, void *data)
 {
+    // TODO(iphydf): Don't rely on toxcore internals.
+    Messenger *m;
+    m = *(Messenger **)tox;
+
     MSISession *session = (MSISession *)data;
 
     switch (status) {
@@ -686,7 +738,7 @@ void handle_init(MSICall *call, const MSIMessage *msg)
             out_msg.capabilities.exists = true;
             out_msg.capabilities.value = call->self_capabilities;
 
-            send_message(call->session->messenger, call->friend_number, &out_msg);
+            send_message(call->session->tox, call->friend_number, &out_msg);
 
             /* If peer changed capabilities during re-call they will
              * be handled accordingly during the next step
@@ -704,7 +756,7 @@ void handle_init(MSICall *call, const MSIMessage *msg)
 
     return;
 FAILURE:
-    send_error(call->session->messenger, call->friend_number, call->error);
+    send_error(call->session->tox, call->friend_number, call->error);
     kill_call(call);
 }
 
@@ -760,7 +812,7 @@ void handle_push(MSICall *call, const MSIMessage *msg)
     return;
 
 FAILURE:
-    send_error(call->session->messenger, call->friend_number, call->error);
+    send_error(call->session->tox, call->friend_number, call->error);
     kill_call(call);
 }
 
@@ -810,16 +862,37 @@ void handle_pop(MSICall *call, const MSIMessage *msg)
     kill_call(call);
 }
 
-void handle_msi_packet(Messenger *m, uint32_t friend_number, const uint8_t *data, uint16_t length, void *object)
+/* !!hack!! */
+MSISession *tox_av_msi_get(void *av);
+
+void handle_msi_packet(const Tox *tox, uint32_t friend_number, const uint8_t *data, uint16_t length, void *object)
 {
+    // TODO(iphydf): Don't rely on toxcore internals.
+    Messenger *m;
+    m = *(Messenger **)tox;
+
     LOGGER_DEBUG(m->log, "Got msi message");
 
-    MSISession *session = (MSISession *)object;
+    void *toxav = NULL;
+    tox_get_av_object(tox, (void **)(&toxav));
+
+    if (!toxav)
+    {
+        return;
+    }
+
+    MSISession *session = tox_av_msi_get(toxav);
+    
+    if (!session)
+    {
+        return;
+    }
+    
     MSIMessage msg;
 
     if (msg_parse_in(m->log, &msg, data, length) == -1) {
         LOGGER_WARNING(m->log, "Error parsing message");
-        send_error(m, friend_number, MSI_E_INVALID_MESSAGE);
+        send_error(tox, friend_number, MSI_E_INVALID_MESSAGE);
         return;
     }
 
@@ -830,7 +903,7 @@ void handle_msi_packet(Messenger *m, uint32_t friend_number, const uint8_t *data
 
     if (call == nullptr) {
         if (msg.request.value != REQU_INIT) {
-            send_error(m, friend_number, MSI_E_STRAY_MESSAGE);
+            send_error(tox, friend_number, MSI_E_STRAY_MESSAGE);
             pthread_mutex_unlock(session->mutex);
             return;
         }
@@ -838,7 +911,7 @@ void handle_msi_packet(Messenger *m, uint32_t friend_number, const uint8_t *data
         call = new_call(session, friend_number);
 
         if (call == nullptr) {
-            send_error(m, friend_number, MSI_E_SYSTEM);
+            send_error(tox, friend_number, MSI_E_SYSTEM);
             pthread_mutex_unlock(session->mutex);
             return;
         }
