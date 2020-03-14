@@ -20,6 +20,22 @@
 #include "../toxcore/mono_time.h"
 #include "../toxcore/util.h"
 
+/*
+ * Zoff: disable logging in ToxAV for now
+ */
+#undef LOGGER_DEBUG
+#define LOGGER_DEBUG(log, ...) dummy2()
+#undef LOGGER_ERROR
+#define LOGGER_ERROR(log, ...) dummy2()
+#undef LOGGER_WARNING
+#define LOGGER_WARNING(log, ...) dummy2()
+#undef LOGGER_INFO
+#define LOGGER_INFO(log, ...) dummy2()
+
+void dummy2()
+{
+}
+
 /**
  * The number of milliseconds we want to keep a keyframe in the buffer for,
  * even though there are no free slots for incoming frames.

@@ -23,6 +23,22 @@
 #include <stdlib.h>
 #include <string.h>
 
+/*
+ * Zoff: disable logging in ToxAV for now
+ */
+#undef LOGGER_DEBUG
+#define LOGGER_DEBUG(log, ...) dummy()
+#undef LOGGER_ERROR
+#define LOGGER_ERROR(log, ...) dummy()
+#undef LOGGER_WARNING
+#define LOGGER_WARNING(log, ...) dummy()
+#undef LOGGER_INFO
+#define LOGGER_INFO(log, ...) dummy()
+
+static void dummy()
+{
+}
+
 // TODO(zoff99): don't hardcode this, let the application choose it
 // VPX Info: Time to spend encoding, in microseconds (it's a *soft* deadline)
 #define WANTED_MAX_ENCODER_FPS (40)
