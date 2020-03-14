@@ -81,7 +81,7 @@ typedef struct MSIMessage {
 void msg_init(MSIMessage *dest, MSIRequest request);
 int msg_parse_in(const Logger *log, MSIMessage *dest, const uint8_t *data, uint16_t length);
 uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, uint8_t value_len, uint16_t *length);
-static int send_message(const Tox *tox, uint32_t friend_number, const MSIMessage *msg);
+static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg);
 int send_error(const Tox *tox, uint32_t friend_number, MSIError error);
 static int invoke_callback(MSICall *call, MSICallbackID cb);
 static MSICall *get_call(MSISession *session, uint32_t friend_number);
@@ -113,7 +113,7 @@ MSISession *msi_new(const Tox *tox)
     // TODO(iphydf): Don't rely on toxcore internals.
     Messenger *m;
     m = *(Messenger **)tox;
-    
+
     if (m == nullptr) {
         return nullptr;
     }
@@ -134,7 +134,7 @@ MSISession *msi_new(const Tox *tox)
     retu->tox = tox;
 
     // register callback
-    tox_callback_friend_lossless_packet_per_pktid(tox, handle_msi_packet, PACKET_ID_MSI);    
+    tox_callback_friend_lossless_packet_per_pktid(tox, handle_msi_packet, PACKET_ID_MSI);
 
     /* This is called when remote terminates session */
     m_callback_connectionstatus_internal_av(m, on_peer_status, retu);
@@ -151,7 +151,7 @@ int msi_kill(const Tox *tox, MSISession *session, const Logger *log)
     }
 
     // UN-register callback
-    tox_callback_friend_lossless_packet_per_pktid(tox, nullptr, PACKET_ID_MSI);    
+    tox_callback_friend_lossless_packet_per_pktid(tox, nullptr, PACKET_ID_MSI);
 
     if (pthread_mutex_trylock(session->mutex) != 0) {
         LOGGER_ERROR(log, "Failed to acquire lock on msi mutex");
@@ -452,16 +452,16 @@ static int m_msi_packet(const Tox *tox, int32_t friendnumber, const uint8_t *dat
 {
     TOX_ERR_FRIEND_CUSTOM_PACKET error;
     bool res = tox_friend_send_lossless_packet(tox, friendnumber, data, length, &error);
-    
+
     if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_OK)
     {
         return 1;
     }
-    
+
     return 0;
 }
 
-int send_message(const Tox *tox, uint32_t friend_number, const MSIMessage *msg)
+static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg)
 {
     // TODO(iphydf): Don't rely on toxcore internals.
     Messenger *m;
@@ -882,12 +882,12 @@ void handle_msi_packet(const Tox *tox, uint32_t friend_number, const uint8_t *da
     }
 
     MSISession *session = tox_av_msi_get(toxav);
-    
+
     if (!session)
     {
         return;
     }
-    
+
     MSIMessage msg;
 
     if (msg_parse_in(m->log, &msg, data, length) == -1) {

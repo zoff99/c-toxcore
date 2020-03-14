@@ -2483,16 +2483,16 @@ uint16_t tox_self_get_tcp_port(const Tox *tox, Tox_Err_Get_Port *error)
     return 0;
 }
 
-void tox_set_av_object(Tox *tox, const void *object)
+void tox_set_av_object(Tox *tox, void *object)
 {
     lock(tox);
-    tox->toxav_object = (void *)object;
+    tox->toxav_object = object;
     unlock(tox);
 }
 
 void tox_get_av_object(const Tox *tox, void **object)
 {
     lock(tox);
-    *object = (void *)tox->toxav_object;
+    *object = tox->toxav_object;
     unlock(tox);
 }
