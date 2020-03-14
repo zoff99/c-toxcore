@@ -91,6 +91,7 @@ void msi_register_callback(MSISession *session, msi_action_cb *callback, MSICall
     session->callbacks[id] = callback;
     pthread_mutex_unlock(session->mutex);
 }
+
 MSISession *msi_new(Messenger *m)
 {
     if (m == nullptr) {
@@ -120,6 +121,7 @@ MSISession *msi_new(Messenger *m)
     LOGGER_DEBUG(m->log, "New msi session: %p ", (void *)retu);
     return retu;
 }
+
 int msi_kill(MSISession *session, const Logger *log)
 {
     if (session == nullptr) {
@@ -155,6 +157,7 @@ int msi_kill(MSISession *session, const Logger *log)
     free(session);
     return 0;
 }
+
 int msi_invite(MSISession *session, MSICall **call, uint32_t friend_number, uint8_t capabilities)
 {
     if (!session) {
@@ -199,6 +202,7 @@ int msi_invite(MSISession *session, MSICall **call, uint32_t friend_number, uint
     pthread_mutex_unlock(session->mutex);
     return 0;
 }
+
 int msi_hangup(MSICall *call)
 {
     if (!call || !call->session) {
@@ -230,6 +234,7 @@ int msi_hangup(MSICall *call)
     pthread_mutex_unlock(session->mutex);
     return 0;
 }
+
 int msi_answer(MSICall *call, uint8_t capabilities)
 {
     if (!call || !call->session) {
@@ -269,6 +274,7 @@ int msi_answer(MSICall *call, uint8_t capabilities)
 
     return 0;
 }
+
 int msi_change_capabilities(MSICall *call, uint8_t capabilities)
 {
     if (!call || !call->session) {
@@ -315,7 +321,8 @@ static void msg_init(MSIMessage *dest, MSIRequest request)
     dest->request.exists = true;
     dest->request.value = request;
 }
-static int msg_parse_in(const Logger *log, MSIMessage *dest, const uint8_t *data, uint16_t length)
+
+int msg_parse_in(const Logger *log, MSIMessage *dest, const uint8_t *data, uint16_t length)
 {
     /* Parse raw data received from socket into MSIMessage struct */
 
@@ -394,8 +401,8 @@ static int msg_parse_in(const Logger *log, MSIMessage *dest, const uint8_t *data
 
     return 0;
 }
-static uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, uint8_t value_len,
-                                     uint16_t *length)
+
+uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, uint8_t value_len, uint16_t *length)
 {
     /* Parse a single header for sending */
     assert(dest);
@@ -413,7 +420,8 @@ static uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *
 
     return dest + value_len; /* Set to next position ready to be written */
 }
-static int send_message(Messenger *m, uint32_t friend_number, const MSIMessage *msg)
+
+int send_message(Messenger *m, uint32_t friend_number, const MSIMessage *msg)
 {
     /* Parse and send message */
     assert(m);
@@ -458,7 +466,8 @@ static int send_message(Messenger *m, uint32_t friend_number, const MSIMessage *
 
     return -1;
 }
-static int send_error(Messenger *m, uint32_t friend_number, MSIError error)
+
+int send_error(Messenger *m, uint32_t friend_number, MSIError error)
 {
     /* Send error message */
     assert(m);
@@ -474,7 +483,8 @@ static int send_error(Messenger *m, uint32_t friend_number, MSIError error)
     send_message(m, friend_number, &msg);
     return 0;
 }
-static int invoke_callback(MSICall *call, MSICallbackID cb)
+
+int invoke_callback(MSICall *call, MSICallbackID cb)
 {
     assert(call);
 
@@ -501,6 +511,7 @@ FAILURE:
 
     return -1;
 }
+
 static MSICall *get_call(MSISession *session, uint32_t friend_number)
 {
     assert(session);
@@ -511,7 +522,8 @@ static MSICall *get_call(MSISession *session, uint32_t friend_number)
 
     return session->calls[friend_number];
 }
-static MSICall *new_call(MSISession *session, uint32_t friend_number)
+
+MSICall *new_call(MSISession *session, uint32_t friend_number)
 {
     assert(session);
 
@@ -564,7 +576,8 @@ static MSICall *new_call(MSISession *session, uint32_t friend_number)
     session->calls[friend_number] = rc;
     return rc;
 }
-static void kill_call(MSICall *call)
+
+void kill_call(MSICall *call)
 {
     /* Assume that session mutex is locked */
     if (call == nullptr) {
@@ -605,7 +618,8 @@ CLEAR_CONTAINER:
     free(call);
     session->calls = nullptr;
 }
-static void on_peer_status(Messenger *m, uint32_t friend_number, uint8_t status, void *data)
+
+void on_peer_status(Messenger *m, uint32_t friend_number, uint8_t status, void *data)
 {
     MSISession *session = (MSISession *)data;
 
@@ -631,7 +645,8 @@ static void on_peer_status(Messenger *m, uint32_t friend_number, uint8_t status,
             break;
     }
 }
-static void handle_init(MSICall *call, const MSIMessage *msg)
+
+void handle_init(MSICall *call, const MSIMessage *msg)
 {
     assert(call);
     LOGGER_DEBUG(call->session->messenger->log,
@@ -692,7 +707,8 @@ FAILURE:
     send_error(call->session->messenger, call->friend_number, call->error);
     kill_call(call);
 }
-static void handle_push(MSICall *call, const MSIMessage *msg)
+
+void handle_push(MSICall *call, const MSIMessage *msg)
 {
     assert(call);
 
@@ -747,7 +763,8 @@ FAILURE:
     send_error(call->session->messenger, call->friend_number, call->error);
     kill_call(call);
 }
-static void handle_pop(MSICall *call, const MSIMessage *msg)
+
+void handle_pop(MSICall *call, const MSIMessage *msg)
 {
     assert(call);
 
@@ -792,7 +809,8 @@ static void handle_pop(MSICall *call, const MSIMessage *msg)
 
     kill_call(call);
 }
-static void handle_msi_packet(Messenger *m, uint32_t friend_number, const uint8_t *data, uint16_t length, void *object)
+
+void handle_msi_packet(Messenger *m, uint32_t friend_number, const uint8_t *data, uint16_t length, void *object)
 {
     LOGGER_DEBUG(m->log, "Got msi message");
 
