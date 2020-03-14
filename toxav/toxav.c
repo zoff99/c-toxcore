@@ -7,7 +7,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "toxav.h"
-#include "tox.h"
+#include "../toxcore/tox.h"
 
 #include "msi.h"
 #include "rtp.h"
@@ -120,6 +120,7 @@ ToxAVCall *call_remove(ToxAVCall *call);
 bool call_prepare_transmission(ToxAVCall *call);
 void call_kill_transmission(ToxAVCall *call);
 
+MSISession *tox_av_msi_get(ToxAV *av);
 MSISession *tox_av_msi_get(ToxAV *av)
 {
     if (!av)
@@ -355,6 +356,7 @@ void toxav_callback_call(ToxAV *av, toxav_call_cb *callback, void *user_data)
     pthread_mutex_unlock(av->mutex);
 }
 
+int toxav_friend_exists(const Tox *tox, int32_t friendnumber);
 int toxav_friend_exists(const Tox *tox, int32_t friendnumber)
 {
     if (tox)
