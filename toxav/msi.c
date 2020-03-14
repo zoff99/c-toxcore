@@ -83,10 +83,8 @@ int msg_parse_in(const Logger *log, MSIMessage *dest, const uint8_t *data, uint1
 uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, uint8_t value_len, uint16_t *length);
 static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg);
 int send_error(const Tox *tox, uint32_t friend_number, MSIError error);
-static int invoke_callback(MSICall *call, MSICallbackID cb);
 static MSICall *get_call(MSISession *session, uint32_t friend_number);
 MSICall *new_call(MSISession *session, uint32_t friend_number);
-void kill_call(MSICall *call);
 void on_peer_status(const Tox *tox, uint32_t friend_number, uint8_t status, void *data);
 void handle_init(MSICall *call, const MSIMessage *msg);
 void handle_push(MSICall *call, const MSIMessage *msg);
@@ -131,11 +129,6 @@ MSISession *msi_new(const Tox *tox)
 
     // register callback
     tox_callback_friend_lossless_packet_per_pktid(tox, handle_msi_packet, PACKET_ID_MSI);
-
-#if 0
-    /* This is called when remote terminates session */
-    m_callback_connectionstatus_internal_av(m, on_peer_status, retu);
-#endif
 
     LOGGER_DEBUG(m->log, "New msi session: %p ", (void *)retu);
     return retu;
@@ -459,6 +452,23 @@ static int m_msi_packet(const Tox *tox, int32_t friendnumber, const uint8_t *dat
     return 0;
 }
 
+/*
+ * return -1 on failure, 0 on success
+ * 
+ */
+int m_msi_send_custom_lossy_packet(const Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length)
+{
+    TOX_ERR_FRIEND_CUSTOM_PACKET error;
+    bool res = tox_friend_send_lossy_packet(tox, friendnumber, data, (size_t)length, &error);
+
+    if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_OK)
+    {
+        return 0;
+    }
+    
+    return -1;
+}
+
 static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg)
 {
     // TODO(iphydf): Don't rely on toxcore internals.
@@ -665,6 +675,7 @@ CLEAR_CONTAINER:
     session->calls = nullptr;
 }
 
+#if 0
 void on_peer_status(const Tox *tox, uint32_t friend_number, uint8_t status, void *data)
 {
     // TODO(iphydf): Don't rely on toxcore internals.
@@ -695,6 +706,7 @@ void on_peer_status(const Tox *tox, uint32_t friend_number, uint8_t status, void
             break;
     }
 }
+#endif
 
 void handle_init(MSICall *call, const MSIMessage *msg)
 {

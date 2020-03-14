@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "bwcontroller.h"
+#include "msi.h"
 
 #include "../toxcore/Messenger.h"
 #include "../toxcore/logger.h"
@@ -727,7 +728,8 @@ RTPSession *rtp_new(int payload_type, const Tox *tox, uint32_t friendnumber,
 
     session->ssrc = payload_type == RTP_TYPE_VIDEO ? 0 : random_u32(); // Zoff: what is this??
     session->payload_type = payload_type;
-    session->m = m;
+    // session->m = m;
+    session->tox = tox;
     session->friend_number = friendnumber;
 
     // set NULL just in case
@@ -846,7 +848,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
         rtp_header_pack(rdata + 1, &header);
         memcpy(rdata + 1 + RTP_HEADER_SIZE, data, length);
 
-        if (-1 == m_send_custom_lossy_packet(session->m, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
+        if (-1 == m_msi_send_custom_lossy_packet(session->tox, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
             const char *netstrerror = net_new_strerror(net_error());
             LOGGER_WARNING(session->m->log, "RTP send failed (len: %u)! std error: %s, net error: %s",
                            (unsigned)SIZEOF_VLA(rdata), strerror(errno), netstrerror);
@@ -864,7 +866,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
             rtp_header_pack(rdata + 1, &header);
             memcpy(rdata + 1 + RTP_HEADER_SIZE, data + sent, piece);
 
-            if (-1 == m_send_custom_lossy_packet(session->m, session->friend_number,
+            if (-1 == m_msi_send_custom_lossy_packet(session->tox, session->friend_number,
                                                  rdata, piece + RTP_HEADER_SIZE + 1)) {
                 const char *netstrerror = net_new_strerror(net_error());
                 LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s, net error: %s",
@@ -884,7 +886,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
             rtp_header_pack(rdata + 1, &header);
             memcpy(rdata + 1 + RTP_HEADER_SIZE, data + sent, piece);
 
-            if (-1 == m_send_custom_lossy_packet(session->m, session->friend_number, rdata,
+            if (-1 == m_msi_send_custom_lossy_packet(session->tox, session->friend_number, rdata,
                                                  piece + RTP_HEADER_SIZE + 1)) {
                 const char *netstrerror = net_new_strerror(net_error());
                 LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s, net error: %s",

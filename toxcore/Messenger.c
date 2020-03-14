@@ -1759,13 +1759,6 @@ void custom_lossy_packet_registerhandler(Messenger *m, m_friend_lossy_packet_cb 
     m->lossy_packethandler = lossy_packethandler;
 }
 
-/* TODO(oxij): this name is confusing, because this function sends both av and custom lossy packets.
- * Meanwhile, m_handle_lossy_packet routes custom packets to custom_lossy_packet_registerhandler
- * as you would expect from its name.
- *
- * I.e. custom_lossy_packet_registerhandler's "custom lossy packet" and this "custom lossy packet"
- * are not the same set of packets.
- */
 int m_send_custom_lossy_packet(const Messenger *m, int32_t friendnumber, const uint8_t *data, uint32_t length)
 {
     if (friend_not_valid(m, friendnumber)) {

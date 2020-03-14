@@ -161,6 +161,7 @@ typedef struct RTPSession {
     struct RTPWorkBufferList *work_buffer_list;
     uint8_t  first_packets_counter; /* dismiss first few lost video packets */
     Messenger *m;
+    Tox *tox;
     uint32_t friend_number;
     BWController *bwc;
     void *cs;
