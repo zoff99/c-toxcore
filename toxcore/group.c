@@ -1,25 +1,10 @@
-/*
- * Slightly better groupchats implementation.
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright © 2016-2018 The TokTok team.
+ * Copyright © 2014 Tox project.
  */
 
 /*
- * Copyright © 2016-2018 The TokTok team.
- * Copyright © 2014 Tox project.
- *
- * This file is part of Tox, the free peer to peer instant messenger.
- *
- * Tox is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Tox is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
+ * Slightly better groupchats implementation.
  */
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -280,7 +265,7 @@ static uint64_t calculate_comp_value(const uint8_t *pk1, const uint8_t *pk2)
 typedef enum Groupchat_Closest {
     GROUPCHAT_CLOSEST_NONE,
     GROUPCHAT_CLOSEST_ADDED,
-    GROUPCHAT_CLOSEST_REMOVED
+    GROUPCHAT_CLOSEST_REMOVED,
 } Groupchat_Closest;
 
 static int add_to_closest(Group_Chats *g_c, uint32_t groupnumber, const uint8_t *real_pk, const uint8_t *temp_pk)
@@ -1146,7 +1131,7 @@ static void remove_conn_reason(Group_Chats *g_c, uint32_t groupnumber, uint16_t 
 
 /* Creates a new groupchat and puts it in the chats array.
  *
- * type is one of GROUPCHAT_TYPE_*
+ * type is one of `GROUPCHAT_TYPE_*`
  *
  * return group number on success.
  * return -1 on failure.
@@ -1349,9 +1334,9 @@ int group_set_max_frozen(const Group_Chats *g_c, uint32_t groupnumber, uint32_t 
 
 /* List all the (frozen, if frozen is true) peers in the group chat.
  *
- * Copies the names of the peers to the name[length][MAX_NAME_LENGTH] array.
+ * Copies the names of the peers to the `name[length][MAX_NAME_LENGTH]` array.
  *
- * Copies the lengths of the names to lengths[length]
+ * Copies the lengths of the names to `lengths[length]`
  *
  * returns the number of peers on success.
  *
@@ -1433,11 +1418,11 @@ int group_get_type(const Group_Chats *g_c, uint32_t groupnumber)
     return g->type;
 }
 
-/* Copies the unique id of group_chat[groupnumber] into id.
-*
-* return false on failure.
-* return true on success.
-*/
+/* Copies the unique id of `group_chat[groupnumber]` into `id`.
+ *
+ * return false on failure.
+ * return true on success.
+ */
 bool conference_get_id(const Group_Chats *g_c, uint32_t groupnumber, uint8_t *id)
 {
     const Group_c *g = get_group_c(g_c, groupnumber);
@@ -2033,7 +2018,7 @@ static void handle_friend_invite_packet(Messenger *m, uint32_t friendnumber, con
     }
 }
 
-/* Find index of friend in the close list;
+/* Find index of friend in the close list.
  *
  * returns index on success
  * returns -1 on failure.
@@ -2457,7 +2442,7 @@ static unsigned int send_lossy_all_close(const Group_Chats *g_c, uint32_t groupn
     }
 
     unsigned int to_send = 0;
-    uint64_t comp_val_old = ~0;
+    uint64_t comp_val_old = -1;
 
     for (i = 0; i < num_connected_closest; ++i) {
         uint8_t real_pk[CRYPTO_PUBLIC_KEY_SIZE] = {0};
@@ -2477,7 +2462,7 @@ static unsigned int send_lossy_all_close(const Group_Chats *g_c, uint32_t groupn
     }
 
     unsigned int to_send_other = 0;
-    comp_val_old = ~0;
+    comp_val_old = -1;
 
     for (i = 0; i < num_connected_closest; ++i) {
         uint8_t real_pk[CRYPTO_PUBLIC_KEY_SIZE] = {0};
@@ -2636,7 +2621,7 @@ static Message_Info *find_message_slot_or_reject(uint32_t message_number, uint8_
 
 /* Stores message info in peer->last_message_infos.
  *
- * return true if message should be processed;
+ * return true if message should be processed.
  * return false otherwise.
  */
 static bool check_message_info(uint32_t message_number, uint8_t message_id, Group_Peer *peer)
@@ -3209,7 +3194,7 @@ static uint32_t saved_conf_size(const Group_c *g)
     return len;
 }
 
-/* Save a future message number; the save will remain valid until we have sent
+/* Save a future message number. The save will remain valid until we have sent
  * this many more messages. */
 #define SAVE_OFFSET_MESSAGE_NUMBER (1 << 16)
 #define SAVE_OFFSET_LOSSY_MESSAGE_NUMBER (1 << 13)

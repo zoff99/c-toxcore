@@ -1,26 +1,11 @@
-/*
- * Implementation of the client part of docs/Prevent_Tracking.txt (The part that
- * uses the onion stuff to connect to the friend)
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright © 2016-2018 The TokTok team.
+ * Copyright © 2013 Tox project.
  */
 
 /*
- * Copyright © 2016-2018 The TokTok team.
- * Copyright © 2013 Tox project.
- *
- * This file is part of Tox, the free peer to peer instant messenger.
- *
- * Tox is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Tox is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
+ * Implementation of the client part of docs/Prevent_Tracking.txt (The part that
+ * uses the onion stuff to connect to the friend)
  */
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -465,7 +450,7 @@ static uint32_t set_path_timeouts(Onion_Client *onion_c, uint32_t num, uint32_t 
         return path_num;
     }
 
-    return ~0;
+    return -1;
 }
 
 /* Function to send onion packet via TCP and UDP.
@@ -544,7 +529,7 @@ static int new_sendback(Onion_Client *onion_c, uint32_t num, const uint8_t *publ
  * ret_pubkey must be at least CRYPTO_PUBLIC_KEY_SIZE big
  * ret_ip_port must be at least 1 big
  *
- * return ~0 on failure
+ * return -1 on failure
  * return num (see new_sendback(...)) on success
  */
 static uint32_t check_sendback(Onion_Client *onion_c, const uint8_t *sendback, uint8_t *ret_pubkey,
@@ -555,7 +540,7 @@ static uint32_t check_sendback(Onion_Client *onion_c, const uint8_t *sendback, u
     uint8_t data[sizeof(uint32_t) + CRYPTO_PUBLIC_KEY_SIZE + sizeof(IP_Port) + sizeof(uint32_t)];
 
     if (ping_array_check(onion_c->announce_ping_array, onion_c->mono_time, data, sizeof(data), sback) != sizeof(data)) {
-        return ~0;
+        return -1;
     }
 
     memcpy(ret_pubkey, data + sizeof(uint32_t), CRYPTO_PUBLIC_KEY_SIZE);
@@ -834,7 +819,7 @@ static int client_ping_nodes(Onion_Client *onion_c, uint32_t num, const Node_for
             }
 
             if (j == list_length && good_to_ping(onion_c->mono_time, last_pinged, last_pinged_index, nodes[i].public_key)) {
-                client_send_announce_request(onion_c, num, nodes[i].ip_port, nodes[i].public_key, nullptr, ~0);
+                client_send_announce_request(onion_c, num, nodes[i].ip_port, nodes[i].public_key, nullptr, -1);
             }
         }
     }
@@ -1098,7 +1083,7 @@ int send_onion_data(Onion_Client *onion_c, int friend_num, const uint8_t *data, 
     for (i = 0; i < num_good; ++i) {
         Onion_Path path;
 
-        if (random_path(onion_c, &onion_c->onion_paths_friends, ~0, &path) == -1) {
+        if (random_path(onion_c, &onion_c->onion_paths_friends, -1, &path) == -1) {
             continue;
         }
 
@@ -1303,7 +1288,7 @@ int onion_addfriend(Onion_Client *onion_c, const uint8_t *public_key)
         return num;
     }
 
-    unsigned int i, index = ~0;
+    unsigned int i, index = -1;
 
     for (i = 0; i < onion_c->num_friends; ++i) {
         if (onion_c->friends_list[i].status == 0) {
@@ -1312,7 +1297,7 @@ int onion_addfriend(Onion_Client *onion_c, const uint8_t *public_key)
         }
     }
 
-    if (index == (uint32_t)~0) {
+    if (index == (uint32_t) -1) {
         if (realloc_onion_friends(onion_c, onion_c->num_friends + 1) == -1) {
             return -1;
         }
@@ -1607,7 +1592,7 @@ static void do_friend(Onion_Client *onion_c, uint16_t friendnum)
             if (mono_time_is_timeout(onion_c->mono_time, list_nodes[i].last_pinged, interval)
                     || (ping_random && random_u32() % (MAX_ONION_CLIENTS - i) == 0)) {
                 if (client_send_announce_request(onion_c, friendnum + 1, list_nodes[i].ip_port,
-                                                 list_nodes[i].public_key, nullptr, ~0) == 0) {
+                                                 list_nodes[i].public_key, nullptr, -1) == 0) {
                     list_nodes[i].last_pinged = mono_time_get(onion_c->mono_time);
                     ++list_nodes[i].unsuccessful_pings;
                     ping_random = false;
@@ -1630,7 +1615,7 @@ static void do_friend(Onion_Client *onion_c, uint16_t friendnum)
                     for (j = 0; j < n; ++j) {
                         const uint32_t num = random_u32() % num_nodes;
                         client_send_announce_request(onion_c, friendnum + 1, onion_c->path_nodes[num].ip_port,
-                                                     onion_c->path_nodes[num].public_key, nullptr, ~0);
+                                                     onion_c->path_nodes[num].public_key, nullptr, -1);
                     }
 
                     ++onion_c->friends_list[friendnum].run_count;
@@ -1701,7 +1686,7 @@ static void do_announce(Onion_Client *onion_c)
 
             uint32_t pathnum = list_nodes[i].path_used % NUMBER_ONION_PATHS;
 
-            /* A node/path is considered 'stable', and can be pinged less
+            /* A node/path is considered "stable", and can be pinged less
              * aggressively, if it has survived for at least TIME_TO_STABLE
              * and the latest packets sent to it are not timing out.
              */
@@ -1723,7 +1708,7 @@ static void do_announce(Onion_Client *onion_c)
             if (list_nodes[i].unsuccessful_pings == ONION_NODE_MAX_PINGS - 1
                     && mono_time_is_timeout(onion_c->mono_time, list_nodes[i].added_time, TIME_TO_STABLE)) {
                 /* Last chance for a long-lived node - try a random path */
-                path_to_use = ~0;
+                path_to_use = -1;
             }
 
             if (client_send_announce_request(onion_c, 0, list_nodes[i].ip_port, list_nodes[i].public_key,
@@ -1751,7 +1736,7 @@ static void do_announce(Onion_Client *onion_c)
             if (num_nodes != 0) {
                 for (i = 0; i < (MAX_ONION_CLIENTS_ANNOUNCE / 2); ++i) {
                     const uint32_t num = random_u32() % num_nodes;
-                    client_send_announce_request(onion_c, 0, path_nodes[num].ip_port, path_nodes[num].public_key, nullptr, ~0);
+                    client_send_announce_request(onion_c, 0, path_nodes[num].ip_port, path_nodes[num].public_key, nullptr, -1);
                 }
             }
         }

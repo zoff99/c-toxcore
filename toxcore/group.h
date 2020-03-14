@@ -1,25 +1,10 @@
-/*
- * Slightly better groupchats implementation.
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright © 2016-2018 The TokTok team.
+ * Copyright © 2014 Tox project.
  */
 
 /*
- * Copyright © 2016-2018 The TokTok team.
- * Copyright © 2014 Tox project.
- *
- * This file is part of Tox, the free peer to peer instant messenger.
- *
- * Tox is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Tox is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
+ * Slightly better groupchats implementation.
  */
 #ifndef C_TOXCORE_TOXCORE_GROUP_H
 #define C_TOXCORE_TOXCORE_GROUP_H
@@ -29,12 +14,12 @@
 typedef enum Groupchat_Status {
     GROUPCHAT_STATUS_NONE,
     GROUPCHAT_STATUS_VALID,
-    GROUPCHAT_STATUS_CONNECTED
+    GROUPCHAT_STATUS_CONNECTED,
 } Groupchat_Status;
 
 typedef enum Groupchat_Type {
     GROUPCHAT_TYPE_TEXT,
-    GROUPCHAT_TYPE_AV
+    GROUPCHAT_TYPE_AV,
 } Groupchat_Type;
 
 #define MAX_LOSSY_COUNT 256
@@ -78,7 +63,7 @@ typedef struct Group_Peer {
 typedef enum Groupchat_Close_Type {
     GROUPCHAT_CLOSE_NONE,
     GROUPCHAT_CLOSE_CONNECTION,
-    GROUPCHAT_CLOSE_ONLINE
+    GROUPCHAT_CLOSE_ONLINE,
 } Groupchat_Close_Type;
 
 /* Connection is to one of the closest DESIRED_CLOSE_CONNECTIONS peers */
@@ -91,8 +76,8 @@ typedef enum Groupchat_Close_Type {
 #define GROUPCHAT_CLOSE_REASON_INTRODUCER  (1 << 2)
 
 typedef struct Groupchat_Close {
-    uint8_t type; /* GROUPCHAT_CLOSE_* */
-    uint8_t reasons; /* bit field with flags GROUPCHAT_CLOSE_REASON_* */
+    uint8_t type; /* `GROUPCHAT_CLOSE_*` */
+    uint8_t reasons; /* bit field with flags `GROUPCHAT_CLOSE_REASON_*` */
     uint32_t number;
     uint16_t group_number;
 } Groupchat_Close;
@@ -237,7 +222,7 @@ void g_callback_peer_list_changed(Group_Chats *g_c, peer_list_changed_cb *functi
 
 /* Creates a new groupchat and puts it in the chats array.
  *
- * type is one of GROUPCHAT_TYPE_*
+ * type is one of `GROUPCHAT_TYPE_*`
  *
  * return group number on success.
  * return -1 on failure.
@@ -372,9 +357,9 @@ int group_peernumber_is_ours(const Group_Chats *g_c, uint32_t groupnumber, int p
 
 /* List all the (frozen, if frozen is true) peers in the group chat.
  *
- * Copies the names of the peers to the name[length][MAX_NAME_LENGTH] array.
+ * Copies the names of the peers to the `name[length][MAX_NAME_LENGTH]` array.
  *
- * Copies the lengths of the names to lengths[length]
+ * Copies the lengths of the names to `lengths[length]`
  *
  * returns the number of peers on success.
  *
@@ -413,11 +398,11 @@ uint32_t copy_chatlist(const Group_Chats *g_c, uint32_t *out_list, uint32_t list
  */
 int group_get_type(const Group_Chats *g_c, uint32_t groupnumber);
 
-/* Copies the unique id of group_chat[groupnumber] into id.
-*
-* return false on failure.
-* return true on success.
-*/
+/* Copies the unique id of `group_chat[groupnumber]` into id.
+ *
+ * return false on failure.
+ * return true on success.
+ */
 bool conference_get_id(const Group_Chats *g_c, uint32_t groupnumber, uint8_t *id);
 
 int32_t conference_by_id(const Group_Chats *g_c, const uint8_t *id);
@@ -486,7 +471,7 @@ uint8_t *conferences_save(const Group_Chats *g_c, uint8_t *data);
  *
  * @param data Data to load
  * @param length Length of data
- * @param type Type of section (STATE_TYPE_*)
+ * @param type Type of section (`STATE_TYPE_*`)
  * @param status Result of loading section is stored here if the section is handled.
  * @return true iff section handled.
  */
