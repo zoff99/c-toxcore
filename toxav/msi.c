@@ -110,6 +110,10 @@ void msi_register_callback(MSISession *session, msi_action_cb *callback, MSICall
 
 MSISession *msi_new(const Tox *tox)
 {
+    if (tox == nullptr) {
+        return nullptr;
+    }
+
     // TODO(iphydf): Don't rely on toxcore internals.
     Messenger *m;
     m = *(Messenger **)tox;
