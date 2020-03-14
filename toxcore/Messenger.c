@@ -1826,8 +1826,7 @@ static int handle_custom_lossless_packet(void *object, int friend_num, const uin
 
 void custom_lossless_packet_registerhandler(Messenger *m, m_friend_lossless_packet_cb *lossless_packethandler)
 {
-    // zzzzzzz
-    // m->lossless_packethandler = lossless_packethandler;
+    m->lossless_packethandler = lossless_packethandler;
 }
 
 int send_custom_lossless_packet(const Messenger *m, int32_t friendnumber, const uint8_t *data, uint32_t length)
