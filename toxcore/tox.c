@@ -82,8 +82,7 @@ struct Tox {
     // XXX: Messenger *must* be the first member, because toxav casts its
     // `Tox *` to `Messenger **`.
     Messenger *m;
-    void *toxav_object; // workaround to store a ToxAV object (setter and getter functions are available)
-    Mono_Time *mono_time;
+    Mono_Time *mono_time; /* mono_time also needs to be at THIS position, if you put something before it things will crash!! */
     pthread_mutex_t *mutex;
 
     tox_self_connection_status_cb *self_connection_status_callback;
@@ -107,6 +106,8 @@ struct Tox {
     tox_conference_peer_list_changed_cb *conference_peer_list_changed_callback;
     tox_friend_lossy_packet_cb *friend_lossy_packet_callback_per_pktid[UINT8_MAX + 1];
     tox_friend_lossless_packet_cb *friend_lossless_packet_callback_per_pktid[UINT8_MAX + 1];
+
+    void *toxav_object; // workaround to store a ToxAV object (setter and getter functions are available)
 };
 
 static void lock(const Tox *tox)
@@ -573,14 +574,14 @@ Tox *tox_new(const struct Tox_Options *options, Tox_Err_New *error)
 
     lock(tox);
 
-    for (uint8_t i = 0; i <= (UINT8_MAX + 1); ++i) {
+    for (uint8_t i1 = 0; i1 < UINT8_MAX; ++i1) {
         // explicitly clear custom packet callbacks
-        tox->friend_lossy_packet_callback_per_pktid[i] = nullptr;
+        tox->friend_lossy_packet_callback_per_pktid[i1] = nullptr;
     }
 
-    for (uint8_t i = 0; i <= (UINT8_MAX + 1); ++i) {
+    for (uint8_t i2 = 0; i2 < UINT8_MAX; ++i2) {
         // explicitly clear custom packet callbacks
-        tox->friend_lossless_packet_callback_per_pktid[i] = nullptr;
+        tox->friend_lossless_packet_callback_per_pktid[i2] = nullptr;
     }
 
     unsigned int m_error;
