@@ -58,22 +58,22 @@ typedef enum MSICapabilities {
  * Call state identifiers.
  */
 typedef enum MSICallState {
-    MSI_CALL_INACTIVE, /* Default */
-    MSI_CALL_ACTIVE,
-    MSI_CALL_REQUESTING, /* when sending call invite */
-    MSI_CALL_REQUESTED, /* when getting call invite */
+    MSI_CALL_INACTIVE = 0, /* Default */
+    MSI_CALL_ACTIVE = 1,
+    MSI_CALL_REQUESTING = 2, /* when sending call invite */
+    MSI_CALL_REQUESTED = 3, /* when getting call invite */
 } MSICallState;
 
 /**
  * Callbacks ids that handle the states
  */
 typedef enum MSICallbackID {
-    MSI_ON_INVITE, /* Incoming call */
-    MSI_ON_START, /* Call (RTP transmission) started */
-    MSI_ON_END, /* Call that was active ended */
-    MSI_ON_ERROR, /* On protocol error */
-    MSI_ON_PEERTIMEOUT, /* Peer timed out; stop the call */
-    MSI_ON_CAPABILITIES, /* Peer requested capabilities change */
+    MSI_ON_INVITE = 0, /* Incoming call */
+    MSI_ON_START = 1, /* Call (RTP transmission) started */
+    MSI_ON_END = 2, /* Call that was active ended */
+    MSI_ON_ERROR = 3, /* On protocol error */
+    MSI_ON_PEERTIMEOUT = 4, /* Peer timed out; stop the call */
+    MSI_ON_CAPABILITIES = 5, /* Peer requested capabilities change */
 } MSICallbackID;
 
 /**
