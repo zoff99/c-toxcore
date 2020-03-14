@@ -18,6 +18,22 @@
 #define GROUP_JBUF_SIZE 6
 #define GROUP_JBUF_DEAD_SECONDS 4
 
+/*
+ * Zoff: disable logging in ToxAV for now
+ */
+#undef LOGGER_DEBUG
+#define LOGGER_DEBUG(log, ...) dummy()
+#undef LOGGER_ERROR
+#define LOGGER_ERROR(log, ...) dummy()
+#undef LOGGER_WARNING
+#define LOGGER_WARNING(log, ...) dummy()
+#undef LOGGER_INFO
+#define LOGGER_INFO(log, ...) dummy()
+
+static void dummy()
+{
+}
+
 typedef struct Group_Audio_Packet {
     uint16_t sequnum;
     uint16_t length;

@@ -31,7 +31,7 @@
 #undef LOGGER_INFO
 #define LOGGER_INFO(log, ...) dummy()
 
-void dummy()
+static void dummy()
 {
 }
 

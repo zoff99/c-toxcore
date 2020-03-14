@@ -20,6 +20,22 @@
 #include "../toxcore/mono_time.h"
 #include "../toxcore/network.h"
 
+/*
+ * Zoff: disable logging in ToxAV for now
+ */
+#undef LOGGER_DEBUG
+#define LOGGER_DEBUG(log, ...) dummy()
+#undef LOGGER_ERROR
+#define LOGGER_ERROR(log, ...) dummy()
+#undef LOGGER_WARNING
+#define LOGGER_WARNING(log, ...) dummy()
+#undef LOGGER_INFO
+#define LOGGER_INFO(log, ...) dummy()
+
+static void dummy()
+{
+}
+
 /**
  * Soft deadline the decoder should attempt to meet, in "us" (microseconds).
  * Set to zero for unlimited.
