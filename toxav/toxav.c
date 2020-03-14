@@ -168,7 +168,7 @@ ToxAV *toxav_new(Tox *tox, Toxav_Err_New *error)
 
     av->tox = tox;
     av->m = m;
-    av->msi = msi_new(av->m);
+    av->msi = msi_new(av->tox);
 
     if (av->msi == nullptr) {
         pthread_mutex_destroy(av->mutex);
