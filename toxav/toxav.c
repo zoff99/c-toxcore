@@ -139,8 +139,7 @@ static void call_kill_transmission(ToxAVCall *call);
 
 MSISession *tox_av_msi_get(ToxAV *av)
 {
-    if (!av)
-    {
+    if (!av) {
         return nullptr;
     }
 
@@ -292,8 +291,7 @@ void toxav_iterate(ToxAV *av)
             TOX_ERR_FRIEND_QUERY f_con_query_error;
             TOX_CONNECTION f_conn_status = tox_friend_get_connection_status(av->tox, fid, &f_con_query_error);
 
-            if ((f_con_query_error != TOX_ERR_FRIEND_QUERY_OK) || (f_conn_status == TOX_CONNECTION_NONE))
-            {
+            if ((f_con_query_error != TOX_ERR_FRIEND_QUERY_OK) || (f_conn_status == TOX_CONNECTION_NONE)) {
                 // disconnect call if friend is offline
                 invoke_callback(i->msi_call, MSI_ON_PEERTIMEOUT); /* Failure is ignored */
                 kill_call(i->msi_call);
@@ -395,18 +393,16 @@ void toxav_callback_call(ToxAV *av, toxav_call_cb *callback, void *user_data)
 
 int toxav_friend_exists(const Tox *tox, int32_t friendnumber)
 {
-    if (tox)
-    {
+    if (tox) {
         bool res = tox_friend_exists(tox, friendnumber);
-        if (res)
-        {
+
+        if (res) {
             return 1;
-        }
-        else
-        {
+        } else {
             return 0;
         }
     }
+
     return 0;
 }
 

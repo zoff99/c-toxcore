@@ -444,8 +444,7 @@ static int m_msi_packet(const Tox *tox, int32_t friendnumber, const uint8_t *dat
     TOX_ERR_FRIEND_CUSTOM_PACKET error;
     bool res = tox_friend_send_lossless_packet(tox, friendnumber, data, length, &error);
 
-    if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_OK)
-    {
+    if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_OK) {
         return 1;
     }
 
@@ -454,18 +453,17 @@ static int m_msi_packet(const Tox *tox, int32_t friendnumber, const uint8_t *dat
 
 /*
  * return -1 on failure, 0 on success
- * 
+ *
  */
 int m_msi_send_custom_lossy_packet(const Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length)
 {
     TOX_ERR_FRIEND_CUSTOM_PACKET error;
     bool res = tox_friend_send_lossy_packet(tox, friendnumber, data, (size_t)length, &error);
 
-    if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_OK)
-    {
+    if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_OK) {
         return 0;
     }
-    
+
     return -1;
 }
 
@@ -886,15 +884,13 @@ void handle_msi_packet(const Tox *tox, uint32_t friend_number, const uint8_t *da
     void *toxav = NULL;
     tox_get_av_object(tox, (void **)(&toxav));
 
-    if (!toxav)
-    {
+    if (!toxav) {
         return;
     }
 
     MSISession *session = tox_av_msi_get(toxav);
 
-    if (!session)
-    {
+    if (!session) {
         return;
     }
 
