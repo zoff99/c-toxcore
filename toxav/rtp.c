@@ -453,8 +453,11 @@ ToxAVCall_hack *call_get(void *av, uint32_t friend_number);
 /**
  * @return -1 on error, 0 on success.
  */
-void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *dummy)
+void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_t length2, void *dummy)
 {
+    // TODO(Zoff): is this ok?
+    uint16_t length = (uint16_t)length2;
+
     // TODO(iphydf): Don't rely on toxcore internals.
     Messenger *m;
     m = *(Messenger **)tox;

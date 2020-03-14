@@ -401,10 +401,6 @@ int m_delfriend(Messenger *m, int32_t friendnumber)
         return -1;
     }
 
-    if (m->friend_connectionstatuschange_internal) {
-        m->friend_connectionstatuschange_internal(m, friendnumber, 0, m->friend_connectionstatuschange_internal_userdata);
-    }
-
     clear_receipts(m, friendnumber);
     remove_request_received(m->fr, m->friendlist[friendnumber].real_pk);
     friend_connection_callbacks(m->fr_c, m->friendlist[friendnumber].friendcon_id, MESSENGER_CALLBACK_INDEX, nullptr,
@@ -877,13 +873,6 @@ void m_callback_core_connection(Messenger *m, m_self_connection_status_cb *funct
     m->core_connection_change = function;
 }
 
-void m_callback_connectionstatus_internal_av(Messenger *m, m_friend_connectionstatuschange_internal_cb *function,
-        void *userdata)
-{
-    m->friend_connectionstatuschange_internal = function;
-    m->friend_connectionstatuschange_internal_userdata = userdata;
-}
-
 static void check_friend_tcp_udp(Messenger *m, int32_t friendnumber, void *userdata)
 {
     int last_connection_udp_tcp = m->friendlist[friendnumber].last_connection_udp_tcp;
@@ -912,6 +901,7 @@ static void check_friend_tcp_udp(Messenger *m, int32_t friendnumber, void *userd
 }
 
 static void break_files(const Messenger *m, int32_t friendnumber);
+
 static void check_friend_connectionstatus(Messenger *m, int32_t friendnumber, uint8_t status, void *userdata)
 {
     if (status == NOFRIEND) {
@@ -935,11 +925,6 @@ static void check_friend_connectionstatus(Messenger *m, int32_t friendnumber, ui
         m->friendlist[friendnumber].status = status;
 
         check_friend_tcp_udp(m, friendnumber, userdata);
-
-        if (m->friend_connectionstatuschange_internal) {
-            m->friend_connectionstatuschange_internal(m, friendnumber, is_online,
-                    m->friend_connectionstatuschange_internal_userdata);
-        }
     }
 }
 
