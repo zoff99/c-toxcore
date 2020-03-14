@@ -114,14 +114,6 @@ MSISession *msi_new(const Tox *tox)
         return nullptr;
     }
 
-    // TODO(iphydf): Don't rely on toxcore internals.
-    Messenger *m;
-    m = *(Messenger **)tox;
-
-    if (m == nullptr) {
-        return nullptr;
-    }
-
     MSISession *retu = (MSISession *)calloc(sizeof(MSISession), 1);
 
     if (retu == nullptr) {
@@ -140,8 +132,10 @@ MSISession *msi_new(const Tox *tox)
     // register callback
     tox_callback_friend_lossless_packet_per_pktid(tox, handle_msi_packet, PACKET_ID_MSI);
 
+#if 0
     /* This is called when remote terminates session */
     m_callback_connectionstatus_internal_av(m, on_peer_status, retu);
+#endif
 
     LOGGER_DEBUG(m->log, "New msi session: %p ", (void *)retu);
     return retu;

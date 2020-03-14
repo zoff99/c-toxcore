@@ -189,8 +189,6 @@ typedef void m_friend_lossy_packet_cb(Messenger *m, uint32_t friend_number, uint
                                       size_t length, void *user_data);
 typedef void m_friend_lossless_packet_cb(Messenger *m, uint32_t friend_number, uint8_t packet_id, const uint8_t *data,
         size_t length, void *user_data);
-typedef void m_friend_connectionstatuschange_internal_cb(Messenger *m, uint32_t friend_number,
-        uint8_t connection_status, void *user_data);
 typedef void m_conference_invite_cb(Messenger *m, uint32_t friend_number, const uint8_t *cookie, uint16_t length,
                                     void *user_data);
 typedef void m_msi_packet_cb(Messenger *m, uint32_t friend_number, const uint8_t *data, uint16_t length,
@@ -275,8 +273,6 @@ struct Messenger {
     m_friend_typing_cb *friend_typingchange;
     m_friend_read_receipt_cb *read_receipt;
     m_friend_connection_status_cb *friend_connectionstatuschange;
-    m_friend_connectionstatuschange_internal_cb *friend_connectionstatuschange_internal;
-    void *friend_connectionstatuschange_internal_userdata;
 
     struct Group_Chats *conferences_object; /* Set by new_groupchats()*/
     m_conference_invite_cb *conference_invite;
@@ -543,10 +539,6 @@ void m_callback_read_receipt(Messenger *m, m_friend_read_receipt_cb *function);
  *  It's assumed that when adding friends, their connection status is offline.
  */
 void m_callback_connectionstatus(Messenger *m, m_friend_connection_status_cb *function);
-
-/* Same as previous but for internal A/V core usage only */
-void m_callback_connectionstatus_internal_av(Messenger *m, m_friend_connectionstatuschange_internal_cb *function,
-        void *userdata);
 
 
 /* Set the callback for typing changes.
