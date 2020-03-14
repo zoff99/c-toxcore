@@ -134,4 +134,8 @@ int msi_answer(MSICall *call, uint8_t capabilities);
  */
 int msi_change_capabilities(MSICall *call, uint8_t capabilities);
 
+int m_msi_send_custom_lossy_packet(const Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length);
+int invoke_callback(MSICall *call, MSICallbackID cb);
+void kill_call(MSICall *call);
+
 #endif // C_TOXCORE_TOXAV_MSI_H

@@ -287,6 +287,21 @@ void toxav_iterate(ToxAV *av)
             pthread_mutex_lock(i->toxav_call_mutex);
             pthread_mutex_unlock(av->mutex);
 
+            uint32_t fid = i->friend_number;
+
+            TOX_ERR_FRIEND_QUERY f_con_query_error;
+            TOX_CONNECTION f_conn_status = tox_friend_get_connection_status(av->tox, fid, &f_con_query_error);
+
+            if ((f_con_query_error != TOX_ERR_FRIEND_QUERY_OK) || (f_conn_status == TOX_CONNECTION_NONE))
+            {
+                // disconnect call if friend is offline
+                invoke_callback(i->msi_call, MSI_ON_PEERTIMEOUT); /* Failure is ignored */
+                kill_call(i->msi_call);
+                pthread_mutex_unlock(i->mutex);
+                pthread_mutex_lock(av->mutex);
+                break;
+            }
+
             ac_iterate(i->audio);
             vc_iterate(i->video);
 
@@ -302,9 +317,7 @@ void toxav_iterate(ToxAV *av)
                 pthread_mutex_unlock(i->video->queue_mutex);
             }
 
-            uint32_t fid = i->friend_number;
-
-            pthread_mutex_unlock(i->toxav_call_mutex);
+            pthread_mutex_unlock(i->mutex);
             pthread_mutex_lock(av->mutex);
 
             /* In case this call is popped from container stop iteration */

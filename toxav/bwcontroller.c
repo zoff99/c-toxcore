@@ -162,12 +162,14 @@ static void send_update(BWController *bwc)
             offset += net_pack_u32(bwc_packet + offset, bwc->cycle.recv);
             assert(offset == sizeof(bwc_packet));
 
-            if (bwc_send_custom_lossy_packet(bwc->tox, bwc->friend_number, bwc_packet, sizeof(bwc_packet)) == -1) {
+#if 0
+            if (m_msi_send_custom_lossy_packet(bwc->m, bwc->friend_number, bwc_packet, sizeof(bwc_packet)) == -1) {
                 const char *netstrerror = net_new_strerror(net_error());
                 LOGGER_WARNING(bwc->m->log, "BWC send failed (len: %u)! std error: %s, net error %s",
                                (unsigned)sizeof(bwc_packet), strerror(errno), netstrerror);
                 net_kill_strerror(netstrerror);
             }
+#endif
         }
 
         bwc->cycle.last_sent_timestamp = current_time_monotonic(bwc->bwc_mono_time);
