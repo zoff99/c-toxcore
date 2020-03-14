@@ -434,6 +434,19 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
     return 0;
 }
 
+typedef struct ToxAVCall_hack {
+    void *av;
+
+    pthread_mutex_t mutex_audio[1];
+    void *audio_rtp;
+    void *audio;
+
+    pthread_mutex_t mutex_video[1];
+    void *video_rtp;
+} ToxAVCall_hack;
+
+ToxAVCall_hack *call_get(void *av, uint32_t friend_number);
+
 /**
  * @return -1 on error, 0 on success.
  */
@@ -443,16 +456,43 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, uin
     Messenger *m;
     m = *(Messenger **)tox;
 
-    RTPSession *session = NULL;
-    tox_get_av_object(tox, (void **)(&session));
-
-    if (!session) {
-        LOGGER_WARNING(m->log, "No session!");
+    if (length < RTP_HEADER_SIZE + 1) {
+        LOGGER_WARNING(m->log, "Invalid length of received buffer!");
         return; // -1;
     }
 
-    if (length < RTP_HEADER_SIZE + 1) {
-        LOGGER_WARNING(m->log, "Invalid length of received buffer!");
+    void *toxav = NULL;
+    tox_get_av_object(tox, (void **)(&toxav));
+
+    if (!toxav)
+    {
+        return;
+    }
+
+    ToxAVCall_hack *call = call_get(toxav, friendnumber);
+
+    if (!call)
+    {
+        return;
+    }
+
+    RTPSession *session = nullptr;
+    
+    if (data[0] == RTP_TYPE_VIDEO)
+    {
+        session = (RTPSession *)call->video_rtp;
+    }
+    else if (data[0] == RTP_TYPE_AUDIO)
+    {
+        session = (RTPSession *)call->audio_rtp;
+    }
+    else
+    {
+        return;
+    }
+
+    if (!session) {
+        LOGGER_WARNING(m->log, "No session!");
         return; // -1;
     }
 
@@ -649,12 +689,17 @@ size_t rtp_header_unpack(const uint8_t *data, struct RTPHeader *header)
     return p - data;
 }
 
-RTPSession *rtp_new(int payload_type, Messenger *m, uint32_t friendnumber,
+RTPSession *rtp_new(int payload_type, const Tox *tox, uint32_t friendnumber,
                     BWController *bwc, void *cs, rtp_m_cb *mcb)
 {
     assert(mcb != nullptr);
     assert(cs != nullptr);
+
+    // TODO(iphydf): Don't rely on toxcore internals.
+    Messenger *m;
+    m = *(Messenger **)tox;
     assert(m != nullptr);
+
 
     RTPSession *session = (RTPSession *)calloc(1, sizeof(RTPSession));
 
@@ -674,7 +719,7 @@ RTPSession *rtp_new(int payload_type, Messenger *m, uint32_t friendnumber,
     // First entry is free.
     session->work_buffer_list->next_free_entry = 0;
 
-    session->ssrc = payload_type == RTP_TYPE_VIDEO ? 0 : random_u32();
+    session->ssrc = payload_type == RTP_TYPE_VIDEO ? 0 : random_u32(); // Zoff: what is this??
     session->payload_type = payload_type;
     session->m = m;
     session->friend_number = friendnumber;
@@ -688,24 +733,19 @@ RTPSession *rtp_new(int payload_type, Messenger *m, uint32_t friendnumber,
     session->cs = cs;
     session->mcb = mcb;
 
-    if (-1 == rtp_allow_receiving(session)) {
-        LOGGER_WARNING(m->log, "Failed to start rtp receiving mode");
-        free(session->work_buffer_list);
-        free(session);
-        return nullptr;
-    }
+    rtp_allow_receiving(tox, session);
 
     return session;
 }
 
-void rtp_kill(RTPSession *session)
+void rtp_kill(const Tox *tox, RTPSession *session)
 {
     if (!session) {
         return;
     }
 
     LOGGER_DEBUG(session->m->log, "Terminated RTP session: %p", (void *)session);
-    rtp_stop_receiving(session);
+    rtp_stop_receiving(tox, session);
 
     LOGGER_DEBUG(session->m->log, "Terminated RTP session V3 work_buffer_list->next_free_entry: %d",
                  (int)session->work_buffer_list->next_free_entry);
@@ -714,16 +754,22 @@ void rtp_kill(RTPSession *session)
     free(session);
 }
 
-int rtp_allow_receiving(RTPSession *session)
+void rtp_allow_receiving(const Tox *tox, RTPSession *session)
 {
-    // make it a NOOP for now
-    return 0;
+    if (session)
+    {
+        // register callback
+        tox_callback_friend_lossy_packet_per_pktid(tox, handle_rtp_packet, session->payload_type);
+    }
 }
 
-int rtp_stop_receiving(RTPSession *session)
+void rtp_stop_receiving(const Tox *tox, RTPSession *session)
 {
-    // make it a NOOP for now
-    return 0;
+    if (session)
+    {
+        // UN-register callback
+        tox_callback_friend_lossy_packet_per_pktid(tox, handle_rtp_packet, session->payload_type);
+    }
 }
 
 /**

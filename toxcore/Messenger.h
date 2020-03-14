@@ -686,21 +686,6 @@ int file_data(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uin
  */
 uint64_t file_dataremaining(const Messenger *m, int32_t friendnumber, uint8_t filenumber, uint8_t send_receive);
 
-/*************** A/V related ******************/
-
-/* Set the callback for msi packets.
- *
- *  Function(Messenger *m, uint32_t friendnumber, uint8_t *data, uint16_t length, void *userdata)
- */
-void m_callback_msi_packet(Messenger *m, m_msi_packet_cb *function, void *userdata);
-
-/* Send an msi packet.
- *
- *  return 1 on success
- *  return 0 on failure
- */
-int m_msi_packet(const Messenger *m, int32_t friendnumber, const uint8_t *data, uint16_t length);
-
 /**********************************************/
 
 /* Set handlers for custom lossy packets.

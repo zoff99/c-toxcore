@@ -113,7 +113,8 @@ typedef struct MSISession_s {
     uint32_t        calls_head;
 
     void           *av;
-    Messenger      *messenger;
+    Tox            *tox;
+    // Messenger      *messenger;
 
     pthread_mutex_t mutex[1];
     msi_action_cb *callbacks[7];
@@ -122,11 +123,11 @@ typedef struct MSISession_s {
 /**
  * Start the control session.
  */
-MSISession *msi_new(Messenger *m);
+MSISession *msi_new(const Tox *tox);
 /**
  * Terminate control session. NOTE: all calls will be freed
  */
-int msi_kill(MSISession *session, const Logger *log);
+int msi_kill(const Tox *tox, MSISession *session, const Logger *log);
 /**
  * Callback setter.
  */

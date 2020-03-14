@@ -129,6 +129,7 @@ struct RTPMessage {
     uint8_t data[];
 };
 
+
 #define USED_RTP_WORKBUFFER_COUNT 3
 
 /**
@@ -202,11 +203,11 @@ size_t rtp_header_pack(uint8_t *rdata, const struct RTPHeader *header);
  */
 size_t rtp_header_unpack(const uint8_t *data, struct RTPHeader *header);
 
-RTPSession *rtp_new(int payload_type, Messenger *m, uint32_t friendnumber,
+RTPSession *rtp_new(int payload_type, const Tox* tox, uint32_t friendnumber,
                     BWController *bwc, void *cs, rtp_m_cb *mcb);
-void rtp_kill(RTPSession *session);
-int rtp_allow_receiving(RTPSession *session);
-int rtp_stop_receiving(RTPSession *session);
+void rtp_kill(const Tox *tox, RTPSession *session);
+void rtp_allow_receiving(const Tox *tox, RTPSession *session);
+void rtp_stop_receiving(const Tox *tox, RTPSession *session);
 /**
  * Send a frame of audio or video data, chunked in \ref RTPMessage instances.
  *

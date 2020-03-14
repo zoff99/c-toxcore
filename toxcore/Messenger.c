@@ -1783,6 +1783,7 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, uint8_t receiv
 
 /**************************************/
 
+#if 0
 /* Set the callback for msi packets.
  *
  *  Function(Messenger *m, int friendnumber, uint8_t *data, uint16_t length, void *userdata)
@@ -1802,6 +1803,7 @@ int m_msi_packet(const Messenger *m, int32_t friendnumber, const uint8_t *data, 
 {
     return write_cryptpacket_id(m, friendnumber, PACKET_ID_MSI, data, length, 0);
 }
+#endif
 
 static int m_handle_lossy_packet(void *object, int friend_num, const uint8_t *packet, uint16_t length,
                                  void *userdata)
