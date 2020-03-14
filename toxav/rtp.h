@@ -189,7 +189,7 @@ size_t rtp_header_pack(uint8_t *rdata, const struct RTPHeader *header);
  */
 size_t rtp_header_unpack(const uint8_t *data, struct RTPHeader *header);
 
-RTPSession *rtp_new(int payload_type, const Tox* tox, uint32_t friendnumber,
+RTPSession *rtp_new(int payload_type, const Tox *tox, uint32_t friendnumber,
                     BWController *bwc, void *cs, rtp_m_cb *mcb);
 void rtp_kill(const Tox *tox, RTPSession *session);
 void rtp_allow_receiving(const Tox *tox, RTPSession *session);
