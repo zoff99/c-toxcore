@@ -136,6 +136,11 @@ ToxAVCall *call_remove(ToxAVCall *call);
 bool call_prepare_transmission(ToxAVCall *call);
 void call_kill_transmission(ToxAVCall *call);
 
+
+MSISession *tox_av_msi_get(ToxAV *av);
+int toxav_friend_exists(const Tox *tox, int32_t friendnumber);
+
+
 MSISession *tox_av_msi_get(ToxAV *av)
 {
     if (!av) {
@@ -887,11 +892,6 @@ static Toxav_Err_Send_Frame send_frames(const Logger *log, ToxAVCall *call)
                             frame_length_in_bytes,
                             is_keyframe,
                             log);
-
-        LOGGER_DEBUG(log, "+ _sending_FRAME_TYPE_==%s bytes=%d frame_len=%d", is_keyframe ? "K" : ".",
-                     (int)pkt->data.frame.sz, (int)frame_length_in_bytes);
-        const uint8_t *const buf = (const uint8_t *)pkt->data.frame.buf;
-        LOGGER_DEBUG(log, "+ _sending_FRAME_ b0=%d b1=%d", buf[0], buf[1]);
 
         if (res < 0) {
             LOGGER_WARNING(log, "Could not send video frame: %s", strerror(errno));
