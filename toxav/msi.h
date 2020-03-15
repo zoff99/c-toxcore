@@ -108,11 +108,11 @@ typedef struct MSISession_s {
 /**
  * Start the control session.
  */
-MSISession *msi_new(const Tox *tox);
+MSISession *msi_new(Tox *tox);
 /**
  * Terminate control session. NOTE: all calls will be freed
  */
-int msi_kill(const Tox *tox, MSISession *session, const Logger *log);
+int msi_kill(Tox *tox, MSISession *session, const Logger *log);
 /**
  * Callback setter.
  */
@@ -134,7 +134,7 @@ int msi_answer(MSICall *call, uint8_t capabilities);
  */
 int msi_change_capabilities(MSICall *call, uint8_t capabilities);
 
-int m_msi_send_custom_lossy_packet(const Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length);
+int m_msi_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length);
 int invoke_callback(MSICall *call, MSICallbackID cb);
 void kill_call(MSICall *call);
 

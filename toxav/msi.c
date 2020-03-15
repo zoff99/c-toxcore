@@ -83,14 +83,14 @@ void msg_init(MSIMessage *dest, MSIRequest request);
 int msg_parse_in(const Logger *log, MSIMessage *dest, const uint8_t *data, uint16_t length);
 uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, uint8_t value_len, uint16_t *length);
 static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg);
-int send_error(const Tox *tox, uint32_t friend_number, MSIError error);
+int send_error(Tox *tox, uint32_t friend_number, MSIError error);
 static MSICall *get_call(MSISession *session, uint32_t friend_number);
 MSICall *new_call(MSISession *session, uint32_t friend_number);
 void on_peer_status(const Tox *tox, uint32_t friend_number, uint8_t status, void *data);
 void handle_init(MSICall *call, const MSIMessage *msg);
 void handle_push(MSICall *call, const MSIMessage *msg);
 void handle_pop(MSICall *call, const MSIMessage *msg);
-void handle_msi_packet(const Tox *tox, uint32_t friend_number, const uint8_t *data, uint16_t length, void *object);
+void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length2, void *object);
 
 
 /**
@@ -107,7 +107,7 @@ void msi_register_callback(MSISession *session, msi_action_cb *callback, MSICall
     pthread_mutex_unlock(session->mutex);
 }
 
-MSISession *msi_new(const Tox *tox)
+MSISession *msi_new(Tox *tox)
 {
     if (tox == nullptr) {
         return nullptr;
@@ -135,7 +135,7 @@ MSISession *msi_new(const Tox *tox)
     return retu;
 }
 
-int msi_kill(const Tox *tox, MSISession *session, const Logger *log)
+int msi_kill(Tox *tox, MSISession *session, const Logger *log)
 {
     if (session == nullptr) {
         LOGGER_ERROR(log, "Tried to terminate non-existing session");
@@ -440,7 +440,7 @@ uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, 
  *  return 1 on success
  *  return 0 on failure
  */
-static int m_msi_packet(const Tox *tox, int32_t friendnumber, const uint8_t *data, uint16_t length)
+static int m_msi_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint16_t length)
 {
     TOX_ERR_FRIEND_CUSTOM_PACKET error;
     tox_friend_send_lossless_packet(tox, friendnumber, data, length, &error);
@@ -456,7 +456,7 @@ static int m_msi_packet(const Tox *tox, int32_t friendnumber, const uint8_t *dat
  * return -1 on failure, 0 on success
  *
  */
-int m_msi_send_custom_lossy_packet(const Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length)
+int m_msi_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length)
 {
     TOX_ERR_FRIEND_CUSTOM_PACKET error;
     tox_friend_send_lossy_packet(tox, friendnumber, data, (size_t)length, &error);
@@ -518,7 +518,7 @@ static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg)
     return -1;
 }
 
-int send_error(const Tox *tox, uint32_t friend_number, MSIError error)
+int send_error(Tox *tox, uint32_t friend_number, MSIError error)
 {
     // TODO(iphydf): Don't rely on toxcore internals.
     Messenger *m;
