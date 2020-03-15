@@ -878,7 +878,7 @@ void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, si
 {
     // Zoff: is this correct?
     uint16_t length = (uint16_t)length2;
-    
+
     // TODO(iphydf): Don't rely on toxcore internals.
     Messenger *m;
     m = *(Messenger **)tox;
