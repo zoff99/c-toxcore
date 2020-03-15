@@ -22,6 +22,10 @@
 /*
  * Zoff: disable logging in ToxAV for now
  */
+static void dummy()
+{
+}
+
 #undef LOGGER_DEBUG
 #define LOGGER_DEBUG(log, ...) dummy()
 #undef LOGGER_ERROR
@@ -31,9 +35,6 @@
 #undef LOGGER_INFO
 #define LOGGER_INFO(log, ...) dummy()
 
-static void dummy()
-{
-}
 
 /**
  * Protocol:

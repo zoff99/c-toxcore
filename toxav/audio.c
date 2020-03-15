@@ -19,15 +19,13 @@
  * Zoff: disable logging in ToxAV for now
  */
 #undef LOGGER_DEBUG
-#define LOGGER_DEBUG(log, ...) dummy()
+#define LOGGER_DEBUG(log, ...) dummy3()
 #undef LOGGER_ERROR
-#define LOGGER_ERROR(log, ...) dummy()
+#define LOGGER_ERROR(log, ...) dummy3()
 #undef LOGGER_WARNING
-#define LOGGER_WARNING(log, ...) dummy()
-#undef LOGGER_INFO
-#define LOGGER_INFO(log, ...) dummy()
+#define LOGGER_WARNING(log, ...) dummy3()
 
-static void dummy()
+static void dummy3()
 {
 }
 
