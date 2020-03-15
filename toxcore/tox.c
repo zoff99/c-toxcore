@@ -2496,3 +2496,4 @@ void tox_get_av_object(const Tox *tox, void **object)
     *object = tox->toxav_object;
     unlock(tox);
 }
+

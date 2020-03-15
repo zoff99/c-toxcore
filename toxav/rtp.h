@@ -41,6 +41,12 @@ typedef enum RTP_Type {
     RTP_TYPE_VIDEO = 193,
 } RTP_Type;
 
+#ifndef TOXAV_DEFINED
+#define TOXAV_DEFINED
+#undef ToxAV
+typedef struct ToxAV ToxAV;
+#endif /* TOXAV_DEFINED */
+
 /**
  * A bit mask (up to 64 bits) specifying features of the current frame affecting
  * the behaviour of the decoder.
@@ -165,8 +171,8 @@ typedef struct RTPSession {
     struct RTPMessage *mp; /* Expected parted message */
     struct RTPWorkBufferList *work_buffer_list;
     uint8_t  first_packets_counter; /* dismiss first few lost video packets */
-    Messenger *m;
     Tox *tox;
+    ToxAV *toxav;
     uint32_t friend_number;
     BWController *bwc;
     void *cs;
@@ -194,7 +200,7 @@ size_t rtp_header_pack(uint8_t *rdata, const struct RTPHeader *header);
  */
 size_t rtp_header_unpack(const uint8_t *data, struct RTPHeader *header);
 
-RTPSession *rtp_new(int payload_type, Tox *tox, uint32_t friendnumber,
+RTPSession *rtp_new(int payload_type, Tox *tox, ToxAV *toxav, uint32_t friendnumber,
                     BWController *bwc, void *cs, rtp_m_cb *mcb);
 void rtp_kill(Tox *tox, RTPSession *session);
 void rtp_allow_receiving(Tox *tox, RTPSession *session);

@@ -23,18 +23,17 @@
 /*
  * Zoff: disable logging in ToxAV for now
  */
-#undef LOGGER_DEBUG
-#define LOGGER_DEBUG(log, ...) dummy()
-#undef LOGGER_ERROR
-#define LOGGER_ERROR(log, ...) dummy()
-#undef LOGGER_WARNING
-#define LOGGER_WARNING(log, ...) dummy()
-#undef LOGGER_INFO
-#define LOGGER_INFO(log, ...) dummy()
 
-static void dummy()
-{
-}
+#include <stdio.h>
+
+#undef LOGGER_DEBUG
+#define LOGGER_DEBUG(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_ERROR
+#define LOGGER_ERROR(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_WARNING
+#define LOGGER_WARNING(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_INFO
+#define LOGGER_INFO(log, ...) printf(__VA_ARGS__);printf("\n")
 
 /**
  * Soft deadline the decoder should attempt to meet, in "us" (microseconds).

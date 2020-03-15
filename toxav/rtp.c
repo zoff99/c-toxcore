@@ -24,18 +24,18 @@
 /*
  * Zoff: disable logging in ToxAV for now
  */
-static void dummy2()
-{
-}
+#include <stdio.h>
 
 #undef LOGGER_DEBUG
-#define LOGGER_DEBUG(log, ...) dummy2()
+#define LOGGER_DEBUG(log, ...) printf(__VA_ARGS__);printf("\n")
 #undef LOGGER_ERROR
-#define LOGGER_ERROR(log, ...) dummy2()
+#define LOGGER_ERROR(log, ...) printf(__VA_ARGS__);printf("\n")
 #undef LOGGER_WARNING
-#define LOGGER_WARNING(log, ...) dummy2()
+#define LOGGER_WARNING(log, ...) printf(__VA_ARGS__);printf("\n")
 #undef LOGGER_INFO
-#define LOGGER_INFO(log, ...) dummy2()
+#define LOGGER_INFO(log, ...) printf(__VA_ARGS__);printf("\n")
+
+Mono_Time *toxav_get_av_mono_time(ToxAV *toxav);
 
 /**
  * The number of milliseconds we want to keep a keyframe in the buffer for,
@@ -346,6 +346,19 @@ static void update_bwc_values(const Logger *log, RTPSession *session, const stru
     }
 }
 
+static Mono_Time *rtp_get_mono_time_from_rtpsession(RTPSession *session)
+{
+    if (!session) {
+        return NULL;
+    }
+
+    if (!session->toxav) {
+        return NULL;
+    }
+
+    return toxav_get_av_mono_time(session->toxav);
+}
+
 /**
  * Handle a single RTP video packet.
  *
@@ -404,7 +417,7 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
         LOGGER_DEBUG(log, "-- handle_video_packet -- CALLBACK-001a b0=%d b1=%d", (int)m_new->data[0], (int)m_new->data[1]);
         update_bwc_values(log, session, m_new);
         // Pass ownership of m_new to the callback.
-        session->mcb(session->m->mono_time, session->cs, m_new);
+        session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, m_new);
         // Now we no longer own m_new.
         m_new = nullptr;
 
@@ -441,7 +454,7 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
     if (m_new) {
         LOGGER_DEBUG(log, "-- handle_video_packet -- CALLBACK-003a b0=%d b1=%d", (int)m_new->data[0], (int)m_new->data[1]);
         update_bwc_values(log, session, m_new);
-        session->mcb(session->m->mono_time, session->cs, m_new);
+        session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, m_new);
 
         m_new = nullptr;
     }
@@ -561,14 +574,14 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
         /* Invoke processing of active multiparted message */
         if (session->mp) {
-            session->mcb(session->m->mono_time, session->cs, session->mp);
+            session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, session->mp);
             session->mp = nullptr;
         }
 
         /* The message came in the allowed time;
          */
 
-        session->mcb(session->m->mono_time, session->cs, new_message(&header, length - RTP_HEADER_SIZE,
+        session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, new_message(&header, length - RTP_HEADER_SIZE,
                      data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE));
     }
 
@@ -604,7 +617,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                 /* Received a full message; now push it for the further
                  * processing.
                  */
-                session->mcb(session->m->mono_time, session->cs, session->mp);
+                session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, session->mp);
                 session->mp = nullptr;
             }
         } else {
@@ -617,7 +630,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
             }
 
             /* Push the previous message for processing */
-            session->mcb(session->m->mono_time, session->cs, session->mp);
+            session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, session->mp);
 
             session->mp = nullptr;
             goto NEW_MULTIPARTED;
@@ -701,17 +714,11 @@ size_t rtp_header_unpack(const uint8_t *data, struct RTPHeader *header)
     return p - data;
 }
 
-RTPSession *rtp_new(int payload_type, Tox *tox, uint32_t friendnumber,
+RTPSession *rtp_new(int payload_type, Tox *tox, ToxAV *toxav, uint32_t friendnumber,
                     BWController *bwc, void *cs, rtp_m_cb *mcb)
 {
     assert(mcb != nullptr);
     assert(cs != nullptr);
-
-    // TODO(iphydf): Don't rely on toxcore internals.
-    Messenger *m;
-    m = *(Messenger **)(Tox *)tox;
-    assert(m != nullptr);
-
 
     RTPSession *session = (RTPSession *)calloc(1, sizeof(RTPSession));
 
@@ -735,6 +742,7 @@ RTPSession *rtp_new(int payload_type, Tox *tox, uint32_t friendnumber,
     session->payload_type = payload_type;
     // session->m = m;
     session->tox = tox;
+    session->toxav = toxav;
     session->friend_number = friendnumber;
 
     // set NULL just in case
@@ -811,7 +819,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
 
     header.sequnum = session->sequnum;
 
-    header.timestamp = current_time_monotonic(session->m->mono_time);
+    header.timestamp = current_time_monotonic(rtp_get_mono_time_from_rtpsession(session));
 
     header.ssrc = session->ssrc;
 
