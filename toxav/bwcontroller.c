@@ -75,8 +75,25 @@ static int bwc_handle_data(Messenger *m, uint32_t friendnumber, const uint8_t *d
 static int bwc_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length);
 static void send_update(BWController *bwc);
 
-BWController *bwc_new(Messenger *m, Tox *tox, uint32_t friendnumber, m_cb *mcb, void *mcb_user_data,
-                      Mono_Time *bwc_mono_time)
+#if 0
+/*
+ * return -1 on failure, 0 on success
+ *
+ */
+int bwc_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length)
+{
+    TOX_ERR_FRIEND_CUSTOM_PACKET error;
+    tox_friend_send_lossy_packet(tox, friendnumber, data, (size_t)length, &error);
+
+    if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_OK) {
+        return 0;
+    }
+
+    return -1;
+}
+#endif
+
+BWController *bwc_new(Messenger *m, uint32_t friendnumber, m_cb *mcb, void *mcb_user_data)
 {
     BWController *retu = (BWController *)calloc(sizeof(struct BWController_s), 1);
     LOGGER_DEBUG(m->log, "Creating bandwidth controller");
@@ -160,7 +177,7 @@ static void send_update(BWController *bwc)
 
 #if 0
 
-            if (m_msi_send_custom_lossy_packet(bwc->m, bwc->friend_number, bwc_packet, sizeof(bwc_packet)) == -1) {
+            if (bwc_send_custom_lossy_packet(bwc->m, bwc->friend_number, bwc_packet, sizeof(bwc_packet)) == -1) {
                 const char *netstrerror = net_new_strerror(net_error());
                 LOGGER_WARNING(bwc->m->log, "BWC send failed (len: %u)! std error: %s, net error %s",
                                (unsigned)sizeof(bwc_packet), strerror(errno), netstrerror);

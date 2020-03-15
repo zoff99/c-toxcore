@@ -474,22 +474,6 @@ static int m_msi_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uin
     return 0;
 }
 
-/*
- * return -1 on failure, 0 on success
- *
- */
-int m_msi_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length)
-{
-    TOX_ERR_FRIEND_CUSTOM_PACKET error;
-    tox_friend_send_lossy_packet(tox, friendnumber, data, (size_t)length, &error);
-
-    if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_OK) {
-        return 0;
-    }
-
-    return -1;
-}
-
 static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg)
 {
     // TODO(iphydf): Don't rely on toxcore internals.
