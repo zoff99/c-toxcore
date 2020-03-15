@@ -217,6 +217,10 @@ void ac_iterate(ACSession *ac)
 int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
 {
     if (!acp || !msg) {
+        if (msg) {
+            free(msg);
+        }
+
         return -1;
     }
 

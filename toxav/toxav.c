@@ -116,7 +116,7 @@ struct ToxAV {
     int32_t dmssa; /** Average decoding time in ms */
 
     uint32_t interval; /** Calculated interval */
-    
+
     Mono_Time *toxav_mono_time; // ToxAV's own mono_time instance
 };
 
@@ -1493,10 +1493,9 @@ void call_kill_transmission(ToxAVCall *call)
 
 Mono_Time *toxav_get_av_mono_time(ToxAV *toxav)
 {
-    if (!toxav)
-    {
+    if (!toxav) {
         return nullptr;
     }
-    
+
     return toxav->toxav_mono_time;
 }

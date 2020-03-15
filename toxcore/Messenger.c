@@ -1817,7 +1817,7 @@ void custom_lossless_packet_registerhandler(Messenger *m, m_friend_lossless_pack
 int send_custom_lossless_packet(const Messenger *m, int32_t friendnumber, const uint8_t *data, uint32_t length)
 {
     printf("send_custom_lossless_packet ------\n");
-    
+
     if (friend_not_valid(m, friendnumber)) {
         printf("send_custom_lossless_packet --- friend_not_valid ---\n");
         return -1;
