@@ -173,7 +173,7 @@ int msi_kill(Tox *tox, MSISession *session, const Logger *log)
 int msi_invite(MSISession *session, MSICall **call, uint32_t friend_number, uint8_t capabilities)
 {
     LOGGER_DEBUG(session->messenger->log, "msi_invite:session:%p", (void *)session);
-    
+
     if (!session) {
         return -1;
     }
@@ -446,8 +446,7 @@ static int m_msi_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uin
     size_t length_new = length + 1;
     uint8_t *data_new = calloc(1, length_new);
 
-    if (!data_new)
-    {
+    if (!data_new) {
         return 0;
     }
 
@@ -456,6 +455,7 @@ static int m_msi_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uin
     if (length != 0) {
         memcpy(data_new + 1, data, length);
     }
+
     // TODO(Zoff): make this better later! -------------------
 
     TOX_ERR_FRIEND_CUSTOM_PACKET error;
@@ -913,8 +913,7 @@ MSISession *tox_av_msi_get(void *av);
 
 void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length2, void *object)
 {
-    if (length2 < 2)
-    {
+    if (length2 < 2) {
         // we need more than the ID byte for MSI messages
         return;
     }
