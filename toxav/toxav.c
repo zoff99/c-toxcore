@@ -26,18 +26,17 @@
 /*
  * Zoff: disable logging in ToxAV for now
  */
-#undef LOGGER_DEBUG
-#define LOGGER_DEBUG(log, ...) dummy()
-#undef LOGGER_ERROR
-#define LOGGER_ERROR(log, ...) dummy()
-#undef LOGGER_WARNING
-#define LOGGER_WARNING(log, ...) dummy()
-#undef LOGGER_INFO
-#define LOGGER_INFO(log, ...) dummy()
 
-static void dummy()
-{
-}
+#include <stdio.h>
+
+#undef LOGGER_DEBUG
+#define LOGGER_DEBUG(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_ERROR
+#define LOGGER_ERROR(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_WARNING
+#define LOGGER_WARNING(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_INFO
+#define LOGGER_INFO(log, ...) printf(__VA_ARGS__);printf("\n")
 
 // TODO(zoff99): don't hardcode this, let the application choose it
 // VPX Info: Time to spend encoding, in microseconds (it's a *soft* deadline)
@@ -117,6 +116,8 @@ struct ToxAV {
     int32_t dmssa; /** Average decoding time in ms */
 
     uint32_t interval; /** Calculated interval */
+    
+    Mono_Time *toxav_mono_time; // ToxAV's own mono_time instance
 };
 
 void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *user_data);
@@ -136,10 +137,9 @@ ToxAVCall *call_remove(ToxAVCall *call);
 bool call_prepare_transmission(ToxAVCall *call);
 void call_kill_transmission(ToxAVCall *call);
 
-
 MSISession *tox_av_msi_get(ToxAV *av);
 int toxav_friend_exists(const Tox *tox, int32_t friendnumber);
-
+Mono_Time *toxav_get_av_mono_time(ToxAV *toxav);
 
 MSISession *tox_av_msi_get(ToxAV *av)
 {
@@ -186,8 +186,10 @@ ToxAV *toxav_new(Tox *tox, Toxav_Err_New *error)
     }
 
     av->tox = tox;
-    av->m = m;
+    av->m = m; // TODO:!!remove me!!
     av->msi = msi_new(av->tox);
+
+    av->toxav_mono_time = mono_time_new();
 
     if (av->msi == nullptr) {
         pthread_mutex_destroy(av->mutex);
@@ -251,6 +253,8 @@ void toxav_kill(ToxAV *av)
             it = call_remove(it); /* This will eventually free av->calls */
         }
     }
+
+    mono_time_free(av->toxav_mono_time);
 
     pthread_mutex_unlock(av->mutex);
     pthread_mutex_destroy(av->mutex);
@@ -1410,7 +1414,7 @@ bool call_prepare_transmission(ToxAVCall *call)
             goto FAILURE;
         }
 
-        call->audio_rtp = rtp_new(RTP_TYPE_AUDIO, av->tox, call->friend_number, call->bwc,
+        call->audio_rtp = rtp_new(RTP_TYPE_AUDIO, av->tox, av, call->friend_number, call->bwc,
                                   call->audio, ac_queue_message);
 
         if (!call->audio_rtp) {
@@ -1426,7 +1430,7 @@ bool call_prepare_transmission(ToxAVCall *call)
             goto FAILURE;
         }
 
-        call->video_rtp = rtp_new(RTP_TYPE_VIDEO, av->tox, call->friend_number, call->bwc,
+        call->video_rtp = rtp_new(RTP_TYPE_VIDEO, av->tox, av, call->friend_number, call->bwc,
                                   call->video, vc_queue_message);
 
         if (!call->video_rtp) {
@@ -1485,4 +1489,14 @@ void call_kill_transmission(ToxAVCall *call)
 
     pthread_mutex_destroy(call->mutex_audio);
     pthread_mutex_destroy(call->mutex_video);
+}
+
+Mono_Time *toxav_get_av_mono_time(ToxAV *toxav)
+{
+    if (!toxav)
+    {
+        return nullptr;
+    }
+    
+    return toxav->toxav_mono_time;
 }

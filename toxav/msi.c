@@ -22,18 +22,16 @@
 /*
  * Zoff: disable logging in ToxAV for now
  */
-static void dummy()
-{
-}
+#include <stdio.h>
 
 #undef LOGGER_DEBUG
-#define LOGGER_DEBUG(log, ...) dummy()
+#define LOGGER_DEBUG(log, ...) printf(__VA_ARGS__);printf("\n")
 #undef LOGGER_ERROR
-#define LOGGER_ERROR(log, ...) dummy()
+#define LOGGER_ERROR(log, ...) printf(__VA_ARGS__);printf("\n")
 #undef LOGGER_WARNING
-#define LOGGER_WARNING(log, ...) dummy()
+#define LOGGER_WARNING(log, ...) printf(__VA_ARGS__);printf("\n")
 #undef LOGGER_INFO
-#define LOGGER_INFO(log, ...) dummy()
+#define LOGGER_INFO(log, ...) printf(__VA_ARGS__);printf("\n")
 
 
 /**
@@ -174,6 +172,8 @@ int msi_kill(Tox *tox, MSISession *session, const Logger *log)
 
 int msi_invite(MSISession *session, MSICall **call, uint32_t friend_number, uint8_t capabilities)
 {
+    LOGGER_DEBUG(session->messenger->log, "msi_invite:session:%p", (void *)session);
+    
     if (!session) {
         return -1;
     }
@@ -442,8 +442,30 @@ uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, 
  */
 static int m_msi_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint16_t length)
 {
+    // TODO(Zoff): make this better later! -------------------
+    size_t length_new = length + 1;
+    uint8_t *data_new = calloc(1, length_new);
+
+    if (!data_new)
+    {
+        return 0;
+    }
+
+    data_new[0] = PACKET_ID_MSI;
+
+    if (length != 0) {
+        memcpy(data_new + 1, data, length);
+    }
+    // TODO(Zoff): make this better later! -------------------
+
     TOX_ERR_FRIEND_CUSTOM_PACKET error;
-    tox_friend_send_lossless_packet(tox, friendnumber, data, length, &error);
+    tox_friend_send_lossless_packet(tox, friendnumber, data_new, length_new, &error);
+
+    LOGGER_DEBUG(m->log, "send_message:001:error=%d %p %d %d", error, (void *)tox, friendnumber, (int)length_new);
+
+    // TODO(Zoff): make this better later! -------------------
+    free(data_new);
+    // TODO(Zoff): make this better later! -------------------
 
     if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_OK) {
         return 1;
@@ -475,6 +497,8 @@ static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg)
     m = *(Messenger **)tox;
     assert(m);
 
+    LOGGER_DEBUG(m->log, "send_message:001");
+
     /* Parse and send message */
 
     uint8_t parsed [MSI_MAXMSG_SIZE];
@@ -483,6 +507,7 @@ static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg)
     uint16_t size = 0;
 
     if (msg->request.exists) {
+        LOGGER_DEBUG(m->log, "send_message:002");
         uint8_t cast = msg->request.value;
         it = msg_parse_header_out(ID_REQUEST, it, &cast,
                                   sizeof(cast), &size);
@@ -491,21 +516,31 @@ static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg)
         return -1;
     }
 
+    LOGGER_DEBUG(m->log, "send_message:004");
+
     if (msg->error.exists) {
+        LOGGER_DEBUG(m->log, "send_message:005");
         uint8_t cast = msg->error.value;
         it = msg_parse_header_out(ID_ERROR, it, &cast,
                                   sizeof(cast), &size);
     }
 
+    LOGGER_DEBUG(m->log, "send_message:006");
+
     if (msg->capabilities.exists) {
+        LOGGER_DEBUG(m->log, "send_message:007");
         it = msg_parse_header_out(ID_CAPABILITIES, it, &msg->capabilities.value,
                                   sizeof(msg->capabilities.value), &size);
     }
+
+    LOGGER_DEBUG(m->log, "send_message:008");
 
     if (it == parsed) {
         LOGGER_WARNING(m->log, "Parsing message failed; empty message");
         return -1;
     }
+
+    LOGGER_DEBUG(m->log, "send_message:009");
 
     *it = 0;
     ++size;
@@ -514,6 +549,8 @@ static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg)
         LOGGER_DEBUG(m->log, "Sent message");
         return 0;
     }
+
+    LOGGER_DEBUG(m->log, "send_message:099");
 
     return -1;
 }
@@ -876,8 +913,18 @@ MSISession *tox_av_msi_get(void *av);
 
 void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length2, void *object)
 {
+    if (length2 < 2)
+    {
+        // we need more than the ID byte for MSI messages
+        return;
+    }
+
     // Zoff: is this correct?
-    uint16_t length = (uint16_t)length2;
+    uint16_t length = (uint16_t)(length2 - 1);
+
+    // Zoff: do not show the first byte, its always "PACKET_ID_MSI"
+    const uint8_t *data_strip_id_byte = (const uint8_t *)(data + 1);
+
 
     // TODO(iphydf): Don't rely on toxcore internals.
     Messenger *m;
@@ -900,7 +947,7 @@ void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, si
 
     MSIMessage msg;
 
-    if (msg_parse_in(m->log, &msg, data, length) == -1) {
+    if (msg_parse_in(m->log, &msg, data_strip_id_byte, length) == -1) {
         LOGGER_WARNING(m->log, "Error parsing message");
         send_error(tox, friend_number, MSI_E_INVALID_MESSAGE);
         return;

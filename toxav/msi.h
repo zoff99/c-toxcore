@@ -99,7 +99,6 @@ typedef struct MSISession_s {
 
     void           *av;
     Tox            *tox;
-    // Messenger      *messenger;
 
     pthread_mutex_t mutex[1];
     msi_action_cb *callbacks[7];
