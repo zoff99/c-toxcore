@@ -24,6 +24,10 @@
 /*
  * Zoff: disable logging in ToxAV for now
  */
+static void dummy2()
+{
+}
+
 #undef LOGGER_DEBUG
 #define LOGGER_DEBUG(log, ...) dummy2()
 #undef LOGGER_ERROR
@@ -32,10 +36,6 @@
 #define LOGGER_WARNING(log, ...) dummy2()
 #undef LOGGER_INFO
 #define LOGGER_INFO(log, ...) dummy2()
-
-void dummy2()
-{
-}
 
 /**
  * The number of milliseconds we want to keep a keyframe in the buffer for,
@@ -469,7 +469,7 @@ typedef struct ToxAVCall_hack {
 ToxAVCall_hack *call_get(void *av, uint32_t friend_number);
 
 /**
- * @return -1 on error, 0 on success.
+ * receive custom lossypackets and process them. they can be incoming audio or video patckets
  */
 void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_t length2, void *dummy)
 {
@@ -482,7 +482,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
     if (length < RTP_HEADER_SIZE + 1) {
         LOGGER_WARNING(m->log, "Invalid length of received buffer!");
-        return; // -1;
+        return;
     }
 
     void *toxav = NULL;
@@ -510,7 +510,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
     if (!session) {
         LOGGER_WARNING(m->log, "No session!");
-        return; // -1;
+        return;
     }
 
     // Get the packet type.
@@ -525,25 +525,25 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     if (header.pt != packet_type % 128) {
         LOGGER_WARNING(m->log, "RTPHeader packet type and Tox protocol packet type did not agree: %d != %d",
                        header.pt, packet_type % 128);
-        return; // -1;
+        return;
     }
 
     if (header.pt != session->payload_type % 128) {
         LOGGER_WARNING(m->log, "RTPHeader packet type does not match this session's payload type: %d != %d",
                        header.pt, session->payload_type % 128);
-        return; // -1;
+        return;
     }
 
     if (header.flags & RTP_LARGE_FRAME && header.offset_full >= header.data_length_full) {
         LOGGER_ERROR(m->log, "Invalid video packet: frame offset (%u) >= full frame length (%u)",
                      (unsigned)header.offset_full, (unsigned)header.data_length_full);
-        return; // -1;
+        return;
     }
 
     if (header.offset_lower >= header.data_length_lower) {
         LOGGER_ERROR(m->log, "Invalid old protocol video packet: frame offset (%u) >= full frame length (%u)",
                      (unsigned)header.offset_lower, (unsigned)header.data_length_lower);
-        return; // -1;
+        return;
     }
 
     LOGGER_DEBUG(m->log, "header.pt %d, video %d", (uint8_t)header.pt, (RTP_TYPE_VIDEO % 128));
@@ -597,7 +597,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                 /* There happened to be some corruption on the stream;
                  * continue wihtout this part
                  */
-                return; // 0;
+                return;
             }
 
             memcpy(session->mp->data + header.offset_lower, data + RTP_HEADER_SIZE,
@@ -618,7 +618,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                 /* The received message part is from the old message;
                  * discard it.
                  */
-                return; // 0;
+                return;
             }
 
             /* Push the previous message for processing */
@@ -644,7 +644,7 @@ NEW_MULTIPARTED:
         memmove(session->mp->data + header.offset_lower, session->mp->data, session->mp->len);
     }
 
-    return; // 0;
+    return;
 }
 
 size_t rtp_header_pack(uint8_t *const rdata, const struct RTPHeader *header)
@@ -714,7 +714,7 @@ RTPSession *rtp_new(int payload_type, const Tox *tox, uint32_t friendnumber,
 
     // TODO(iphydf): Don't rely on toxcore internals.
     Messenger *m;
-    m = *(Messenger **)tox;
+    m = *(Messenger **)(Tox *)tox;
     assert(m != nullptr);
 
 
