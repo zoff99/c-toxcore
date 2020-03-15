@@ -443,7 +443,7 @@ uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, 
 static int m_msi_packet(const Tox *tox, int32_t friendnumber, const uint8_t *data, uint16_t length)
 {
     TOX_ERR_FRIEND_CUSTOM_PACKET error;
-    bool res = tox_friend_send_lossless_packet(tox, friendnumber, data, length, &error);
+    tox_friend_send_lossless_packet(tox, friendnumber, data, length, &error);
 
     if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_OK) {
         return 1;
@@ -459,7 +459,7 @@ static int m_msi_packet(const Tox *tox, int32_t friendnumber, const uint8_t *dat
 int m_msi_send_custom_lossy_packet(const Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length)
 {
     TOX_ERR_FRIEND_CUSTOM_PACKET error;
-    bool res = tox_friend_send_lossy_packet(tox, friendnumber, data, (size_t)length, &error);
+    tox_friend_send_lossy_packet(tox, friendnumber, data, (size_t)length, &error);
 
     if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_OK) {
         return 0;
@@ -874,8 +874,11 @@ void handle_pop(MSICall *call, const MSIMessage *msg)
 /* !!hack!! */
 MSISession *tox_av_msi_get(void *av);
 
-void handle_msi_packet(const Tox *tox, uint32_t friend_number, const uint8_t *data, uint16_t length, void *object)
+void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length2, void *object)
 {
+    // Zoff: is this correct?
+    uint16_t length = (uint16_t)length2;
+    
     // TODO(iphydf): Don't rely on toxcore internals.
     Messenger *m;
     m = *(Messenger **)tox;
