@@ -357,15 +357,9 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
     // but this value is the complete assembled frame size.
     const uint32_t full_frame_length = header->data_length_full;
 
-    // Current offset in the frame. If this is the first packet of a multipart
-    // frame or it's not a multipart frame, then this value is 0.
-    const uint32_t offset = header->offset_full; // without header
-
     // The sender tells us whether this is a key frame.
     const bool is_keyframe = (header->flags & RTP_KEY_FRAME) != 0;
 
-    LOGGER_DEBUG(log, "-- handle_video_packet -- full lens=%u len=%u offset=%u is_keyframe=%s",
-                 (unsigned)incoming_data_length, (unsigned)full_frame_length, (unsigned)offset, is_keyframe ? "K" : ".");
     LOGGER_DEBUG(log, "wkbl->next_free_entry:003=%d", session->work_buffer_list->next_free_entry);
 
     const bool is_multipart = full_frame_length != incoming_data_length;
@@ -534,7 +528,8 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     // The sender uses the new large-frame capable protocol and is sending a
     // video packet.
     if ((header.flags & RTP_LARGE_FRAME) && header.pt == (RTP_TYPE_VIDEO % 128)) {
-        return; // handle_video_packet(session, &header, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE, m->log);
+        handle_video_packet(session, &header, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE, m->log);
+        return;
     }
 
     // everything below here is for the old 16 bit protocol ------------------
@@ -689,7 +684,7 @@ size_t rtp_header_unpack(const uint8_t *data, struct RTPHeader *header)
     return p - data;
 }
 
-RTPSession *rtp_new(int payload_type, const Tox *tox, uint32_t friendnumber,
+RTPSession *rtp_new(int payload_type, Tox *tox, uint32_t friendnumber,
                     BWController *bwc, void *cs, rtp_m_cb *mcb)
 {
     assert(mcb != nullptr);
@@ -739,7 +734,7 @@ RTPSession *rtp_new(int payload_type, const Tox *tox, uint32_t friendnumber,
     return session;
 }
 
-void rtp_kill(const Tox *tox, RTPSession *session)
+void rtp_kill(Tox *tox, RTPSession *session)
 {
     if (!session) {
         return;
@@ -755,7 +750,7 @@ void rtp_kill(const Tox *tox, RTPSession *session)
     free(session);
 }
 
-void rtp_allow_receiving(const Tox *tox, RTPSession *session)
+void rtp_allow_receiving(Tox *tox, RTPSession *session)
 {
     if (session) {
         // register callback
@@ -763,7 +758,7 @@ void rtp_allow_receiving(const Tox *tox, RTPSession *session)
     }
 }
 
-void rtp_stop_receiving(const Tox *tox, RTPSession *session)
+void rtp_stop_receiving(Tox *tox, RTPSession *session)
 {
     if (session) {
         // UN-register callback
