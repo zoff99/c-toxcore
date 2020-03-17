@@ -68,6 +68,7 @@ for i in $pkgs ; do
 done
 
 pkgs_z="
+    llvm-dev
     libavutil-dev
     libavcodec-dev
     libavformat-dev
@@ -91,6 +92,11 @@ echo ""
 
 cd /c-toxcore
 
+rm -Rf /workspace/_build/
+rm -Rf /workspace/auto_tests/
+rm -Rf /workspace/cmake/
+rm -f  /workspace/CMakeLists.txt
+
 echo "make a local copy ..."
 redirect_cmd rsync -avz --exclude=".localrun" ./ /workspace/
 
@@ -98,6 +104,12 @@ cd /workspace/
 
 CC=clang .circleci/cmake-asan
 
+mkdir -p /artefacts/asan/
+chmod a+rwx -R /workspace/
+chmod a+rwx -R /artefacts/
+
+cp /workspace/_build/Testing/Temporary/* /artefacts/asan/
+cp /workspace/_build/unit_* /workspace/_build/auto_* /artefacts/asan/
 
 ' > $_HOME_/script/do_it___external.sh
 
@@ -115,7 +127,4 @@ docker run -ti --rm \
   -e DISPLAY=$DISPLAY \
   "$system_to_build_for" \
   /bin/bash /script/do_it___external.sh
-
-
-#  --net=host \
 
