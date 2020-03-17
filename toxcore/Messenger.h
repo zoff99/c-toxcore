@@ -225,6 +225,10 @@ typedef void m_conference_invite_cb(Messenger *m, uint32_t friend_number, const 
                                     void *user_data);
 typedef int m_lossy_rtp_packet_cb(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint16_t len, void *object);
 
+int file_seek_for_resume(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uint64_t position,
+                         const bool resume_ft);
+
+
 typedef struct RTP_Packet_Handler {
     m_lossy_rtp_packet_cb *function;
     void *object;

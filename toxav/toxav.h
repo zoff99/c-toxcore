@@ -715,11 +715,26 @@ bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pc
  * @param y Y (Luminance) plane data.
  * @param u U (Chroma) plane data.
  * @param v V (Chroma) plane data.
- * @param age_ms age of data in milliseconds
  */
 bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height, const uint8_t *y,
                             const uint8_t *u, const uint8_t *v, TOXAV_ERR_SEND_FRAME *error);
 
+/**
+ * Send a video frame to a friend.
+ *
+ * Y - plane should be of size: height * width
+ * U - plane should be of size: (height/2) * (width/2)
+ * V - plane should be of size: (height/2) * (width/2)
+ *
+ * @param friend_number The friend number of the friend to which to send a video
+ * frame.
+ * @param width Width of the frame in pixels.
+ * @param height Height of the frame in pixels.
+ * @param y Y (Luminance) plane data.
+ * @param u U (Chroma) plane data.
+ * @param v V (Chroma) plane data.
+ * @param age_ms age of data in milliseconds
+ */
 bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height, const uint8_t *y,
                             const uint8_t *u, const uint8_t *v, TOXAV_ERR_SEND_FRAME *error, uint32_t age_ms);
 
