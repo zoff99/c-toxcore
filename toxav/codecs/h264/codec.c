@@ -17,6 +17,8 @@
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <assert.h>
+
 #include "../../audio.h"
 #include "../../video.h"
 #include "../../msi.h"
@@ -457,7 +459,12 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     AVCodec *codec2 = NULL;
     vc->h264_encoder2 = NULL;
 
-    // avcodec_register_all();
+
+// https://github.com/FFmpeg/FFmpeg/blob/70d25268c21cbee5f08304da95be1f647c630c15/doc/APIchanges#L86
+// Deprecate use of av_register_all()
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
+    avcodec_register_all();
+#endif
 
     codec2 = NULL;
 
@@ -601,7 +608,11 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     AVCodec *codec = NULL;
     vc->h264_decoder = NULL;
 
-    // avcodec_register_all();
+// https://github.com/FFmpeg/FFmpeg/blob/70d25268c21cbee5f08304da95be1f647c630c15/doc/APIchanges#L86
+// Deprecate use of av_register_all()
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
+    avcodec_register_all();
+#endif
 
     codec = NULL;
 
@@ -623,6 +634,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     if (!codec) {
         LOGGER_WARNING(log, "codec not found H264 on decoder");
+        assert(!"codec not found H264 on decoder");
     }
 
     vc->h264_decoder = avcodec_alloc_context3(codec);
@@ -756,6 +768,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
         if (avcodec_open2(vc->h264_decoder, codec, NULL) < 0) {
             LOGGER_WARNING(log, "could not open codec H264 on decoder");
+            assert(!"could not open codec H264 on decoder");
         }
 
         vc->h264_decoder->refcounted_frames = 0;
@@ -958,7 +971,11 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             AVCodec *codec2 = NULL;
             vc->h264_encoder2 = NULL;
 
-            // avcodec_register_all();
+// https://github.com/FFmpeg/FFmpeg/blob/70d25268c21cbee5f08304da95be1f647c630c15/doc/APIchanges#L86
+// Deprecate use of av_register_all()
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
+            avcodec_register_all();
+#endif
 
             codec2 = NULL;
 
