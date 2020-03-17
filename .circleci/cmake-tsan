@@ -28,6 +28,6 @@ ninja install -j$(nproc)
 
 export TSAN_OPTIONS="halt_on_error=1"
 export TSAN_OPTIONS="$TSAN_OPTIONS,second_deadlock_stack=1"
-export ASAN_OPTIONS="$ASAN_OPTIONS,symbolize=1"
+export TSAN_OPTIONS="$ASAN_OPTIONS,symbolize=1"
 ctest -j50 --output-on-failure ||
 ctest -j50 --output-on-failure --rerun-failed
