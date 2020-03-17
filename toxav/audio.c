@@ -34,7 +34,6 @@
 
 
 static struct TSBuffer *jbuf_new(int size);
-static void jbuf_clear(struct TSBuffer *q);
 static void jbuf_free(struct TSBuffer *q);
 static int jbuf_write(Logger *log, ACSession *ac, struct TSBuffer *q, struct RTPMessage *m);
 OpusEncoder *create_audio_encoder(Logger *log, int32_t bit_rate, int32_t sampling_rate, int32_t channel_count);
@@ -508,17 +507,13 @@ static struct TSBuffer *jbuf_new(int size)
     return tsb_new(size);
 }
 
-static void jbuf_clear(struct TSBuffer *q)
-{
-    tsb_drain(q);
-}
-
 static void jbuf_free(struct TSBuffer *q)
 {
     tsb_drain(q);
     tsb_kill(q);
 }
 
+#if 0
 static struct RTPMessage *new_empty_message(size_t allocate_len, const uint8_t *data, uint16_t data_length)
 {
     struct RTPMessage *msg = (struct RTPMessage *)calloc(sizeof(struct RTPMessage) + (allocate_len - sizeof(
@@ -539,7 +534,7 @@ static struct RTPMessage *new_empty_message(size_t allocate_len, const uint8_t *
 
     return msg;
 }
-
+#endif
 
 static int jbuf_write(Logger *log, ACSession *ac, struct TSBuffer *q, struct RTPMessage *m)
 {

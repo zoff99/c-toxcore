@@ -2592,7 +2592,7 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
                 break;
             }
 
-            LOGGER_DEBUG(m->log, "RECV:PACKET_ID_INVITE_CONFERENCE:m->conference_invite=%p", m->conference_invite);
+            LOGGER_DEBUG(m->log, "RECV:PACKET_ID_INVITE_CONFERENCE:m->conference_invite=%p", (void *)m->conference_invite);
 
             if (m->conference_invite) {
                 (*m->conference_invite)(m, i, data, data_length, userdata);

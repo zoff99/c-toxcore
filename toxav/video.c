@@ -310,7 +310,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
     struct RTPMessage *p;
     bool have_requested_index_frame = false;
 
-    vpx_codec_err_t rc;
+    vpx_codec_err_t rc = 0;
 
     pthread_mutex_lock(vc->queue_mutex);
 
@@ -540,7 +540,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
             LOGGER_WARNING(vc->log, "missing some video frames: missing count=%d", (int)missing_frames_count);
 
             const Messenger *mm = (Messenger *)(vc->av->m);
-            const Messenger_Options *mo = (Messenger_Options *) & (mm->options);
+            const Messenger_Options *mo = (const Messenger_Options *) & (mm->options);
 
 #define NORMAL_MISSING_FRAME_COUNT_TOLERANCE 0
 #define WHEN_SKIPPING_MISSING_FRAME_COUNT_TOLERANCE 2
