@@ -27,6 +27,7 @@
 #include "../toxav_codecs.h"
 
 
+#if 0
 static uint32_t MaxIntraTarget(uint32_t optimalBuffersize)
 {
     // Set max to the optimal buffer level (normalized by target BR),
@@ -43,7 +44,7 @@ static uint32_t MaxIntraTarget(uint32_t optimalBuffersize)
     const uint32_t minIntraTh = 300;
     return (targetPct < minIntraTh) ? minIntraTh : targetPct;
 }
-
+#endif
 
 static void vc__init_encoder_cfg(Logger *log, vpx_codec_enc_cfg_t *cfg, int16_t kf_max_dist, int32_t quality,
                                  int32_t rc_max_quantizer, int32_t rc_min_quantizer, int32_t encoder_codec,
@@ -927,9 +928,9 @@ void decode_frame_vpx(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint
                 }
 
                 LOGGER_DEBUG(vc->log, "VIDEO: -FRAME OUT- %p %p %p",
-                             (const uint8_t *)dest->planes[0],
-                             (const uint8_t *)dest->planes[1],
-                             (const uint8_t *)dest->planes[2]);
+                             (void *)dest->planes[0],
+                             (void *)dest->planes[1],
+                             (void *)dest->planes[2]);
 
                 vc->vcb(vc->av, vc->friend_number, dest->d_w, dest->d_h,
                         (const uint8_t *)dest->planes[0],

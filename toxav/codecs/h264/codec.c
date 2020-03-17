@@ -1171,12 +1171,6 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
         return;
     }
 
-    if (p->data == NULL)
-    {
-        LOGGER_DEBUG(vc->log, "decode_frame_h264:NO data p->data");
-        return;
-    }
-
     if (full_data_len < 1)
     {
         LOGGER_DEBUG(vc->log, "decode_frame_h264:not enough data");
