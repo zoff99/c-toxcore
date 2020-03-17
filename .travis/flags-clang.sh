@@ -60,3 +60,11 @@ add_cxx_flag -Wno-old-style-cast
 add_flag -Wno-error=documentation-unknown-command
 add_flag -Wno-error=unreachable-code
 add_flag -Wno-error=unused-variable
+
+# added by Zoff
+add_flag -Wno-error=double-promotion
+add_flag -Wno-error=missing-variable-declarations
+add_flag -Wno-error=missing-prototypes
+add_flag -Wno-error=incompatible-pointer-types-discards-qualifiers
+add_flag -Wno-error=deprecated-declarations
+add_flag -Wno-error=unused-macros
