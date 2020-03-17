@@ -23,6 +23,7 @@ jobs:
             cmake
             libconfig-dev
             libgtest-dev
+            llvm-dev
             ninja-build
             pkg-config
             zip grep file ca-certificates autotools-dev autoconf automake
