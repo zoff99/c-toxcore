@@ -28,6 +28,8 @@ uint8_t *file_resume_mem_send = NULL;
 uint8_t *file_resume_mem_recv = NULL;
 uint64_t totalf_size = 0;
 
+long int random(void);
+
 static void accept_friend_request(Tox *m, const uint8_t *public_key, const uint8_t *data, size_t length, void *userdata)
 {
     if (length == 7 && memcmp("Gentoo", data, 7) == 0) {
