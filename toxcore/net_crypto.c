@@ -115,11 +115,6 @@ typedef struct Crypto_Connection {
 
     uint8_t maximum_speed_reached;
 
-    /* Must be a pointer, because the struct is moved in memory */
-    /* Zoff: deactivated, suggestion from iphy
-    pthread_mutex_t *mutex;
-    */
-
     dht_pk_cb *dht_pk_callback;
     void *dht_pk_callback_object;
     uint32_t dht_pk_callback_number;
@@ -133,9 +128,7 @@ struct Net_Crypto {
     TCP_Connections *tcp_c;
 
     Crypto_Connection *crypto_connections;
-    /* pthread_mutex_t tcp_mutex; */
 
-    /* pthread_mutex_t connections_mutex; */
     unsigned int connection_use_counter;
 
     uint32_t crypto_connections_length; /* Length of connections array. */
@@ -676,7 +669,6 @@ static int send_packet_to(Net_Crypto *c, int crypt_connection_id, const uint8_t 
 
     int direct_send_attempt = 0;
 
-    /* CON_MUTEX */ //pthread_mutex_lock(conn->mutex);
     IP_Port ip_port = return_ip_port_connection(c, crypt_connection_id);
 
     // TODO(irungentoo): on bad networks, direct connections might not last indefinitely.
@@ -688,11 +680,9 @@ static int send_packet_to(Net_Crypto *c, int crypt_connection_id, const uint8_t 
 
         if (direct_connected) {
             if ((uint32_t)sendpacket(dht_get_net(c->dht), ip_port, data, length) == length) {
-                /* CON_MUTEX */ //pthread_mutex_unlock(conn->mutex);
                 return 0;
             }
 
-            /* CON_MUTEX */ //pthread_mutex_unlock(conn->mutex);
             return -1;
         }
 
@@ -708,16 +698,11 @@ static int send_packet_to(Net_Crypto *c, int crypt_connection_id, const uint8_t 
         }
     }
 
-    /* CON_MUTEX */ //pthread_mutex_unlock(conn->mutex);
     int ret = send_packet_tcp_connection(c->tcp_c, conn->connection_number_tcp, data, length);
-
-    /* CON_MUTEX */ //pthread_mutex_lock(conn->mutex);
 
     if (ret == 0) {
         conn->last_tcp_sent = current_time_monotonic(c->mono_time);
     }
-
-    /* CON_MUTEX */ //pthread_mutex_unlock(conn->mutex);
 
     if (ret == 0 || direct_send_attempt) {
         return 0;
@@ -1069,19 +1054,16 @@ static int send_data_packet(Net_Crypto *c, int crypt_connection_id, const uint8_
         return -1;
     }
 
-    /* CON_MUTEX */ //pthread_mutex_lock(conn->mutex);
     VLA(uint8_t, packet, 1 + sizeof(uint16_t) + length + CRYPTO_MAC_SIZE);
     packet[0] = NET_PACKET_CRYPTO_DATA;
     memcpy(packet + 1, conn->sent_nonce + (CRYPTO_NONCE_SIZE - sizeof(uint16_t)), sizeof(uint16_t));
     const int len = encrypt_data_symmetric(conn->shared_key, conn->sent_nonce, data, length, packet + 1 + sizeof(uint16_t));
 
     if (len + 1 + sizeof(uint16_t) != SIZEOF_VLA(packet)) {
-        /* CON_MUTEX */ //pthread_mutex_unlock(conn->mutex);
         return -1;
     }
 
     increment_nonce(conn->sent_nonce);
-    /* CON_MUTEX */ //pthread_mutex_unlock(conn->mutex);
 
     return send_packet_to(c, crypt_connection_id, packet, SIZEOF_VLA(packet));
 }
@@ -1168,9 +1150,7 @@ static int64_t send_lossless_packet(Net_Crypto *c, int crypt_connection_id, cons
     dt.sent_time = 0;
     dt.length = length;
     memcpy(dt.data, data, length);
-    /* CON_MUTEX */ //pthread_mutex_lock(conn->mutex);
     int64_t packet_num = add_data_end_of_buffer(c->log, &conn->send_array, &dt);
-    /* CON_MUTEX */ //pthread_mutex_unlock(conn->mutex);
 
     if (packet_num == -1) {
         return -1;
@@ -1583,9 +1563,7 @@ static int handle_data_packet_core(Net_Crypto *c, int crypt_connection_id, const
         }
 
         while (1) {
-            /* CON_MUTEX */ //pthread_mutex_lock(conn->mutex);
             int ret = read_data_beg_buffer(c->log, &conn->recv_array, &dt);
-            /* CON_MUTEX */ //pthread_mutex_unlock(conn->mutex);
 
             if (ret == -1) {
                 break;
@@ -1784,19 +1762,6 @@ static int create_crypto_connection(Net_Crypto *c)
         c->crypto_connections[id].last_packets_left_rem = 0;
         c->crypto_connections[id].packet_send_rate_requested = 0;
         c->crypto_connections[id].last_packets_left_requested_rem = 0;
-        /* CON_MUTEX */ //c->crypto_connections[id].mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-
-        /* CON_MUTEX */ //if (c->crypto_connections[id].mutex == nullptr) {
-        /* CON_MUTEX */ //    pthread_mutex_unlock(&c->connections_mutex);
-        /* CON_MUTEX */ //    return -1;
-        /* CON_MUTEX */ //}
-
-        /* CON_MUTEX */ //if (pthread_mutex_init(c->crypto_connections[id].mutex, nullptr) != 0) {
-        /* CON_MUTEX */ //    free(c->crypto_connections[id].mutex);
-        /* CON_MUTEX */ //    pthread_mutex_unlock(&c->connections_mutex);
-        /* CON_MUTEX */ //    return -1;
-        /* CON_MUTEX */ //}
-
         c->crypto_connections[id].status = CRYPTO_CONN_NO_CONNECTION;
     }
 
@@ -1826,8 +1791,6 @@ static int wipe_crypto_connection(Net_Crypto *c, int crypt_connection_id)
 
     uint32_t i;
 
-    /* CON_MUTEX */ //pthread_mutex_destroy(c->crypto_connections[crypt_connection_id].mutex);
-    /* CON_MUTEX */ //free(c->crypto_connections[crypt_connection_id].mutex);
     crypto_memzero(&c->crypto_connections[crypt_connection_id], sizeof(Crypto_Connection));
 
     /* check if we can resize the connections array */
@@ -2431,15 +2394,12 @@ static int udp_handle_packet(void *object, IP_Port source, const uint8_t *packet
         return -1;
     }
 
-    /* CON_MUTEX */ //pthread_mutex_lock(conn->mutex);
-
     if (net_family_is_ipv4(source.ip.family)) {
         conn->direct_lastrecv_timev4 = mono_time_get(c->mono_time);
     } else {
         conn->direct_lastrecv_timev6 = mono_time_get(c->mono_time);
     }
 
-    /* CON_MUTEX */ //pthread_mutex_unlock(conn->mutex);
     return 0;
 }
 
@@ -2830,10 +2790,8 @@ int send_lossy_cryptpacket(Net_Crypto *c, int crypt_connection_id, const uint8_t
     int ret = -1;
 
     if (conn) {
-        /* CON_MUTEX */ //pthread_mutex_lock(conn->mutex);
         uint32_t buffer_start = conn->recv_array.buffer_start;
         uint32_t buffer_end = conn->send_array.buffer_end;
-        /* CON_MUTEX */ //pthread_mutex_unlock(conn->mutex);
         ret = send_data_packet_helper(c, crypt_connection_id, buffer_start, buffer_end, data, length);
     }
 
