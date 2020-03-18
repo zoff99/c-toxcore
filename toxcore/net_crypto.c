@@ -129,8 +129,6 @@ struct Net_Crypto {
 
     Crypto_Connection *crypto_connections;
 
-    unsigned int connection_use_counter;
-
     uint32_t crypto_connections_length; /* Length of connections array. */
 
     /* Our public and secret keys. */
@@ -1451,13 +1449,6 @@ static void connection_kill(Net_Crypto *c, int crypt_connection_id, void *userda
                                          userdata);
     }
 
-    while (1) { /* TODO(irungentoo): is this really the best way to do this? */
-        // TODO:!!!!this while loop now has ZERO sleep!!!!!
-        if (!c->connection_use_counter) {
-            break;
-        }
-    }
-
     crypto_kill(c, crypt_connection_id);
 }
 
@@ -1728,13 +1719,6 @@ static int realloc_cryptoconnection(Net_Crypto *c, uint32_t num)
  */
 static int create_crypto_connection(Net_Crypto *c)
 {
-    while (1) { /* TODO(irungentoo): is this really the best way to do this? */
-        // TODO: again while loop without sleep???
-        if (!c->connection_use_counter) {
-            break;
-        }
-    }
-
     int id = -1;
 
     for (uint32_t i = 0; i < c->crypto_connections_length; ++i) {
@@ -2779,8 +2763,6 @@ int send_lossy_cryptpacket(Net_Crypto *c, int crypt_connection_id, const uint8_t
         return -1;
     }
 
-    ++c->connection_use_counter;
-
     Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
 
     int ret = -1;
@@ -2790,8 +2772,6 @@ int send_lossy_cryptpacket(Net_Crypto *c, int crypt_connection_id, const uint8_t
         uint32_t buffer_end = conn->send_array.buffer_end;
         ret = send_data_packet_helper(c, crypt_connection_id, buffer_start, buffer_end, data, length);
     }
-
-    --c->connection_use_counter;
 
     return ret;
 }
