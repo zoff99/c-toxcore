@@ -12,7 +12,6 @@
 #include "msi.h"
 #include "rtp.h"
 
-#include "../toxcore/Messenger.h"
 #include "../toxcore/logger.h"
 #include "../toxcore/mono_time.h"
 #include "../toxcore/util.h"
@@ -82,7 +81,6 @@ typedef struct ToxAVCall_s {
 
 struct ToxAV {
     Tox *tox;
-    Messenger *m;
     MSISession *msi;
 
     /* Two-way storage: first is array of calls and second is list of calls with head and tail */
@@ -160,12 +158,6 @@ ToxAV *toxav_new(Tox *tox, Toxav_Err_New *error)
         goto RETURN;
     }
 
-    // TODO(iphydf): Don't rely on toxcore internals.
-    Messenger *m;
-    //!TOKSTYLE-
-    m = *(Messenger **)tox;
-    //!TOKSTYLE+
-
     av = (ToxAV *)calloc(sizeof(ToxAV), 1);
 
     if (av == nullptr) {
@@ -181,7 +173,6 @@ ToxAV *toxav_new(Tox *tox, Toxav_Err_New *error)
     }
 
     av->tox = tox;
-    av->m = m; // TODO:!!remove me!!
     av->msi = msi_new(av->tox);
 
     av->toxav_mono_time = mono_time_new();
@@ -233,7 +224,7 @@ void toxav_kill(ToxAV *av)
     }
 
     /* To avoid possible deadlocks */
-    while (av->msi && msi_kill(av->tox, av->msi, av->m->log) != 0) {
+    while (av->msi && msi_kill(av->tox, av->msi, nullptr) != 0) {
         pthread_mutex_unlock(av->mutex);
         pthread_mutex_lock(av->mutex);
     }
@@ -277,7 +268,7 @@ void toxav_iterate(ToxAV *av)
         return;
     }
 
-    uint64_t start = current_time_monotonic(av->m->mono_time);
+    uint64_t start = current_time_monotonic(av->toxav_mono_time);
     int32_t rc = 500;
 
     ToxAVCall *i = av->calls[av->calls_head];
@@ -327,7 +318,7 @@ void toxav_iterate(ToxAV *av)
     }
 
     av->interval = rc < av->dmssa ? 0 : (rc - av->dmssa);
-    av->dmsst += current_time_monotonic(av->m->mono_time) - start;
+    av->dmsst += current_time_monotonic(av->toxav_mono_time) - start;
 
     if (++av->dmssc == 3) {
         av->dmssa = av->dmsst / 3 + 5; /* NOTE Magic Offset 5 for precision */
@@ -851,7 +842,7 @@ bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pc
             goto RETURN;
         }
 
-        if (rtp_send_data(call->audio_rtp, dest, vrc + sizeof(sampling_rate), false, av->m->log) != 0) {
+        if (rtp_send_data(call->audio_rtp, dest, vrc + sizeof(sampling_rate), false, nullptr) != 0) {
             LOGGER_WARNING(av->m->log, "Failed to send audio packet");
             rc = TOXAV_ERR_SEND_FRAME_RTP_FAILED;
         }
@@ -890,7 +881,7 @@ static Toxav_Err_Send_Frame send_frames(const Logger *log, ToxAVCall *call)
                             (const uint8_t *)pkt->data.frame.buf,
                             frame_length_in_bytes,
                             is_keyframe,
-                            log);
+                            nullptr);
 
         if (res < 0) {
             LOGGER_WARNING(log, "Could not send video frame: %s", strerror(errno));
@@ -996,7 +987,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
 
     ++call->video->frame_counter;
 
-    rc = send_frames(av->m->log, call);
+    rc = send_frames(nullptr, call);
 
     pthread_mutex_unlock(call->mutex_video);
 
@@ -1402,10 +1393,10 @@ bool call_prepare_transmission(ToxAVCall *call)
     }
 
     /* Prepare bwc */
-    call->bwc = bwc_new(av->m, call->friend_number, callback_bwc, call);
+    call->bwc = bwc_new(av->tox, call->friend_number, callback_bwc, call, av->toxav_mono_time);
 
     { /* Prepare audio */
-        call->audio = ac_new(av->m->mono_time, av->m->log, av, call->friend_number, av->acb, av->acb_user_data);
+        call->audio = ac_new(av->toxav_mono_time, nullptr, av, call->friend_number, av->acb, av->acb_user_data);
 
         if (!call->audio) {
             LOGGER_ERROR(av->m->log, "Failed to create audio codec session");
@@ -1421,7 +1412,7 @@ bool call_prepare_transmission(ToxAVCall *call)
         }
     }
     { /* Prepare video */
-        call->video = vc_new(av->m->mono_time, av->m->log, av, call->friend_number, av->vcb, av->vcb_user_data);
+        call->video = vc_new(av->toxav_mono_time, nullptr, av, call->friend_number, av->vcb, av->vcb_user_data);
 
         if (!call->video) {
             LOGGER_ERROR(av->m->log, "Failed to create video codec session");
