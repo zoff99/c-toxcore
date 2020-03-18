@@ -476,10 +476,7 @@ static int m_msi_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uin
 
 static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg)
 {
-    // TODO(iphydf): Don't rely on toxcore internals.
-    Messenger *m;
-    m = *(Messenger **)tox;
-    assert(m);
+    assert(tox);
 
     LOGGER_DEBUG(m->log, "send_message:001");
 
@@ -541,10 +538,7 @@ static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg)
 
 int send_error(Tox *tox, uint32_t friend_number, MSIError error)
 {
-    // TODO(iphydf): Don't rely on toxcore internals.
-    Messenger *m;
-    m = *(Messenger **)tox;
-    assert(m);
+    assert(tox);
 
     /* Send error message */
 
@@ -695,38 +689,6 @@ CLEAR_CONTAINER:
     session->calls = nullptr;
 }
 
-#if 0
-void on_peer_status(const Tox *tox, uint32_t friend_number, uint8_t status, void *data)
-{
-    // TODO(iphydf): Don't rely on toxcore internals.
-    Messenger *m;
-    m = *(Messenger **)tox;
-
-    MSISession *session = (MSISession *)data;
-
-    switch (status) {
-        case 0: { /* Friend is now offline */
-            LOGGER_DEBUG(m->log, "Friend %d is now offline", friend_number);
-
-            pthread_mutex_lock(session->mutex);
-            MSICall *call = get_call(session, friend_number);
-
-            if (call == nullptr) {
-                pthread_mutex_unlock(session->mutex);
-                return;
-            }
-
-            invoke_callback(call, MSI_ON_PEERTIMEOUT); /* Failure is ignored */
-            kill_call(call);
-            pthread_mutex_unlock(session->mutex);
-        }
-        break;
-
-        default:
-            break;
-    }
-}
-#endif
 
 void handle_init(MSICall *call, const MSIMessage *msg)
 {
@@ -908,11 +870,6 @@ void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, si
     // Zoff: do not show the first byte, its always "PACKET_ID_MSI"
     const uint8_t *data_strip_id_byte = (const uint8_t *)(data + 1);
 
-
-    // TODO(iphydf): Don't rely on toxcore internals.
-    Messenger *m;
-    m = *(Messenger **)tox;
-
     LOGGER_DEBUG(m->log, "Got msi message");
 
     void *toxav = NULL;
@@ -930,7 +887,7 @@ void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, si
 
     MSIMessage msg;
 
-    if (msg_parse_in(m->log, &msg, data_strip_id_byte, length) == -1) {
+    if (msg_parse_in(nullptr, &msg, data_strip_id_byte, length) == -1) {
         LOGGER_WARNING(m->log, "Error parsing message");
         send_error(tox, friend_number, MSI_E_INVALID_MESSAGE);
         return;
