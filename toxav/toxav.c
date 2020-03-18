@@ -166,11 +166,6 @@ ToxAV *toxav_new(Tox *tox, Toxav_Err_New *error)
     m = *(Messenger **)tox;
     //!TOKSTYLE+
 
-    if (m->msi_packet) {
-        rc = TOXAV_ERR_NEW_MULTIPLE;
-        goto RETURN;
-    }
-
     av = (ToxAV *)calloc(sizeof(ToxAV), 1);
 
     if (av == nullptr) {

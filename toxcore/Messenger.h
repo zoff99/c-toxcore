@@ -191,8 +191,6 @@ typedef void m_friend_lossless_packet_cb(Messenger *m, uint32_t friend_number, u
         size_t length, void *user_data);
 typedef void m_conference_invite_cb(Messenger *m, uint32_t friend_number, const uint8_t *cookie, uint16_t length,
                                     void *user_data);
-typedef void m_msi_packet_cb(Messenger *m, uint32_t friend_number, const uint8_t *data, uint16_t length,
-                             void *user_data);
 typedef int m_lossy_rtp_packet_cb(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint16_t len, void *object);
 
 typedef struct RTP_Packet_Handler {
@@ -281,9 +279,6 @@ struct Messenger {
     m_file_recv_control_cb *file_filecontrol;
     m_file_recv_chunk_cb *file_filedata;
     m_file_chunk_request_cb *file_reqchunk;
-
-    m_msi_packet_cb *msi_packet;
-    void *msi_packet_userdata;
 
     m_friend_lossy_packet_cb *lossy_packethandler;
     m_friend_lossless_packet_cb *lossless_packethandler;
