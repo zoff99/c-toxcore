@@ -5,8 +5,15 @@
 #ifndef C_TOXCORE_TOXAV_BWCONTROLLER_H
 #define C_TOXCORE_TOXAV_BWCONTROLLER_H
 
+#include <stdint.h>
+
 #include "../toxcore/Messenger.h"
 #include "../toxcore/tox.h"
+
+#ifndef TOX_DEFINED
+#define TOX_DEFINED
+typedef struct Tox Tox;
+#endif /* TOX_DEFINED */
 
 #ifndef TOX_DEFINED
 #define TOX_DEFINED
@@ -17,8 +24,7 @@ typedef struct BWController_s BWController;
 
 typedef void m_cb(BWController *bwc, uint32_t friend_number, float todo, void *user_data);
 
-BWController *bwc_new(Messenger *m, Tox *tox, uint32_t friendnumber, m_cb *mcb, void *mcb_user_data,
-                      Mono_Time *bwc_mono_time);
+BWController *bwc_new(Tox *t, uint32_t friendnumber, m_cb *mcb, void *mcb_user_data, Mono_Time *toxav_given_mono_time);
 
 void bwc_kill(BWController *bwc);
 

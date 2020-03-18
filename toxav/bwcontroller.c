@@ -54,8 +54,6 @@ struct BWController_s {
     m_cb *mcb;
     void *mcb_user_data;
 
-    Messenger *m;
-    Tox *tox;
     uint32_t friend_number;
 
     BWCCycle cycle;
@@ -71,9 +69,8 @@ struct BWCMessage {
     uint32_t recv;
 };
 
-static int bwc_handle_data(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object);
-static int bwc_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length);
-static void send_update(BWController *bwc);
+int bwc_handle_data(Tox *t, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object);
+void send_update(BWController *bwc);
 
 #if 0
 /*
@@ -93,16 +90,15 @@ int bwc_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *
 }
 #endif
 
-BWController *bwc_new(Messenger *m, uint32_t friendnumber, m_cb *mcb, void *mcb_user_data)
+BWController *bwc_new(Tox *t, uint32_t friendnumber, m_cb *mcb, void *mcb_user_data, Mono_Time *toxav_given_mono_time)
 {
     BWController *retu = (BWController *)calloc(sizeof(struct BWController_s), 1);
     LOGGER_DEBUG(m->log, "Creating bandwidth controller");
     retu->mcb = mcb;
     retu->mcb_user_data = mcb_user_data;
-    retu->m = m;
     retu->friend_number = friendnumber;
-    retu->bwc_mono_time = bwc_mono_time;
-    uint64_t now = current_time_monotonic(bwc_mono_time);
+    retu->bwc_mono_time = toxav_given_mono_time;
+    uint64_t now = current_time_monotonic(toxav_given_mono_time);
     retu->cycle.last_sent_timestamp = now;
     retu->cycle.last_refresh_timestamp = now;
     retu->tox = tox;
@@ -219,23 +215,7 @@ static int on_update(BWController *bwc, const struct BWCMessage *msg)
     return 0;
 }
 
-/*
- * return -1 on failure, 0 on success
- *
- */
-static int bwc_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length)
-{
-    Tox_Err_Friend_Custom_Packet error;
-    tox_friend_send_lossy_packet(tox, friendnumber, data, (size_t)length, &error);
-
-    if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_OK) {
-        return 0;
-    }
-
-    return -1;
-}
-
-static int bwc_handle_data(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object)
+int bwc_handle_data(Tox *t, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object)
 {
     if (length - 1 != sizeof(struct BWCMessage)) {
         return -1;
