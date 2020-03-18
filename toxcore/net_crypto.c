@@ -133,7 +133,7 @@ struct Net_Crypto {
     TCP_Connections *tcp_c;
 
     Crypto_Connection *crypto_connections;
-    pthread_mutex_t tcp_mutex;
+    /* pthread_mutex_t tcp_mutex; */
 
     pthread_mutex_t connections_mutex;
     unsigned int connection_use_counter;
@@ -708,9 +708,7 @@ static int send_packet_to(Net_Crypto *c, int crypt_connection_id, const uint8_t 
     }
 
     /* CON_MUTEX */ //pthread_mutex_unlock(conn->mutex);
-    pthread_mutex_lock(&c->tcp_mutex);
     int ret = send_packet_tcp_connection(c->tcp_c, conn->connection_number_tcp, data, length);
-    pthread_mutex_unlock(&c->tcp_mutex);
 
     /* CON_MUTEX */ //pthread_mutex_lock(conn->mutex);
 
@@ -2012,9 +2010,7 @@ int accept_crypto_connection(Net_Crypto *c, New_Connection *n_c)
         return -1;
     }
 
-    pthread_mutex_lock(&c->tcp_mutex);
     const int connection_number_tcp = new_tcp_connection_to(c->tcp_c, n_c->dht_public_key, crypt_connection_id);
-    pthread_mutex_unlock(&c->tcp_mutex);
 
     if (connection_number_tcp == -1) {
         wipe_crypto_connection(c, crypt_connection_id);
@@ -2031,9 +2027,7 @@ int accept_crypto_connection(Net_Crypto *c, New_Connection *n_c)
     conn->status = CRYPTO_CONN_NOT_CONFIRMED;
 
     if (create_send_handshake(c, crypt_connection_id, n_c->cookie, n_c->dht_public_key) != 0) {
-        pthread_mutex_lock(&c->tcp_mutex);
         kill_tcp_connection_to(c->tcp_c, conn->connection_number_tcp);
-        pthread_mutex_unlock(&c->tcp_mutex);
         wipe_crypto_connection(c, crypt_connection_id);
         return -1;
     }
@@ -2069,9 +2063,7 @@ int new_crypto_connection(Net_Crypto *c, const uint8_t *real_public_key, const u
 
     Crypto_Connection *conn = &c->crypto_connections[crypt_connection_id];
 
-    pthread_mutex_lock(&c->tcp_mutex);
     const int connection_number_tcp = new_tcp_connection_to(c->tcp_c, dht_public_key, crypt_connection_id);
-    pthread_mutex_unlock(&c->tcp_mutex);
 
     if (connection_number_tcp == -1) {
         wipe_crypto_connection(c, crypt_connection_id);
@@ -2095,9 +2087,7 @@ int new_crypto_connection(Net_Crypto *c, const uint8_t *real_public_key, const u
     if (create_cookie_request(c, cookie_request, conn->dht_public_key, conn->cookie_request_number,
                               conn->shared_key) != sizeof(cookie_request)
             || new_temp_packet(c, crypt_connection_id, cookie_request, sizeof(cookie_request)) != 0) {
-        pthread_mutex_lock(&c->tcp_mutex);
         kill_tcp_connection_to(c->tcp_c, conn->connection_number_tcp);
-        pthread_mutex_unlock(&c->tcp_mutex);
         wipe_crypto_connection(c, crypt_connection_id);
         return -1;
     }
@@ -2155,11 +2145,7 @@ static int tcp_data_callback(void *object, int crypt_connection_id, const uint8_
         return tcp_handle_cookie_request(c, conn->connection_number_tcp, data, length);
     }
 
-    // This unlocks the mutex that at this point is locked by do_tcp before
-    // calling do_tcp_connections.
-    pthread_mutex_unlock(&c->tcp_mutex);
     int ret = handle_packet_connection(c, crypt_connection_id, data, length, 0, userdata);
-    pthread_mutex_lock(&c->tcp_mutex);
 
     if (ret != 0) {
         return -1;
@@ -2211,9 +2197,7 @@ int add_tcp_relay_peer(Net_Crypto *c, int crypt_connection_id, IP_Port ip_port, 
         return -1;
     }
 
-    pthread_mutex_lock(&c->tcp_mutex);
     int ret = add_tcp_relay_connection(c->tcp_c, conn->connection_number_tcp, ip_port, public_key);
-    pthread_mutex_unlock(&c->tcp_mutex);
     return ret;
 }
 
@@ -2224,9 +2208,7 @@ int add_tcp_relay_peer(Net_Crypto *c, int crypt_connection_id, IP_Port ip_port, 
  */
 int add_tcp_relay(Net_Crypto *c, IP_Port ip_port, const uint8_t *public_key)
 {
-    pthread_mutex_lock(&c->tcp_mutex);
     int ret = add_tcp_relay_global(c->tcp_c, ip_port, public_key);
-    pthread_mutex_unlock(&c->tcp_mutex);
     return ret;
 }
 
@@ -2240,9 +2222,7 @@ int add_tcp_relay(Net_Crypto *c, IP_Port ip_port, const uint8_t *public_key)
  */
 int get_random_tcp_con_number(Net_Crypto *c)
 {
-    pthread_mutex_lock(&c->tcp_mutex);
     int ret = get_random_tcp_onion_conn_number(c->tcp_c);
-    pthread_mutex_unlock(&c->tcp_mutex);
 
     return ret;
 }
@@ -2254,9 +2234,7 @@ int get_random_tcp_con_number(Net_Crypto *c)
  */
 int send_tcp_onion_request(Net_Crypto *c, unsigned int tcp_connections_number, const uint8_t *data, uint16_t length)
 {
-    pthread_mutex_lock(&c->tcp_mutex);
     int ret = tcp_send_onion_request(c->tcp_c, tcp_connections_number, data, length);
-    pthread_mutex_unlock(&c->tcp_mutex);
 
     return ret;
 }
@@ -2273,18 +2251,14 @@ unsigned int copy_connected_tcp_relays(Net_Crypto *c, Node_format *tcp_relays, u
         return 0;
     }
 
-    pthread_mutex_lock(&c->tcp_mutex);
     unsigned int ret = tcp_copy_connected_relays(c->tcp_c, tcp_relays, num);
-    pthread_mutex_unlock(&c->tcp_mutex);
 
     return ret;
 }
 
 static void do_tcp(Net_Crypto *c, void *userdata)
 {
-    pthread_mutex_lock(&c->tcp_mutex);
     do_tcp_connections(c->tcp_c, userdata);
-    pthread_mutex_unlock(&c->tcp_mutex);
 
     uint32_t i;
 
@@ -2306,13 +2280,9 @@ static void do_tcp(Net_Crypto *c, void *userdata)
         }
 
         if (direct_connected) {
-            pthread_mutex_lock(&c->tcp_mutex);
             set_tcp_connection_to_status(c->tcp_c, conn->connection_number_tcp, 0);
-            pthread_mutex_unlock(&c->tcp_mutex);
         } else {
-            pthread_mutex_lock(&c->tcp_mutex);
             set_tcp_connection_to_status(c->tcp_c, conn->connection_number_tcp, 1);
-            pthread_mutex_unlock(&c->tcp_mutex);
         }
     }
 }
@@ -2896,9 +2866,7 @@ int crypto_kill(Net_Crypto *c, int crypt_connection_id)
             send_kill_packet(c, crypt_connection_id);
         }
 
-        pthread_mutex_lock(&c->tcp_mutex);
         kill_tcp_connection_to(c->tcp_c, conn->connection_number_tcp);
-        pthread_mutex_unlock(&c->tcp_mutex);
 
         bs_list_remove(&c->ip_port_list, (uint8_t *)&conn->ip_portv4, crypt_connection_id);
         bs_list_remove(&c->ip_port_list, (uint8_t *)&conn->ip_portv6, crypt_connection_id);
@@ -2994,13 +2962,6 @@ Net_Crypto *new_net_crypto(const Logger *log, Mono_Time *mono_time, DHT *dht, TC
     set_packet_tcp_connection_callback(temp->tcp_c, &tcp_data_callback, temp);
     set_oob_packet_tcp_connection_callback(temp->tcp_c, &tcp_oob_callback, temp);
 
-    if (create_recursive_mutex(&temp->tcp_mutex) != 0 ||
-            pthread_mutex_init(&temp->connections_mutex, nullptr) != 0) {
-        kill_tcp_connections(temp->tcp_c);
-        free(temp);
-        return nullptr;
-    }
-
     temp->dht = dht;
 
     new_keys(temp);
@@ -3070,7 +3031,6 @@ void kill_net_crypto(Net_Crypto *c)
         crypto_kill(c, i);
     }
 
-    pthread_mutex_destroy(&c->tcp_mutex);
     pthread_mutex_destroy(&c->connections_mutex);
 
     kill_tcp_connections(c->tcp_c);
