@@ -135,7 +135,7 @@ struct Net_Crypto {
     Crypto_Connection *crypto_connections;
     /* pthread_mutex_t tcp_mutex; */
 
-    pthread_mutex_t connections_mutex;
+    /* pthread_mutex_t connections_mutex; */
     unsigned int connection_use_counter;
 
     uint32_t crypto_connections_length; /* Length of connections array. */
@@ -1474,17 +1474,13 @@ static void connection_kill(Net_Crypto *c, int crypt_connection_id, void *userda
     }
 
     while (1) { /* TODO(irungentoo): is this really the best way to do this? */
-        pthread_mutex_lock(&c->connections_mutex);
-
+        // TODO:!!!!this while loop now has ZERO sleep!!!!!
         if (!c->connection_use_counter) {
             break;
         }
-
-        pthread_mutex_unlock(&c->connections_mutex);
     }
 
     crypto_kill(c, crypt_connection_id);
-    pthread_mutex_unlock(&c->connections_mutex);
 }
 
 /* Handle a received data packet.
@@ -1758,13 +1754,10 @@ static int realloc_cryptoconnection(Net_Crypto *c, uint32_t num)
 static int create_crypto_connection(Net_Crypto *c)
 {
     while (1) { /* TODO(irungentoo): is this really the best way to do this? */
-        pthread_mutex_lock(&c->connections_mutex);
-
+        // TODO: again while loop without sleep???
         if (!c->connection_use_counter) {
             break;
         }
-
-        pthread_mutex_unlock(&c->connections_mutex);
     }
 
     int id = -1;
@@ -1807,7 +1800,6 @@ static int create_crypto_connection(Net_Crypto *c)
         c->crypto_connections[id].status = CRYPTO_CONN_NO_CONNECTION;
     }
 
-    pthread_mutex_unlock(&c->connections_mutex);
     return id;
 }
 
@@ -2831,9 +2823,7 @@ int send_lossy_cryptpacket(Net_Crypto *c, int crypt_connection_id, const uint8_t
         return -1;
     }
 
-    pthread_mutex_lock(&c->connections_mutex);
     ++c->connection_use_counter;
-    pthread_mutex_unlock(&c->connections_mutex);
 
     Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
 
@@ -2847,9 +2837,7 @@ int send_lossy_cryptpacket(Net_Crypto *c, int crypt_connection_id, const uint8_t
         ret = send_data_packet_helper(c, crypt_connection_id, buffer_start, buffer_end, data, length);
     }
 
-    pthread_mutex_lock(&c->connections_mutex);
     --c->connection_use_counter;
-    pthread_mutex_unlock(&c->connections_mutex);
 
     return ret;
 }
@@ -3034,8 +3022,6 @@ void kill_net_crypto(Net_Crypto *c)
     for (i = 0; i < c->crypto_connections_length; ++i) {
         crypto_kill(c, i);
     }
-
-    pthread_mutex_destroy(&c->connections_mutex);
 
     kill_tcp_connections(c->tcp_c);
     bs_list_free(&c->ip_port_list);
