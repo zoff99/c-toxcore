@@ -8,7 +8,6 @@
 #include "bwcontroller.h"
 
 #include "../toxcore/tox.h"
-#include "../toxcore/Messenger.h"
 #include "../toxcore/logger.h"
 
 #include <stdbool.h>
