@@ -25,6 +25,11 @@ struct Logger {
     void *userdata;
 };
 
+/* TODO: Zoff remove me after ToxAV restruct */
+#undef USE_STDERR_LOGGER
+#define USE_STDERR_LOGGER 1
+/* TODO: Zoff remove me after ToxAV restruct */
+
 #ifdef USE_STDERR_LOGGER
 static const char *logger_level_name(Logger_Level level)
 {
