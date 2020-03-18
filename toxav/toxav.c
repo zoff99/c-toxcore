@@ -1236,7 +1236,10 @@ static ToxAVCall *call_new(ToxAV *av, uint32_t friend_number, Toxav_Err_Call *er
         goto RETURN;
     }
 
-    if (m_get_friend_connectionstatus(av->m, friend_number) < 1) {
+    TOX_ERR_FRIEND_QUERY f_con_query_error;
+    TOX_CONNECTION f_conn_status = tox_friend_get_connection_status(av->tox, friend_number, &f_con_query_error);
+
+    if (f_conn_status == TOX_CONNECTION_NONE) {
         rc = TOXAV_ERR_CALL_FRIEND_NOT_CONNECTED;
         goto RETURN;
     }
