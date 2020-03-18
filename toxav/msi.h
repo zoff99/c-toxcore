@@ -8,7 +8,6 @@
 #include "audio.h"
 #include "video.h"
 
-#include "../toxcore/Messenger.h"
 #include "../toxcore/logger.h"
 
 #include <inttypes.h>
