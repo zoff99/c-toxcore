@@ -15,7 +15,6 @@
 
 #include "bwcontroller.h"
 
-#include "../toxcore/Messenger.h"
 #include "../toxcore/logger.h"
 #include "../toxcore/mono_time.h"
 #include "../toxcore/util.h"
@@ -482,10 +481,6 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     // TODO(Zoff): is this ok?
     uint16_t length = (uint16_t)length2;
 
-    // TODO(iphydf): Don't rely on toxcore internals.
-    Messenger *m;
-    m = *(Messenger **)tox;
-
     if (length < RTP_HEADER_SIZE + 1) {
         LOGGER_WARNING(m->log, "Invalid length of received buffer!");
         return;
@@ -557,7 +552,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     // The sender uses the new large-frame capable protocol and is sending a
     // video packet.
     if ((header.flags & RTP_LARGE_FRAME) && header.pt == (RTP_TYPE_VIDEO % 128)) {
-        handle_video_packet(session, &header, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE, m->log);
+        handle_video_packet(session, &header, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE, nullptr);
         return;
     }
 
