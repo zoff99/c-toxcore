@@ -130,20 +130,35 @@ void logger_write(const Logger *log, Logger_Level level, const char *file, int l
 /*
  * hook mutex function so we can nicely log them (to the NULL logger!)
  */
+#if defined(__linux__)
+#include <unistd.h>
+#include <sys/syscall.h>
+long syscall(long number, ...);
+#define gettid() syscall(SYS_gettid)
+#endif
+
 int my_pthread_mutex_lock(pthread_mutex_t *mutex, const char *mutex_name, const char *file, int line, const char *func)
 {
+#if defined(__linux__)
+    int32_t cur_pthread_tid = (int32_t)gettid();
+#else
     pthread_t cur_pthread_tid = pthread_self();
-    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_LOCK:S:%s:m=%p", (int)cur_pthread_tid, mutex_name, (void*)mutex);
+#endif
+    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_LOCK:S:%s:m=%p", (int32_t)cur_pthread_tid, mutex_name, (void*)mutex);
     int ret = (pthread_mutex_lock)(mutex);
-    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_LOCK:E:%s:m=%p", (int)cur_pthread_tid, mutex_name, (void*)mutex);
+    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_LOCK:E:%s:m=%p", (int32_t)cur_pthread_tid, mutex_name, (void*)mutex);
     return ret;
 }
 
 int my_pthread_mutex_unlock(pthread_mutex_t *mutex, const char *mutex_name, const char *file, int line, const char *func)
 {
+#if defined(__linux__)
+    int32_t cur_pthread_tid = (int32_t)gettid();
+#else
     pthread_t cur_pthread_tid = pthread_self();
-    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_unLOCK:S:%s:m=%p", (int)cur_pthread_tid, mutex_name, (void*)mutex);
+#endif
+    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_unLOCK:S:%s:m=%p", (int32_t)cur_pthread_tid, mutex_name, (void*)mutex);
     int ret = (pthread_mutex_unlock)(mutex);
-    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_unLOCK:E:%s:m=%p", (int)cur_pthread_tid, mutex_name, (void*)mutex);
+    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_unLOCK:E:%s:m=%p", (int32_t)cur_pthread_tid, mutex_name, (void*)mutex);
     return ret;
 }
