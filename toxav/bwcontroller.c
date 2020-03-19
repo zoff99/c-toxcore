@@ -69,7 +69,7 @@ struct BWCMessage {
     uint32_t recv;
 };
 
-static int bwc_handle_data(Tox *t, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object);
+// static int bwc_handle_data(Tox *t, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object);
 static void send_update(BWController *bwc);
 
 #if 0
@@ -188,6 +188,7 @@ static void send_update(BWController *bwc)
     }
 }
 
+#if 0
 static int on_update(BWController *bwc, const struct BWCMessage *msg)
 {
     LOGGER_DEBUG(bwc->m->log, "%p Got update from peer", (void *)bwc);
@@ -213,7 +214,9 @@ static int on_update(BWController *bwc, const struct BWCMessage *msg)
 
     return 0;
 }
+#endif
 
+#if 0
 static int bwc_handle_data(Tox *t, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object)
 {
     if (length - 1 != sizeof(struct BWCMessage)) {
@@ -228,3 +231,4 @@ static int bwc_handle_data(Tox *t, uint32_t friendnumber, const uint8_t *data, u
 
     return on_update((BWController *)object, &msg);
 }
+#endif
