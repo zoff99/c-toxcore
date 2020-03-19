@@ -130,7 +130,6 @@ static bool audio_bit_rate_invalid(uint32_t bit_rate);
 static bool video_bit_rate_invalid(uint32_t bit_rate);
 static bool invoke_call_state_callback(ToxAV *av, uint32_t friend_number, uint32_t state);
 static ToxAVCall *call_new(ToxAV *av, uint32_t friend_number, Toxav_Err_Call *error);
-static ToxAVCall *call_get(ToxAV *av, uint32_t friend_number);
 static ToxAVCall *call_remove(ToxAVCall *call);
 static bool call_prepare_transmission(ToxAVCall *call);
 static void call_kill_transmission(ToxAVCall *call);
@@ -138,6 +137,8 @@ static void call_kill_transmission(ToxAVCall *call);
 MSISession *tox_av_msi_get(ToxAV *av);
 int toxav_friend_exists(const Tox *tox, int32_t friendnumber);
 Mono_Time *toxav_get_av_mono_time(ToxAV *toxav);
+ToxAVCall *call_get(ToxAV *av, uint32_t friend_number);
+RTPSession *rtp_session_get(void *call, int payload_type);
 
 MSISession *tox_av_msi_get(ToxAV *av)
 {
@@ -146,6 +147,38 @@ MSISession *tox_av_msi_get(ToxAV *av)
     }
 
     return av->msi;
+}
+
+ToxAVCall *call_get(ToxAV *av, uint32_t friend_number)
+{
+    if (av == nullptr) {
+        return nullptr;
+    }
+
+    /* Assumes mutex locked */
+    if (av->calls == nullptr || av->calls_tail < friend_number) {
+        return nullptr;
+    }
+
+    return av->calls[friend_number];
+}
+
+RTPSession *rtp_session_get(void *call, int payload_type)
+{
+    if (((ToxAVCall *)call) == nullptr) {
+        return nullptr;
+    }
+
+    if (payload_type == RTP_TYPE_VIDEO)
+    {
+        return ((ToxAVCall *)call)->video_rtp;
+    }
+    else
+    {
+        return ((ToxAVCall *)call)->audio_rtp;
+    }
+    
+    return nullptr;
 }
 
 ToxAV *toxav_new(Tox *tox, Toxav_Err_New *error)
@@ -1290,16 +1323,6 @@ RETURN:
     }
 
     return call;
-}
-
-static ToxAVCall *call_get(ToxAV *av, uint32_t friend_number)
-{
-    /* Assumes mutex locked */
-    if (av->calls == nullptr || av->calls_tail < friend_number) {
-        return nullptr;
-    }
-
-    return av->calls[friend_number];
 }
 
 static ToxAVCall *call_remove(ToxAVCall *call)
