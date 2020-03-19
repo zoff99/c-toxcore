@@ -466,21 +466,13 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
     return 0;
 }
 
-typedef struct ToxAVCall_hack {
-    void *av;
-
-    pthread_mutex_t mutex_audio[1];
-    void *audio_rtp;
-    void *audio;
-
-    pthread_mutex_t mutex_video[1];
-    void *video_rtp;
-} ToxAVCall_hack;
-
-ToxAVCall_hack *call_get(void *av, uint32_t friend_number);
+/* !!hack!! TODO:fix me */
+void *call_get(void *av, uint32_t friend_number);
+RTPSession *rtp_session_get(void *call, int payload_type);
+/* !!hack!! TODO:fix me */
 
 /**
- * receive custom lossypackets and process them. they can be incoming audio or video patckets
+ * receive custom lossypackets and process them. they can be incoming audio or video packets
  */
 void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_t length2, void *dummy)
 {
@@ -499,21 +491,15 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         return;
     }
 
-    ToxAVCall_hack *call = call_get(toxav, friendnumber);
+    void *call = NULL;
+    call = (void *)call_get(toxav, friendnumber);
 
     if (!call) {
         return;
     }
 
-    RTPSession *session = nullptr;
-
-    if (data[0] == RTP_TYPE_VIDEO) {
-        session = (RTPSession *)call->video_rtp;
-    } else if (data[0] == RTP_TYPE_AUDIO) {
-        session = (RTPSession *)call->audio_rtp;
-    } else {
-        return;
-    }
+    RTPSession *session = NULL;
+    session = rtp_session_get(call, data[0]);
 
     if (!session) {
         LOGGER_WARNING(m->log, "No session!");
