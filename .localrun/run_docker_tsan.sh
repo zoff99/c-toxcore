@@ -68,6 +68,7 @@ for i in $pkgs ; do
 done
 
 pkgs_z="
+    binutils
     llvm-dev
     libavutil-dev
     libavcodec-dev
