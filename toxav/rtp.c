@@ -67,12 +67,12 @@ static struct RTPMessage *new_message(const struct RTPHeader *header, size_t all
     struct RTPMessage *msg = (struct RTPMessage *)calloc(1, sizeof(struct RTPMessage) + allocate_len);
 
     if (msg == nullptr) {
-        LOGGER_DEBUG(nullptr, "%s:%d:%s:msg=calloc(%d):NULL\n", __FILE__, __LINE__, __func__, (int)(sizeof(struct RTPMessage) + allocate_len));
+        LOGGER_DEBUG(nullptr, "%s:%d:%s:msg=calloc(%d):NULL\n", __FILE__, __LINE__, __func__,
+                     (int)(sizeof(struct RTPMessage) + allocate_len));
         return nullptr;
-    }
-    else
-    {
-        LOGGER_DEBUG(nullptr, "%s:%d:%s:msg=calloc(%d):%p\n", __FILE__, __LINE__, __func__, (int)(sizeof(struct RTPMessage) + allocate_len), (void*)msg);
+    } else {
+        LOGGER_DEBUG(nullptr, "%s:%d:%s:msg=calloc(%d):%p\n", __FILE__, __LINE__, __func__,
+                     (int)(sizeof(struct RTPMessage) + allocate_len), (void *)msg);
     }
 
     msg->len = data_length; // result without header
@@ -880,7 +880,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
             memcpy(rdata + 1 + RTP_HEADER_SIZE, data + sent, piece);
 
             if (-1 == rtp_send_custom_lossy_packet(session->tox, session->friend_number,
-                    rdata, piece + RTP_HEADER_SIZE + 1)) {
+                                                   rdata, piece + RTP_HEADER_SIZE + 1)) {
                 const char *netstrerror = net_new_strerror(net_error());
                 LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s, net error: %s",
                                piece + RTP_HEADER_SIZE + 1, strerror(errno), netstrerror);
@@ -900,7 +900,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
             memcpy(rdata + 1 + RTP_HEADER_SIZE, data + sent, piece);
 
             if (-1 == rtp_send_custom_lossy_packet(session->tox, session->friend_number, rdata,
-                    piece + RTP_HEADER_SIZE + 1)) {
+                                                   piece + RTP_HEADER_SIZE + 1)) {
                 const char *netstrerror = net_new_strerror(net_error());
                 LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s, net error: %s",
                                piece + RTP_HEADER_SIZE + 1, strerror(errno), netstrerror);

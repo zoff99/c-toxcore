@@ -31,7 +31,8 @@
 #endif
 
 int my_pthread_mutex_lock(pthread_mutex_t *mutex, const char *mutex_name, const char *file, int line, const char *func);
-int my_pthread_mutex_unlock(pthread_mutex_t *mutex, const char *mutex_name, const char *file, int line, const char *func);
+int my_pthread_mutex_unlock(pthread_mutex_t *mutex, const char *mutex_name, const char *file, int line,
+                            const char *func);
 
 
 
