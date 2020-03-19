@@ -28,8 +28,8 @@ static void dummy()
 
 #undef LOGGER_DEBUG
 #define LOGGER_DEBUG(log, ...) dummy()
-#undef LOGGER_INFO
-#define LOGGER_INFO(log, ...) dummy()
+// #undef LOGGER_INFO
+// #define LOGGER_INFO(log, ...) dummy()
 
 #define BWC_PACKET_ID 196
 #define BWC_SEND_INTERVAL_MS 950     // 0.95s
