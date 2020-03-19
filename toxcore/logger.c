@@ -139,22 +139,27 @@ int my_pthread_mutex_lock(pthread_mutex_t *mutex, const char *mutex_name, const 
 #else
     pthread_t cur_pthread_tid = pthread_self();
 #endif
-    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_LOCK:S:%s:m=%p", (int32_t)cur_pthread_tid, mutex_name, (void*)mutex);
+    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_LOCK:S:%s:m=%p", (int32_t)cur_pthread_tid,
+                 mutex_name, (void *)mutex);
     int ret = (pthread_mutex_lock)(mutex);
-    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_LOCK:E:%s:m=%p", (int32_t)cur_pthread_tid, mutex_name, (void*)mutex);
+    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_LOCK:E:%s:m=%p", (int32_t)cur_pthread_tid,
+                 mutex_name, (void *)mutex);
     return ret;
 }
 
-int my_pthread_mutex_unlock(pthread_mutex_t *mutex, const char *mutex_name, const char *file, int line, const char *func)
+int my_pthread_mutex_unlock(pthread_mutex_t *mutex, const char *mutex_name, const char *file, int line,
+                            const char *func)
 {
 #if defined(__linux__)
     int32_t cur_pthread_tid = (int32_t)gettid();
 #else
     pthread_t cur_pthread_tid = pthread_self();
 #endif
-    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_unLOCK:S:%s:m=%p", (int32_t)cur_pthread_tid, mutex_name, (void*)mutex);
+    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_unLOCK:S:%s:m=%p", (int32_t)cur_pthread_tid,
+                 mutex_name, (void *)mutex);
     int ret = (pthread_mutex_unlock)(mutex);
-    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_unLOCK:E:%s:m=%p", (int32_t)cur_pthread_tid, mutex_name, (void*)mutex);
+    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_unLOCK:E:%s:m=%p", (int32_t)cur_pthread_tid,
+                 mutex_name, (void *)mutex);
     return ret;
 }
 
@@ -171,23 +176,24 @@ int my_pthread_mutex_unlock(pthread_mutex_t *mutex, const char *mutex_name, cons
 #include <unistd.h>
 
 ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
-int addr2line(void const * const addr, char *message_line);
+int addr2line(void const *const addr, char *message_line);
 
 /* Resolve symbol name and source location given an address */
-int addr2line(void const * const addr, char *message_line)
+int addr2line(void const *const addr, char *message_line)
 {
     char addr2line_cmd[3000] = {0};
     char program_name[221] = {0};
     int dest_len = 220;
-    if (readlink("/proc/self/exe", program_name, dest_len) == -1)
-    {
+
+    if (readlink("/proc/self/exe", program_name, dest_len) == -1) {
         // problem reading our own binary's full pathname
         printf("__readlink PROBLEM-_\n");
         return 0;
     }
 
     /* have addr2line map the address to the relent line in the code */
-    sprintf(addr2line_cmd,"echo '%s' |sed -e 's#.*(##'|sed -e 's#).*##'| xargs -L1 addr2line -f -p -e '%.256s'", message_line, program_name);
+    sprintf(addr2line_cmd, "echo '%s' |sed -e 's#.*(##'|sed -e 's#).*##'| xargs -L1 addr2line -f -p -e '%.256s'",
+            message_line, program_name);
 
     /* This will print a nicely formatted string specifying the
      function and source line of the address */
@@ -210,16 +216,14 @@ void print_stacktrace()
      our handler) and also skip the last frame as it's (always?) junk. */
     // for (i = 3; i < (trace_size - 1); ++i)
     // we'll use this for now so you can see what's going on
-    for (i = 2; i < trace_size; ++i)
-    {
+    for (i = 2; i < trace_size; ++i) {
         // printf("X%sX\n", messages[i]);
         addr2line(stack_traces[i], messages[i]);
     }
 
-    if (messages)
-    {
+    if (messages) {
         free(messages);
-    } 
+    }
 }
 #endif
 // ----------------------------
