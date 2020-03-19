@@ -58,6 +58,7 @@ int rtp_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *
     return -1;
 }
 
+
 // allocate_len is NOT including header!
 static struct RTPMessage *new_message(const struct RTPHeader *header, size_t allocate_len, const uint8_t *data,
                                       uint16_t data_length)
@@ -66,7 +67,12 @@ static struct RTPMessage *new_message(const struct RTPHeader *header, size_t all
     struct RTPMessage *msg = (struct RTPMessage *)calloc(1, sizeof(struct RTPMessage) + allocate_len);
 
     if (msg == nullptr) {
+        LOGGER_DEBUG(nullptr, "%s:%d:%s:msg=calloc(%d):NULL\n", __FILE__, __LINE__, __func__, (int)(sizeof(struct RTPMessage) + allocate_len));
         return nullptr;
+    }
+    else
+    {
+        LOGGER_DEBUG(nullptr, "%s:%d:%s:msg=calloc(%d):%p\n", __FILE__, __LINE__, __func__, (int)(sizeof(struct RTPMessage) + allocate_len), (void*)msg);
     }
 
     msg->len = data_length; // result without header
@@ -575,8 +581,10 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         /* The message came in the allowed time;
          */
 
-        session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, new_message(&header, length - RTP_HEADER_SIZE,
-                     data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE));
+        session->mp = new_message(&header, length - RTP_HEADER_SIZE, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE);
+        session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, session->mp);
+        session->mp = nullptr;
+        return;
     }
 
     /* The message is sent in multiple parts */
@@ -630,7 +638,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
             goto NEW_MULTIPARTED;
         }
     } else {
-        /* In this case threat the message as if it was received in order
+        /* In this case treat the message as if it was received in order
          */
         /* This is also a point for new multiparted messages */
 NEW_MULTIPARTED:
