@@ -97,10 +97,6 @@ echo "--------------------------------"
 echo "clang version:"
 c++ --version
 echo "--------------------------------"
-echo "--------------------------------"
-echo "bazel version:"
-bazel --version
-echo "--------------------------------"
 echo ""
 echo ""
 
