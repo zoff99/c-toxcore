@@ -24,15 +24,6 @@
  */
 #include <stdio.h>
 
-#undef LOGGER_DEBUG
-#define LOGGER_DEBUG(log, ...) printf(__VA_ARGS__);printf("\n")
-#undef LOGGER_ERROR
-#define LOGGER_ERROR(log, ...) printf(__VA_ARGS__);printf("\n")
-#undef LOGGER_WARNING
-#define LOGGER_WARNING(log, ...) printf(__VA_ARGS__);printf("\n")
-#undef LOGGER_INFO
-#define LOGGER_INFO(log, ...) printf(__VA_ARGS__);printf("\n")
-
 Mono_Time *toxav_get_av_mono_time(ToxAV *toxav);
 int rtp_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length);
 
@@ -60,18 +51,18 @@ int rtp_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *
 
 
 // allocate_len is NOT including header!
-static struct RTPMessage *new_message(const struct RTPHeader *header, size_t allocate_len, const uint8_t *data,
+static struct RTPMessage *new_message(Tox *tox, const struct RTPHeader *header, size_t allocate_len, const uint8_t *data,
                                       uint16_t data_length)
 {
     assert(allocate_len >= data_length);
     struct RTPMessage *msg = (struct RTPMessage *)calloc(1, sizeof(struct RTPMessage) + allocate_len);
 
     if (msg == nullptr) {
-        LOGGER_DEBUG(nullptr, "%s:%d:%s:msg=calloc(%d):NULL\n", __FILE__, __LINE__, __func__,
+        LOGGER_API_DEBUG(tox, "%s:%d:%s:msg=calloc(%d):NULL\n", __FILE__, __LINE__, __func__,
                      (int)(sizeof(struct RTPMessage) + allocate_len));
         return nullptr;
     } else {
-        LOGGER_DEBUG(nullptr, "%s:%d:%s:msg=calloc(%d):%p\n", __FILE__, __LINE__, __func__,
+        LOGGER_API_DEBUG(tox, "%s:%d:%s:msg=calloc(%d):%p\n", __FILE__, __LINE__, __func__,
                      (int)(sizeof(struct RTPMessage) + allocate_len), (void *)msg);
     }
 
@@ -103,7 +94,7 @@ static struct RTPMessage *new_message(const struct RTPHeader *header, size_t all
  * do not kick it out right away if all slots are full instead kick out the new
  * incoming interframe.
  */
-static int8_t get_slot(const Logger *log, struct RTPWorkBufferList *wkbl, bool is_keyframe,
+static int8_t get_slot(Tox *tox, struct RTPWorkBufferList *wkbl, bool is_keyframe,
                        const struct RTPHeader *header, bool is_multipart)
 {
     if (is_multipart) {
@@ -164,7 +155,7 @@ static int8_t get_slot(const Logger *log, struct RTPWorkBufferList *wkbl, bool i
             // If the incoming packet is older than our newest slot, drop it.
             // This is the first situation in the above diagram.
             if (slot->buf->header.timestamp > header->timestamp) {
-                LOGGER_DEBUG(log, "workbuffer:2:timestamp too old");
+                LOGGER_API_DEBUG(tox, "workbuffer:2:timestamp too old");
                 return GET_SLOT_RESULT_DROP_INCOMING;
             }
         }
@@ -207,7 +198,7 @@ static int8_t get_slot(const Logger *log, struct RTPWorkBufferList *wkbl, bool i
 
     // This is a key frame, it's not too old yet, so we keep it in its slot for
     // a little longer.
-    LOGGER_INFO(log, "keep KEYFRAME in workbuffer");
+    LOGGER_API_INFO(tox, "keep KEYFRAME in workbuffer");
     return GET_SLOT_RESULT_DROP_INCOMING;
 }
 
@@ -219,7 +210,7 @@ static int8_t get_slot(const Logger *log, struct RTPWorkBufferList *wkbl, bool i
  * non-NULL, it transfers ownership of the message to the caller, i.e. the
  * caller is responsible for storing it elsewhere or calling free().
  */
-static struct RTPMessage *process_frame(const Logger *log, struct RTPWorkBufferList *wkbl, uint8_t slot_id)
+static struct RTPMessage *process_frame(Tox *tox, struct RTPWorkBufferList *wkbl, uint8_t slot_id)
 {
     assert(wkbl->next_free_entry >= 0);
 
@@ -231,7 +222,7 @@ static struct RTPMessage *process_frame(const Logger *log, struct RTPWorkBufferL
     // Slot 0 contains a key frame, slot_id points at an interframe that is
     // relative to that key frame, so we don't use it yet.
     if (wkbl->work_buffer[0].is_keyframe && slot_id != 0) {
-        LOGGER_DEBUG(log, "process_frame:KEYFRAME waiting in slot 0");
+        LOGGER_API_DEBUG(tox, "process_frame:KEYFRAME waiting in slot 0");
         return nullptr;
     }
 
@@ -266,7 +257,7 @@ static struct RTPMessage *process_frame(const Logger *log, struct RTPWorkBufferL
 }
 
 /**
- * @param log A logger.
+ * @param tox pointer to Tox
  * @param wkbl The list of in-progress frames, i.e. all the slots.
  * @param slot_id The slot we want to fill the data into.
  * @param is_keyframe Whether the data is part of a key frame.
@@ -274,7 +265,7 @@ static struct RTPMessage *process_frame(const Logger *log, struct RTPWorkBufferL
  * @param incoming_data The pure payload without header.
  * @param incoming_data_length The length in bytes of the incoming data payload.
  */
-static bool fill_data_into_slot(const Logger *log, struct RTPWorkBufferList *wkbl, const uint8_t slot_id,
+static bool fill_data_into_slot(Tox *tox, struct RTPWorkBufferList *wkbl, const uint8_t slot_id,
                                 bool is_keyframe, const struct RTPHeader *header,
                                 const uint8_t *incoming_data, uint16_t incoming_data_length)
 {
@@ -294,7 +285,7 @@ static bool fill_data_into_slot(const Logger *log, struct RTPWorkBufferList *wkb
         struct RTPMessage *msg = (struct RTPMessage *)calloc(1, sizeof(struct RTPMessage) + header->data_length_full);
 
         if (msg == nullptr) {
-            LOGGER_ERROR(log, "Out of memory while trying to allocate for frame of size %u",
+            LOGGER_API_ERROR(tox, "Out of memory while trying to allocate for frame of size %u\n",
                          (unsigned)header->data_length_full);
             // Out of memory: throw away the incoming data.
             return false;
@@ -334,7 +325,7 @@ static bool fill_data_into_slot(const Logger *log, struct RTPWorkBufferList *wkb
     return slot->received_len == header->data_length_full;
 }
 
-static void update_bwc_values(const Logger *log, RTPSession *session, const struct RTPMessage *msg)
+static void update_bwc_values(RTPSession *session, const struct RTPMessage *msg)
 {
     if (session->first_packets_counter < DISMISS_FIRST_LOST_VIDEO_PACKET_COUNT) {
         ++session->first_packets_counter;
@@ -344,7 +335,7 @@ static void update_bwc_values(const Logger *log, RTPSession *session, const stru
         bwc_add_recv(session->bwc, data_length_full);
 
         if (received_length_full < data_length_full) {
-            LOGGER_DEBUG(log, "BWC: full length=%u received length=%d", data_length_full, received_length_full);
+            LOGGER_API_DEBUG(session->tox, "BWC: full length=%u received length=%d", data_length_full, received_length_full);
             bwc_add_lost(session->bwc, (data_length_full - received_length_full));
         }
     }
@@ -380,7 +371,6 @@ static Mono_Time *rtp_get_mono_time_from_rtpsession(RTPSession *session)
  *   payload.
  * @param incoming_data_length The packet length *not* including header, i.e.
  *   this is the actual payload length.
- * @param log A logger.
  *
  * @return -1 on error, 0 on success.
  */
@@ -394,13 +384,13 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
     // The sender tells us whether this is a key frame.
     const bool is_keyframe = (header->flags & RTP_KEY_FRAME) != 0;
 
-    LOGGER_DEBUG(log, "wkbl->next_free_entry:003=%d", session->work_buffer_list->next_free_entry);
+    LOGGER_API_DEBUG(session->tox, "wkbl->next_free_entry:003=%d", session->work_buffer_list->next_free_entry);
 
     const bool is_multipart = full_frame_length != incoming_data_length;
 
     /* The message was sent in single part */
-    int8_t slot_id = get_slot(log, session->work_buffer_list, is_keyframe, header, is_multipart);
-    LOGGER_DEBUG(log, "slot num=%d", slot_id);
+    int8_t slot_id = get_slot(session->tox, session->work_buffer_list, is_keyframe, header, is_multipart);
+    LOGGER_API_DEBUG(session->tox, "slot num=%d", slot_id);
 
     // get_slot told us to drop the packet, so we ignore it.
     if (slot_id == GET_SLOT_RESULT_DROP_INCOMING) {
@@ -409,17 +399,17 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
 
     // get_slot said there is no free slot.
     if (slot_id == GET_SLOT_RESULT_DROP_OLDEST_SLOT) {
-        LOGGER_DEBUG(log, "there was no free slot, so we process the oldest frame");
+        LOGGER_API_DEBUG(session->tox, "there was no free slot, so we process the oldest frame");
         // We now own the frame.
-        struct RTPMessage *m_new = process_frame(log, session->work_buffer_list, 0);
+        struct RTPMessage *m_new = process_frame(session->tox, session->work_buffer_list, 0);
 
         // The process_frame function returns NULL if there is no slot 0, i.e.
         // the work buffer list is completely empty. It can't be empty, because
         // get_slot just told us it's full, so process_frame must return non-null.
         assert(m_new != nullptr);
 
-        LOGGER_DEBUG(log, "-- handle_video_packet -- CALLBACK-001a b0=%d b1=%d", (int)m_new->data[0], (int)m_new->data[1]);
-        update_bwc_values(log, session, m_new);
+        LOGGER_API_DEBUG(session->tox, "-- handle_video_packet -- CALLBACK-001a b0=%d b1=%d", (int)m_new->data[0], (int)m_new->data[1]);
+        update_bwc_values(session, m_new);
         // Pass ownership of m_new to the callback.
         session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, m_new);
         // Now we no longer own m_new.
@@ -427,7 +417,7 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
 
         // Now we must have a free slot, so we either get that slot, i.e. >= 0,
         // or get told to drop the incoming packet if it's too old.
-        slot_id = get_slot(log, session->work_buffer_list, is_keyframe, header, /* is_multipart */false);
+        slot_id = get_slot(session->tox, session->work_buffer_list, is_keyframe, header, /* is_multipart */false);
 
         if (slot_id == GET_SLOT_RESULT_DROP_INCOMING) {
             // The incoming frame is too old, so we drop it.
@@ -438,11 +428,11 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
     // We must have a valid slot here.
     assert(slot_id >= 0);
 
-    LOGGER_DEBUG(log, "fill_data_into_slot.1");
+    LOGGER_API_DEBUG(session->tox, "fill_data_into_slot.1");
 
     // fill in this part into the slot buffer at the correct offset
     if (!fill_data_into_slot(
-                log,
+                session->tox,
                 session->work_buffer_list,
                 slot_id,
                 is_keyframe,
@@ -453,11 +443,11 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
         return -1;
     }
 
-    struct RTPMessage *m_new = process_frame(log, session->work_buffer_list, slot_id);
+    struct RTPMessage *m_new = process_frame(session->tox, session->work_buffer_list, slot_id);
 
     if (m_new) {
-        LOGGER_DEBUG(log, "-- handle_video_packet -- CALLBACK-003a b0=%d b1=%d", (int)m_new->data[0], (int)m_new->data[1]);
-        update_bwc_values(log, session, m_new);
+        LOGGER_API_DEBUG(session->tox, "-- handle_video_packet -- CALLBACK-003a b0=%d b1=%d", (int)m_new->data[0], (int)m_new->data[1]);
+        update_bwc_values(session, m_new);
         session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, m_new);
 
         m_new = nullptr;
@@ -480,7 +470,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     uint16_t length = (uint16_t)length2;
 
     if (length < RTP_HEADER_SIZE + 1) {
-        LOGGER_WARNING(m->log, "Invalid length of received buffer!");
+        LOGGER_API_WARNING(tox, "Invalid length of received buffer!");
         return;
     }
 
@@ -502,7 +492,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     session = rtp_session_get(call, data[0]);
 
     if (!session) {
-        LOGGER_WARNING(m->log, "No session!");
+        LOGGER_API_WARNING(tox, "No session!");
         return;
     }
 
@@ -516,30 +506,30 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     rtp_header_unpack(data, &header);
 
     if (header.pt != packet_type % 128) {
-        LOGGER_WARNING(m->log, "RTPHeader packet type and Tox protocol packet type did not agree: %d != %d",
+        LOGGER_API_WARNING(tox, "RTPHeader packet type and Tox protocol packet type did not agree: %d != %d",
                        header.pt, packet_type % 128);
         return;
     }
 
     if (header.pt != session->payload_type % 128) {
-        LOGGER_WARNING(m->log, "RTPHeader packet type does not match this session's payload type: %d != %d",
+        LOGGER_API_WARNING(tox, "RTPHeader packet type does not match this session's payload type: %d != %d",
                        header.pt, session->payload_type % 128);
         return;
     }
 
     if (header.flags & RTP_LARGE_FRAME && header.offset_full >= header.data_length_full) {
-        LOGGER_ERROR(m->log, "Invalid video packet: frame offset (%u) >= full frame length (%u)",
+        LOGGER_API_ERROR(tox, "Invalid video packet: frame offset (%u) >= full frame length (%u)",
                      (unsigned)header.offset_full, (unsigned)header.data_length_full);
         return;
     }
 
     if (header.offset_lower >= header.data_length_lower) {
-        LOGGER_ERROR(m->log, "Invalid old protocol video packet: frame offset (%u) >= full frame length (%u)",
+        LOGGER_API_ERROR(tox, "Invalid old protocol video packet: frame offset (%u) >= full frame length (%u)",
                      (unsigned)header.offset_lower, (unsigned)header.data_length_lower);
         return;
     }
 
-    LOGGER_DEBUG(m->log, "header.pt %d, video %d", (uint8_t)header.pt, (RTP_TYPE_VIDEO % 128));
+    LOGGER_API_DEBUG(tox, "header.pt %d, video %d", (uint8_t)header.pt, (RTP_TYPE_VIDEO % 128));
 
     // The sender uses the new large-frame capable protocol and is sending a
     // video packet.
@@ -567,7 +557,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         /* The message came in the allowed time;
          */
 
-        session->mp = new_message(&header, length - RTP_HEADER_SIZE, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE);
+        session->mp = new_message(tox, &header, length - RTP_HEADER_SIZE, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE);
         session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, session->mp);
         session->mp = nullptr;
         return;
@@ -636,7 +626,7 @@ NEW_MULTIPARTED:
 
         /* Store message.
          */
-        session->mp = new_message(&header, header.data_length_lower, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE);
+        session->mp = new_message(tox, &header, header.data_length_lower, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE);
         memmove(session->mp->data + header.offset_lower, session->mp->data, session->mp->len);
     }
 
@@ -711,14 +701,14 @@ RTPSession *rtp_new(int payload_type, Tox *tox, ToxAV *toxav, uint32_t friendnum
     RTPSession *session = (RTPSession *)calloc(1, sizeof(RTPSession));
 
     if (!session) {
-        LOGGER_WARNING(m->log, "Alloc failed! Program might misbehave!");
+        LOGGER_API_WARNING(tox, "Alloc failed! Program might misbehave!");
         return nullptr;
     }
 
     session->work_buffer_list = (struct RTPWorkBufferList *)calloc(1, sizeof(struct RTPWorkBufferList));
 
     if (session->work_buffer_list == nullptr) {
-        LOGGER_ERROR(m->log, "out of memory while allocating work buffer list");
+        LOGGER_API_ERROR(tox, "out of memory while allocating work buffer list");
         free(session);
         return nullptr;
     }
@@ -753,10 +743,10 @@ void rtp_kill(Tox *tox, RTPSession *session)
         return;
     }
 
-    LOGGER_DEBUG(session->m->log, "Terminated RTP session: %p", (void *)session);
+    LOGGER_API_DEBUG(session->tox, "Terminated RTP session: %p", (void *)session);
     rtp_stop_receiving(tox, session);
 
-    LOGGER_DEBUG(session->m->log, "Terminated RTP session V3 work_buffer_list->next_free_entry: %d",
+    LOGGER_API_DEBUG(session->tox, "Terminated RTP session V3 work_buffer_list->next_free_entry: %d",
                  (int)session->work_buffer_list->next_free_entry);
 
     free(session->work_buffer_list);
@@ -787,7 +777,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
                   bool is_keyframe, const Logger *log)
 {
     if (!session) {
-        LOGGER_ERROR(log, "No session!");
+        LOGGER_API_ERROR(session->tox, "No session!");
         return -1;
     }
 
@@ -849,7 +839,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
 
         if (-1 == rtp_send_custom_lossy_packet(session->tox, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
             const char *netstrerror = net_new_strerror(net_error());
-            LOGGER_WARNING(session->m->log, "RTP send failed (len: %u)! std error: %s, net error: %s",
+            LOGGER_API_WARNING(session->tox, "RTP send failed (len: %u)! std error: %s, net error: %s",
                            (unsigned)SIZEOF_VLA(rdata), strerror(errno), netstrerror);
             net_kill_strerror(netstrerror);
         }
@@ -868,7 +858,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
             if (-1 == rtp_send_custom_lossy_packet(session->tox, session->friend_number,
                                                    rdata, piece + RTP_HEADER_SIZE + 1)) {
                 const char *netstrerror = net_new_strerror(net_error());
-                LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s, net error: %s",
+                LOGGER_API_WARNING(session->tox, "RTP send failed (len: %d)! std error: %s, net error: %s",
                                piece + RTP_HEADER_SIZE + 1, strerror(errno), netstrerror);
                 net_kill_strerror(netstrerror);
             }
@@ -888,7 +878,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
             if (-1 == rtp_send_custom_lossy_packet(session->tox, session->friend_number, rdata,
                                                    piece + RTP_HEADER_SIZE + 1)) {
                 const char *netstrerror = net_new_strerror(net_error());
-                LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s, net error: %s",
+                LOGGER_API_WARNING(session->tox, "RTP send failed (len: %d)! std error: %s, net error: %s",
                                piece + RTP_HEADER_SIZE + 1, strerror(errno), netstrerror);
                 net_kill_strerror(netstrerror);
             }
