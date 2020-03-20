@@ -121,7 +121,6 @@ void logger_write(const Logger *log, Logger_Level level, const char *file, int l
     log->callback(log->context, level, file, line, func, msg, log->userdata);
 }
 
-
 void logger_api_write(const Logger *log, Logger_Level level, const char *file, int line, const char *func,
                       const char *format, va_list args)
 {
