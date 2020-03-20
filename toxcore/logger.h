@@ -85,6 +85,9 @@ void logger_write(
     const Logger *log, Logger_Level level, const char *file, int line, const char *func,
     const char *format, ...) GNU_PRINTF(6, 7);
 
+void logger_api_write(const Logger *log, Logger_Level level, const char *file, int line, const char *func,
+                      const char *format, va_list args); GNU_PRINTF(6, 7);
+
 
 /**
  * ==================================================================================================
