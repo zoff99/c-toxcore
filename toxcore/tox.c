@@ -2534,3 +2534,13 @@ void tox_get_av_object(const Tox *tox, void **object)
     unlock(tox);
 }
 
+#include <stdarg.h>
+void tox_logmsg(const Tox *tox, Logger_Level level, const char *file, int line, const char *func, const char *fmt, ...)
+{
+    lock(tox);
+    va_list args;
+    va_start(args, fmt);
+    logger_api_write(tox->m->log, level, file, line, func, fmt, args);
+    va_end(args);
+    unlock(tox);
+}
