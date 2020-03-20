@@ -53,7 +53,10 @@ cc_library(
     name = "rtp",
     srcs = ["rtp.c"],
     hdrs = ["rtp.h"],
-    deps = [":bwcontroller"],
+    deps = [
+        ":bwcontroller",
+        "//c-toxcore/toxcore",
+    ],
 )
 
 cc_test(
