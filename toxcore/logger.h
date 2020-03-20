@@ -86,7 +86,7 @@ void logger_write(
     const char *format, ...) GNU_PRINTF(6, 7);
 
 void logger_api_write(const Logger *log, Logger_Level level, const char *file, int line, const char *func,
-                      const char *format, va_list args);
+                      const char *format, va_list args) GNU_PRINTF(6, 0);
 
 
 /**
@@ -98,7 +98,7 @@ void logger_api_write(const Logger *log, Logger_Level level, const char *file, i
 typedef struct Tox Tox;
 #endif /* TOX_DEFINED */
 
-void tox_logmsg(const Tox *tox, Logger_Level level, const char *file, int line, const char *func, const char *fmt, ...);
+void tox_logmsg(const Tox *tox, Logger_Level level, const char *file, int line, const char *func, const char *fmt, ...) GNU_PRINTF(6, 7);
 
 #define LOGGER_API_TRACE(tox, ...)   LOGGER_API_WRITE(tox, LOGGER_LEVEL_TRACE  , __VA_ARGS__)
 #define LOGGER_API_DEBUG(tox, ...)   LOGGER_API_WRITE(tox, LOGGER_LEVEL_DEBUG  , __VA_ARGS__)
