@@ -182,5 +182,5 @@ docker run -ti --rm \
   -v $_HOME_/workspace:/workspace \
   -e DISPLAY=$DISPLAY \
   "$system_to_build_for" \
-  /bin/bash # /script/do_it___external.sh
+  /bin/bash /script/do_it___external.sh
 
