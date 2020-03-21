@@ -152,10 +152,12 @@ void send_update(BWController *bwc, bool dummy)
 {
 }
 
+#if 0
 static int on_update(BWController *bwc, const struct BWCMessage *msg)
 {
     return 0;
 }
+#endif
 
 int bwc_handle_data(Tox *tox, uint32_t friendnumber, const uint8_t *data, uint16_t length, void *object)
 {
