@@ -15,7 +15,6 @@
 
 #include "../toxcore/logger.h"
 #include "../toxcore/network.h"
-#include "../toxcore/Messenger.h"
 #include "../toxcore/mono_time.h"
 
 
@@ -34,7 +33,7 @@
 /*
  * Zoff: disable logging in ToxAV for now
  */
-
+#include <stdio.h>
 
 #undef LOGGER_DEBUG
 #define LOGGER_DEBUG(log, ...) printf(__VA_ARGS__);printf("\n")
@@ -44,7 +43,30 @@
 #define LOGGER_WARNING(log, ...) printf(__VA_ARGS__);printf("\n")
 #undef LOGGER_INFO
 #define LOGGER_INFO(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_TRACE
+#define LOGGER_TRACE(log, ...) printf(__VA_ARGS__);printf("\n")
+/*
+ * Zoff: disable logging in ToxAV for now
+ */
 
+/*
+ * return -1 on failure, 0 on success
+ *
+ */
+
+int video_send_custom_lossless_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length);
+
+int video_send_custom_lossless_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length)
+{
+    TOX_ERR_FRIEND_CUSTOM_PACKET error;
+    tox_friend_send_lossless_packet(tox, friendnumber, data, (size_t)length, &error);
+
+    if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_OK) {
+        return 0;
+    }
+
+    return -1;
+}
 
 VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t friend_number,
                   toxav_video_receive_frame_cb *cb, void *cb_data)
@@ -294,7 +316,7 @@ void video_switch_decoder(VCSession *vc, TOXAV_ENCODER_CODEC_USED_VALUE decoder_
 /* --- VIDEO DECODING happens here --- */
 /* --- VIDEO DECODING happens here --- */
 /* --- VIDEO DECODING happens here --- */
-uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_t *a_r_timestamp,
+uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a_r_timestamp,
                    uint64_t *a_l_timestamp,
                    uint64_t *v_r_timestamp, uint64_t *v_l_timestamp, BWController *bwc,
                    int64_t *timestamp_difference_adjustment_,
@@ -338,19 +360,19 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
     int want_remote_video_ts;
     if ((int)vc->video_decoder_buffer_sum_ms < (int)vc->video_decoder_buffer_ms)
     {
-        want_remote_video_ts = ((int)current_time_monotonic(m->mono_time) + (int)vc->timestamp_difference_to_sender +
+        want_remote_video_ts = ((int)current_time_monotonic(vc->av->toxav_mono_time) + (int)vc->timestamp_difference_to_sender +
                                         (int)vc->timestamp_difference_adjustment - (int)vc->video_decoder_buffer_ms);
     }
     else
     {
-        want_remote_video_ts = ((int)current_time_monotonic(m->mono_time) + (int)vc->timestamp_difference_to_sender +
+        want_remote_video_ts = ((int)current_time_monotonic(vc->av->toxav_mono_time) + (int)vc->timestamp_difference_to_sender +
                                         (int)vc->timestamp_difference_adjustment - (int)vc->video_decoder_buffer_sum_ms);
     }
 
 
     LOGGER_DEBUG(vc->log, "VC_TS_CALC:01:%d %d %d %d %d",
                         (int)want_remote_video_ts,
-                        (int)(current_time_monotonic(m->mono_time)),
+                        (int)(current_time_monotonic(vc->av->toxav_mono_time)),
                         (int)vc->timestamp_difference_to_sender,
                         (int)vc->timestamp_difference_adjustment,
                         (int)vc->video_decoder_buffer_sum_ms
@@ -427,11 +449,11 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 //        global_last_viterate_ts = (int)current_time_monotonic(m->mono_time);
 
         LOGGER_DEBUG(vc->log, "XLS01:%d,%d",
-                     (int)(timestamp_want_get - current_time_monotonic(m->mono_time)),
-                     (int)(timestamp_out_ - current_time_monotonic(m->mono_time))
+                     (int)(timestamp_want_get - current_time_monotonic(vc->av->toxav_mono_time)),
+                     (int)(timestamp_out_ - current_time_monotonic(vc->av->toxav_mono_time))
                     );
 
-        vc->video_play_delay = ((current_time_monotonic(m->mono_time) + vc->timestamp_difference_to_sender) - timestamp_out_);
+        vc->video_play_delay = ((current_time_monotonic(vc->av->toxav_mono_time) + vc->timestamp_difference_to_sender) - timestamp_out_);
         vc->video_play_delay_real = vc->video_play_delay;
 
         vc->video_frame_buffer_entries = (uint32_t)tsb_size((TSBuffer *)vc->vbuf_raw);
@@ -540,9 +562,6 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
             LOGGER_WARNING(vc->log, "missing some video frames: missing count=%d", (int)missing_frames_count);
 
-            const Messenger *mm = (Messenger *)(vc->av->m);
-            const Messenger_Options *mo = (const Messenger_Options *) & (mm->options);
-
 #define NORMAL_MISSING_FRAME_COUNT_TOLERANCE 0
 #define WHEN_SKIPPING_MISSING_FRAME_COUNT_TOLERANCE 2
 
@@ -605,8 +624,6 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
         // HINT: give feedback that we lost some bytes
         if (header_v3->received_length_full < full_data_len) {
-            // const Messenger *mm = (Messenger *)(vc->av->m);
-            // const Messenger_Options *mo = (Messenger_Options *) & (mm->options);
 
             bwc_add_lost_v3(bwc, (full_data_len - header_v3->received_length_full), false);
 
@@ -695,7 +712,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                 pkg_buf[0] = PACKET_TOXAV_COMM_CHANNEL;
                 pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO;
 
-                int result = send_custom_lossless_packet(m, vc->friend_number, pkg_buf, pkg_buf_len);
+                int result = video_send_custom_lossless_packet(tox, vc->friend_number, pkg_buf, pkg_buf_len);
                 LOGGER_ERROR(vc->log, "PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO=%d\n", (int)result);
                 // HINT: tell friend that we have H264 decoder capabilities -------
 
@@ -704,7 +721,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
 
         if (vc->video_decoder_codec_used != TOXAV_ENCODER_CODEC_USED_H264) {
             // LOGGER_ERROR(vc->log, "DEC:VP8------------");
-            decode_frame_vpx(vc, m, skip_video_flag, a_r_timestamp,
+            decode_frame_vpx(vc, tox, skip_video_flag, a_r_timestamp,
                              a_l_timestamp,
                              v_r_timestamp, v_l_timestamp,
                              header_v3, p,
@@ -714,9 +731,9 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
             // LOGGER_ERROR(vc->log, "DEC:H264------------");
 
 #ifdef DEBUG_SHOW_H264_DECODING_TIME
-            uint32_t start_time_ms = current_time_monotonic(m->mono_time);
+            uint32_t start_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
 #endif
-            decode_frame_h264(vc, m, skip_video_flag, a_r_timestamp,
+            decode_frame_h264(vc, tox, skip_video_flag, a_r_timestamp,
                               a_l_timestamp,
                               v_r_timestamp, v_l_timestamp,
                               header_v3, p,
@@ -724,7 +741,7 @@ uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_
                               &ret_value);
 
 #ifdef DEBUG_SHOW_H264_DECODING_TIME
-            uint32_t end_time_ms = current_time_monotonic(m->mono_time);
+            uint32_t end_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
 
             if ((int)(end_time_ms - start_time_ms) > 4) {
                 LOGGER_WARNING(vc->log, "decode_frame_h264: %d ms", (int)(end_time_ms - start_time_ms));

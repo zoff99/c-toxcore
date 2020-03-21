@@ -33,6 +33,25 @@
 #include <libavutil/opt.h>
 // for H264 ----------
 
+/*
+ * Zoff: disable logging in ToxAV for now
+ */
+#include <stdio.h>
+
+#undef LOGGER_DEBUG
+#define LOGGER_DEBUG(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_ERROR
+#define LOGGER_ERROR(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_WARNING
+#define LOGGER_WARNING(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_INFO
+#define LOGGER_INFO(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_TRACE
+#define LOGGER_TRACE(log, ...) printf(__VA_ARGS__);printf("\n")
+/*
+ * Zoff: disable logging in ToxAV for now
+ */
+
 
 int global_h264_enc_profile_high_enabled = 0;
 int global_h264_enc_profile_high_enabled_switch = 0;
@@ -1101,7 +1120,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
     return 0;
 }
 
-void get_info_from_sps(const Messenger *m, VCSession *vc, const Logger *log,
+void get_info_from_sps(const Tox *tox, VCSession *vc, const Logger *log,
                        const uint8_t data[], const uint32_t data_len)
 {
 
@@ -1124,8 +1143,8 @@ void get_info_from_sps(const Messenger *m, VCSession *vc, const Logger *log,
             // (data[4] == 0x67)
         ) {
             // parse only every 5 seconds
-            if ((vc->last_parsed_h264_sps_ts + 5000) < current_time_monotonic(m->mono_time)) {
-                vc->last_parsed_h264_sps_ts = current_time_monotonic(m->mono_time);
+            if ((vc->last_parsed_h264_sps_ts + 5000) < current_time_monotonic(vc->av->toxav_mono_time)) {
+                vc->last_parsed_h264_sps_ts = current_time_monotonic(vc->av->toxav_mono_time);
 
                 // we found a NAL unit containing the SPS
                 uint8_t h264_profile = data[5];
@@ -1171,7 +1190,7 @@ void get_info_from_sps(const Messenger *m, VCSession *vc, const Logger *log,
 //int32_t global_first_video_frame_data = 0;
 int32_t global_decoder_delay_counter = 0;
 
-void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_t *a_r_timestamp,
+void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a_r_timestamp,
                        uint64_t *a_l_timestamp,
                        uint64_t *v_r_timestamp, uint64_t *v_l_timestamp,
                        const struct RTPHeader *header_v3,
@@ -1236,7 +1255,7 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
 #endif
 
     if ((p) && (p->data)) {
-        get_info_from_sps(m, vc, vc->log, p->data, full_data_len);
+        get_info_from_sps(tox, vc, vc->log, p->data, full_data_len);
     }
 
     /*
@@ -1292,7 +1311,7 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
     /* HINT: this is the only part that takes all the time !!! */
     /* HINT: this is the only part that takes all the time !!! */
 
-    // uint32_t start_time_ms = current_time_monotonic(m->mono_time);
+    // uint32_t start_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
 
     /* ------------------------------------------------------- */
     /* ------------------------------------------------------- */
@@ -1311,7 +1330,7 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
         p = NULL;
         return;
     }
-    // uint32_t end_time_ms = current_time_monotonic(m->mono_time);
+    // uint32_t end_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
     // if ((int)(end_time_ms - start_time_ms) > 4) {
     //    LOGGER_WARNING(vc->log, "decode_frame_h264:002: %d ms", (int)(end_time_ms - start_time_ms));
     //}
@@ -1327,19 +1346,19 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
 
     while (ret_ >= 0) {
 
-        // start_time_ms = current_time_monotonic(m->mono_time);
+        // start_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
         AVFrame *frame = av_frame_alloc();
         if (frame == NULL)
         {
             // stop decoding
             break;
         }
-        // end_time_ms = current_time_monotonic(m->mono_time);
+        // end_time_ms = current_time_monotonicvc->av->toxav_mono_time);
         // LOGGER_WARNING(vc->log, "decode_frame_h264:003: %d ms", (int)(end_time_ms - start_time_ms));
 
-        // start_time_ms = current_time_monotonic(m->mono_time);
+        // start_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
         ret_ = avcodec_receive_frame(vc->h264_decoder, frame);
-        // end_time_ms = current_time_monotonic(m->mono_time);
+        // end_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
         // LOGGER_WARNING(vc->log, "decode_frame_h264:004: %d ms", (int)(end_time_ms - start_time_ms));
 
         // LOGGER_ERROR(vc->log, "H264:decoder:ret_=%d\n", (int)ret_);
@@ -1374,7 +1393,7 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
             if (header_v3->frame_record_timestamp > 0) {
 
                 //vc->video_play_delay_real =
-                //    (current_time_monotonic(m->mono_time) + vc->timestamp_difference_to_sender) -
+                //    (current_time_monotonic(vc->av->toxav_mono_time) + vc->timestamp_difference_to_sender) -
                 //    frame->pkt_pts;
                 // use the calculated values instead
                 //vc->video_play_delay_real = vc->video_play_delay;
@@ -1385,7 +1404,7 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
                                                "real play delay=%d header_v3->frame_record_timestamp=%d, mono=%d, vc->timestamp_difference_to_sender=%d frame->pkt_pts=%ld, frame->pkt_dts=%ld, frame->pts=%ld",
                                                (int)vc->video_play_delay_real,
                                                (int)header_v3->frame_record_timestamp,
-                                               (int)current_time_monotonic(m->mono_time),
+                                               (int)current_time_monotonic(vc->av->toxav_mono_time),
                                                (int)vc->timestamp_difference_to_sender,
                                                frame->pkt_pts,
                                                frame->pkt_dts,
@@ -1421,7 +1440,7 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
                 }
             }
 
-            // start_time_ms = current_time_monotonic(m->mono_time);
+            // start_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
             if ((frame->data[0] != NULL) && (frame->data[1] != NULL) && (frame->data[2] != NULL))
             {
 
@@ -1430,7 +1449,7 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 #if 0
                 *v_r_timestamp = h_frame_record_timestamp;
-                *v_l_timestamp = current_time_monotonic(m->mono_time);
+                *v_l_timestamp = current_time_monotonic(vc->av->toxav_mono_time);
 #endif
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
@@ -1443,22 +1462,22 @@ void decode_frame_h264(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uin
                         frame->linesize[0], frame->linesize[1],
                         frame->linesize[2], vc->vcb_user_data);
             }
-            // end_time_ms = current_time_monotonic(m->mono_time);
+            // end_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
             // LOGGER_WARNING(vc->log, "decode_frame_h264:005: %d ms", (int)(end_time_ms - start_time_ms));
 
         } else {
             // some other error
         }
 
-        // start_time_ms = current_time_monotonic(m->mono_time);
+        // start_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
         av_frame_free(&frame);
-        // end_time_ms = current_time_monotonic(m->mono_time);
+        // end_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
         // LOGGER_WARNING(vc->log, "decode_frame_h264:006: %d ms", (int)(end_time_ms - start_time_ms));
     }
 
-    // start_time_ms = current_time_monotonic(m->mono_time);
+    // start_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
     av_packet_free(&compr_data);
-    // end_time_ms = current_time_monotonic(m->mono_time);
+    // end_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
     // LOGGER_WARNING(vc->log, "decode_frame_h264:007: %d ms", (int)(end_time_ms - start_time_ms));
 
     free(p);
@@ -1488,7 +1507,7 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
 
     if ((vpx_encode_flags & VPX_EFLAG_FORCE_KF) > 0) {
         call->video->h264_in_pic.i_type = X264_TYPE_IDR; // real full i-frame
-        call->video->last_sent_keyframe_ts = current_time_monotonic(av->m->mono_time);
+        call->video->last_sent_keyframe_ts = current_time_monotonic(av->toxav_mono_time);
     } else {
         call->video->h264_in_pic.i_type = X264_TYPE_AUTO;
     }
@@ -1574,7 +1593,7 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
         LOGGER_ERROR(av->m->log, "av_frame_make_writable:ERROR");
     }
 
-    LOGGER_DEBUG(av->m->log, "video packet record time[ECN:4a]: %d mtime=%d", (int)(*video_frame_record_timestamp), (int)current_time_monotonic(av->m->mono_time));
+    LOGGER_DEBUG(av->m->log, "video packet record time[ECN:4a]: %d mtime=%d", (int)(*video_frame_record_timestamp), (int)current_time_monotonic(av->toxav_mono_time));
     frame->pts = (int64_t)(*video_frame_record_timestamp);
 
     // copy YUV frame data into buffers
@@ -1610,9 +1629,9 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
                         );
         }
 
-        LOGGER_DEBUG(av->m->log, "video packet record time[ECN:4b]: %d mtime=%d", (int)(*video_frame_record_timestamp), (int)current_time_monotonic(av->m->mono_time));
+        LOGGER_DEBUG(av->m->log, "video packet record time[ECN:4b]: %d mtime=%d", (int)(*video_frame_record_timestamp), (int)current_time_monotonic(av->toxav_mono_time));
         *video_frame_record_timestamp = (uint64_t)call->video->h264_out_pic2->pts;
-        LOGGER_DEBUG(av->m->log, "video packet record time[ECN:4c]: %d mtime=%d", (int)(*video_frame_record_timestamp), (int)current_time_monotonic(av->m->mono_time));
+        LOGGER_DEBUG(av->m->log, "video packet record time[ECN:4c]: %d mtime=%d", (int)(*video_frame_record_timestamp), (int)current_time_monotonic(av->toxav_mono_time));
 
         *i_frame_size = call->video->h264_out_pic2->size;
 
@@ -1661,7 +1680,7 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
                       call->video_bit_rate,
                       call->video->client_video_capture_delay_ms,
                       call->video->video_encoder_frame_orientation_angle,
-                      av->m->log
+                      nullptr
                   );
 
         (*video_frame_record_timestamp)++;
@@ -1684,11 +1703,11 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
 
         LOGGER_DEBUG(av->m->log, "video packet record time[1a]: %d", (int)(*video_frame_record_timestamp));
         // *video_frame_record_timestamp = (uint64_t)call->video->h264_out_pic2->pts;
-        LOGGER_DEBUG(av->m->log, "video packet record time[1b]: %d mtime=%d", (int)(*video_frame_record_timestamp), (int)current_time_monotonic(av->m->mono_time));
+        LOGGER_DEBUG(av->m->log, "video packet record time[1b]: %d mtime=%d", (int)(*video_frame_record_timestamp), (int)current_time_monotonic(av->toxav_mono_time));
         const uint32_t frame_length_in_bytes = *i_frame_size;
         const int keyframe = (int)1;
 
-        // *video_frame_record_timestamp = current_time_monotonic(av->m->mono_time);
+        // *video_frame_record_timestamp = current_time_monotonic(av->toxav_mono_time);
         // LOGGER_ERROR(av->m->log, "video packet record time[2]: %lu", (*video_frame_record_timestamp));
 
 
@@ -1707,7 +1726,7 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
                       call->video_bit_rate,
                       call->video->client_video_capture_delay_ms,
                       call->video->video_encoder_frame_orientation_angle,
-                      av->m->log
+                      nullptr
                   );
 
         (*video_frame_record_timestamp)++;

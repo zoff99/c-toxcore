@@ -752,7 +752,7 @@ int vc_reconfigure_encoder_h264_omx_raspi(Logger *log, VCSession *vc, uint32_t b
     return 0;
 }
 
-void decode_frame_h264_omx_raspi(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_t *a_r_timestamp,
+void decode_frame_h264_omx_raspi(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a_r_timestamp,
                                  uint64_t *a_l_timestamp,
                                  uint64_t *v_r_timestamp, uint64_t *v_l_timestamp,
                                  const struct RTPHeader *header_v3,

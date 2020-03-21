@@ -24,8 +24,28 @@
 #include "../toxcore/util.h"
 #include "../toxcore/mono_time.h"
 
+
+/*
+ * Zoff: disable logging in ToxAV for now
+ */
+#include <stdio.h>
+
+#undef LOGGER_DEBUG
+#define LOGGER_DEBUG(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_ERROR
+#define LOGGER_ERROR(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_WARNING
+#define LOGGER_WARNING(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_INFO
+#define LOGGER_INFO(log, ...) printf(__VA_ARGS__);printf("\n")
+/*
+ * Zoff: disable logging in ToxAV for now
+ */
+
+
 Mono_Time *toxav_get_av_mono_time(ToxAV *toxav);
 int rtp_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length);
+int rtp_send_custom_lossless_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length);
 
 
 // for H264 ----------
@@ -47,6 +67,22 @@ int rtp_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *
 {
     TOX_ERR_FRIEND_CUSTOM_PACKET error;
     tox_friend_send_lossy_packet(tox, friendnumber, data, (size_t)length, &error);
+
+    if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_OK) {
+        return 0;
+    }
+
+    return -1;
+}
+
+/*
+ * return -1 on failure, 0 on success
+ *
+ */
+int rtp_send_custom_lossless_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length)
+{
+    TOX_ERR_FRIEND_CUSTOM_PACKET error;
+    tox_friend_send_lossless_packet(tox, friendnumber, data, (size_t)length, &error);
 
     if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_OK) {
         return 0;
@@ -315,6 +351,18 @@ static bool fill_data_into_slot(Tox *tox, struct RTPWorkBufferList *wkbl, const 
     return slot->received_len == header->data_length_full;
 }
 
+static Mono_Time *rtp_get_mono_time_from_rtpsession(RTPSession *session)
+{
+    if (!session) {
+        return NULL;
+    }
+
+    if (!session->toxav) {
+        return NULL;
+    }
+
+    return toxav_get_av_mono_time(session->toxav);
+}
 
 /**
  * Handle a single RTP video packet.
@@ -564,7 +612,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                                      (int)(((VCSession *)(session->cs))->skip_fps));
                     }
 
-                    ((VCSession *)(session->cs))->skip_fps_duration_until_ts = current_time_monotonic(m->mono_time) +
+                    ((VCSession *)(session->cs))->skip_fps_duration_until_ts = current_time_monotonic(rtp_get_mono_time_from_rtpsession(session)) +
                             TOXAV_SKIP_FPS_RELEASE_AFTER_MS;
                 }
             } else if (data[1] == PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_REQUEST) {
@@ -573,7 +621,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                 uint8_t pkg_buf[pkg_buf_len];
                 pkg_buf[0] = PACKET_TOXAV_COMM_CHANNEL;
                 pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_ANSWER;
-                uint32_t tmp = current_time_monotonic(m->mono_time);
+                uint32_t tmp = current_time_monotonic(rtp_get_mono_time_from_rtpsession(session));
                 pkg_buf[2] = data[2];
                 pkg_buf[3] = data[3];
                 pkg_buf[4] = data[4];
@@ -592,7 +640,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                 LOGGER_DEBUG(m->log, "RECVD:PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_REQUEST: %d %d %d %d",
                              pkg_buf[6], pkg_buf[7], pkg_buf[8], pkg_buf[9]);
 
-                int result = send_custom_lossless_packet(m, friendnumber, pkg_buf, pkg_buf_len);
+                int result = rtp_send_custom_lossless_packet(session->tox, friendnumber, pkg_buf, pkg_buf_len);
 
 
             } else if (data[1] == PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_ANSWER) {
@@ -628,7 +676,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                     +
                     (data[13]);
 
-                ((VCSession *)(session->cs))->dummy_ntp_local_end = current_time_monotonic(m->mono_time);
+                ((VCSession *)(session->cs))->dummy_ntp_local_end = current_time_monotonic(rtp_get_mono_time_from_rtpsession(session));
 
                 LOGGER_DEBUG(m->log, "DNTP:%d %d %d %d",
                              ((VCSession *)(session->cs))->dummy_ntp_local_start,
@@ -755,13 +803,13 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         uint8_t pkg_buf[pkg_buf_len];
         pkg_buf[0] = PACKET_TOXAV_COMM_CHANNEL;
         pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_REQUEST;
-        uint32_t tmp = current_time_monotonic(m->mono_time);
+        uint32_t tmp = current_time_monotonic(rtp_get_mono_time_from_rtpsession(session));
         pkg_buf[2] = tmp >> 24 & 0xFF;
         pkg_buf[3] = tmp >> 16 & 0xFF;
         pkg_buf[4] = tmp >> 8  & 0xFF;
         pkg_buf[5] = tmp       & 0xFF;
 
-        int result = send_custom_lossless_packet(m, friendnumber, pkg_buf, pkg_buf_len);
+        int result = rtp_send_custom_lossless_packet(session->tox, friendnumber, pkg_buf, pkg_buf_len);
     }
 
     // HINT: ask sender for dummy ntp values -------------
@@ -780,11 +828,11 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
             session->incoming_packets_ts[session->incoming_packets_ts_index] = 0;
             session->incoming_packets_ts_average = 0;
         } else {
-            session->incoming_packets_ts[session->incoming_packets_ts_index] = current_time_monotonic(m->mono_time) -
+            session->incoming_packets_ts[session->incoming_packets_ts_index] = current_time_monotonic(rtp_get_mono_time_from_rtpsession(session)) -
                     session->incoming_packets_ts_last_ts;
         }
 
-        session->incoming_packets_ts_last_ts = current_time_monotonic(m->mono_time);
+        session->incoming_packets_ts_last_ts = current_time_monotonic(rtp_get_mono_time_from_rtpsession(session));
         session->incoming_packets_ts_index++;
 
         if (session->incoming_packets_ts_index >= INCOMING_PACKETS_TS_ENTRIES) {
@@ -809,7 +857,8 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
         LOGGER_DEBUG(m->log, "rtp_video_delta=%d", (int)incoming_rtp_packets_delta_average);
 
-        return handle_video_packet(session, &header, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE, m->log);
+        handle_video_packet(session, &header, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE, nullptr);
+        return;
     }
 
     // everything below here is for the old 16 bit protocol ------------------
@@ -840,7 +889,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         LOGGER_DEBUG(m->log, "RTP: AUDIO singlepart message: len=%d seqnum=%d",
                      length, header.sequnum);
 
-        session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, new_message(&header, length - RTP_HEADER_SIZE,
+        session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, new_message(session->tox, &header, length - RTP_HEADER_SIZE,
                             data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE));
         return;
 
@@ -922,7 +971,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
             }
 
             /* Push the previous message for processing */
-            session->mcb(session->m->mono_time, session->cs, session->mp);
+            session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, session->mp);
 
             session->mp = nullptr;
             goto NEW_MULTIPARTED;
@@ -1076,12 +1125,7 @@ RTPSession *rtp_new(int payload_type, Tox *tox, ToxAV *toxav, uint32_t friendnum
     session->incoming_packets_ts_last_ts = -1;
     session->incoming_packets_ts_average = 0;
 
-    if (-1 == rtp_allow_receiving(tox, session)) {
-        LOGGER_WARNING(m->log, "Failed to start rtp receiving mode");
-        free(session->work_buffer_list);
-        free(session);
-        return nullptr;
-    }
+    rtp_allow_receiving(tox, session);
 
     return session;
 }
@@ -1231,11 +1275,11 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
 
 
         if ((session->payload_type == RTP_TYPE_VIDEO) && (TOXAV_SEND_VIDEO_LOSSLESS_PACKETS == 1)) {
-            if (-1 == send_custom_lossless_packet(session->tox, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
+            if (-1 == rtp_send_custom_lossless_packet(session->tox, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
                 LOGGER_API_WARNING(session->tox, "RTP send failed (len: %zu)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
             }
         } else {
-            if (-1 == m_send_custom_lossy_packet(session->tox, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
+            if (-1 == rtp_send_custom_lossy_packet(session->tox, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
                 LOGGER_WARNING(session->m->log, "RTP send failed (len: %zu)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
             }
         }
@@ -1252,13 +1296,13 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
             memcpy(rdata + 1 + RTP_HEADER_SIZE, data + sent, piece);
 
             if ((session->payload_type == RTP_TYPE_VIDEO) && (TOXAV_SEND_VIDEO_LOSSLESS_PACKETS == 1)) {
-                if (-1 == send_custom_lossless_packet(session->tox, session->friend_number,
+                if (-1 == rtp_send_custom_lossless_packet(session->tox, session->friend_number,
                                                       rdata, piece + RTP_HEADER_SIZE + 1)) {
                     LOGGER_API_WARNING(session->tox, "RTP send failed (len: %d)! std error: %s",
                                    piece + RTP_HEADER_SIZE + 1, strerror(errno));
                 }
             } else {
-                if (-1 == m_send_custom_lossy_packet(session->tox, session->friend_number,
+                if (-1 == rtp_send_custom_lossy_packet(session->tox, session->friend_number,
                                                      rdata, piece + RTP_HEADER_SIZE + 1)) {
                     LOGGER_API_WARNING(session->tox, "RTP send failed (len: %d)! std error: %s",
                                    piece + RTP_HEADER_SIZE + 1, strerror(errno));
@@ -1278,13 +1322,13 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
             memcpy(rdata + 1 + RTP_HEADER_SIZE, data + sent, piece);
 
             if ((session->payload_type == RTP_TYPE_VIDEO) && (TOXAV_SEND_VIDEO_LOSSLESS_PACKETS == 1)) {
-                if (-1 == send_custom_lossless_packet(session->tox, session->friend_number, rdata,
+                if (-1 == rtp_send_custom_lossless_packet(session->tox, session->friend_number, rdata,
                                                       piece + RTP_HEADER_SIZE + 1)) {
                     LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s",
                                    piece + RTP_HEADER_SIZE + 1, strerror(errno));
                 }
             } else {
-                if (-1 == m_send_custom_lossy_packet(session->tox, session->friend_number, rdata,
+                if (-1 == rtp_send_custom_lossy_packet(session->tox, session->friend_number, rdata,
                                                      piece + RTP_HEADER_SIZE + 1)) {
                     LOGGER_API_WARNING(session->tox, "RTP send failed (len: %d)! std error: %s",
                                    piece + RTP_HEADER_SIZE + 1, strerror(errno));

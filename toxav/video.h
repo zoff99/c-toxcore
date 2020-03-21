@@ -10,7 +10,6 @@
 
 #include "../toxcore/logger.h"
 #include "../toxcore/util.h"
-#include "../toxcore/Messenger.h"
 
 #include "bwcontroller.h"
 #include "ring_buffer.h"
@@ -138,6 +137,11 @@ typedef enum PACKET_TOXAV_COMM_CHANNEL_FUNCTION {
 
 struct TSBuffer;
 
+#ifndef TOXAV_DEFINED
+#define TOXAV_DEFINED
+#undef ToxAV
+typedef struct ToxAV ToxAV;
+#endif /* TOXAV_DEFINED */
 
 struct OMXContext;
 
@@ -272,7 +276,7 @@ typedef struct VCSession_s {
 VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t friend_number,
                   toxav_video_receive_frame_cb *cb, void *cb_data);
 void vc_kill(VCSession *vc);
-uint8_t vc_iterate(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_t *a_r_timestamp,
+uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a_r_timestamp,
                    uint64_t *a_l_timestamp,
                    uint64_t *v_r_timestamp, uint64_t *v_l_timestamp, BWController *bwc,
                    int64_t *timestamp_difference_adjustment_,
