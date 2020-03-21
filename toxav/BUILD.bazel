@@ -121,6 +121,9 @@ cc_library(
     hdrs = ["rtp.h"],
     deps = [
         ":bwcontroller",
+        ":dummy_ntp",
+        "@libvpx",
+        "@opus",
         "//c-toxcore/toxcore",
     ],
 )
