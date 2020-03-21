@@ -38,6 +38,11 @@ typedef enum RTP_Type {
     RTP_TYPE_VIDEO = 193,
 } RTP_Type;
 
+#ifndef TOXAV_DEFINED
+#define TOXAV_DEFINED
+#undef ToxAV
+typedef struct ToxAV ToxAV;
+#endif /* TOXAV_DEFINED */
 
 enum {
     video_frame_type_NORMALFRAME = 0,
@@ -107,54 +112,8 @@ struct RTPHeader {
     unsigned xe: 1; /* Extra header */
     unsigned cc: 4; /* Contributing sources count */
 
-#ifndef TOXAV_DEFINED
-#define TOXAV_DEFINED
-#undef ToxAV
-typedef struct ToxAV ToxAV;
-#endif /* TOXAV_DEFINED */
-
-/**
- * A bit mask (up to 64 bits) specifying features of the current frame affecting
- * the behaviour of the decoder.
- */
-typedef enum RTPFlags {
-    /**
-     * Support frames larger than 64KiB. The full 32 bit length and offset are
-     * set in \ref RTPHeader::data_length_full and \ref RTPHeader::offset_full.
-     */
-    RTP_LARGE_FRAME = 1 << 0,
-    /**
-     * Whether the packet is part of a key frame.
-     */
-    RTP_KEY_FRAME = 1 << 1,
-} RTPFlags;
-
-/* Check alignment */
-typedef char __fail_if_misaligned_1 [ sizeof(struct RTPHeader) == 80 ? 1 : -1 ];
-
-
-// #define LOWER_31_BITS(x) (x & ((int)(1L << 31) - 1))
-#define LOWER_31_BITS(x) (uint32_t)(x & 0x7fffffff)
-
-
-struct RTPHeaderV3 {
-#ifndef WORDS_BIGENDIAN
-    uint16_t cc: 4; /* Contributing sources count */
-    uint16_t is_keyframe: 1;
-    uint16_t pe: 1; /* Padding */
-    uint16_t protocol_version: 2; /* Version has only 2 bits! */
-
-    uint16_t pt: 7; /* Payload type */
-    uint16_t ma: 1; /* Marker */
-#else
-    uint16_t protocol_version: 2; /* Version has only 2 bits! */
-    uint16_t pe: 1; /* Padding */
-    uint16_t is_keyframe: 1;
-    uint16_t cc: 4; /* Contributing sources count */
-
-    uint16_t ma: 1; /* Marker */
-    uint16_t pt: 7; /* Payload type */
-#endif
+    unsigned ma: 1; /* Marker */
+    unsigned pt: 7; /* Payload type */
 
     uint16_t sequnum;
     uint32_t timestamp;
@@ -211,29 +170,6 @@ struct RTPHeaderV3 {
     uint16_t data_length_lower; // used to be called "tlen"
 };
 
-#define USED_RTP_WORKBUFFER_COUNT 3
-
-/**
- * One slot in the work buffer list. Represents one frame that is currently
- * being assembled.
- */
-struct RTPWorkBuffer {
-    /**
-     * Whether this slot contains a key frame. This is true iff
-     * `buf->header.flags & RTP_KEY_FRAME`.
-     */
-    bool is_keyframe;
-    /**
-     * The number of bytes received so far, regardless of which pieces. I.e. we
-     * could have received the first 1000 bytes and the last 1000 bytes with
-     * 4000 bytes in the middle still to come, and this number would be 2000.
-     */
-    uint32_t received_len;
-    /**
-     * The message currently being assembled.
-     */
-    struct RTPMessage *buf;
-};
 
 struct RTPMessage {
     /**
@@ -255,7 +191,7 @@ struct RTPMessage {
 struct RTPWorkBuffer {
     /**
      * Whether this slot contains a key frame. This is true iff
-     * buf->header.flags & RTP_KEY_FRAME.
+     * `buf->header.flags & RTP_KEY_FRAME`.
      */
     bool is_keyframe;
     /**
@@ -292,6 +228,10 @@ typedef struct RTPSession {
     struct RTPMessage *mp; /* Expected parted message */
     struct RTPWorkBufferList *work_buffer_list;
     uint8_t  first_packets_counter; /* dismiss first few lost video packets */
+    uint32_t incoming_packets_ts[INCOMING_PACKETS_TS_ENTRIES];
+    int64_t incoming_packets_ts_last_ts;
+    uint16_t incoming_packets_ts_index;
+    uint32_t incoming_packets_ts_average;
     Tox *tox;
     ToxAV *toxav;
     uint32_t friend_number;
@@ -335,14 +275,12 @@ void rtp_stop_receiving(Tox *tox, RTPSession *session);
  * @param is_keyframe Whether this video frame is a key frame. If it is an
  *   audio frame, this parameter is ignored.
  */
-int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
-                  bool is_keyframe, const Logger *log);
-
-#ifdef __cplusplus
-}  // extern "C"
-#endif
-
-#endif /* RTP_H */
+int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, bool is_keyframe,
+                  uint64_t frame_record_timestamp, int32_t fragment_num,
+                  uint32_t codec_used, uint32_t bit_rate_used,
+                  uint32_t client_capture_delay_ms,
+                  uint32_t video_frame_orientation_angle,
+                  Logger *log);
 
 #ifdef __cplusplus
 }  // extern "C"
