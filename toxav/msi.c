@@ -450,8 +450,6 @@ static int m_msi_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uin
     TOX_ERR_FRIEND_CUSTOM_PACKET error;
     tox_friend_send_lossless_packet(tox, friendnumber, data_new, length_new, &error);
 
-    LOGGER_API_DEBUG(tox, "send_message:001:error=%d %p %d %d", error, (void *)tox, friendnumber, (int)length_new);
-
     // TODO(Zoff): make this better later! -------------------
     free(data_new);
     // TODO(Zoff): make this better later! -------------------
@@ -467,8 +465,6 @@ static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg)
 {
     assert(tox);
 
-    LOGGER_API_DEBUG(tox, "send_message:001");
-
     /* Parse and send message */
 
     uint8_t parsed [MSI_MAXMSG_SIZE];
@@ -477,7 +473,6 @@ static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg)
     uint16_t size = 0;
 
     if (msg->request.exists) {
-        LOGGER_API_DEBUG(tox, "send_message:002");
         uint8_t cast = msg->request.value;
         it = msg_parse_header_out(ID_REQUEST, it, &cast,
                                   sizeof(cast), &size);
@@ -486,31 +481,21 @@ static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg)
         return -1;
     }
 
-    LOGGER_API_DEBUG(tox, "send_message:004");
-
     if (msg->error.exists) {
-        LOGGER_API_DEBUG(tox, "send_message:005");
         uint8_t cast = msg->error.value;
         it = msg_parse_header_out(ID_ERROR, it, &cast,
                                   sizeof(cast), &size);
     }
 
-    LOGGER_API_DEBUG(tox, "send_message:006");
-
     if (msg->capabilities.exists) {
-        LOGGER_API_DEBUG(tox, "send_message:007");
         it = msg_parse_header_out(ID_CAPABILITIES, it, &msg->capabilities.value,
                                   sizeof(msg->capabilities.value), &size);
     }
-
-    LOGGER_API_DEBUG(tox, "send_message:008");
 
     if (it == parsed) {
         LOGGER_API_WARNING(tox, "Parsing message failed; empty message");
         return -1;
     }
-
-    LOGGER_API_DEBUG(tox, "send_message:009");
 
     *it = 0;
     ++size;
@@ -519,8 +504,6 @@ static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg)
         LOGGER_API_DEBUG(tox, "Sent message");
         return 0;
     }
-
-    LOGGER_API_DEBUG(tox, "send_message:099");
 
     return -1;
 }
