@@ -5,10 +5,26 @@ cirrus-ci_task:
     cpu: 8
     memory: 12G
   configure_script:
-    - echo "build --jobs=50 --curses=no --verbose_failures" | tee ~/.bazelrc
-    - echo "build --config=linux" | tee -a ~/.bazelrc
-    - echo "build --config=clang" | tee -a ~/.bazelrc
-    - echo "build --config=remote" | tee -a ~/.bazelrc
+    - sudo apt update
+    - sudo apt install -y
+        autopoint
+        libasound2-dev
+        libcv-dev
+        libhighgui-dev
+        libopenal-dev
+        libx264-dev
+        ffmpeg
+        libavcodec-dev
+        libavfilter-dev
+        libavformat-dev
+        libavutil-dev
+        libswscale-dev
+        libxcb-xfixes0-dev
+        
+    - echo "build --jobs=50 --curses=no --verbose_failures" | sudo tee /etc/bazel.bazelrc
+    - echo "build --config=linux" | sudo tee -a /etc/bazel.bazelrc
+    - echo "build --config=gcc" | sudo tee -a /etc/bazel.bazelrc
+    - echo "build --config=remote" | sudo tee -a /etc/bazel.bazelrc
     - cd .. && mv cirrus-ci-build c-toxcore
     - git clone --branch=upgrade-bazel --depth=1 https://github.com/iphydf/toktok-stack cirrus-ci-build
     - mv c-toxcore cirrus-ci-build
