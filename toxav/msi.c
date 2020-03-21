@@ -69,7 +69,8 @@ typedef struct MSIMessage {
 
 static void msg_init(MSIMessage *dest, MSIRequest request);
 static int msg_parse_in(Tox *tox, MSIMessage *dest, const uint8_t *data, uint16_t length);
-static uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, uint8_t value_len, uint16_t *length);
+static uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, uint8_t value_len,
+                                     uint16_t *length);
 static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg);
 int send_error(Tox *tox, uint32_t friend_number, MSIError error);
 static MSICall *get_call(MSISession *session, uint32_t friend_number);
@@ -216,7 +217,7 @@ int msi_hangup(MSICall *call)
     MSISession *session = call->session;
 
     LOGGER_API_DEBUG(session->tox, "Session: %p Hanging up call with friend: %u", (void *)call->session,
-                 call->friend_number);
+                     call->friend_number);
 
     if (pthread_mutex_trylock(session->mutex) != 0) {
         LOGGER_API_ERROR(session->tox, "Failed to acquire lock on msi mutex");
@@ -248,7 +249,7 @@ int msi_answer(MSICall *call, uint8_t capabilities)
     MSISession *session = call->session;
 
     LOGGER_API_DEBUG(session->tox, "Session: %p Answering call from: %u", (void *)call->session,
-                 call->friend_number);
+                     call->friend_number);
 
     if (pthread_mutex_trylock(session->mutex) != 0) {
         LOGGER_API_ERROR(session->tox, "Failed to acquire lock on msi mutex");
@@ -288,7 +289,7 @@ int msi_change_capabilities(MSICall *call, uint8_t capabilities)
     MSISession *session = call->session;
 
     LOGGER_API_DEBUG(session->tox, "Session: %p Trying to change capabilities to friend %u", (void *)call->session,
-                 call->friend_number);
+                     call->friend_number);
 
     if (pthread_mutex_trylock(session->mutex) != 0) {
         LOGGER_API_ERROR(session->tox, "Failed to acquire lock on msi mutex");
@@ -406,7 +407,8 @@ static int msg_parse_in(Tox *tox, MSIMessage *dest, const uint8_t *data, uint16_
     return 0;
 }
 
-uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, uint8_t value_len, uint16_t *length)
+static uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, uint8_t value_len,
+                                     uint16_t *length)
 {
     /* Parse a single header for sending */
     assert(dest);
@@ -536,7 +538,7 @@ int invoke_callback(MSICall *call, MSICallbackID cb)
 
         if (call->session->callbacks[cb](call->session->av, call) != 0) {
             LOGGER_API_WARNING(call->session->tox,
-                           "Callback state handling failed, sending error");
+                               "Callback state handling failed, sending error");
             goto FAILURE;
         }
 
@@ -667,7 +669,7 @@ void handle_init(MSICall *call, const MSIMessage *msg)
 {
     assert(call);
     LOGGER_API_DEBUG(call->session->tox,
-                 "Session: %p Handling 'init' friend: %d", (void *)call->session, call->friend_number);
+                     "Session: %p Handling 'init' friend: %d", (void *)call->session, call->friend_number);
 
     if (!msg->capabilities.exists) {
         LOGGER_API_WARNING(call->session->tox, "Session: %p Invalid capabilities on 'init'", (void *)call->session);
@@ -730,7 +732,7 @@ void handle_push(MSICall *call, const MSIMessage *msg)
     assert(call);
 
     LOGGER_API_DEBUG(call->session->tox, "Session: %p Handling 'push' friend: %d", (void *)call->session,
-                 call->friend_number);
+                     call->friend_number);
 
     if (!msg->capabilities.exists) {
         LOGGER_API_WARNING(call->session->tox, "Session: %p Invalid capabilities on 'push'", (void *)call->session);
@@ -786,7 +788,7 @@ void handle_pop(MSICall *call, const MSIMessage *msg)
     assert(call);
 
     LOGGER_API_DEBUG(call->session->tox, "Session: %p Handling 'pop', friend id: %d", (void *)call->session,
-                 call->friend_number);
+                     call->friend_number);
 
     /* callback errors are ignored */
 

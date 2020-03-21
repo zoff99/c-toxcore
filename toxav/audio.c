@@ -390,7 +390,8 @@ static struct RTPMessage *jbuf_read(struct JitterBuffer *q, int32_t *success)
     return nullptr;
 }
 
-OpusEncoder *create_audio_encoder(const Logger *log, int32_t bit_rate, int32_t sampling_rate, int32_t channel_count)
+static OpusEncoder *create_audio_encoder(const Logger *log, int32_t bit_rate, int32_t sampling_rate,
+        int32_t channel_count)
 {
     int status = OPUS_OK;
     /*
