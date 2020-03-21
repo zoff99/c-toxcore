@@ -512,31 +512,6 @@ static void jbuf_free(struct TSBuffer *q)
     tsb_drain(q);
     tsb_kill(q);
 }
-#else
-static struct RingBuffer *jbuf_new(int size)
-{
-    return rb_new(size);
-}
-
-static void jbuf_clear(struct RingBuffer *q)
-{
-    void *dummy_p;
-    uint64_t dummy_i;
-
-    while (rb_read(q, &dummy_p, &dummy_i)) {
-        // drain all entries from buffer
-    }
-}
-
-/*
- * if -1 is returned the RTPMessage m needs to be free'd by the caller
- * if  0 is returned the RTPMessage m is stored in the ringbuffer and must NOT be freed by the caller
- */
-static int jbuf_write(const Logger *log, struct JitterBuffer *q, struct RTPMessage *m)
-{
-    rb_kill(q);
-}
-#endif
 
 #if 0
 static struct RTPMessage *new_empty_message(size_t allocate_len, const uint8_t *data, uint16_t data_length)
@@ -574,33 +549,6 @@ static int jbuf_write(Logger *log, ACSession *ac, struct TSBuffer *q, struct RTP
     return 0;
 }
 
-static struct RTPMessage *jbuf_read(struct JitterBuffer *q, int32_t *success)
-{
-    if (q->top == q->bottom) {
-        *success = 0;
-        return NULL;
-    }
-
-    unsigned int num = q->bottom % q->size;
-
-    if (q->queue[num]) {
-        struct RTPMessage *ret = q->queue[num];
-        q->queue[num] = NULL;
-        ++q->bottom;
-        *success = 1;
-        return ret;
-    }
-
-    if ((uint32_t)(q->top - q->bottom) > q->capacity) {
-        ++q->bottom;
-        *success = 2;
-        return NULL;
-    }
-
-    *success = 0;
-    return NULL;
-}
-
 static OpusEncoder *create_audio_encoder(const Logger *log, int32_t bit_rate, int32_t sampling_rate,
         int32_t channel_count)
 {
@@ -628,6 +576,11 @@ static OpusEncoder *create_audio_encoder(const Logger *log, int32_t bit_rate, in
         LOGGER_INFO(log, "starting audio encoder OK: %s", opus_strerror(status));
     }
 
+    /*
+      Rates from 500 to 512000 bits per second are meaningful as well as the special
+      values OPUS_BITRATE_AUTO and OPUS_BITRATE_MAX. The value OPUS_BITRATE_MAX can
+      be used to cause the codec to use as much rate as it can, which is useful for
+      controlling the rate by adjusting the output buffer size.
 
     /*
      * Rates from 500 to 512000 bits per second are meaningful as well as the special
@@ -681,6 +634,15 @@ static OpusEncoder *create_audio_encoder(const Logger *log, int32_t bit_rate, in
         goto FAILURE;
     }
 
+#if 0
+    status = opus_encoder_ctl(rc, OPUS_SET_VBR(0));
+
+    if (status != OPUS_OK) {
+        LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
+        goto FAILURE;
+    }
+
+#endif
 
     /*
      * Configures the encoder's computational complexity.
