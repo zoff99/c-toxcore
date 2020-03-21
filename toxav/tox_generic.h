@@ -123,7 +123,6 @@ typedef struct ToxAVCall_s {
 
 struct ToxAV {
     Tox *tox;
-    Messenger *m;
     MSISession *msi;
 
     bool toxav_audio_iterate_seperation_active;
@@ -167,5 +166,7 @@ struct ToxAV {
     int32_t dmssa; /** Average decoding time in ms */
 
     uint32_t interval; /** Calculated interval */
+    
+    Mono_Time *toxav_mono_time; // ToxAV's own mono_time instance
 };
 
