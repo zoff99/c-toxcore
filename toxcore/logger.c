@@ -178,12 +178,12 @@ int my_pthread_mutex_lock(pthread_mutex_t *mutex, const char *mutex_name, const 
 #if !(defined(_WIN32) || defined(__WIN32__) || defined(WIN32))
     logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_LOCK:S:%s:m=%p", (int32_t)cur_pthread_tid,
                  mutex_name, (void *)mutex);
-#endif                 
+#endif
     int ret = (pthread_mutex_lock)(mutex);
 #if !(defined(_WIN32) || defined(__WIN32__) || defined(WIN32))
     logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_LOCK:E:%s:m=%p", (int32_t)cur_pthread_tid,
                  mutex_name, (void *)mutex);
-#endif                 
+#endif
     return ret;
 }
 
@@ -198,12 +198,12 @@ int my_pthread_mutex_unlock(pthread_mutex_t *mutex, const char *mutex_name, cons
 #if !(defined(_WIN32) || defined(__WIN32__) || defined(WIN32))
     logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_unLOCK:S:%s:m=%p", (int32_t)cur_pthread_tid,
                  mutex_name, (void *)mutex);
-#endif                 
+#endif
     int ret = (pthread_mutex_unlock)(mutex);
 #if !(defined(_WIN32) || defined(__WIN32__) || defined(WIN32))
     logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_unLOCK:E:%s:m=%p", (int32_t)cur_pthread_tid,
                  mutex_name, (void *)mutex);
-#endif                 
+#endif
     return ret;
 }
 

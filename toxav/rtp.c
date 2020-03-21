@@ -51,7 +51,8 @@ int rtp_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *
 
 
 // allocate_len is NOT including header!
-static struct RTPMessage *new_message(Tox *tox, const struct RTPHeader *header, size_t allocate_len, const uint8_t *data,
+static struct RTPMessage *new_message(Tox *tox, const struct RTPHeader *header, size_t allocate_len,
+                                      const uint8_t *data,
                                       uint16_t data_length)
 {
     assert(allocate_len >= data_length);
@@ -59,11 +60,11 @@ static struct RTPMessage *new_message(Tox *tox, const struct RTPHeader *header, 
 
     if (msg == nullptr) {
         LOGGER_API_DEBUG(tox, "%s:%d:%s:msg=calloc(%d):NULL\n", __FILE__, __LINE__, __func__,
-                     (int)(sizeof(struct RTPMessage) + allocate_len));
+                         (int)(sizeof(struct RTPMessage) + allocate_len));
         return nullptr;
     } else {
         LOGGER_API_DEBUG(tox, "%s:%d:%s:msg=calloc(%d):%p\n", __FILE__, __LINE__, __func__,
-                     (int)(sizeof(struct RTPMessage) + allocate_len), (void *)msg);
+                         (int)(sizeof(struct RTPMessage) + allocate_len), (void *)msg);
     }
 
     msg->len = data_length; // result without header
@@ -286,7 +287,7 @@ static bool fill_data_into_slot(Tox *tox, struct RTPWorkBufferList *wkbl, const 
 
         if (msg == nullptr) {
             LOGGER_API_ERROR(tox, "Out of memory while trying to allocate for frame of size %u\n",
-                         (unsigned)header->data_length_full);
+                             (unsigned)header->data_length_full);
             // Out of memory: throw away the incoming data.
             return false;
         }
@@ -408,7 +409,8 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
         // get_slot just told us it's full, so process_frame must return non-null.
         assert(m_new != nullptr);
 
-        LOGGER_API_DEBUG(session->tox, "-- handle_video_packet -- CALLBACK-001a b0=%d b1=%d", (int)m_new->data[0], (int)m_new->data[1]);
+        LOGGER_API_DEBUG(session->tox, "-- handle_video_packet -- CALLBACK-001a b0=%d b1=%d", (int)m_new->data[0],
+                         (int)m_new->data[1]);
         update_bwc_values(session, m_new);
         // Pass ownership of m_new to the callback.
         session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, m_new);
@@ -446,7 +448,8 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
     struct RTPMessage *m_new = process_frame(session->tox, session->work_buffer_list, slot_id);
 
     if (m_new) {
-        LOGGER_API_DEBUG(session->tox, "-- handle_video_packet -- CALLBACK-003a b0=%d b1=%d", (int)m_new->data[0], (int)m_new->data[1]);
+        LOGGER_API_DEBUG(session->tox, "-- handle_video_packet -- CALLBACK-003a b0=%d b1=%d", (int)m_new->data[0],
+                         (int)m_new->data[1]);
         update_bwc_values(session, m_new);
         session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, m_new);
 
@@ -507,25 +510,25 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
     if (header.pt != packet_type % 128) {
         LOGGER_API_WARNING(tox, "RTPHeader packet type and Tox protocol packet type did not agree: %d != %d",
-                       header.pt, packet_type % 128);
+                           header.pt, packet_type % 128);
         return;
     }
 
     if (header.pt != session->payload_type % 128) {
         LOGGER_API_WARNING(tox, "RTPHeader packet type does not match this session's payload type: %d != %d",
-                       header.pt, session->payload_type % 128);
+                           header.pt, session->payload_type % 128);
         return;
     }
 
     if (header.flags & RTP_LARGE_FRAME && header.offset_full >= header.data_length_full) {
         LOGGER_API_ERROR(tox, "Invalid video packet: frame offset (%u) >= full frame length (%u)",
-                     (unsigned)header.offset_full, (unsigned)header.data_length_full);
+                         (unsigned)header.offset_full, (unsigned)header.data_length_full);
         return;
     }
 
     if (header.offset_lower >= header.data_length_lower) {
         LOGGER_API_ERROR(tox, "Invalid old protocol video packet: frame offset (%u) >= full frame length (%u)",
-                     (unsigned)header.offset_lower, (unsigned)header.data_length_lower);
+                         (unsigned)header.offset_lower, (unsigned)header.data_length_lower);
         return;
     }
 
@@ -747,7 +750,7 @@ void rtp_kill(Tox *tox, RTPSession *session)
     rtp_stop_receiving(tox, session);
 
     LOGGER_API_DEBUG(session->tox, "Terminated RTP session V3 work_buffer_list->next_free_entry: %d",
-                 (int)session->work_buffer_list->next_free_entry);
+                     (int)session->work_buffer_list->next_free_entry);
 
     free(session->work_buffer_list);
     free(session);
@@ -840,7 +843,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
         if (-1 == rtp_send_custom_lossy_packet(session->tox, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
             const char *netstrerror = net_new_strerror(net_error());
             LOGGER_API_WARNING(session->tox, "RTP send failed (len: %u)! std error: %s, net error: %s",
-                           (unsigned)SIZEOF_VLA(rdata), strerror(errno), netstrerror);
+                               (unsigned)SIZEOF_VLA(rdata), strerror(errno), netstrerror);
             net_kill_strerror(netstrerror);
         }
     } else {
@@ -859,7 +862,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
                                                    rdata, piece + RTP_HEADER_SIZE + 1)) {
                 const char *netstrerror = net_new_strerror(net_error());
                 LOGGER_API_WARNING(session->tox, "RTP send failed (len: %d)! std error: %s, net error: %s",
-                               piece + RTP_HEADER_SIZE + 1, strerror(errno), netstrerror);
+                                   piece + RTP_HEADER_SIZE + 1, strerror(errno), netstrerror);
                 net_kill_strerror(netstrerror);
             }
 
@@ -879,7 +882,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
                                                    piece + RTP_HEADER_SIZE + 1)) {
                 const char *netstrerror = net_new_strerror(net_error());
                 LOGGER_API_WARNING(session->tox, "RTP send failed (len: %d)! std error: %s, net error: %s",
-                               piece + RTP_HEADER_SIZE + 1, strerror(errno), netstrerror);
+                                   piece + RTP_HEADER_SIZE + 1, strerror(errno), netstrerror);
                 net_kill_strerror(netstrerror);
             }
         }
