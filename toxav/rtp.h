@@ -9,6 +9,7 @@
 
 #include "../toxcore/tox.h"
 #include "../toxcore/logger.h"
+#include "../toxcore/net_crypto.h"
 
 #include <stdbool.h>
 
@@ -29,6 +30,9 @@ extern "C" {
  * everything before it.
  */
 #define RTP_PADDING_FIELDS 5
+
+#define PACKET_LOSSLESS_VIDEO 171 // DO NOT USE THIS! only for debugging!
+#define PACKET_TOXAV_COMM_CHANNEL 172
 
 /**
  * Payload type identifier. Also used as rtp callback prefix.

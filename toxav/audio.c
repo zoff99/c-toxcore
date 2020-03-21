@@ -14,28 +14,35 @@
 
 #include "../toxcore/logger.h"
 #include "../toxcore/mono_time.h"
+
 /*
  * Zoff: disable logging in ToxAV for now
  */
-#undef LOGGER_DEBUG
-#define LOGGER_DEBUG(log, ...) dummy3()
-#undef LOGGER_ERROR
-#define LOGGER_ERROR(log, ...) dummy3()
-#undef LOGGER_WARNING
-#define LOGGER_WARNING(log, ...) dummy3()
+#include <stdio.h>
 
-static void dummy3()
-{
-}
+#undef LOGGER_DEBUG
+#define LOGGER_DEBUG(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_ERROR
+#define LOGGER_ERROR(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_WARNING
+#define LOGGER_WARNING(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_INFO
+#define LOGGER_INFO(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_TRACE
+#define LOGGER_TRACE(log, ...) printf(__VA_ARGS__);printf("\n")
+/*
+ * Zoff: disable logging in ToxAV for now
+ */
 
 
 static struct TSBuffer *jbuf_new(int size);
 static void jbuf_free(struct TSBuffer *q);
 static int jbuf_write(Logger *log, ACSession *ac, struct TSBuffer *q, struct RTPMessage *m);
-OpusEncoder *create_audio_encoder(Logger *log, int32_t bit_rate, int32_t sampling_rate, int32_t channel_count);
-bool reconfigure_audio_encoder(Logger *log, OpusEncoder **e, int32_t new_br, int32_t new_sr, uint8_t new_ch,
-                               int32_t *old_br, int32_t *old_sr, int32_t *old_ch);
-bool reconfigure_audio_decoder(ACSession *ac, int32_t sampling_rate, int8_t channels);
+static OpusEncoder *create_audio_encoder(const Logger *log, int32_t bit_rate, int32_t sampling_rate,
+        int32_t channel_count);
+static bool reconfigure_audio_encoder(const Logger *log, OpusEncoder **e, int32_t new_br, int32_t new_sr,
+                                      uint8_t new_ch, int32_t *old_br, int32_t *old_sr, int32_t *old_ch);
+static bool reconfigure_audio_decoder(ACSession *ac, int32_t sampling_rate, int8_t channels);
 
 
 
@@ -575,12 +582,6 @@ static OpusEncoder *create_audio_encoder(const Logger *log, int32_t bit_rate, in
     } else {
         LOGGER_INFO(log, "starting audio encoder OK: %s", opus_strerror(status));
     }
-
-    /*
-      Rates from 500 to 512000 bits per second are meaningful as well as the special
-      values OPUS_BITRATE_AUTO and OPUS_BITRATE_MAX. The value OPUS_BITRATE_MAX can
-      be used to cause the codec to use as much rate as it can, which is useful for
-      controlling the rate by adjusting the output buffer size.
 
     /*
      * Rates from 500 to 512000 bits per second are meaningful as well as the special

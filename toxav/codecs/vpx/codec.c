@@ -26,6 +26,24 @@
 #include "../../../toxcore/mono_time.h"
 #include "../toxav_codecs.h"
 
+/*
+ * Zoff: disable logging in ToxAV for now
+ */
+#include <stdio.h>
+
+#undef LOGGER_DEBUG
+#define LOGGER_DEBUG(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_ERROR
+#define LOGGER_ERROR(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_WARNING
+#define LOGGER_WARNING(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_INFO
+#define LOGGER_INFO(log, ...) printf(__VA_ARGS__);printf("\n")
+#undef LOGGER_TRACE
+#define LOGGER_TRACE(log, ...) printf(__VA_ARGS__);printf("\n")
+/*
+ * Zoff: disable logging in ToxAV for now
+ */
 
 #if 0
 static uint32_t MaxIntraTarget(uint32_t optimalBuffersize)
@@ -466,7 +484,7 @@ VCSession *vc_new_vpx(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vide
     // VP8E_SET_STATIC_THRESHOLD
 
 
-    vc->linfts = current_time_monotonic(av->m->mono_time);
+    vc->linfts = current_time_monotonic(av->toxav_mono_time);
     vc->lcfd = 10; // initial value in ms for av_iterate sleep
     vc->vcb = cb;
     vc->vcb_user_data = cb_data;
@@ -756,7 +774,7 @@ int vc_reconfigure_encoder_vpx(Logger *log, VCSession *vc, uint32_t bit_rate,
 
 
 
-void decode_frame_vpx(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint64_t *a_r_timestamp,
+void decode_frame_vpx(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a_r_timestamp,
                       uint64_t *a_l_timestamp,
                       uint64_t *v_r_timestamp, uint64_t *v_l_timestamp,
                       const struct RTPHeader *header_v3,
@@ -915,7 +933,7 @@ void decode_frame_vpx(VCSession *vc, Messenger *m, uint8_t skip_video_flag, uint
                         if (*v_r_timestamp < frame_record_timestamp_vpx) {
                             // LOGGER_ERROR(vc->log, "VIDEO:TTx:2: %llu", frame_record_timestamp_vpx);
                             *v_r_timestamp = frame_record_timestamp_vpx;
-                            *v_l_timestamp = current_time_monotonic(m->mono_time);
+                            *v_l_timestamp = current_time_monotonic(vc->av->toxav_mono_time);
                         } else {
                             // TODO: this should not happen here!
                             LOGGER_DEBUG(vc->log, "VIDEO: remote timestamp older");
@@ -1043,7 +1061,7 @@ uint32_t send_frames_vpx(ToxAV *av, uint32_t friend_number, uint16_t width, uint
             const int keyframe = (pkt->data.frame.flags & VPX_FRAME_IS_KEY) != 0;
 
             if (keyframe) {
-                call->video->last_sent_keyframe_ts = current_time_monotonic(av->m->mono_time);
+                call->video->last_sent_keyframe_ts = current_time_monotonic(av->toxav_mono_time);
             }
 
             if ((pkt->data.frame.flags & VPX_FRAME_IS_FRAGMENT) != 0) {
@@ -1075,7 +1093,7 @@ uint32_t send_frames_vpx(ToxAV *av, uint32_t friend_number, uint16_t width, uint
                           call->video_bit_rate,
                           call->video->client_video_capture_delay_ms,
                           call->video->video_encoder_frame_orientation_angle,
-                          av->m->log
+                          nullptr
                       );
 
             LOGGER_DEBUG(av->m->log, "+ _sending_FRAME_TYPE_==%s bytes=%d frame_len=%d", keyframe ? "K" : ".",
