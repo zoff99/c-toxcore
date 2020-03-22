@@ -471,6 +471,7 @@ if(BUILD_TOXAV)
   auto_test(conference_av)
   auto_test(toxav_basic)
   auto_test(toxav_many)
+  auto_test(toxav_many_sep_iter)
 endif()
 
 ################################################################################
