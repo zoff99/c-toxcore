@@ -77,7 +77,6 @@ ACSession *ac_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     }
 
     ac->mono_time = mono_time;
-    ac->log = log;
 
     /* Initialize encoders with default values */
     ac->encoder = create_audio_encoder(log, AUDIO_START_BITRATE_RATE, AUDIO_START_SAMPLING_RATE, AUDIO_START_CHANNEL_COUNT);
@@ -310,7 +309,7 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
 
     pthread_mutex_lock(ac->queue_mutex);
 
-    while ((msg = jbuf_read(ac->log, jbuffer, &rc,
+    while ((msg = jbuf_read(nullptr, jbuffer, &rc,
                             *timestamp_difference_adjustment_,
                             *timestamp_difference_to_sender_,
                             ac->encoder_frame_has_record_timestamp, ac))
@@ -421,8 +420,12 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
 
 int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
 {
+    printf("ac_queue_message:001:%p\n", (void*) msg);
+    
     if (!acp || !msg) {
+        printf("ac_queue_message:002:%p\n", (void*) msg);
         if (msg) {
+            printf("ac_queue_message:003:%p\n", (void*) msg);
             free(msg);
         }
 
@@ -439,12 +442,14 @@ int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
 
     if ((msg->header.pt & 0x7f) == (RTP_TYPE_AUDIO + 2) % 128) {
         LOGGER_WARNING(ac->log, "Got dummy!");
+        printf("ac_queue_message:004:%p\n", (void*) msg);
         free(msg);
         return 0;
     }
 
     if ((msg->header.pt & 0x7f) != RTP_TYPE_AUDIO % 128) {
         LOGGER_WARNING(ac->log, "Invalid payload type!");
+        printf("ac_queue_message:005:%p\n", (void*) msg);
         free(msg);
         return -1;
     }
@@ -460,45 +465,25 @@ int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
         msg->header.frame_record_timestamp = msg->header.timestamp;
     }
 
-    int rc = jbuf_write(ac->log, ac, (struct TSBuffer *)ac->j_buf, msg);
+    printf("ac_queue_message:jbuf_write:%p\n", (void*) msg);
+    jbuf_write(nullptr, ac, (struct TSBuffer *)ac->j_buf, msg);
     pthread_mutex_unlock(ac->queue_mutex);
 
-    if (rc == -99) {
-        // TODO: investigate how this can still occur? we take them out faster than they come in
+    LOGGER_DEBUG(ac->log, "AADEBUG:OK:seqnum=%d dt=%d ts:%d curts:%d", (int)header_v3->sequnum,
+                 (int)((uint64_t)header_v3->frame_record_timestamp - (uint64_t)ac->last_incoming_frame_ts),
+                 (int)header_v3->frame_record_timestamp,
+                 (int)current_time_monotonic(ac->mono_time));
 
-        LOGGER_DEBUG(ac->log, "AADEBUG:ERR:seqnum=%d dt=%d ts:%d", (int)header_v3->sequnum,
-                     (int)((int64_t)header_v3->frame_record_timestamp - (int64_t)ac->last_incoming_frame_ts),
-                     (int)header_v3->frame_record_timestamp);
+    ac->last_incoming_frame_ts = header_v3->frame_record_timestamp;
 
-        LOGGER_DEBUG(ac->log, "Could not queue the incoming audio message!");
-        free(msg);
-        return -1;
-    } else {
-        LOGGER_DEBUG(ac->log, "AADEBUG:OK:seqnum=%d dt=%d ts:%d curts:%d", (int)header_v3->sequnum,
-                     (int)((uint64_t)header_v3->frame_record_timestamp - (uint64_t)ac->last_incoming_frame_ts),
-                     (int)header_v3->frame_record_timestamp,
-                     (int)current_time_monotonic(ac->mono_time));
-
-        ac->last_incoming_frame_ts = header_v3->frame_record_timestamp;
-
-#if 0
-        int64_t cur_diff_in_ms = (int64_t)(current_time_monotonic(ac->mono_time) - ac->last_incoming_frame_ts);
-        ac->timestamp_difference_to_sender = ac->timestamp_difference_to_sender
-                                             + ((cur_diff_in_ms - ac->timestamp_difference_to_sender) / 2); // go half way in that direction
-        LOGGER_DEBUG(ac->log, "AADEBUG:diff_ms:%lld", (int64_t)ac->timestamp_difference_to_sender);
-        LOGGER_DEBUG(ac->log, "AADEBUG:ts_corr:%llu dt=%d",
-                     (uint64_t)(current_time_monotonic(ac->mono_time) - ac->timestamp_difference_to_sender),
-                     (int)((uint64_t)(current_time_monotonic(ac->mono_time) - ac->timestamp_difference_to_sender) -
-                           (uint64_t)ac->last_incoming_frame_ts));
-#endif
-    }
+    printf("ac_queue_message:099:%p\n", (void*) msg);
 
     return 0;
 }
 
 int ac_reconfigure_encoder(ACSession *ac, int32_t bit_rate, int32_t sampling_rate, uint8_t channels)
 {
-    if (!ac || !reconfigure_audio_encoder(ac->log, &ac->encoder, bit_rate,
+    if (!ac || !reconfigure_audio_encoder(nullptr, &ac->encoder, bit_rate,
                                           sampling_rate, channels,
                                           &ac->le_bit_rate,
                                           &ac->le_sample_rate,
@@ -545,14 +530,20 @@ static struct RTPMessage *new_empty_message(size_t allocate_len, const uint8_t *
 
 static int jbuf_write(Logger *log, ACSession *ac, struct TSBuffer *q, struct RTPMessage *m)
 {
+    printf("ac_queue_message:001:%p\n", (void*) m);
+
     void *tmp_buf2 = tsb_write(q, (void *)m, 0, (uint32_t)m->header.frame_record_timestamp);
+
+    printf("ac_queue_message:002:%p ret=%p\n", (void*) m, (void *)tmp_buf2);
 
     if (tmp_buf2 != NULL) {
         LOGGER_DEBUG(log, "AADEBUG:rb_write: error in rb_write:rb_size=%d", (int)tsb_size(q));
+        printf("ac_queue_message:003:%p ret=%p\n", (void*) m, (void *)tmp_buf2);
         free(tmp_buf2);
         return -1;
     }
 
+    printf("ac_queue_message:099:%p ret=%p\n", (void*) m, (void *)tmp_buf2);
     return 0;
 }
 
