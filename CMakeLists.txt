@@ -379,7 +379,7 @@ include(CompileGTest)
 # The actual unit tests follow.
 #
 unit_test(toxav ring_buffer)
-unit_test(toxav rtp)
+# unit_test(toxav rtp) # Zoff:disabled for now
 unit_test(toxcore crypto_core)
 unit_test(toxcore mono_time)
 unit_test(toxcore ping_array)
