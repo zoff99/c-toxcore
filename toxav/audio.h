@@ -54,7 +54,6 @@
 
 typedef struct ACSession_s {
     Mono_Time *mono_time;
-    const Logger *log;
 
     /* encoding */
     OpusEncoder *encoder;

@@ -100,6 +100,8 @@ static struct RTPMessage *new_message(Tox *tox, const struct RTPHeader *header, 
     // AV_INPUT_BUFFER_PADDING_SIZE --> is needed later if we give it to ffmpeg!
     struct RTPMessage *msg = (struct RTPMessage *)calloc(1, sizeof(struct RTPMessage) + allocate_len + AV_INPUT_BUFFER_PADDING_SIZE);
 
+    printf("new_message:msg=%p,len=%d\n", (void *)msg, (int)(sizeof(struct RTPMessage) + allocate_len + AV_INPUT_BUFFER_PADDING_SIZE));
+
     if (msg == nullptr) {
         return nullptr;
     }
@@ -553,6 +555,13 @@ RTPSession *rtp_session_get(void *call, int payload_type);
 
 /**
  * receive custom lossypackets and process them. they can be incoming audio or video packets
+ * 
+ *   <code>
+ *   session->mcb == vc_queue_message() // this function is called from here
+ *   session->mp == struct RTPMessage *
+ *   session->cs == call->video.second // == VCSession created by vc_new() call
+ *   </code>
+ * 
  */
 void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_t length2, void *dummy)
 {
@@ -878,39 +887,18 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         /* The message is sent in single part */
 
         /*
-         *   session->mcb == vc_queue_message() // this function is called from here
-         *   session->mp == struct RTPMessage *
-         *   session->cs == call->video.second // == VCSession created by vc_new() call
+         *   session->mcb == ac_queue_message() // this function is called from here
+         *   session->mp  == struct RTPMessage *
+         *   session->cs  == call->audio.second // == ACSession
          */
 
         session->rsequnum = header.sequnum;
         session->rtimestamp = header.timestamp;
 
+        LOGGER_DEBUG(m->log, "RTP: rtp_message:1=%p (%d)", (void *)session->mp, length);
         LOGGER_DEBUG(m->log, "RTP: AUDIO singlepart message: len=%d seqnum=%d",
                      length, header.sequnum);
 
-        session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, new_message(session->tox, &header, length - RTP_HEADER_SIZE,
-                            data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE));
-        return;
-
-    }
-
-    /*
-     * just process any incoming audio packets ----
-     */
-
-
-    LOGGER_DEBUG(m->log, "RTP: AUDIO multipart message");
-
-
-
-
-    if (header.data_length_lower == length - RTP_HEADER_SIZE) {
-        /* The message is sent in single part */
-
-        /* Message is not late; pick up the latest parameters */
-        session->rsequnum = header.sequnum;
-        session->rtimestamp = header.timestamp;
 
         /* Invoke processing of active multiparted message */
         if (session->mp) {
@@ -922,10 +910,20 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
          */
 
         session->mp = new_message(tox, &header, length - RTP_HEADER_SIZE, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE);
+
+        LOGGER_DEBUG(m->log, "RTP: rtp_message:2=%p (%d)", (void *)session->mp, length);
+
         session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, session->mp);
         session->mp = nullptr;
         return;
     }
+
+    /*
+     * just process any incoming audio packets ----
+     */
+
+
+    LOGGER_DEBUG(m->log, "RTP: AUDIO multipart message");
 
     /* The message is sent in multiple parts */
 
@@ -972,8 +970,8 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
             /* Push the previous message for processing */
             session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, session->mp);
-
             session->mp = nullptr;
+
             goto NEW_MULTIPARTED;
         }
     } else {
@@ -989,6 +987,9 @@ NEW_MULTIPARTED:
         /* Store message.
          */
         session->mp = new_message(tox, &header, header.data_length_lower, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE);
+
+        LOGGER_DEBUG(m->log, "RTP: rtp_message:3=%p (%d)", (void *)session->mp, length);
+
         memmove(session->mp->data + header.offset_lower, session->mp->data, session->mp->len);
     }
 
