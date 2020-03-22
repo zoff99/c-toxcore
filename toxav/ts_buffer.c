@@ -405,6 +405,8 @@ void tsb_drain(TSBuffer *b)
 void tsb_kill(TSBuffer *b)
 {
     if (b) {
+        tsb_drain(b);
+
         free(b->data);
         free(b->type);
         free(b->timestamp);
