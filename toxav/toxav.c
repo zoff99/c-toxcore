@@ -247,30 +247,35 @@ void toxav_audio_iterate(ToxAV *av)
         return;
     }
 
-    ToxAVCall *i = av->calls[av->calls_head];
+    // TODO: this works, but is not future proof
+    uint32_t num_friends = (uint32_t)tox_self_get_friend_list_size(av->tox);
 
-    for (; i; i = i->next) {
+    for (uint32_t fid = 0; fid < num_friends; ++fid) {
 
-        if (i->active) {
+        ToxAVCall *i = call_get(av,  fid);
 
-            pthread_mutex_lock(i->toxav_call_mutex);
-            int64_t copy_of_value = i->call_timestamp_difference_to_sender;
+        if (i)
+        {
+            if (i->active) {
 
-            pthread_mutex_unlock(av->mutex);
+                pthread_mutex_lock(i->toxav_call_mutex);
+                int64_t copy_of_value = i->call_timestamp_difference_to_sender;
 
-            printf("ac:ITER:EEE:001\n");
-            uint8_t res_ac = ac_iterate(i->audio,
-                                        &(i->last_incoming_audio_frame_rtimestamp),
-                                        &(i->last_incoming_audio_frame_ltimestamp),
-                                        &(i->last_incoming_video_frame_rtimestamp),
-                                        &(i->last_incoming_video_frame_ltimestamp),
-                                        &(i->call_timestamp_difference_adjustment),
-                                        &(copy_of_value)
-                                       );
-            printf("ac:ITER:EEE:002\n");
-            pthread_mutex_unlock(i->toxav_call_mutex);
-            pthread_mutex_lock(av->mutex);
+                pthread_mutex_unlock(av->mutex);
 
+                printf("ac:ITER:EEE:001\n");
+                uint8_t res_ac = ac_iterate(i->audio,
+                                            &(i->last_incoming_audio_frame_rtimestamp),
+                                            &(i->last_incoming_audio_frame_ltimestamp),
+                                            &(i->last_incoming_video_frame_rtimestamp),
+                                            &(i->last_incoming_video_frame_ltimestamp),
+                                            &(i->call_timestamp_difference_adjustment),
+                                            &(copy_of_value)
+                                           );
+                printf("ac:ITER:EEE:002\n");
+                pthread_mutex_unlock(i->toxav_call_mutex);
+                pthread_mutex_lock(av->mutex);
+            }
         }
     }    
 
@@ -2317,7 +2322,7 @@ static ToxAVCall *call_remove(ToxAVCall *call)
     ToxAVCall *prev = call->prev;
     ToxAVCall *next = call->next;
 
-    /* Set av call in msi to NULL in order to know if call if ToxAVCall is
+    /* Set av call in msi to NULL in order to know if call in ToxAVCall is
      * removed from the msi call.
      */
     if (call->msi_call) {

@@ -605,7 +605,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         vc->count_old_video_frames_seen = 0;
         vc->last_seen_fragment_seqnum = header_v3_0->sequnum;
 
-        pthread_mutex_unlock(vc->queue_mutex);
+        //* PREVIOUS UNLOCK *// pthread_mutex_unlock(vc->queue_mutex);
 
         const struct RTPHeader *header_v3 = (void *) & (p->header);
 
@@ -753,6 +753,8 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 //        LOGGER_DEBUG(vc->log, "vciter__01:%d",
 //                            (int)current_time_monotonic(m->mono_time) - global___ts1);
 
+        pthread_mutex_unlock(vc->queue_mutex);
+
         return ret_value;
     } else {
         // no frame data available
@@ -807,6 +809,8 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
         return -1;
     }
 
+    pthread_mutex_lock(vc->queue_mutex);
+
     // calculate mean "frame incoming every x milliseconds" --------------
     if (vc->incoming_video_frames_gap_last_ts > 0) {
         uint32_t curent_gap = current_time_monotonic(mono_time) - vc->incoming_video_frames_gap_last_ts;
@@ -838,8 +842,6 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
 
     vc->incoming_video_frames_gap_last_ts = current_time_monotonic(mono_time);
     // calculate mean "frame incoming every x milliseconds" --------------
-
-    pthread_mutex_lock(vc->queue_mutex);
 
     LOGGER_DEBUG(vc->log, "TT:queue:V:fragnum=%ld", (long)header_v3->fragment_num);
 
