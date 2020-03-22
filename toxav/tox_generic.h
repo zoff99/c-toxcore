@@ -114,7 +114,7 @@ typedef struct ToxAVCall_s {
     /** Required for monitoring changes in states */
     uint8_t previous_self_capabilities;
 
-    pthread_mutex_t mutex[1];
+    pthread_mutex_t toxav_call_mutex[1];
 
     struct ToxAVCall_s *prev;
     struct ToxAVCall_s *next;
