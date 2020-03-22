@@ -55,7 +55,7 @@ static bool friend_is_valid(const Messenger *m, int32_t friendnumber)
  * params: num_old -> current size
  *         num_new -> new size
  *
- *  return -1 if realloc fails.
+ *  return -1 if it fails.
  */
 static int realloc_friendlist(Messenger *m, uint32_t num_new, uint32_t num_old)
 {
@@ -65,41 +65,22 @@ static int realloc_friendlist(Messenger *m, uint32_t num_new, uint32_t num_old)
     }
 
     if (num_new == 0) {
-        Friend *friendlist_copy = m->friendlist;
+        free(m->friendlist);
         m->friendlist = nullptr;
-        free(friendlist_copy);
         return 0;
     }
 
-    Friend *newfriendlist = (Friend *)calloc(1, num_new * sizeof(Friend));
+    Friend *newfriendlist = (Friend *)realloc(m->friendlist, num_new * sizeof(Friend));
+    /*
+     * Warning: new allocated space is NOT initialised!
+     */
 
     if (newfriendlist == nullptr) {
-        Friend *friendlist_copy = m->friendlist;
-        m->friendlist = NULL;
-        free(friendlist_copy);
         return -1;
     }
 
-    if (num_new > num_old) {
-        Friend *friendlist_copy = m->friendlist;
-        memcpy(newfriendlist, m->friendlist, (num_old * sizeof(Friend)));
-        m->friendlist = newfriendlist;
-        free(friendlist_copy);
-        return 0;
-    } else if (num_new == num_old) {
-        // should not get here
-        Friend *friendlist_copy = m->friendlist;
-        memcpy(newfriendlist, m->friendlist, (num_old * sizeof(Friend)));
-        m->friendlist = newfriendlist;
-        free(friendlist_copy);
-        return 0;
-    } else {
-        Friend *friendlist_copy = m->friendlist;
-        memcpy(newfriendlist, m->friendlist, (num_new * sizeof(Friend)));
-        m->friendlist = newfriendlist;
-        free(friendlist_copy);
-        return 0;
-    }
+    m->friendlist = newfriendlist;
+    return 0;
 }
 
 /*  return the friend id associated to that public key.
@@ -220,7 +201,7 @@ static int32_t init_new_friend(Messenger *m, const uint8_t *real_pk, uint8_t sta
         return FAERR_NOMEM;
     }
 
-    m->numfriends++;
+    memset(&m->friendlist[m->numfriends], 0, sizeof(Friend));
 
     int friendcon_id = new_friend_connection(m->fr_c, real_pk);
 
@@ -250,6 +231,10 @@ static int32_t init_new_friend(Messenger *m, const uint8_t *real_pk, uint8_t sta
 
             friend_connection_callbacks(m->fr_c, friendcon_id, MESSENGER_CALLBACK_INDEX, &m_handle_status, &m_handle_packet,
                                         &m_handle_lossy_packet, m, i);
+
+            if (m->numfriends == i) {
+                ++m->numfriends;
+            }
 
             if (friend_con_connected(m->fr_c, friendcon_id) == FRIENDCONN_STATUS_CONNECTED) {
                 send_online_packet(m, i);
@@ -459,6 +444,7 @@ int m_delfriend(Messenger *m, uint32_t friendnumber)
     }
 
     clear_receipts(m, friendnumber);
+    clear_receipts(m, friendnumber);
     remove_request_received(m->fr, m->friendlist[friendnumber].real_pk);
     friend_connection_callbacks(m->fr_c, m->friendlist[friendnumber].friendcon_id, MESSENGER_CALLBACK_INDEX, nullptr,
                                 nullptr, nullptr, nullptr, 0);
@@ -468,29 +454,23 @@ int m_delfriend(Messenger *m, uint32_t friendnumber)
     }
 
     kill_friend_connection(m->fr_c, m->friendlist[friendnumber].friendcon_id);
+    memset(&m->friendlist[friendnumber], 0, sizeof(Friend));
+    uint32_t i;
 
-    if (m->numfriends < 1) {
-        return -1;
-    }
-
-    /* actually change data struct here */
-    uint32_t numfriends_old = m->numfriends;
-    uint32_t numfriends_new = m->numfriends - 1;
-    int return_code = 0;
-
-    if (friendnumber < numfriends_new) {
-        // we want to delete a friend in the middle of the list
-        memset(&m->friendlist[friendnumber], 0, sizeof(Friend));
-    } else {
-        // friend is at end of the list
-        m->numfriends--;
-
-        if (realloc_friendlist(m, numfriends_new, numfriends_old) != 0) {
-            return_code = FAERR_NOMEM;
+    for (i = m->numfriends; i != 0; --i) {
+        if (m->friendlist[i - 1].status != NOFRIEND) {
+            break;
         }
     }
 
-    return return_code;
+    uint32_t numfriends_old = m->numfriends;
+    m->numfriends = i;
+
+    if (realloc_friendlist(m, m->numfriends, numfriends_old) != 0) {
+        return FAERR_NOMEM;
+    }
+
+    return 0;
 }
 
 int m_get_friend_connectionstatus(const Messenger *m, int32_t friendnumber)
