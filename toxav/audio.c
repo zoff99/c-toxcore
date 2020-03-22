@@ -15,6 +15,16 @@
 #include "../toxcore/logger.h"
 #include "../toxcore/mono_time.h"
 
+
+#if defined(__linux__)
+#include <unistd.h>
+#include <sys/syscall.h>
+long syscall(long number, ...);
+#define gettid() syscall(SYS_gettid)
+#endif
+
+
+
 /*
  * Zoff: disable logging in ToxAV for now
  */
@@ -281,7 +291,10 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
 
 static inline bool jbuf_is_empty(struct TSBuffer *q)
 {
-    return tsb_empty(q);
+    printf("jbuf_is_empty:START:%d\n", (int32_t)gettid());
+    bool res = tsb_empty(q);
+    printf("jbuf_is_empty:END:%d\n", (int32_t)gettid());
+    return res;
 }
 
 uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timestamp, uint64_t *v_r_timestamp,
@@ -294,9 +307,13 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
     }
 
     uint8_t ret_value = 1;
+
+    pthread_mutex_lock(ac->queue_mutex);
+
     struct TSBuffer *jbuffer = (struct TSBuffer *)ac->j_buf;
 
     if (jbuf_is_empty(jbuffer)) {
+        pthread_mutex_unlock(ac->queue_mutex);
         return 0;
     }
 
@@ -307,7 +324,6 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
     struct RTPMessage *msg = NULL;
     int rc = 0;
 
-    pthread_mutex_lock(ac->queue_mutex);
 
     while ((msg = jbuf_read(nullptr, jbuffer, &rc,
                             *timestamp_difference_adjustment_,
@@ -467,7 +483,6 @@ int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
 
     printf("ac_queue_message:jbuf_write:%p\n", (void*) msg);
     jbuf_write(nullptr, ac, (struct TSBuffer *)ac->j_buf, msg);
-    pthread_mutex_unlock(ac->queue_mutex);
 
     LOGGER_DEBUG(ac->log, "AADEBUG:OK:seqnum=%d dt=%d ts:%d curts:%d", (int)header_v3->sequnum,
                  (int)((uint64_t)header_v3->frame_record_timestamp - (uint64_t)ac->last_incoming_frame_ts),
@@ -477,6 +492,8 @@ int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
     ac->last_incoming_frame_ts = header_v3->frame_record_timestamp;
 
     printf("ac_queue_message:099:%p\n", (void*) msg);
+
+    pthread_mutex_unlock(ac->queue_mutex);
 
     return 0;
 }
@@ -496,13 +513,18 @@ int ac_reconfigure_encoder(ACSession *ac, int32_t bit_rate, int32_t sampling_rat
 
 static struct TSBuffer *jbuf_new(int size)
 {
-    return tsb_new(size);
+    printf("jbuf_new:START:%d\n", (int32_t)gettid());
+    TSBuffer *res = tsb_new(size);
+    printf("jbuf_new:END:%d\n", (int32_t)gettid());
+    return res;
 }
 
 static void jbuf_free(struct TSBuffer *q)
 {
+    printf("jbuf_free:START:%d\n", (int32_t)gettid());
     tsb_drain(q);
     tsb_kill(q);
+    printf("jbuf_free:END:%d\n", (int32_t)gettid());
 }
 
 #if 0
@@ -530,6 +552,9 @@ static struct RTPMessage *new_empty_message(size_t allocate_len, const uint8_t *
 
 static int jbuf_write(Logger *log, ACSession *ac, struct TSBuffer *q, struct RTPMessage *m)
 {
+
+    printf("jbuf_write:START:%d\n", (int32_t)gettid());
+
     printf("ac_queue_message:001:%p\n", (void*) m);
 
     void *tmp_buf2 = tsb_write(q, (void *)m, 0, (uint32_t)m->header.frame_record_timestamp);
@@ -540,10 +565,12 @@ static int jbuf_write(Logger *log, ACSession *ac, struct TSBuffer *q, struct RTP
         LOGGER_DEBUG(log, "AADEBUG:rb_write: error in rb_write:rb_size=%d", (int)tsb_size(q));
         printf("ac_queue_message:003:%p ret=%p\n", (void*) m, (void *)tmp_buf2);
         free(tmp_buf2);
+        printf("jbuf_write:RET01:%d\n", (int32_t)gettid());
         return -1;
     }
 
     printf("ac_queue_message:099:%p ret=%p\n", (void*) m, (void *)tmp_buf2);
+    printf("jbuf_write:END:%d\n", (int32_t)gettid());
     return 0;
 }
 
