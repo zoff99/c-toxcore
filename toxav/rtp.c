@@ -597,6 +597,8 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     // Get the packet type.
     uint8_t packet_type = data[0];
 
+    // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
+    // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
     if (data[0] == PACKET_TOXAV_COMM_CHANNEL) {
         // LOGGER_ERROR(m->log, "RECVD:PACKET_TOXAV_COMM_CHANNEL:length=%d", (int)length);
 
@@ -734,6 +736,9 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
         return;
     }
+    // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
+    // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
+
 
     if (!session || length < RTP_HEADER_SIZE + 1) {
         LOGGER_WARNING(m->log, "No session or invalid length of received buffer!");
@@ -1152,6 +1157,10 @@ void rtp_allow_receiving(Tox *tox, RTPSession *session)
     if (session) {
         // register callback
         tox_callback_friend_lossy_packet_per_pktid(tox, handle_rtp_packet, session->payload_type);
+
+        if (session->payload_type == RTP_TYPE_VIDEO) {
+            tox_callback_friend_lossy_packet_per_pktid(tox, handle_rtp_packet, PACKET_TOXAV_COMM_CHANNEL);
+        }
     }
 }
 
@@ -1159,7 +1168,11 @@ void rtp_stop_receiving(Tox *tox, RTPSession *session)
 {
     if (session) {
         // UN-register callback
-        tox_callback_friend_lossy_packet_per_pktid(tox, handle_rtp_packet, session->payload_type);
+        if (session->payload_type == RTP_TYPE_VIDEO) {
+            tox_callback_friend_lossy_packet_per_pktid(tox, nullptr, PACKET_TOXAV_COMM_CHANNEL);
+        }
+
+        tox_callback_friend_lossy_packet_per_pktid(tox, nullptr, session->payload_type);
     }
 }
 
