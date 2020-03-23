@@ -119,6 +119,7 @@ ACSession *ac_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     ac->lp_channel_count = AUDIO_DECODER__START_CHANNEL_COUNT;
 
     ac->encoder_frame_has_record_timestamp = 1;
+    ac->audio_received_first_frame = 0;
 
     ac->av = av;
     ac->friend_number = friend_number;
@@ -181,8 +182,8 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     // HINT: compensate for older clients ----------------
     if (encoder_frame_has_record_timestamp == 0) {
         LOGGER_DEBUG(log, "old client:003");
-        tsb_range_ms = (UINT32_MAX - 1);
-        want_remote_video_ts = (UINT32_MAX - 1);
+        tsb_range_ms = UINT32_MAX;
+        want_remote_video_ts = UINT32_MAX;
     }
 
     // HINT: compensate for older clients ----------------
@@ -207,11 +208,22 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
 #endif
 
 
+
+    uint32_t tsb_range_ms_used = tsb_range_ms;
+    uint32_t timestamp_want_get_used = want_remote_video_ts;
+
+    if (ac->audio_received_first_frame == 0)
+    {
+        tsb_range_ms_used = UINT32_MAX;
+        timestamp_want_get_used = UINT32_MAX;
+    }
+
+
     uint16_t is_skipping;
     bool res = tsb_read(q, log, &ret, &lost_frame,
                         &timestamp_out_,
-                        want_remote_video_ts,
-                        tsb_range_ms,
+                        timestamp_want_get_used,
+                        tsb_range_ms_used,
                         &removed_entries,
                         &is_skipping);
 
@@ -235,6 +247,12 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
 
     if (res == true) {
         *success = 1;
+
+
+        if (ac->audio_received_first_frame == 0)
+        {
+            ac->audio_received_first_frame = 1;
+        }
 
 
         LOGGER_DEBUG(log, "audio_read:done:%ld,%ld", want_remote_video_ts, (int64_t)timestamp_out_);
