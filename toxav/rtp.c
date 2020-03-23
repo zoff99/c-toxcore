@@ -768,7 +768,7 @@ void rtp_stop_receiving(Tox *tox, RTPSession *session)
 {
     if (session) {
         // UN-register callback
-        tox_callback_friend_lossy_packet_per_pktid(tox, handle_rtp_packet, session->payload_type);
+        tox_callback_friend_lossy_packet_per_pktid(tox, nullptr, session->payload_type);
     }
 }
 
