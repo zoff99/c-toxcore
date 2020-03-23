@@ -112,7 +112,7 @@ RTPSession *rtp_session_get(void *call, int payload_type)
 
     if (payload_type == RTP_TYPE_VIDEO) {
         return ((ToxAVCall *)call)->video_rtp;
-    } else {
+    } else if (payload_type == RTP_TYPE_AUDIO) {
         return ((ToxAVCall *)call)->audio_rtp;
     }
 
