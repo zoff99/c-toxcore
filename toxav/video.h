@@ -204,7 +204,7 @@ typedef struct VCSession_s {
     uint32_t skip_fps_duration_until_ts;
     uint8_t skip_fps_counter;
 
-    int64_t timestamp_difference_to_sender;
+    int64_t timestamp_difference_to_sender__for_video;
     int64_t timestamp_difference_adjustment;
     uint32_t rountrip_time_ms;
     int32_t video_play_delay;
@@ -215,6 +215,7 @@ typedef struct VCSession_s {
     uint32_t parsed_h264_sps_profile_i;
     uint32_t parsed_h264_sps_level_i;
     uint32_t video_incoming_frame_orientation;
+    uint32_t video_received_first_frame;
 
     uint32_t dummy_ntp_local_start;
     uint32_t dummy_ntp_local_end;
