@@ -80,6 +80,8 @@ int toxav_friend_exists(const Tox *tox, int32_t friendnumber);
 Mono_Time *toxav_get_av_mono_time(ToxAV *toxav);
 ToxAVCall *call_get(ToxAV *av, uint32_t friend_number);
 RTPSession *rtp_session_get(void *call, int payload_type);
+BWController *bwc_controller_get(void *call);
+
 
 MSISession *tox_av_msi_get(ToxAV *av)
 {
@@ -117,6 +119,15 @@ RTPSession *rtp_session_get(void *call, int payload_type)
     }
 
     return nullptr;
+}
+
+BWController *bwc_controller_get(void *call)
+{
+    if (((ToxAVCall *)call) == nullptr) {
+        return nullptr;
+    }
+
+    return ((ToxAVCall *)call)->bwc;
 }
 
 ToxAV *toxav_new(Tox *tox, Toxav_Err_New *error)
