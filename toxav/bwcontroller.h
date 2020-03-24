@@ -24,6 +24,7 @@
 #include <stdbool.h>
 
 #include "../toxcore/tox.h"
+#include "../toxcore/network.h"
 #include "../toxcore/mono_time.h"
 
 typedef struct BWController_s BWController;
