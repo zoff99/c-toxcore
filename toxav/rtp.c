@@ -573,7 +573,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     uint16_t length = (uint16_t)length2;
 
     LOGGER_API_DEBUG(tox, "******handle_rtp_packet******handle_rtp_packet****** = %d %d %d\n", (uint8_t)data[0],
-                       (int)length2, length);
+                     (int)length2, length);
 
     if (!data) {
         return;
@@ -783,13 +783,13 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
     if (header.pt != packet_type % 128) {
         LOGGER_API_DEBUG(tox, "RTPHeader packet type and Tox protocol packet type did not agree: %d != %d",
-                           header.pt, packet_type % 128);
+                         header.pt, packet_type % 128);
         return;
     }
 
     if (header.pt != session->payload_type % 128) {
         LOGGER_API_DEBUG(tox, "RTPHeader packet type does not match this session's payload type: %d != %d",
-                           header.pt, session->payload_type % 128);
+                         header.pt, session->payload_type % 128);
         return;
     }
 

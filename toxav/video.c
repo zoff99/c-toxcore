@@ -442,12 +442,12 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     }
 
     LOGGER_API_DEBUG(tox, "tsb_read got: want=%d %d %d %d %d",
-                       (int)timestamp_want_get_used,
-                       (int)(vc->tsb_range_ms),
-                       (int)(vc->startup_video_timespan),
-                       (int)(tsb_range_ms_used),
-                       (int)tsb_size((TSBuffer *)vc->vbuf_raw)
-                      );
+                     (int)timestamp_want_get_used,
+                     (int)(vc->tsb_range_ms),
+                     (int)(vc->startup_video_timespan),
+                     (int)(tsb_range_ms_used),
+                     (int)tsb_size((TSBuffer *)vc->vbuf_raw)
+                    );
 
 
 
@@ -476,9 +476,9 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 //        global_last_viterate_ts = (int)current_time_monotonic(m->mono_time);
 
         LOGGER_API_DEBUG(tox, "XLS01:%d,%d",
-                           (int)(timestamp_want_get - current_time_monotonic(vc->av->toxav_mono_time)),
-                           (int)(timestamp_out_ - current_time_monotonic(vc->av->toxav_mono_time))
-                          );
+                         (int)(timestamp_want_get - current_time_monotonic(vc->av->toxav_mono_time)),
+                         (int)(timestamp_out_ - current_time_monotonic(vc->av->toxav_mono_time))
+                        );
 
         vc->video_play_delay = ((current_time_monotonic(vc->av->toxav_mono_time) +
                                  vc->timestamp_difference_to_sender__for_video) - timestamp_out_);
@@ -489,20 +489,20 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         if (removed_entries > 0) {
 
             LOGGER_API_DEBUG(tox,
-                               "seq:%d FC:%d min=%d max=%d want=%d got=%d diff=%d rm=%d pdelay=%d pdelayr=%d adj=%d dts=%d rtt=%d",
-                               (int)header_v3_0->sequnum,
-                               (int)tsb_size((TSBuffer *)vc->vbuf_raw),
-                               timestamp_min,
-                               timestamp_max,
-                               (int)timestamp_want_get,
-                               (int)timestamp_out_,
-                               ((int)timestamp_want_get - (int)timestamp_out_),
-                               (int)removed_entries,
-                               (int)vc->video_play_delay,
-                               (int)vc->video_play_delay_real,
-                               (int)vc->timestamp_difference_adjustment,
-                               (int)vc->timestamp_difference_to_sender__for_video,
-                               (int)vc->rountrip_time_ms);
+                             "seq:%d FC:%d min=%d max=%d want=%d got=%d diff=%d rm=%d pdelay=%d pdelayr=%d adj=%d dts=%d rtt=%d",
+                             (int)header_v3_0->sequnum,
+                             (int)tsb_size((TSBuffer *)vc->vbuf_raw),
+                             timestamp_min,
+                             timestamp_max,
+                             (int)timestamp_want_get,
+                             (int)timestamp_out_,
+                             ((int)timestamp_want_get - (int)timestamp_out_),
+                             (int)removed_entries,
+                             (int)vc->video_play_delay,
+                             (int)vc->video_play_delay_real,
+                             (int)vc->timestamp_difference_adjustment,
+                             (int)vc->timestamp_difference_to_sender__for_video,
+                             (int)vc->rountrip_time_ms);
         }
 
         uint16_t buf_size = tsb_size((TSBuffer *)vc->vbuf_raw);
@@ -510,9 +510,9 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
 
         LOGGER_API_DEBUG(tox, "values:diff_to_sender=%d adj=%d tsb_range=%d bufsize=%d",
-                           (int)vc->timestamp_difference_to_sender__for_video, (int)vc->timestamp_difference_adjustment,
-                           (int)vc->tsb_range_ms,
-                           (int)buf_size);
+                         (int)vc->timestamp_difference_to_sender__for_video, (int)vc->timestamp_difference_adjustment,
+                         (int)vc->tsb_range_ms,
+                         (int)buf_size);
 
 
         if (vc->startup_video_timespan > 0) {
