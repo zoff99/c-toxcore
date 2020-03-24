@@ -27,7 +27,6 @@
 #include <stdio.h>
 
 #define DRIFT_MILLIS    2
-#define UNIT_TESTING_ENABLED 0
 
 bool dntp_drift(int64_t *current_offset, const int64_t new_offset, const int64_t max_offset_for_drift)
 {
