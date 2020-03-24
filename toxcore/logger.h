@@ -15,12 +15,6 @@
 
 #include "ccompat.h"
 
-/* TODO: Zoff remove me after ToxAV restruct */
-#undef USE_STDERR_LOGGER
-#define USE_STDERR_LOGGER 1
-/* TODO: Zoff remove me after ToxAV restruct */
-
-
 /*
  * hook mutex function so we can nicely log them (to the NULL logger!)
  */
@@ -154,11 +148,13 @@ void tox_logmsg(const Tox *tox, Logger_Level level, const char *file, int line, 
 
 
 // Zoff: !!NEVER EVER EVER use this ever. you have been warned!!
+/*
 #define LOGGER_DO_STACKTRACE_DEBUG_STUFF 1 // Zoff: !!NEVER EVER EVER use this ever. you have been warned!!
-// Zoff: !!NEVER EVER EVER use this ever. you have been warned!!
 
 #ifdef LOGGER_DO_STACKTRACE_DEBUG_STUFF
 void print_stacktrace(void);
 #endif
+*/
+// Zoff: !!NEVER EVER EVER use this ever. you have been warned!!
 
 #endif // C_TOXCORE_TOXCORE_LOGGER_H
