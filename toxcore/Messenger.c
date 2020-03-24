@@ -174,7 +174,8 @@ static int send_online_packet(Messenger *m, int32_t friendnumber)
         return -1;
     }
 
-    LOGGER_DEBUG(m->log, "send capabilties: %llu for friendnum: %d", (long long unsigned int)TOX_CAPABILITIES_CURRENT, (int)friendnumber);
+    LOGGER_DEBUG(m->log, "send capabilties: %llu for friendnum: %d", (long long unsigned int)TOX_CAPABILITIES_CURRENT,
+                 (int)friendnumber);
 
     uint8_t packet = PACKET_ID_ONLINE;
     LOGGER_DEBUG(m->log, "send online packet for friendnum: %d", (int)friendnumber);
@@ -2419,6 +2420,7 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
 
         case PACKET_ID_INVITE_CONFERENCE: {
             LOGGER_DEBUG(m->log, "RECV:PACKET_ID_INVITE_CONFERENCE:data_length=%d", data_length);
+
             if (data_length == 0) {
                 break;
             }
@@ -3190,10 +3192,11 @@ static bool need_save_fts_for_friend(const Messenger *m, Friend *fr)
 static uint32_t saved_friendsft_size(const Messenger *m)
 {
     uint32_t num_friends_with_active_fts = 0;
+
     for (uint32_t i = 0; i < m->numfriends; ++i) {
         bool res = need_save_fts_for_friend(m, &(m->friendlist[i]));
-        if (res)
-        {
+
+        if (res) {
             num_friends_with_active_fts++;
         }
     }
@@ -3221,10 +3224,11 @@ static uint8_t *friendsft_save(const Messenger *m, uint8_t *data)
 
 
     uint32_t num_friends_with_active_fts = 0;
+
     for (uint32_t i = 0; i < m->numfriends; ++i) {
         bool res = need_save_fts_for_friend(m, &(m->friendlist[i]));
-        if (res)
-        {
+
+        if (res) {
             num_friends_with_active_fts++;
         }
     }
@@ -3238,8 +3242,7 @@ static uint8_t *friendsft_save(const Messenger *m, uint8_t *data)
 
         bool res = need_save_fts_for_friend(m, &(m->friendlist[i]));
 
-        if (res)
-        {
+        if (res) {
             len = sizeof(uint8_t) * CRYPTO_PUBLIC_KEY_SIZE;
             buf = m->friendlist[i].real_pk;
             memcpy(data, buf, len);
