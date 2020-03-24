@@ -38,8 +38,6 @@ struct TSBuffer {
     void    **data;
 };
 
-static void tsb_debug_print_entries(const TSBuffer *b);
-
 bool tsb_full(const TSBuffer *b)
 {
     return (b->end + 1) % b->size == b->start;
@@ -468,6 +466,9 @@ uint16_t tsb_size(const TSBuffer *b)
 }
 
 
+
+
+#if 0
 static void tsb_debug_print_entries(const TSBuffer *b)
 {
     uint16_t current_element;
@@ -482,10 +483,6 @@ static void tsb_debug_print_entries(const TSBuffer *b)
 
     printf("tsb_debug_print_entries:---------------------\n");
 }
-
-
-
-#ifdef UNIT_TESTING_ENABLED
 
 void unit_test()
 {
