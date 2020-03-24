@@ -305,50 +305,43 @@ int global_h264_enc_profile_high_enabled_switch = 0;
 Logger *global__log = NULL;
 
 #if 0
-void my_printf(char* format, ...)
+void my_printf(char *format, ...)
 {
     uint8_t *output_chars = calloc(1, 5000);
     uint32_t pos = 0;
 
     va_list argp;
     va_start(argp, format);
-    while (*format != '\0')
-    {
-        if (*format == '%')
-        {
+
+    while (*format != '\0') {
+        if (*format == '%') {
             format++;
-            if (*format == '%')
-            {
+
+            if (*format == '%') {
                 output_chars[pos] = '%';
                 pos++;
-            }
-            else if (*format == 'c')
-            {
+            } else if (*format == 'c') {
                 char char_to_print = (char)va_arg(argp, int);
                 output_chars[pos] = char_to_print;
                 pos++;
-            }
-            else if (*format == 's')
-            {
-                char* char_to_print = va_arg(argp, char *);
+            } else if (*format == 's') {
+                char *char_to_print = va_arg(argp, char *);
                 output_chars[pos] = char_to_print;
                 pos++;
                 output_chars[pos] = char_to_print;
                 pos++;
                 output_chars[pos] = char_to_print;
                 pos++;
-            }
-            else
-            {
+            } else {
                 // fputs("Not implemented", stdout);
             }
-        }
-        else
-        {
+        } else {
             // putchar(*format);
         }
+
         format++;
     }
+
     va_end(argp);
 
     LOGGER_WARNING(global__log, output_chars);
@@ -658,8 +651,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     vc->h264_decoder = avcodec_alloc_context3(codec);
 
-    if (codec)
-    {
+    if (codec) {
         if (codec->capabilities & AV_CODEC_CAP_TRUNCATED) {
             vc->h264_decoder->flags |= AV_CODEC_FLAG_TRUNCATED; /* we do not send complete frames */
         }
@@ -690,12 +682,12 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
             }
         }
 
-    #if (defined (HW_CODEC_CONFIG_RPI3_TBW_TV) || defined (HW_CODEC_CONFIG_RPI3_TBW_BIDI)) && defined (RAPI_HWACCEL_DEC)
+#if (defined (HW_CODEC_CONFIG_RPI3_TBW_TV) || defined (HW_CODEC_CONFIG_RPI3_TBW_BIDI)) && defined (RAPI_HWACCEL_DEC)
         LOGGER_WARNING(log, "setting up h264_mmal decoder ...");
         av_opt_set_int(vc->h264_decoder->priv_data, "extra_buffers)", 1, AV_OPT_SEARCH_CHILDREN);
         av_opt_set_int(vc->h264_decoder->priv_data, "extra_decoder_buffers)", 1, AV_OPT_SEARCH_CHILDREN);
         LOGGER_WARNING(log, "extra_buffers, extra_decoder_buffers");
-    #endif
+#endif
 
         vc->h264_decoder->refcounted_frames = 0;
         /*   When AVCodecContext.refcounted_frames is set to 0, the returned
@@ -717,7 +709,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
 
 
-    #ifdef _TRIFA_CODEC_DECODER_
+#ifdef _TRIFA_CODEC_DECODER_
 
         LOGGER_WARNING(log, "setting up h264_mediacodec decoder ...");
 
@@ -748,15 +740,15 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         //    vc->h264_decoder->active_thread_type |= FF_THREAD_FRAME;
         //}
 
-    /*
-        vc->h264_decoder->codec_tag  = 0x31637661; // ('1'<<24) + ('c'<<16) + ('v'<<8) + 'a';
-        vc->h264_decoder->bit_rate              = 2500 * 1000;
-        // codec->bits_per_coded_sample = par->bits_per_coded_sample;
-        vc->h264_decoder->bits_per_raw_sample   = 8;
-        vc->h264_decoder->profile               = FF_PROFILE_H264_HIGH;
-        vc->h264_decoder->level                 = 40;
-        vc->h264_decoder->has_b_frames          = 2;
-    */
+        /*
+            vc->h264_decoder->codec_tag  = 0x31637661; // ('1'<<24) + ('c'<<16) + ('v'<<8) + 'a';
+            vc->h264_decoder->bit_rate              = 2500 * 1000;
+            // codec->bits_per_coded_sample = par->bits_per_coded_sample;
+            vc->h264_decoder->bits_per_raw_sample   = 8;
+            vc->h264_decoder->profile               = FF_PROFILE_H264_HIGH;
+            vc->h264_decoder->level                 = 40;
+            vc->h264_decoder->has_b_frames          = 2;
+        */
 
 
         vc->h264_decoder->pix_fmt                = AV_PIX_FMT_YUV420P;
@@ -781,7 +773,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         global__log = log;
         // av_log_set_callback(my_log_callback);
 
-    #endif
+#endif
 
 
 
@@ -1201,22 +1193,19 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
 
     LOGGER_DEBUG(vc->log, "decode_frame_h264:len=%d", full_data_len);
 
-    if (p == NULL)
-    {
+    if (p == NULL) {
         LOGGER_DEBUG(vc->log, "decode_frame_h264:NO data");
         return;
     }
 
-    if (full_data_len < 1)
-    {
+    if (full_data_len < 1) {
         LOGGER_DEBUG(vc->log, "decode_frame_h264:not enough data");
         free(p);
         p = NULL;
         return;
     }
 
-    if (vc->h264_decoder == NULL)
-    {
+    if (vc->h264_decoder == NULL) {
         LOGGER_DEBUG(vc->log, "vc->h264_decoder:not ready");
         free(p);
         p = NULL;
@@ -1224,8 +1213,7 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
     }
 
 
-    if (vc->vcb_h264 != NULL)
-    {
+    if (vc->vcb_h264 != NULL) {
         // call callback function to give H264 buffer directly to the client
         vc->vcb_h264(vc->av, vc->friend_number, p->data, full_data_len, vc->vcb_h264_user_data);
         free(p);
@@ -1278,8 +1266,7 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
     AVPacket *compr_data = NULL;
     compr_data = av_packet_alloc();
 
-    if (compr_data == NULL)
-    {
+    if (compr_data == NULL) {
         LOGGER_DEBUG(vc->log, "av_packet_alloc:ERROR");
         free(p);
         p = NULL;
@@ -1322,14 +1309,15 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
     /* ------------------------------------------------------- */
 
     int result_send_packet = avcodec_send_packet(vc->h264_decoder, compr_data);
-    if (result_send_packet != 0)
-    {
+
+    if (result_send_packet != 0) {
         LOGGER_DEBUG(vc->log, "avcodec_send_packet:ERROR=%d", result_send_packet);
         av_packet_free(&compr_data);
         free(p);
         p = NULL;
         return;
     }
+
     // uint32_t end_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
     // if ((int)(end_time_ms - start_time_ms) > 4) {
     //    LOGGER_WARNING(vc->log, "decode_frame_h264:002: %d ms", (int)(end_time_ms - start_time_ms));
@@ -1348,11 +1336,12 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
 
         // start_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
         AVFrame *frame = av_frame_alloc();
-        if (frame == NULL)
-        {
+
+        if (frame == NULL) {
             // stop decoding
             break;
         }
+
         // end_time_ms = current_time_monotonicvc->av->toxav_mono_time);
         // LOGGER_WARNING(vc->log, "decode_frame_h264:003: %d ms", (int)(end_time_ms - start_time_ms));
 
@@ -1441,8 +1430,7 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
             }
 
             // start_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
-            if ((frame->data[0] != NULL) && (frame->data[1] != NULL) && (frame->data[2] != NULL))
-            {
+            if ((frame->data[0] != NULL) && (frame->data[1] != NULL) && (frame->data[2] != NULL)) {
 
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
@@ -1462,6 +1450,7 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                         frame->linesize[0], frame->linesize[1],
                         frame->linesize[2], vc->vcb_user_data);
             }
+
             // end_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
             // LOGGER_WARNING(vc->log, "decode_frame_h264:005: %d ms", (int)(end_time_ms - start_time_ms));
 
@@ -1593,7 +1582,8 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
         LOGGER_ERROR(av->m->log, "av_frame_make_writable:ERROR");
     }
 
-    LOGGER_DEBUG(av->m->log, "video packet record time[ECN:4a]: %d mtime=%d", (int)(*video_frame_record_timestamp), (int)current_time_monotonic(av->toxav_mono_time));
+    LOGGER_DEBUG(av->m->log, "video packet record time[ECN:4a]: %d mtime=%d", (int)(*video_frame_record_timestamp),
+                 (int)current_time_monotonic(av->toxav_mono_time));
     frame->pts = (int64_t)(*video_frame_record_timestamp);
 
     // copy YUV frame data into buffers
@@ -1629,9 +1619,11 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
                         );
         }
 
-        LOGGER_DEBUG(av->m->log, "video packet record time[ECN:4b]: %d mtime=%d", (int)(*video_frame_record_timestamp), (int)current_time_monotonic(av->toxav_mono_time));
+        LOGGER_DEBUG(av->m->log, "video packet record time[ECN:4b]: %d mtime=%d", (int)(*video_frame_record_timestamp),
+                     (int)current_time_monotonic(av->toxav_mono_time));
         *video_frame_record_timestamp = (uint64_t)call->video->h264_out_pic2->pts;
-        LOGGER_DEBUG(av->m->log, "video packet record time[ECN:4c]: %d mtime=%d", (int)(*video_frame_record_timestamp), (int)current_time_monotonic(av->toxav_mono_time));
+        LOGGER_DEBUG(av->m->log, "video packet record time[ECN:4c]: %d mtime=%d", (int)(*video_frame_record_timestamp),
+                     (int)current_time_monotonic(av->toxav_mono_time));
 
         *i_frame_size = call->video->h264_out_pic2->size;
 
@@ -1703,7 +1695,8 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
 
         LOGGER_DEBUG(av->m->log, "video packet record time[1a]: %d", (int)(*video_frame_record_timestamp));
         // *video_frame_record_timestamp = (uint64_t)call->video->h264_out_pic2->pts;
-        LOGGER_DEBUG(av->m->log, "video packet record time[1b]: %d mtime=%d", (int)(*video_frame_record_timestamp), (int)current_time_monotonic(av->toxav_mono_time));
+        LOGGER_DEBUG(av->m->log, "video packet record time[1b]: %d mtime=%d", (int)(*video_frame_record_timestamp),
+                     (int)current_time_monotonic(av->toxav_mono_time));
         const uint32_t frame_length_in_bytes = *i_frame_size;
         const int keyframe = (int)1;
 
