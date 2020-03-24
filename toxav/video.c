@@ -131,11 +131,11 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
 
     vc->last_incoming_frame_ts = 0;
     vc->last_parsed_h264_sps_ts = 0;
-    vc->timestamp_difference_to_sender__for_video = 76341; // 0;
+    vc->timestamp_difference_to_sender__for_video = 0;
     vc->timestamp_difference_adjustment = -450;
     vc->video_received_first_frame = 0;
     vc->tsb_range_ms = 60;
-    vc->startup_video_timespan = 8000; // (UINT32_MAX - 60); // 8000;
+    vc->startup_video_timespan = 8000;
     vc->incoming_video_bitrate_last_changed = 0;
     vc->network_round_trip_time_last_cb_ts = 0;
     vc->incoming_video_bitrate_last_cb_ts = 0;
