@@ -35,16 +35,13 @@ static void handle_self_connection_status(Tox *tox, Tox_Connection connection_st
 static void handle_friend_connection_status(Tox *tox, uint32_t friend_number, Tox_Connection connection_status,
         void *user_data)
 {
-    if (friend_number < 3)
-    {
+    if (friend_number < 3) {
         State *state = (State *)user_data;
 
         fprintf(stderr, "handle_friend_connection_status(#%u, %u, %d, _)\n", state->id, friend_number, connection_status);
         state->friend_online = (connection_status != TOX_CONNECTION_NONE);
         fprintf(stderr, "handle_friend_connection_status(friend online status=%d)\n", (int)state->friend_online);
-    }
-    else
-    {
+    } else {
         fprintf(stderr, "handle_friend_connection_status(    %u, %d, _)\n", friend_number, connection_status);
     }
 }
@@ -148,55 +145,43 @@ int main(void)
 
 
 
-    for (int j=1;j<10;j++)
-    {
+    for (int j = 1; j < 10; j++) {
         randombytes_buf(key, TOX_PUBLIC_KEY_SIZE);
         res = tox_friend_add_norequest(tox1, key, &error_add);  // tox1 -> random dummy
 
-        if (error_add != 6)
-        {
+        if (error_add != 6) {
             // printf("add friend number: %d\n", j);
             ck_assert_msg(res != UINT32_MAX, "failed to invite a random friend number: %d res=%d errnum=%d", j, res, error_add);
             tox_iterate(tox1, &state1);
-        }
-        else
-        {
+        } else {
             j--;
         }
     }
 
 
-    for (int j=1;j<10;j++)
-    {
+    for (int j = 1; j < 10; j++) {
         randombytes_buf(key, TOX_PUBLIC_KEY_SIZE);
         res = tox_friend_add_norequest(tox2, key, &error_add);  // tox2 -> random dummy
 
-        if (error_add != 6)
-        {
+        if (error_add != 6) {
             // printf("add friend number: %d\n", j);
             ck_assert_msg(res != UINT32_MAX, "failed to invite a random friend number: %d res=%d errnum=%d", j, res, error_add);
             tox_iterate(tox2, &state2);
-        }
-        else
-        {
+        } else {
             j--;
         }
     }
 
 
-    for (int j=1;j<10;j++)
-    {
+    for (int j = 1; j < 10; j++) {
         randombytes_buf(key, TOX_PUBLIC_KEY_SIZE);
         res = tox_friend_add_norequest(tox3, key, &error_add);  // tox3 -> random dummy
 
-        if (error_add != 6)
-        {
+        if (error_add != 6) {
             // printf("add friend number: %d\n", j);
             ck_assert_msg(res != UINT32_MAX, "failed to invite a random friend number: %d res=%d errnum=%d", j, res, error_add);
             tox_iterate(tox3, &state3);
-        }
-        else
-        {
+        } else {
             j--;
         }
     }
