@@ -69,7 +69,7 @@ void *tsb_write(TSBuffer *b, void *p, const uint64_t data_type, const uint32_t t
     b->timestamp[b->end] = timestamp;
     b->end = (b->end + 1) % b->size;
 
-    printf("tsb_write:%p size=%d start=%d end=%d\n", (void*)b, b->size, b->start, b->end);
+    printf("tsb_write:%p size=%d start=%d end=%d\n", (void *)b, b->size, b->start, b->end);
 
     tsb_debug_print_entries(b);
 
@@ -240,12 +240,12 @@ static bool tsb_return_oldest_entry_in_range(TSBuffer *b, Logger *log, void **p,
         }
 
         printf("tsb_return_oldest_entry_in_range:%p size=%d st=%d end=%d in=%ld range=%ld in-range=%ld in+1 = %ld cur_ts=%ld\n",
-         (void*)b, b->size, b->start, b->end,
-         (int64_t)timestamp_in,
-         (int64_t)timestamp_range,
-         ((int64_t)timestamp_in - (int64_t)timestamp_range),
-         ((int64_t)timestamp_in + (int64_t)1),
-         (int64_t)b->timestamp[current_element]);
+               (void *)b, b->size, b->start, b->end,
+               (int64_t)timestamp_in,
+               (int64_t)timestamp_range,
+               ((int64_t)timestamp_in - (int64_t)timestamp_range),
+               ((int64_t)timestamp_in + (int64_t)1),
+               (int64_t)b->timestamp[current_element]);
 
 
         if ((((int64_t)b->timestamp[current_element]) >= ((int64_t)timestamp_in - (int64_t)timestamp_range))
@@ -343,10 +343,10 @@ bool tsb_read(TSBuffer *b, Logger *log, void **p, uint64_t *data_type, uint32_t 
     *is_skipping = 0;
 
     printf("tsb_read:000:%p size=%d st=%d end=%d tsin=%d tsrange=%d\n",
-        (void*)b, b->size, b->start, b->end, timestamp_in, timestamp_range);
+           (void *)b, b->size, b->start, b->end, timestamp_in, timestamp_range);
 
     if (tsb_empty(b) == true) {
-        printf("tsb_read:EMPTY:%p size=%d st=%d end=%d\n", (void*)b, b->size, b->start, b->end);
+        printf("tsb_read:EMPTY:%p size=%d st=%d end=%d\n", (void *)b, b->size, b->start, b->end);
         *removed_entries_back = 0;
         *p = NULL;
         return false;
@@ -362,13 +362,15 @@ bool tsb_read(TSBuffer *b, Logger *log, void **p, uint64_t *data_type, uint32_t 
                               timestamp_in,
                               timestamp_range);
 
-    printf("tsb_read:%p size=%d st=%d end=%d have_found_element=%d\n", (void*)b, b->size, b->start, b->end, (int)have_found_element);
+    printf("tsb_read:%p size=%d st=%d end=%d have_found_element=%d\n", (void *)b, b->size, b->start, b->end,
+           (int)have_found_element);
 
     if (have_found_element == true) {
         // only delete old entries if we found a "wanted" entry
         uint16_t removed_entries = tsb_delete_old_entries(b, log, ((int64_t)timestamp_in - (int64_t)timestamp_range));
 
-        printf("tsb_read:%p size=%d st=%d end=%d removed_entries=%d\n", (void*)b, b->size, b->start, b->end, (int)removed_entries);
+        printf("tsb_read:%p size=%d st=%d end=%d removed_entries=%d\n", (void *)b, b->size, b->start, b->end,
+               (int)removed_entries);
 
         *removed_entries_back = removed_entries;
 
@@ -413,7 +415,7 @@ TSBuffer *tsb_new(const int size)
 
     buf->last_timestamp_out = 0;
 
-    printf("tsb_new:%p size=%d st=%d end=%d\n", (void*)buf, buf->size, buf->start, buf->end);
+    printf("tsb_new:%p size=%d st=%d end=%d\n", (void *)buf, buf->size, buf->start, buf->end);
 
     tsb_debug_print_entries(buf);
 
@@ -423,7 +425,7 @@ TSBuffer *tsb_new(const int size)
 void tsb_drain(TSBuffer *b)
 {
     if (b) {
-        printf("tsb_drain:%p size=%d\n", (void*)b, tsb_size(b));
+        printf("tsb_drain:%p size=%d\n", (void *)b, tsb_size(b));
         tsb_debug_print_entries(b);
 
         void *dummy = NULL;
@@ -473,11 +475,13 @@ static void tsb_debug_print_entries(const TSBuffer *b)
     uint16_t current_element;
 
     printf("tsb_debug_print_entries:---------------------\n");
+
     for (int i = 0; i < tsb_size(b); i++) {
         current_element = (b->start + i) % b->size;
         printf("tsb_debug_print_entries:loop=%d val=%d buf=%p\n",
-            current_element, b->timestamp[current_element], (void *)b->data[current_element]);
+               current_element, b->timestamp[current_element], (void *)b->data[current_element]);
     }
+
     printf("tsb_debug_print_entries:---------------------\n");
 }
 
