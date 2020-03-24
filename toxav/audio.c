@@ -197,12 +197,12 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
 
     if ((int)tsb_size(q) > 0) {
         LOGGER_WARNING(log, "FC:%d min=%ld max=%ld want=%d diff=%d adj=%d",
-                     (int)tsb_size(q),
-                     timestamp_min,
-                     timestamp_max,
-                     (int)want_remote_video_ts,
-                     (int)want_remote_video_ts - (int)timestamp_max,
-                     (int)timestamp_difference_adjustment_);
+                       (int)tsb_size(q),
+                       timestamp_min,
+                       timestamp_max,
+                       (int)want_remote_video_ts,
+                       (int)want_remote_video_ts - (int)timestamp_max,
+                       (int)timestamp_difference_adjustment_);
     }
 
 #endif
@@ -212,8 +212,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     uint32_t tsb_range_ms_used = tsb_range_ms;
     uint32_t timestamp_want_get_used = want_remote_video_ts;
 
-    if (ac->audio_received_first_frame == 0)
-    {
+    if (ac->audio_received_first_frame == 0) {
         tsb_range_ms_used = UINT32_MAX;
         timestamp_want_get_used = UINT32_MAX;
     }
@@ -228,17 +227,19 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
                         &is_skipping);
 
 #if 0
+
     if (res == true) {
         struct RTPMessage *m_debug = (struct RTPMessage *)ret;
         LOGGER_WARNING(log, "tsb_read got: now=%d iter=%d seq:%d FC:%d is_skipping=%d",
-                          (int)current_time_monotonic(ac->mono_time),
-                          (int)current_time_monotonic(ac->mono_time) - global_last_aiterate_ts,
-                          (int)m_debug->header.sequnum,
-                          (int)tsb_size(q),
-                          (int)is_skipping);
+                       (int)current_time_monotonic(ac->mono_time),
+                       (int)current_time_monotonic(ac->mono_time) - global_last_aiterate_ts,
+                       (int)m_debug->header.sequnum,
+                       (int)tsb_size(q),
+                       (int)is_skipping);
 
         global_last_aiterate_ts = (int)current_time_monotonic(ac->mono_time);
     }
+
 #endif
 
     if (removed_entries > 0) {
@@ -249,8 +250,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
         *success = 1;
 
 
-        if (ac->audio_received_first_frame == 0)
-        {
+        if (ac->audio_received_first_frame == 0) {
             ac->audio_received_first_frame = 1;
         }
 
@@ -409,6 +409,7 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 #if 0
+
             if (rc >= 0) {
                 // what is the audio to video latency?
                 const struct RTPHeader *header_v3 = (void *) & (msg->header);
@@ -424,6 +425,7 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
                         LOGGER_DEBUG(ac->log, "AUDIO: remote timestamp older");
                     }
                 }
+
                 // what is the audio to video latency?
             }
 
@@ -454,12 +456,13 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
 
 int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
 {
-    printf("ac_queue_message:001:%p\n", (void*) msg);
-    
+    printf("ac_queue_message:001:%p\n", (void *) msg);
+
     if (!acp || !msg) {
-        printf("ac_queue_message:002:%p\n", (void*) msg);
+        printf("ac_queue_message:002:%p\n", (void *) msg);
+
         if (msg) {
-            printf("ac_queue_message:003:%p\n", (void*) msg);
+            printf("ac_queue_message:003:%p\n", (void *) msg);
             free(msg);
         }
 
@@ -476,14 +479,14 @@ int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
 
     if ((msg->header.pt & 0x7f) == (RTP_TYPE_AUDIO + 2) % 128) {
         LOGGER_WARNING(ac->log, "Got dummy!");
-        printf("ac_queue_message:004:%p\n", (void*) msg);
+        printf("ac_queue_message:004:%p\n", (void *) msg);
         free(msg);
         return 0;
     }
 
     if ((msg->header.pt & 0x7f) != RTP_TYPE_AUDIO % 128) {
         LOGGER_WARNING(ac->log, "Invalid payload type!");
-        printf("ac_queue_message:005:%p\n", (void*) msg);
+        printf("ac_queue_message:005:%p\n", (void *) msg);
         free(msg);
         return -1;
     }
@@ -499,7 +502,7 @@ int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
         msg->header.frame_record_timestamp = msg->header.timestamp;
     }
 
-    printf("ac_queue_message:jbuf_write:%p\n", (void*) msg);
+    printf("ac_queue_message:jbuf_write:%p\n", (void *) msg);
     jbuf_write(nullptr, ac, (struct TSBuffer *)ac->j_buf, msg);
 
     LOGGER_DEBUG(ac->log, "AADEBUG:OK:seqnum=%d dt=%d ts:%d curts:%d", (int)header_v3->sequnum,
@@ -509,7 +512,7 @@ int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
 
     ac->last_incoming_frame_ts = header_v3->frame_record_timestamp;
 
-    printf("ac_queue_message:099:%p\n", (void*) msg);
+    printf("ac_queue_message:099:%p\n", (void *) msg);
 
     pthread_mutex_unlock(ac->queue_mutex);
 
@@ -573,21 +576,21 @@ static int jbuf_write(Logger *log, ACSession *ac, struct TSBuffer *q, struct RTP
 
     printf("jbuf_write:START:%d\n", (int32_t)gettid());
 
-    printf("ac_queue_message:001:%p\n", (void*) m);
+    printf("ac_queue_message:001:%p\n", (void *) m);
 
     void *tmp_buf2 = tsb_write(q, (void *)m, 0, (uint32_t)m->header.frame_record_timestamp);
 
-    printf("ac_queue_message:002:%p ret=%p\n", (void*) m, (void *)tmp_buf2);
+    printf("ac_queue_message:002:%p ret=%p\n", (void *) m, (void *)tmp_buf2);
 
     if (tmp_buf2 != NULL) {
         LOGGER_DEBUG(log, "AADEBUG:rb_write: error in rb_write:rb_size=%d", (int)tsb_size(q));
-        printf("ac_queue_message:003:%p ret=%p\n", (void*) m, (void *)tmp_buf2);
+        printf("ac_queue_message:003:%p ret=%p\n", (void *) m, (void *)tmp_buf2);
         free(tmp_buf2);
         printf("jbuf_write:RET01:%d\n", (int32_t)gettid());
         return -1;
     }
 
-    printf("ac_queue_message:099:%p ret=%p\n", (void*) m, (void *)tmp_buf2);
+    printf("ac_queue_message:099:%p ret=%p\n", (void *) m, (void *)tmp_buf2);
     printf("jbuf_write:END:%d\n", (int32_t)gettid());
     return 0;
 }
