@@ -362,25 +362,25 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
      */
 
     int want_remote_video_ts;
-    if ((int)vc->video_decoder_buffer_sum_ms < (int)vc->video_decoder_buffer_ms)
-    {
-        want_remote_video_ts = ((int)current_time_monotonic(vc->av->toxav_mono_time) + (int)vc->timestamp_difference_to_sender__for_video +
-                                        (int)vc->timestamp_difference_adjustment - (int)vc->video_decoder_buffer_ms);
-    }
-    else
-    {
-        want_remote_video_ts = ((int)current_time_monotonic(vc->av->toxav_mono_time) + (int)vc->timestamp_difference_to_sender__for_video +
-                                        (int)vc->timestamp_difference_adjustment - (int)vc->video_decoder_buffer_sum_ms);
+
+    if ((int)vc->video_decoder_buffer_sum_ms < (int)vc->video_decoder_buffer_ms) {
+        want_remote_video_ts = ((int)current_time_monotonic(vc->av->toxav_mono_time) + (int)
+                                vc->timestamp_difference_to_sender__for_video +
+                                (int)vc->timestamp_difference_adjustment - (int)vc->video_decoder_buffer_ms);
+    } else {
+        want_remote_video_ts = ((int)current_time_monotonic(vc->av->toxav_mono_time) + (int)
+                                vc->timestamp_difference_to_sender__for_video +
+                                (int)vc->timestamp_difference_adjustment - (int)vc->video_decoder_buffer_sum_ms);
     }
 
 
     LOGGER_API_DEBUG(tox, "VC_TS_CALC:01:%d %d %d %d %d",
-                        (int)want_remote_video_ts,
-                        (int)(current_time_monotonic(vc->av->toxav_mono_time)),
-                        (int)vc->timestamp_difference_to_sender__for_video,
-                        (int)vc->timestamp_difference_adjustment,
-                        (int)vc->video_decoder_buffer_sum_ms
-                        );
+                     (int)want_remote_video_ts,
+                     (int)(current_time_monotonic(vc->av->toxav_mono_time)),
+                     (int)vc->timestamp_difference_to_sender__for_video,
+                     (int)vc->timestamp_difference_adjustment,
+                     (int)vc->video_decoder_buffer_sum_ms
+                    );
 
     uint32_t timestamp_want_get = (int)want_remote_video_ts;
 
@@ -412,19 +412,19 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
 
 #if 1
-        LOGGER_DEBUG(vc->log, "rtt:drift:1:%d %d %d", (int)(vc->rountrip_time_ms),
-                     (int)(-vc->timestamp_difference_adjustment),
-                     (int)vc->video_decoder_adjustment_base_ms);
+    LOGGER_DEBUG(vc->log, "rtt:drift:1:%d %d %d", (int)(vc->rountrip_time_ms),
+                 (int)(-vc->timestamp_difference_adjustment),
+                 (int)vc->video_decoder_adjustment_base_ms);
 
-        if (vc->rountrip_time_ms > (-vc->timestamp_difference_adjustment)) {
-            // drift
-            vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment - 1;
-            LOGGER_DEBUG(vc->log, "rtt:drift:4:--1:%d", (int)(vc->timestamp_difference_adjustment));
-        } else if (vc->rountrip_time_ms < (-vc->timestamp_difference_adjustment)) {
-            // drift
-            vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment + 1;
-            LOGGER_DEBUG(vc->log, "rtt:drift:7:+1:%d", (int)(vc->timestamp_difference_adjustment));
-        }
+    if (vc->rountrip_time_ms > (-vc->timestamp_difference_adjustment)) {
+        // drift
+        vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment - 1;
+        LOGGER_DEBUG(vc->log, "rtt:drift:4:--1:%d", (int)(vc->timestamp_difference_adjustment));
+    } else if (vc->rountrip_time_ms < (-vc->timestamp_difference_adjustment)) {
+        // drift
+        vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment + 1;
+        LOGGER_DEBUG(vc->log, "rtt:drift:7:+1:%d", (int)(vc->timestamp_difference_adjustment));
+    }
 
 #endif
 
@@ -439,20 +439,19 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     uint32_t tsb_range_ms_used = vc->tsb_range_ms + vc->startup_video_timespan;
     uint32_t timestamp_want_get_used = timestamp_want_get;
 
-    if (vc->video_received_first_frame == 0)
-    {
+    if (vc->video_received_first_frame == 0) {
         tsb_range_ms_used = UINT32_MAX;
         timestamp_want_get_used = UINT32_MAX;
     }
 
     LOGGER_API_WARNING(tox, "tsb_read got: want=%d %d %d %d %d",
-                        (int)timestamp_want_get_used,
-                        (int)(vc->tsb_range_ms),
-                        (int)(vc->startup_video_timespan),
-                        (int)(tsb_range_ms_used),
-                        (int)tsb_size((TSBuffer *)vc->vbuf_raw)
-                       );
- 
+                       (int)timestamp_want_get_used,
+                       (int)(vc->tsb_range_ms),
+                       (int)(vc->startup_video_timespan),
+                       (int)(tsb_range_ms_used),
+                       (int)tsb_size((TSBuffer *)vc->vbuf_raw)
+                      );
+
 
 
     // HINT: give me video frames that happend "now" minus some diff
@@ -466,8 +465,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
         LOGGER_API_WARNING(tox, "VIDEO:tsb_read XXXXXXXXXXXXXXXXXXXXXXXXXXXX");
 
-        if (vc->video_received_first_frame == 0)
-        {
+        if (vc->video_received_first_frame == 0) {
             vc->video_received_first_frame = 1;
         }
 
@@ -479,37 +477,37 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 //                          (int)header_v3_0->sequnum,
 //                          (int)tsb_size((TSBuffer *)vc->vbuf_raw),
 //                          (int)is_skipping);
-// 
+//
 //        global_last_viterate_ts = (int)current_time_monotonic(m->mono_time);
 
         LOGGER_API_WARNING(tox, "XLS01:%d,%d",
-                     (int)(timestamp_want_get - current_time_monotonic(vc->av->toxav_mono_time)),
-                     (int)(timestamp_out_ - current_time_monotonic(vc->av->toxav_mono_time))
-                    );
+                           (int)(timestamp_want_get - current_time_monotonic(vc->av->toxav_mono_time)),
+                           (int)(timestamp_out_ - current_time_monotonic(vc->av->toxav_mono_time))
+                          );
 
-        vc->video_play_delay = ((current_time_monotonic(vc->av->toxav_mono_time) + vc->timestamp_difference_to_sender__for_video) - timestamp_out_);
+        vc->video_play_delay = ((current_time_monotonic(vc->av->toxav_mono_time) +
+                                 vc->timestamp_difference_to_sender__for_video) - timestamp_out_);
         vc->video_play_delay_real = vc->video_play_delay;
 
         vc->video_frame_buffer_entries = (uint32_t)tsb_size((TSBuffer *)vc->vbuf_raw);
 
-        if (removed_entries > 0)
-        {
+        if (removed_entries > 0) {
 
             LOGGER_API_WARNING(tox,
-                         "seq:%d FC:%d min=%d max=%d want=%d got=%d diff=%d rm=%d pdelay=%d pdelayr=%d adj=%d dts=%d rtt=%d",
-                         (int)header_v3_0->sequnum,
-                         (int)tsb_size((TSBuffer *)vc->vbuf_raw),
-                         timestamp_min,
-                         timestamp_max,
-                         (int)timestamp_want_get,
-                         (int)timestamp_out_,
-                         ((int)timestamp_want_get - (int)timestamp_out_),
-                         (int)removed_entries,
-                         (int)vc->video_play_delay,
-                         (int)vc->video_play_delay_real,
-                         (int)vc->timestamp_difference_adjustment,
-                         (int)vc->timestamp_difference_to_sender__for_video,
-                         (int)vc->rountrip_time_ms);
+                               "seq:%d FC:%d min=%d max=%d want=%d got=%d diff=%d rm=%d pdelay=%d pdelayr=%d adj=%d dts=%d rtt=%d",
+                               (int)header_v3_0->sequnum,
+                               (int)tsb_size((TSBuffer *)vc->vbuf_raw),
+                               timestamp_min,
+                               timestamp_max,
+                               (int)timestamp_want_get,
+                               (int)timestamp_out_,
+                               ((int)timestamp_want_get - (int)timestamp_out_),
+                               (int)removed_entries,
+                               (int)vc->video_play_delay,
+                               (int)vc->video_play_delay_real,
+                               (int)vc->timestamp_difference_adjustment,
+                               (int)vc->timestamp_difference_to_sender__for_video,
+                               (int)vc->rountrip_time_ms);
         }
 
         uint16_t buf_size = tsb_size((TSBuffer *)vc->vbuf_raw);
@@ -517,9 +515,9 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
 
         LOGGER_API_WARNING(tox, "values:diff_to_sender=%d adj=%d tsb_range=%d bufsize=%d",
-                     (int)vc->timestamp_difference_to_sender__for_video, (int)vc->timestamp_difference_adjustment,
-                     (int)vc->tsb_range_ms,
-                     (int)buf_size);
+                           (int)vc->timestamp_difference_to_sender__for_video, (int)vc->timestamp_difference_adjustment,
+                           (int)vc->tsb_range_ms,
+                           (int)buf_size);
 
 
         if (vc->startup_video_timespan > 0) {
@@ -531,12 +529,10 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         // TODO: calculate the delay for the audio stream, and pass it back
         // bad hack -> make better!
         // -----------------------------
-        if ((int)vc->video_decoder_buffer_sum_ms < (int)vc->video_decoder_buffer_ms)
-        {
-            *timestamp_difference_adjustment_ = vc->timestamp_difference_adjustment - (vc->video_decoder_buffer_ms - vc->video_decoder_add_delay_ms);
-        }
-        else
-        {
+        if ((int)vc->video_decoder_buffer_sum_ms < (int)vc->video_decoder_buffer_ms) {
+            *timestamp_difference_adjustment_ = vc->timestamp_difference_adjustment - (vc->video_decoder_buffer_ms -
+                                                vc->video_decoder_add_delay_ms);
+        } else {
             *timestamp_difference_adjustment_ = vc->timestamp_difference_adjustment - vc->video_decoder_buffer_ms;
         }
 
