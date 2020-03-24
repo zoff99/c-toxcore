@@ -265,8 +265,7 @@ void toxav_audio_iterate(ToxAV *av)
 
         ToxAVCall *i = call_get(av,  fid);
 
-        if (i)
-        {
+        if (i) {
             if (i->active) {
 
                 pthread_mutex_lock(i->toxav_call_mutex);
@@ -288,7 +287,7 @@ void toxav_audio_iterate(ToxAV *av)
                 pthread_mutex_lock(av->mutex);
             }
         }
-    }    
+    }
 
     pthread_mutex_unlock(av->mutex);
 }
@@ -313,7 +312,7 @@ void toxav_iterate(ToxAV *av)
         audio_iterations = 0;
 
         if (i->active) {
-            
+
             bool audio_iterate_seperation_active = av->toxav_audio_iterate_seperation_active;
 
             pthread_mutex_lock(i->toxav_call_mutex);
@@ -334,6 +333,7 @@ void toxav_iterate(ToxAV *av)
 
                 i->skip_video_flag = 0;
             }
+
             // ------- ac_iterate for audio -------
 
             // ------- av_iterate for VIDEO -------
@@ -810,7 +810,8 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
             ACSession *ac = (ACSession *)call->audio;
             ac->video_decoder_add_delay_ms_copy = vc->video_decoder_add_delay_ms;
             vc->video_decoder_buffer_sum_ms = vc->video_decoder_buffer_ms + vc->video_decoder_add_delay_ms;
-            LOGGER_DEBUG(av->m->log, "video decoder setting video_decoder_add_delay_ms to: %d", (int)vc->video_decoder_buffer_sum_ms);
+            LOGGER_DEBUG(av->m->log, "video decoder setting video_decoder_add_delay_ms to: %d",
+                         (int)vc->video_decoder_buffer_sum_ms);
         }
     } else if (option == TOXAV_DECODER_VIDEO_BUFFER_MS) {
         VCSession *vc = (VCSession *)call->video;
@@ -1334,7 +1335,7 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
 }
 
 bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height, const uint8_t *y,
-                            const uint8_t *u, const uint8_t *v, TOXAV_ERR_SEND_FRAME *error, uint32_t age_ms)
+                                const uint8_t *u, const uint8_t *v, TOXAV_ERR_SEND_FRAME *error, uint32_t age_ms)
 {
     TOXAV_ERR_SEND_FRAME rc = TOXAV_ERR_SEND_FRAME_OK;
     ToxAVCall *call;
@@ -1752,8 +1753,9 @@ bool toxav_video_send_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t wid
     return toxav_video_send_frame_h264_age(av, friend_number, width, height, buf, data_len, error, 0);
 }
 
-bool toxav_video_send_frame_h264_age(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height, const uint8_t *buf,
-                                 uint32_t data_len, TOXAV_ERR_SEND_FRAME *error, uint32_t age_ms)
+bool toxav_video_send_frame_h264_age(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height,
+                                     const uint8_t *buf,
+                                     uint32_t data_len, TOXAV_ERR_SEND_FRAME *error, uint32_t age_ms)
 {
     TOXAV_ERR_SEND_FRAME rc = TOXAV_ERR_SEND_FRAME_OK;
     ToxAVCall *call;
@@ -2008,9 +2010,9 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
 
             // HINT: sanity check --------------
 
-            if ((uint32_t)call->video_bit_rate_not_yet_set > ((uint32_t)call->video_bit_rate + 300))
-            {
-                LOGGER_DEBUG(call->av->m->log, "callback_bwc:INC:vb=%d loss=%d", (int)call->video_bit_rate_not_yet_set, (int)(loss * 100));
+            if ((uint32_t)call->video_bit_rate_not_yet_set > ((uint32_t)call->video_bit_rate + 300)) {
+                LOGGER_DEBUG(call->av->m->log, "callback_bwc:INC:vb=%d loss=%d", (int)call->video_bit_rate_not_yet_set,
+                             (int)(loss * 100));
                 call->video_bit_rate = (uint32_t)call->video_bit_rate_not_yet_set;
             }
         }
@@ -2030,16 +2032,19 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
             if (tmp > (uint32_t)call->video->video_max_bitrate) {
                 tmp = (uint32_t)call->video->video_max_bitrate;
             }
+
             // HINT: sanity check --------------
 
 #if 0
-            if ((loss * 100) > 85)
-            {
+
+            if ((loss * 100) > 85) {
                 call->video->video_max_bitrate = (uint32_t)((uint32_t)call->video_bit_rate * 0.8f);
                 LOGGER_ERROR(call->av->m->log, "callback_bwc:DEC:2:lower max bitrate to: %d", (int)call->video->video_max_bitrate);
             }
+
 #endif
-            LOGGER_ERROR(call->av->m->log, "callback_bwc:DEC:2:vbold=%d vbnew=%d loss=%d", (int)call->video_bit_rate, (int)tmp, (int)(loss * 100));
+            LOGGER_ERROR(call->av->m->log, "callback_bwc:DEC:2:vbold=%d vbnew=%d loss=%d", (int)call->video_bit_rate, (int)tmp,
+                         (int)(loss * 100));
 
             call->video_bit_rate = (uint32_t)tmp;
             call->video_bit_rate_not_yet_set = call->video_bit_rate;
