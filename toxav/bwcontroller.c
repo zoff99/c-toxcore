@@ -78,7 +78,7 @@ struct BWController_s {
     Tox *tox;
     uint32_t friend_number;
     BWCCycle cycle;
-    Mono_Time* bwc_mono_time;
+    Mono_Time *bwc_mono_time;
     uint32_t packet_loss_counted_cycles;
 };
 
@@ -155,8 +155,7 @@ void bwc_add_recv(BWController *bwc, uint32_t recv_bytes)
 
 void send_update(BWController *bwc, bool dummy)
 {
-    if (current_time_monotonic(bwc->bwc_mono_time) - bwc->cycle.last_sent_timestamp > BWC_SEND_INTERVAL_MS)
-    {
+    if (current_time_monotonic(bwc->bwc_mono_time) - bwc->cycle.last_sent_timestamp > BWC_SEND_INTERVAL_MS) {
         bwc->packet_loss_counted_cycles = 0;
 
         if ((bwc->cycle.recv + bwc->cycle.lost) > 0) {
@@ -176,9 +175,7 @@ void send_update(BWController *bwc, bool dummy)
 
         if (-1 == bwc_send_custom_lossy_packet(bwc->tox, bwc->friend_number, bwc_packet, sizeof(bwc_packet))) {
             LOGGER_WARNING(bwc->m->log, "BWC send failed (len: %zu)! std error: %s", sizeof(bwc_packet), strerror(errno));
-        }
-        else
-        {
+        } else {
             bwc->cycle.last_sent_timestamp = current_time_monotonic(bwc->bwc_mono_time);
 
             bwc->cycle.lost = 0;
@@ -249,6 +246,7 @@ void bwc_handle_data(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_
     if (!call) {
         return;
     }
+
     /* get Call object from Tox and friend number */
 
 
