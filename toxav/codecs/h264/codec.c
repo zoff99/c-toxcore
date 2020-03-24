@@ -39,15 +39,14 @@
 #include <stdio.h>
 
 #undef LOGGER_DEBUG
-#define LOGGER_DEBUG(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_DEBUG(log, ...) printf("")
 #undef LOGGER_ERROR
-#define LOGGER_ERROR(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_ERROR(log, ...) printf("")
 #undef LOGGER_WARNING
-#define LOGGER_WARNING(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_WARNING(log, ...) printf("")
 #undef LOGGER_INFO
-#define LOGGER_INFO(log, ...) printf(__VA_ARGS__);printf("\n")
-#undef LOGGER_TRACE
-#define LOGGER_TRACE(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_INFO(log, ...) printf("")
+
 /*
  * Zoff: disable logging in ToxAV for now
  */

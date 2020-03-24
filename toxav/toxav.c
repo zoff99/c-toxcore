@@ -46,15 +46,13 @@ uint32_t _debug_skip_every_x_audio_frame = 10;
 #include <stdio.h>
 
 #undef LOGGER_DEBUG
-#define LOGGER_DEBUG(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_DEBUG(log, ...) printf("")
 #undef LOGGER_ERROR
-#define LOGGER_ERROR(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_ERROR(log, ...) printf("")
 #undef LOGGER_WARNING
-#define LOGGER_WARNING(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_WARNING(log, ...) printf("")
 #undef LOGGER_INFO
-#define LOGGER_INFO(log, ...) printf(__VA_ARGS__);printf("\n")
-#undef LOGGER_TRACE
-#define LOGGER_TRACE(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_INFO(log, ...) printf("")
 /*
  * Zoff: disable logging in ToxAV for now
  */
@@ -273,7 +271,6 @@ void toxav_audio_iterate(ToxAV *av)
 
                 pthread_mutex_unlock(av->mutex);
 
-                printf("ac:ITER:EEE:001\n");
                 uint8_t res_ac = ac_iterate(i->audio,
                                             &(i->last_incoming_audio_frame_rtimestamp),
                                             &(i->last_incoming_audio_frame_ltimestamp),
@@ -282,7 +279,6 @@ void toxav_audio_iterate(ToxAV *av)
                                             &(i->call_timestamp_difference_adjustment),
                                             &(copy_of_value)
                                            );
-                printf("ac:ITER:EEE:002\n");
                 pthread_mutex_unlock(i->toxav_call_mutex);
                 pthread_mutex_lock(av->mutex);
             }
@@ -320,7 +316,6 @@ void toxav_iterate(ToxAV *av)
 
             // ------- ac_iterate for audio -------
             if (!audio_iterate_seperation_active) {
-                printf("ac:ITER:001\n");
                 uint8_t res_ac = ac_iterate(i->audio,
                                             &(i->last_incoming_audio_frame_rtimestamp),
                                             &(i->last_incoming_audio_frame_ltimestamp),
@@ -329,7 +324,6 @@ void toxav_iterate(ToxAV *av)
                                             &(i->call_timestamp_difference_adjustment),
                                             &(i->call_timestamp_difference_to_sender)
                                            );
-                printf("ac:ITER:002\n");
 
                 i->skip_video_flag = 0;
             }

@@ -2037,10 +2037,7 @@ void custom_lossless_packet_registerhandler(Messenger *m, m_friend_lossless_pack
 
 int send_custom_lossless_packet(const Messenger *m, int32_t friendnumber, const uint8_t *data, uint32_t length)
 {
-    printf("send_custom_lossless_packet ------\n");
-
     if (friend_not_valid(m, friendnumber)) {
-        printf("send_custom_lossless_packet --- friend_not_valid ---\n");
         return -1;
     }
 
@@ -2051,13 +2048,11 @@ int send_custom_lossless_packet(const Messenger *m, int32_t friendnumber, const 
     if (data[0] < PACKET_ID_RANGE_LOSSLESS_CUSTOM_START || data[0] > PACKET_ID_RANGE_LOSSLESS_CUSTOM_END) {
         // allow PACKET_ID_MSI packets to be handled by custom packet handler
         if (data[0] != PACKET_ID_MSI) {
-            printf("packet not allowed ------ %d %d\n", data[0], PACKET_ID_MSI);
             return -3;
         }
     }
 
     if (m->friendlist[friendnumber].status != FRIEND_ONLINE) {
-        printf("friend not online ------\n");
         return -4;
     }
 

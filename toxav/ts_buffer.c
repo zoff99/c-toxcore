@@ -69,9 +69,8 @@ void *tsb_write(TSBuffer *b, void *p, const uint64_t data_type, const uint32_t t
     b->timestamp[b->end] = timestamp;
     b->end = (b->end + 1) % b->size;
 
-    printf("tsb_write:%p size=%d start=%d end=%d\n", (void *)b, b->size, b->start, b->end);
-
-    tsb_debug_print_entries(b);
+    // printf("tsb_write:%p size=%d start=%d end=%d\n", (void *)b, b->size, b->start, b->end);
+    // tsb_debug_print_entries(b);
 
     return rc;
 }
@@ -84,7 +83,7 @@ static void tsb_move_delete_entry(TSBuffer *b, Logger *log, uint16_t src_index, 
         if (msg) {
             const struct RTPHeader *header_v3_0 = & (msg->header);
             int seq = header_v3_0->sequnum;
-            LOGGER_DEBUG(log, "tsb:free:seq=%d", (int)seq);
+            // LOGGER_DEBUG(log, "tsb:free:seq=%d", (int)seq);
         }
 
         msg = b->data[src_index];
@@ -92,7 +91,7 @@ static void tsb_move_delete_entry(TSBuffer *b, Logger *log, uint16_t src_index, 
         if (msg) {
             const struct RTPHeader *header_v3_0 = & (msg->header);
             int seq = header_v3_0->sequnum;
-            LOGGER_DEBUG(log, "tsb:move:seq=%d from %d to %d", (int)seq, (int)src_index, (int)dst_index);
+            // LOGGER_DEBUG(log, "tsb:move:seq=%d from %d to %d", (int)seq, (int)src_index, (int)dst_index);
         }
     }
 
@@ -119,7 +118,7 @@ static void tsb_close_hole(TSBuffer *b, Logger *log, uint16_t start_index, uint1
         int seq = header_v3_0->sequnum;
 
         if (header_v3_0->pt == RTP_TYPE_VIDEO % 128) {
-            LOGGER_DEBUG(log, "tsb:hole index:seq=%d", (int)seq);
+            // LOGGER_DEBUG(log, "tsb:hole index:seq=%d", (int)seq);
         }
     }
 
@@ -169,8 +168,8 @@ static uint16_t tsb_delete_old_entries(TSBuffer *b, Logger *log, const uint64_t 
                 int seq = header_v3_0->sequnum;
 
                 if (header_v3_0->pt == RTP_TYPE_VIDEO % 128) {
-                    LOGGER_DEBUG(log, "tsb:kick:seq=%d diff=%d", (int)seq,
-                                 (int)(timestamp_threshold - b->timestamp[current_element]));
+                    // LOGGER_DEBUG(log, "tsb:kick:seq=%d diff=%d", (int)seq,
+                    //             (int)(timestamp_threshold - b->timestamp[current_element]));
                 }
             }
 
@@ -219,7 +218,7 @@ static bool tsb_return_oldest_entry_in_range(TSBuffer *b, Logger *log, void **p,
     uint16_t current_element;
 
     if (log) {
-        LOGGER_DEBUG(log, "tsb_old:tsb_size=%d", (int)tsb_size(b));
+        // LOGGER_DEBUG(log, "tsb_old:tsb_size=%d", (int)tsb_size(b));
     }
 
     for (int i = 0; i < tsb_size(b); i++) {
@@ -233,26 +232,26 @@ static bool tsb_return_oldest_entry_in_range(TSBuffer *b, Logger *log, void **p,
                 int seq = header_v3_0->sequnum;
 
                 if (header_v3_0->pt == RTP_TYPE_VIDEO % 128) {
-                    LOGGER_DEBUG(log, "XLS02:%d,%d",
-                                 (int)seq, (int)header_v3_0->frame_record_timestamp);
+                    // LOGGER_DEBUG(log, "XLS02:%d,%d",
+                    //             (int)seq, (int)header_v3_0->frame_record_timestamp);
                 }
             }
         }
 
-        printf("tsb_return_oldest_entry_in_range:%p size=%d st=%d end=%d in=%ld range=%ld in-range=%ld in+1 = %ld cur_ts=%ld\n",
-               (void *)b, b->size, b->start, b->end,
-               (int64_t)timestamp_in,
-               (int64_t)timestamp_range,
-               ((int64_t)timestamp_in - (int64_t)timestamp_range),
-               ((int64_t)timestamp_in + (int64_t)1),
-               (int64_t)b->timestamp[current_element]);
+        // printf("tsb_return_oldest_entry_in_range:%p size=%d st=%d end=%d in=%ld range=%ld in-range=%ld in+1 = %ld cur_ts=%ld\n",
+        //       (void *)b, b->size, b->start, b->end,
+        //       (int64_t)timestamp_in,
+        //       (int64_t)timestamp_range,
+        //       ((int64_t)timestamp_in - (int64_t)timestamp_range),
+        //       ((int64_t)timestamp_in + (int64_t)1),
+        //       (int64_t)b->timestamp[current_element]);
 
 
         if ((((int64_t)b->timestamp[current_element]) >= ((int64_t)timestamp_in - (int64_t)timestamp_range))
                 &&
                 ((int64_t)b->timestamp[current_element] <= ((int64_t)timestamp_in + (int64_t)1))) {
 
-            printf("tsb_return_oldest_entry_in_range:1:%p data=%p\n", (void *)b, (void *)b->data[current_element]);
+            // printf("tsb_return_oldest_entry_in_range:1:%p data=%p\n", (void *)b, (void *)b->data[current_element]);
 
             if (log) {
                 struct RTPMessage *msg = b->data[current_element];
@@ -262,12 +261,12 @@ static bool tsb_return_oldest_entry_in_range(TSBuffer *b, Logger *log, void **p,
                     int seq = header_v3_0->sequnum;
 
                     if (header_v3_0->pt == RTP_TYPE_VIDEO % 128) {
-                        LOGGER_DEBUG(log, "tsb_old:in range:seq=%d range=(%d - %d) -> want=%d prevfound=%d",
-                                     (int)seq,
-                                     (int)(timestamp_in - timestamp_range),
-                                     (int)(timestamp_in + 1),
-                                     (int)timestamp_in,
-                                     (int)found_timestamp);
+                        // LOGGER_DEBUG(log, "tsb_old:in range:seq=%d range=(%d - %d) -> want=%d prevfound=%d",
+                        //             (int)seq,
+                        //             (int)(timestamp_in - timestamp_range),
+                        //             (int)(timestamp_in + 1),
+                        //             (int)timestamp_in,
+                        //             (int)found_timestamp);
                     }
                 }
             }
@@ -275,7 +274,7 @@ static bool tsb_return_oldest_entry_in_range(TSBuffer *b, Logger *log, void **p,
             // timestamp of entry is in range
             if ((int64_t)b->timestamp[current_element] < (int64_t)found_timestamp) {
 
-                printf("tsb_return_oldest_entry_in_range:2:%p data=%p\n", (void *)b, (void *)b->data[current_element]);
+                // printf("tsb_return_oldest_entry_in_range:2:%p data=%p\n", (void *)b, (void *)b->data[current_element]);
 
                 // entry is older than previous found entry, or is the first found entry
                 found_timestamp = (uint32_t)b->timestamp[current_element];
@@ -289,8 +288,8 @@ static bool tsb_return_oldest_entry_in_range(TSBuffer *b, Logger *log, void **p,
                         int seq = header_v3_0->sequnum;
 
                         if (header_v3_0->pt == RTP_TYPE_VIDEO % 128) {
-                            LOGGER_DEBUG(log, "tsb_old:iter:seq=%d found_timestamp=%d",
-                                         (int)seq, (int)found_timestamp);
+                            // LOGGER_DEBUG(log, "tsb_old:iter:seq=%d found_timestamp=%d",
+                            //             (int)seq, (int)found_timestamp);
                         }
                     }
                 }
@@ -301,7 +300,7 @@ static bool tsb_return_oldest_entry_in_range(TSBuffer *b, Logger *log, void **p,
 
     if (found_element > -1) {
 
-        printf("tsb_return_oldest_entry_in_range:%p found_element=%u\n", (void *)b, found_element);
+        // printf("tsb_return_oldest_entry_in_range:%p found_element=%u\n", (void *)b, found_element);
 
         // swap element with element in "start" position
         if (found_element != (int32_t)b->start) {
@@ -342,11 +341,11 @@ bool tsb_read(TSBuffer *b, Logger *log, void **p, uint64_t *data_type, uint32_t 
 {
     *is_skipping = 0;
 
-    printf("tsb_read:000:%p size=%d st=%d end=%d tsin=%d tsrange=%d\n",
-           (void *)b, b->size, b->start, b->end, timestamp_in, timestamp_range);
+    // printf("tsb_read:000:%p size=%d st=%d end=%d tsin=%d tsrange=%d\n",
+    //       (void *)b, b->size, b->start, b->end, timestamp_in, timestamp_range);
 
     if (tsb_empty(b) == true) {
-        printf("tsb_read:EMPTY:%p size=%d st=%d end=%d\n", (void *)b, b->size, b->start, b->end);
+        // printf("tsb_read:EMPTY:%p size=%d st=%d end=%d\n", (void *)b, b->size, b->start, b->end);
         *removed_entries_back = 0;
         *p = NULL;
         return false;
@@ -362,15 +361,15 @@ bool tsb_read(TSBuffer *b, Logger *log, void **p, uint64_t *data_type, uint32_t 
                               timestamp_in,
                               timestamp_range);
 
-    printf("tsb_read:%p size=%d st=%d end=%d have_found_element=%d\n", (void *)b, b->size, b->start, b->end,
-           (int)have_found_element);
+    // printf("tsb_read:%p size=%d st=%d end=%d have_found_element=%d\n", (void *)b, b->size, b->start, b->end,
+    //       (int)have_found_element);
 
     if (have_found_element == true) {
         // only delete old entries if we found a "wanted" entry
         uint16_t removed_entries = tsb_delete_old_entries(b, log, ((int64_t)timestamp_in - (int64_t)timestamp_range));
 
-        printf("tsb_read:%p size=%d st=%d end=%d removed_entries=%d\n", (void *)b, b->size, b->start, b->end,
-               (int)removed_entries);
+        // printf("tsb_read:%p size=%d st=%d end=%d removed_entries=%d\n", (void *)b, b->size, b->start, b->end,
+        //       (int)removed_entries);
 
         *removed_entries_back = removed_entries;
 
@@ -415,9 +414,8 @@ TSBuffer *tsb_new(const int size)
 
     buf->last_timestamp_out = 0;
 
-    printf("tsb_new:%p size=%d st=%d end=%d\n", (void *)buf, buf->size, buf->start, buf->end);
-
-    tsb_debug_print_entries(buf);
+    // printf("tsb_new:%p size=%d st=%d end=%d\n", (void *)buf, buf->size, buf->start, buf->end);
+    // tsb_debug_print_entries(buf);
 
     return buf;
 }
@@ -425,8 +423,8 @@ TSBuffer *tsb_new(const int size)
 void tsb_drain(TSBuffer *b)
 {
     if (b) {
-        printf("tsb_drain:%p size=%d\n", (void *)b, tsb_size(b));
-        tsb_debug_print_entries(b);
+        // printf("tsb_drain:%p size=%d\n", (void *)b, tsb_size(b));
+        // tsb_debug_print_entries(b);
 
         void *dummy = NULL;
         uint64_t dt;
@@ -435,11 +433,11 @@ void tsb_drain(TSBuffer *b)
         uint16_t skip;
 
         while (tsb_read(b, NULL, &dummy, &dt, &to, UINT32_MAX, UINT32_MAX, &reb, &skip) == true) {
-            printf("tsb_drain:XX:%p data:%p\n", (void *)b, (void *)dummy);
+            // printf("tsb_drain:XX:%p data:%p\n", (void *)b, (void *)dummy);
             free(dummy);
         }
 
-        tsb_debug_print_entries(b);
+        // tsb_debug_print_entries(b);
 
         b->last_timestamp_out = 0;
     }
