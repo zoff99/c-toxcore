@@ -36,18 +36,18 @@
 #define VIDEO_BITRATE_MAX_AUTO_VALUE_H264 2700
 
 #ifdef HW_CODEC_CONFIG_RPI3_TBW_BIDI
-    // max video bitrate on ToxPhone
-    #undef VIDEO_BITRATE_MAX_AUTO_VALUE_H264
-    #define VIDEO_BITRATE_MAX_AUTO_VALUE_H264 2700
+// max video bitrate on ToxPhone
+#undef VIDEO_BITRATE_MAX_AUTO_VALUE_H264
+#define VIDEO_BITRATE_MAX_AUTO_VALUE_H264 2700
 #endif
 
 #ifdef HW_CODEC_CONFIG_UTOX_LINNVENC
-    // max video bitrate for ToxTV
-    #undef VIDEO_BITRATE_MAX_AUTO_VALUE_H264
-    #define VIDEO_BITRATE_MAX_AUTO_VALUE_H264 8400
+// max video bitrate for ToxTV
+#undef VIDEO_BITRATE_MAX_AUTO_VALUE_H264
+#define VIDEO_BITRATE_MAX_AUTO_VALUE_H264 8400
 
-    #undef VIDEO_BITRATE_INITIAL_VALUE_H264
-    #define VIDEO_BITRATE_INITIAL_VALUE_H264 180
+#undef VIDEO_BITRATE_INITIAL_VALUE_H264
+#define VIDEO_BITRATE_INITIAL_VALUE_H264 180
 #endif
 
 // -- these control how agressive the bandwidth control is --
@@ -166,7 +166,7 @@ struct ToxAV {
     int32_t dmssa; /** Average decoding time in ms */
 
     uint32_t interval; /** Calculated interval */
-    
+
     Mono_Time *toxav_mono_time; // ToxAV's own mono_time instance
 };
 
