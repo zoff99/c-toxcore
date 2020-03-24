@@ -31,15 +31,14 @@ long syscall(long number, ...);
 #include <stdio.h>
 
 #undef LOGGER_DEBUG
-#define LOGGER_DEBUG(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_DEBUG(log, ...) printf("")
 #undef LOGGER_ERROR
-#define LOGGER_ERROR(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_ERROR(log, ...) printf("")
 #undef LOGGER_WARNING
-#define LOGGER_WARNING(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_WARNING(log, ...) printf("")
 #undef LOGGER_INFO
-#define LOGGER_INFO(log, ...) printf(__VA_ARGS__);printf("\n")
-#undef LOGGER_TRACE
-#define LOGGER_TRACE(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_INFO(log, ...) printf("")
+
 /*
  * Zoff: disable logging in ToxAV for now
  */
@@ -309,9 +308,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
 
 static inline bool jbuf_is_empty(struct TSBuffer *q)
 {
-    printf("jbuf_is_empty:START:%d\n", (int32_t)gettid());
     bool res = tsb_empty(q);
-    printf("jbuf_is_empty:END:%d\n", (int32_t)gettid());
     return res;
 }
 
@@ -456,13 +453,8 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
 
 int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
 {
-    printf("ac_queue_message:001:%p\n", (void *) msg);
-
     if (!acp || !msg) {
-        printf("ac_queue_message:002:%p\n", (void *) msg);
-
         if (msg) {
-            printf("ac_queue_message:003:%p\n", (void *) msg);
             free(msg);
         }
 
@@ -479,14 +471,12 @@ int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
 
     if ((msg->header.pt & 0x7f) == (RTP_TYPE_AUDIO + 2) % 128) {
         LOGGER_WARNING(ac->log, "Got dummy!");
-        printf("ac_queue_message:004:%p\n", (void *) msg);
         free(msg);
         return 0;
     }
 
     if ((msg->header.pt & 0x7f) != RTP_TYPE_AUDIO % 128) {
         LOGGER_WARNING(ac->log, "Invalid payload type!");
-        printf("ac_queue_message:005:%p\n", (void *) msg);
         free(msg);
         return -1;
     }
@@ -502,7 +492,6 @@ int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
         msg->header.frame_record_timestamp = msg->header.timestamp;
     }
 
-    printf("ac_queue_message:jbuf_write:%p\n", (void *) msg);
     jbuf_write(nullptr, ac, (struct TSBuffer *)ac->j_buf, msg);
 
     LOGGER_DEBUG(ac->log, "AADEBUG:OK:seqnum=%d dt=%d ts:%d curts:%d", (int)header_v3->sequnum,
@@ -511,8 +500,6 @@ int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
                  (int)current_time_monotonic(ac->mono_time));
 
     ac->last_incoming_frame_ts = header_v3->frame_record_timestamp;
-
-    printf("ac_queue_message:099:%p\n", (void *) msg);
 
     pthread_mutex_unlock(ac->queue_mutex);
 
@@ -534,18 +521,14 @@ int ac_reconfigure_encoder(ACSession *ac, int32_t bit_rate, int32_t sampling_rat
 
 static struct TSBuffer *jbuf_new(int size)
 {
-    printf("jbuf_new:START:%d\n", (int32_t)gettid());
     TSBuffer *res = tsb_new(size);
-    printf("jbuf_new:END:%d\n", (int32_t)gettid());
     return res;
 }
 
 static void jbuf_free(struct TSBuffer *q)
 {
-    printf("jbuf_free:START:%d\n", (int32_t)gettid());
     tsb_drain(q);
     tsb_kill(q);
-    printf("jbuf_free:END:%d\n", (int32_t)gettid());
 }
 
 #if 0
@@ -573,25 +556,14 @@ static struct RTPMessage *new_empty_message(size_t allocate_len, const uint8_t *
 
 static int jbuf_write(Logger *log, ACSession *ac, struct TSBuffer *q, struct RTPMessage *m)
 {
-
-    printf("jbuf_write:START:%d\n", (int32_t)gettid());
-
-    printf("ac_queue_message:001:%p\n", (void *) m);
-
     void *tmp_buf2 = tsb_write(q, (void *)m, 0, (uint32_t)m->header.frame_record_timestamp);
-
-    printf("ac_queue_message:002:%p ret=%p\n", (void *) m, (void *)tmp_buf2);
 
     if (tmp_buf2 != NULL) {
         LOGGER_DEBUG(log, "AADEBUG:rb_write: error in rb_write:rb_size=%d", (int)tsb_size(q));
-        printf("ac_queue_message:003:%p ret=%p\n", (void *) m, (void *)tmp_buf2);
         free(tmp_buf2);
-        printf("jbuf_write:RET01:%d\n", (int32_t)gettid());
         return -1;
     }
 
-    printf("ac_queue_message:099:%p ret=%p\n", (void *) m, (void *)tmp_buf2);
-    printf("jbuf_write:END:%d\n", (int32_t)gettid());
     return 0;
 }
 

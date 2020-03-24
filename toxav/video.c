@@ -35,16 +35,16 @@
  */
 #include <stdio.h>
 
+
 #undef LOGGER_DEBUG
-#define LOGGER_DEBUG(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_DEBUG(log, ...) printf("")
 #undef LOGGER_ERROR
-#define LOGGER_ERROR(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_ERROR(log, ...) printf("")
 #undef LOGGER_WARNING
-#define LOGGER_WARNING(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_WARNING(log, ...) printf("")
 #undef LOGGER_INFO
-#define LOGGER_INFO(log, ...) printf(__VA_ARGS__);printf("\n")
-#undef LOGGER_TRACE
-#define LOGGER_TRACE(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_INFO(log, ...) printf("")
+
 /*
  * Zoff: disable logging in ToxAV for now
  */
@@ -328,7 +328,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         return 0;
     }
 
-    LOGGER_API_WARNING(tox, "----vc_iterate-----");
+    LOGGER_API_DEBUG(tox, "----vc_iterate-----");
 
 
     // global___ts1 = (int)(current_time_monotonic(m->mono_time));
@@ -432,9 +432,6 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     uint16_t removed_entries;
     uint16_t is_skipping = 0;
 
-    LOGGER_API_WARNING(tox, "VIDEO:tsb_read *******************");
-    LOGGER_API_WARNING(tox, "VIDEO:tsb_read *******************");
-
 
     uint32_t tsb_range_ms_used = vc->tsb_range_ms + vc->startup_video_timespan;
     uint32_t timestamp_want_get_used = timestamp_want_get;
@@ -444,7 +441,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         timestamp_want_get_used = UINT32_MAX;
     }
 
-    LOGGER_API_WARNING(tox, "tsb_read got: want=%d %d %d %d %d",
+    LOGGER_API_DEBUG(tox, "tsb_read got: want=%d %d %d %d %d",
                        (int)timestamp_want_get_used,
                        (int)(vc->tsb_range_ms),
                        (int)(vc->startup_video_timespan),
@@ -463,8 +460,6 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                  &removed_entries,
                  &is_skipping)) {
 
-        LOGGER_API_WARNING(tox, "VIDEO:tsb_read XXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-
         if (vc->video_received_first_frame == 0) {
             vc->video_received_first_frame = 1;
         }
@@ -480,7 +475,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 //
 //        global_last_viterate_ts = (int)current_time_monotonic(m->mono_time);
 
-        LOGGER_API_WARNING(tox, "XLS01:%d,%d",
+        LOGGER_API_DEBUG(tox, "XLS01:%d,%d",
                            (int)(timestamp_want_get - current_time_monotonic(vc->av->toxav_mono_time)),
                            (int)(timestamp_out_ - current_time_monotonic(vc->av->toxav_mono_time))
                           );
@@ -493,7 +488,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
         if (removed_entries > 0) {
 
-            LOGGER_API_WARNING(tox,
+            LOGGER_API_DEBUG(tox,
                                "seq:%d FC:%d min=%d max=%d want=%d got=%d diff=%d rm=%d pdelay=%d pdelayr=%d adj=%d dts=%d rtt=%d",
                                (int)header_v3_0->sequnum,
                                (int)tsb_size((TSBuffer *)vc->vbuf_raw),
@@ -514,7 +509,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         int32_t diff_want_to_got = (int)timestamp_want_get - (int)timestamp_out_;
 
 
-        LOGGER_API_WARNING(tox, "values:diff_to_sender=%d adj=%d tsb_range=%d bufsize=%d",
+        LOGGER_API_DEBUG(tox, "values:diff_to_sender=%d adj=%d tsb_range=%d bufsize=%d",
                            (int)vc->timestamp_difference_to_sender__for_video, (int)vc->timestamp_difference_adjustment,
                            (int)vc->tsb_range_ms,
                            (int)buf_size);
@@ -537,7 +532,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         }
 
 
-        LOGGER_API_WARNING(tox, "--VSEQ:%d", (int)header_v3_0->sequnum);
+        LOGGER_API_DEBUG(tox, "--VSEQ:%d", (int)header_v3_0->sequnum);
 
         data_type = (uint8_t)((frame_flags & RTP_KEY_FRAME) != 0);
         h264_encoded_video_frame = (uint8_t)((frame_flags & RTP_ENCODER_IS_H264) != 0);
@@ -843,8 +838,6 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
 
     pthread_mutex_lock(vc->queue_mutex);
 
-    LOGGER_API_WARNING(vc->av->tox, "----vc_queue_message-----");
-
 
     // calculate mean "frame incoming every x milliseconds" --------------
     if (vc->incoming_video_frames_gap_last_ts > 0) {
@@ -878,7 +871,7 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
     vc->incoming_video_frames_gap_last_ts = current_time_monotonic(mono_time);
     // calculate mean "frame incoming every x milliseconds" --------------
 
-    LOGGER_API_WARNING(vc->av->tox, "TT:queue:V:fragnum=%ld", (long)header_v3->fragment_num);
+    LOGGER_API_DEBUG(vc->av->tox, "TT:queue:V:fragnum=%ld", (long)header_v3->fragment_num);
 
     // older clients do not send the frame record timestamp
     // compensate by using the frame sennt timestamp
@@ -976,7 +969,7 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
             }
 
 
-            LOGGER_API_WARNING(vc->av->tox, "vc_queue_msg:tsb_write : %d", (uint32_t)header->frame_record_timestamp);
+            LOGGER_API_DEBUG(vc->av->tox, "vc_queue_msg:tsb_write : %d", (uint32_t)header->frame_record_timestamp);
 
             struct RTPMessage *msg_old = tsb_write((TSBuffer *)vc->vbuf_raw, msg,
                                                    (uint64_t)header->flags,

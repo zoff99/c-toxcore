@@ -30,14 +30,18 @@
  */
 #include <stdio.h>
 
+
 #undef LOGGER_DEBUG
-#define LOGGER_DEBUG(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_DEBUG(log, ...) printf("")
 #undef LOGGER_ERROR
-#define LOGGER_ERROR(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_ERROR(log, ...) printf("")
 #undef LOGGER_WARNING
-#define LOGGER_WARNING(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_WARNING(log, ...) printf("")
 #undef LOGGER_INFO
-#define LOGGER_INFO(log, ...) printf(__VA_ARGS__);printf("\n")
+#define LOGGER_INFO(log, ...) printf("")
+
+
+
 /*
  * Zoff: disable logging in ToxAV for now
  */
@@ -100,9 +104,6 @@ static struct RTPMessage *new_message(Tox *tox, const struct RTPHeader *header, 
     // AV_INPUT_BUFFER_PADDING_SIZE --> is needed later if we give it to ffmpeg!
     struct RTPMessage *msg = (struct RTPMessage *)calloc(1,
                              sizeof(struct RTPMessage) + allocate_len + AV_INPUT_BUFFER_PADDING_SIZE);
-
-    printf("new_message:msg=%p,len=%d\n", (void *)msg,
-           (int)(sizeof(struct RTPMessage) + allocate_len + AV_INPUT_BUFFER_PADDING_SIZE));
 
     if (msg == nullptr) {
         return nullptr;
@@ -571,7 +572,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     // TODO(Zoff): is this ok?
     uint16_t length = (uint16_t)length2;
 
-    LOGGER_API_WARNING(tox, "******handle_rtp_packet******handle_rtp_packet****** = %d %d %d\n", (uint8_t)data[0],
+    LOGGER_API_DEBUG(tox, "******handle_rtp_packet******handle_rtp_packet****** = %d %d %d\n", (uint8_t)data[0],
                        (int)length2, length);
 
     if (!data) {
@@ -589,7 +590,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     // PACKET_TOXAV_COMM_CHANNEL pakets are do not have an RTP header
     if (packet_type != PACKET_TOXAV_COMM_CHANNEL) {
         if (length < RTP_HEADER_SIZE + 1) {
-            LOGGER_API_WARNING(tox, "Invalid length of received buffer! length=%d RTP_HEADER_SIZE=%d", length, RTP_HEADER_SIZE);
+            LOGGER_API_DEBUG(tox, "Invalid length of received buffer! length=%d RTP_HEADER_SIZE=%d", length, RTP_HEADER_SIZE);
             return;
         }
     }
@@ -618,16 +619,16 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     }
 
     if (!session) {
-        LOGGER_API_WARNING(tox, "No session!");
+        LOGGER_API_ERROR(tox, "No session!");
         return;
     }
 
     // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
     // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
     if (packet_type == PACKET_TOXAV_COMM_CHANNEL) {
-        LOGGER_API_WARNING(tox, "RECVD:PACKET_TOXAV_COMM_CHANNEL:length=%d", (int)length);
+        LOGGER_API_DEBUG(tox, "RECVD:PACKET_TOXAV_COMM_CHANNEL:length=%d", (int)length);
 
-        LOGGER_API_WARNING(tox, "******handle_rtp_packet******COMM****** = %d\n", (uint8_t)data[0]);
+        LOGGER_API_DEBUG(tox, "******handle_rtp_packet******COMM****** = %d\n", (uint8_t)data[0]);
 
         if (length >= 2) {
             if (data[1] == PACKET_TOXAV_COMM_CHANNEL_REQUEST_KEYFRAME) {
@@ -781,13 +782,13 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     rtp_header_unpack(data, &header);
 
     if (header.pt != packet_type % 128) {
-        LOGGER_API_WARNING(tox, "RTPHeader packet type and Tox protocol packet type did not agree: %d != %d",
+        LOGGER_API_DEBUG(tox, "RTPHeader packet type and Tox protocol packet type did not agree: %d != %d",
                            header.pt, packet_type % 128);
         return;
     }
 
     if (header.pt != session->payload_type % 128) {
-        LOGGER_API_WARNING(tox, "RTPHeader packet type does not match this session's payload type: %d != %d",
+        LOGGER_API_DEBUG(tox, "RTPHeader packet type does not match this session's payload type: %d != %d",
                            header.pt, session->payload_type % 128);
         return;
     }
@@ -808,18 +809,18 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     }
 
 
-    LOGGER_API_WARNING(tox, "header.pt %d, video %d", (uint8_t)header.pt, (RTP_TYPE_VIDEO % 128));
+    LOGGER_API_DEBUG(tox, "header.pt %d, video %d", (uint8_t)header.pt, (RTP_TYPE_VIDEO % 128));
 
-    LOGGER_API_WARNING(tox, "rtp packet record time: %lu", (unsigned long)header.frame_record_timestamp);
+    LOGGER_API_DEBUG(tox, "rtp packet record time: %lu", (unsigned long)header.frame_record_timestamp);
 
 
     // check flag indicating that we have real record-timestamps for frames ---
     if ((header.flags & RTP_ENCODER_HAS_RECORD_TIMESTAMP) == 0) {
         if (header.pt == (RTP_TYPE_VIDEO % 128)) {
-            LOGGER_API_WARNING(tox, "RTP_ENCODER_HAS_RECORD_TIMESTAMP:VV");
+            LOGGER_API_DEBUG(tox, "RTP_ENCODER_HAS_RECORD_TIMESTAMP:VV");
             ((VCSession *)(session->cs))->encoder_frame_has_record_timestamp = 0;
         } else if (header.pt == (RTP_TYPE_AUDIO % 128)) {
-            LOGGER_API_WARNING(tox, "RTP_ENCODER_HAS_RECORD_TIMESTAMP:AA");
+            LOGGER_API_DEBUG(tox, "RTP_ENCODER_HAS_RECORD_TIMESTAMP:AA");
             ((ACSession *)(session->cs))->encoder_frame_has_record_timestamp = 0;
         }
     }
@@ -895,7 +896,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
         session->incoming_packets_ts_average = incoming_rtp_packets_delta_average;
 
-        LOGGER_API_WARNING(tox, "rtp_video_delta=%d", (int)incoming_rtp_packets_delta_average);
+        LOGGER_API_DEBUG(tox, "rtp_video_delta=%d", (int)incoming_rtp_packets_delta_average);
 
         handle_video_packet(session, &header, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE, nullptr);
         return;
@@ -1324,7 +1325,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
             }
         } else {
             if (-1 == rtp_send_custom_lossy_packet(session->tox, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
-                LOGGER_WARNING(session->m->log, "RTP send failed (len: %zu)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
+                LOGGER_API_WARNING(session->tox, "RTP send failed (len: %zu)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
             }
         }
     } else {
