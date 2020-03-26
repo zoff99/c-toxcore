@@ -15,16 +15,6 @@
 #include "../toxcore/logger.h"
 #include "../toxcore/mono_time.h"
 
-
-#if defined(__linux__)
-#include <unistd.h>
-#include <sys/syscall.h>
-long syscall(long number, ...);
-#define gettid() syscall(SYS_gettid)
-#endif
-
-
-
 /*
  * Zoff: disable logging in ToxAV for now
  */
