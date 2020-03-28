@@ -298,6 +298,13 @@ void toxav_iterate(ToxAV *av)
             pthread_mutex_unlock(av->mutex);
 
             uint32_t fid = i->friend_number;
+            bool is_offline = check_peer_offline_status(av->tox, i->msi_call->session, fid);
+
+            if (is_offline) {
+                pthread_mutex_unlock(i->mutex);
+                pthread_mutex_lock(av->mutex);
+                break;
+            }
 
             ac_iterate(i->audio);
             vc_iterate(i->video);
