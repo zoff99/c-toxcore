@@ -623,6 +623,14 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         return;
     }
 
+    if (packet_type != PACKET_TOXAV_COMM_CHANNEL) {
+        if (!session->rtp_receive_active) {
+            LOGGER_API_WARNING(tox, "receiving not allowed!");
+            return;
+        }
+    }
+
+
     // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
     // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
     if (packet_type == PACKET_TOXAV_COMM_CHANNEL) {
@@ -1140,6 +1148,7 @@ RTPSession *rtp_new(int payload_type, Tox *tox, ToxAV *toxav, uint32_t friendnum
     session->tox = tox;
     session->toxav = toxav;
     session->friend_number = friendnumber;
+    session->rtp_receive_active = true; /* default: true */
 
     // set NULL just in case
     session->mp = nullptr;
@@ -1158,8 +1167,6 @@ RTPSession *rtp_new(int payload_type, Tox *tox, ToxAV *toxav, uint32_t friendnum
     session->incoming_packets_ts_last_ts = -1;
     session->incoming_packets_ts_average = 0;
 
-    rtp_allow_receiving(tox, session);
-
     return session;
 }
 
@@ -1170,8 +1177,6 @@ void rtp_kill(Tox *tox, RTPSession *session)
     }
 
     LOGGER_API_DEBUG(session->tox, "Terminated RTP session: %p", (void *)session);
-    rtp_stop_receiving(tox, session);
-
     LOGGER_API_DEBUG(session->tox, "Terminated RTP session V3 work_buffer_list->next_free_entry: %d",
                      (int)session->work_buffer_list->next_free_entry);
 
@@ -1179,32 +1184,40 @@ void rtp_kill(Tox *tox, RTPSession *session)
     free(session);
 }
 
-void rtp_allow_receiving(Tox *tox, RTPSession *session)
+void rtp_allow_receiving_mark(Tox *tox, RTPSession *session)
 {
     if (session) {
-        // register callback
-        tox_callback_friend_lossy_packet_per_pktid(tox, handle_rtp_packet, session->payload_type);
-
-        if (session->payload_type == RTP_TYPE_VIDEO) {
-            tox_callback_friend_lossless_packet_per_pktid(tox, handle_rtp_packet, PACKET_TOXAV_COMM_CHANNEL);
-            LOGGER_API_DEBUG(session->tox, "rtp_allow_receiving:register PACKET_TOXAV_COMM_CHANNEL:%d",
-                             (int)PACKET_TOXAV_COMM_CHANNEL);
-        }
+        session->rtp_receive_active = true;
     }
 }
 
-void rtp_stop_receiving(Tox *tox, RTPSession *session)
+void rtp_stop_receiving_mark(Tox *tox, RTPSession *session)
 {
     if (session) {
-        // UN-register callback
-        if (session->payload_type == RTP_TYPE_VIDEO) {
-            tox_callback_friend_lossless_packet_per_pktid(tox, nullptr, PACKET_TOXAV_COMM_CHANNEL);
-            LOGGER_API_DEBUG(session->tox, "rtp_allow_receiving:UNregister PACKET_TOXAV_COMM_CHANNEL:%d",
-                             (int)PACKET_TOXAV_COMM_CHANNEL);
-        }
-
-        tox_callback_friend_lossy_packet_per_pktid(tox, nullptr, session->payload_type);
+        session->rtp_receive_active = false;
     }
+}
+
+void rtp_allow_receiving(Tox *tox)
+{
+    // register callback
+    tox_callback_friend_lossy_packet_per_pktid(tox, handle_rtp_packet, RTP_TYPE_AUDIO);
+    tox_callback_friend_lossy_packet_per_pktid(tox, handle_rtp_packet, RTP_TYPE_VIDEO);
+
+    tox_callback_friend_lossless_packet_per_pktid(tox, handle_rtp_packet, PACKET_TOXAV_COMM_CHANNEL);
+    LOGGER_API_DEBUG(tox, "rtp_allow_receiving:register PACKET_TOXAV_COMM_CHANNEL:%d",
+                     (int)PACKET_TOXAV_COMM_CHANNEL);
+}
+
+void rtp_stop_receiving(Tox *tox)
+{
+    // UN-register callback
+    tox_callback_friend_lossless_packet_per_pktid(tox, nullptr, PACKET_TOXAV_COMM_CHANNEL);
+    LOGGER_API_DEBUG(tox, "rtp_stop_receiving:UNregister PACKET_TOXAV_COMM_CHANNEL:%d",
+                     (int)PACKET_TOXAV_COMM_CHANNEL);
+
+    tox_callback_friend_lossy_packet_per_pktid(tox, nullptr, RTP_TYPE_AUDIO);
+    tox_callback_friend_lossy_packet_per_pktid(tox, nullptr, RTP_TYPE_VIDEO);
 }
 
 /**
@@ -1219,7 +1232,6 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
                   Logger *log)
 {
     if (!session) {
-        LOGGER_API_ERROR(session->tox, "No session!");
         return -1;
     }
 

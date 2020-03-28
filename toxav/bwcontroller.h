@@ -37,5 +37,7 @@ void bwc_kill(BWController *bwc);
 
 void bwc_add_lost_v3(BWController *bwc, uint32_t bytes, bool dummy);
 void bwc_add_recv(BWController *bwc, uint32_t recv_bytes);
+void bwc_allow_receiving(Tox *tox);
+void bwc_stop_receiving(Tox *tox);
 
 #endif // C_TOXCORE_TOXAV_BWCONTROLLER_H
