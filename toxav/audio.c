@@ -15,6 +15,8 @@
 
 #include "../toxcore/logger.h"
 #include "../toxcore/mono_time.h"
+#include "../toxcore/network.h"
+
 /*
  * Zoff: disable logging in ToxAV for now
  */

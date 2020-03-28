@@ -18,6 +18,7 @@
 #include "../toxcore/logger.h"
 #include "../toxcore/mono_time.h"
 #include "../toxcore/util.h"
+#include "../toxcore/net_crypto.h"
 
 /*
  * Zoff: disable logging in ToxAV for now
