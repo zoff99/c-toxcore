@@ -175,15 +175,13 @@ int msi_kill(Tox *tox, MSISession *session, const Logger *log)
 /*
  * return true if friend was offline and the call was canceled
  */
-bool check_peer_offline_status(Tox *tox, MSISession* session, uint32_t friend_number)
+bool check_peer_offline_status(Tox *tox, MSISession *session, uint32_t friend_number)
 {
-    if (!tox)
-    {
+    if (!tox) {
         return false;
     }
 
-    if (!session)
-    {
+    if (!session) {
         return false;
     }
 
@@ -206,6 +204,7 @@ bool check_peer_offline_status(Tox *tox, MSISession* session, uint32_t friend_nu
             kill_call(call);
             pthread_mutex_unlock(session->mutex);
         }
+
         return true;
 
         case TOX_CONNECTION_TCP:
@@ -213,7 +212,7 @@ bool check_peer_offline_status(Tox *tox, MSISession* session, uint32_t friend_nu
         default:
             break;
     }
-    
+
     return false;
 }
 
