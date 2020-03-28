@@ -135,6 +135,6 @@ int msi_change_capabilities(MSICall *call, uint8_t capabilities);
 int invoke_callback(MSICall *call, MSICallbackID cb);
 void kill_call(MSICall *call);
 
-bool check_peer_offline_status(Tox *tox, MSISession* session, uint32_t friend_number);
+bool check_peer_offline_status(Tox *tox, MSISession *session, uint32_t friend_number);
 
 #endif // C_TOXCORE_TOXAV_MSI_H
