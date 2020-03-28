@@ -1455,6 +1455,11 @@ int file_seek_for_resume(const Messenger *m, int32_t friendnumber, uint32_t file
     uint8_t sending_pos[sizeof(uint64_t)];
     net_pack_u64(sending_pos, position);
 
+#ifdef FT_RECV_SEND_DEBUG
+    LOGGER_DEBUG(m->log, "file_seek_for_resume:in:%d", (int)position);
+#endif
+
+
     if (send_file_control_packet(m, friendnumber, 1, file_number, FILECONTROL_SEEK, sending_pos,
                                  sizeof(sending_pos))) {
         ft->transferred = position;
@@ -1508,6 +1513,9 @@ int file_data(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uin
     }
 
     if (m->friendlist[friendnumber].status != FRIEND_ONLINE) {
+#ifdef FT_RECV_SEND_DEBUG
+        LOGGER_WARNING(m->log, "SEND:pos=%u [before] FRIEND OFFLINE", position);
+#endif
         return -2;
     }
 
@@ -1676,18 +1684,43 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
 /* call a function to iterate over all sending (not receiving) filetransfers */
 static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdata)
 {
+
+#ifdef FT_RECV_SEND_DEBUG
+    LOGGER_DEBUG(m->log, "do_reqchunk_filecb:enter");
+#endif
+
     // check if we need to send SEEK for any incoming but resumed FTs
     if (global_filetransfer_is_resumable) {
+
+#ifdef FT_RECV_SEND_DEBUG
+        LOGGER_DEBUG(m->log, "global_filetransfer_is_resumable");
+#endif
 
         for (uint32_t i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
 
             if (m->friendlist[friendnumber].file_receiving[i].status != FILESTATUS_NONE) {
+
+#ifdef FT_RECV_SEND_DEBUG
+                LOGGER_DEBUG(m->log, "global_filetransfer_is_resumable:status=%d", m->friendlist[friendnumber].file_receiving[i].status);
+#endif
+
                 /* only reset avatar and msgV2 FTs, but NOT normal data FTs */
                 if (m->friendlist[friendnumber].file_receiving[i].file_type != TOX_FILE_KIND_DATA) {
                 } else {
 
+#ifdef FT_RECV_SEND_DEBUG
+                    LOGGER_DEBUG(m->log, "global_filetransfer_is_resumable:file_type=%d", m->friendlist[friendnumber].file_receiving[i].file_type);
+#endif
+
+#ifdef FT_RECV_SEND_DEBUG
+                    LOGGER_DEBUG(m->log, "global_filetransfer_is_resumable:needs_resend=%d", m->friendlist[friendnumber].file_receiving[i].needs_resend);
+#endif
+
                     if (m->friendlist[friendnumber].file_receiving[i].needs_resend == 1) {
                         // send seek to correct position
+#ifdef FT_RECV_SEND_DEBUG
+                        LOGGER_DEBUG(m->log, "file_seek_for_resume:%d", m->friendlist[friendnumber].file_receiving[i].transferred);
+#endif
                         int res = file_seek_for_resume(m, friendnumber, i,
                                                        m->friendlist[friendnumber].file_receiving[i].transferred, true);
 
@@ -2548,13 +2581,27 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
             break;
         }
 
-        // handle receiving files ----
+        // handle receiving file data ----
         case PACKET_ID_FILE_DATA: {
+
+#ifdef FT_RECV_SEND_DEBUG
+            LOGGER_WARNING(m->log, "RECV:PACKET_ID_FILE_DATA:000");
+#endif
+
             if (data_length < 1) {
                 break;
             }
 
+#ifdef FT_RECV_SEND_DEBUG
+            LOGGER_WARNING(m->log, "RECV:PACKET_ID_FILE_DATA:data_length=%d", (int)data_length);
+#endif
+
             uint8_t filenumber = data[0];
+
+#ifdef FT_RECV_SEND_DEBUG
+            LOGGER_WARNING(m->log, "RECV:PACKET_ID_FILE_DATA:filenumber=%d", (int)filenumber);
+#endif
+
 
 #if UINT8_MAX >= MAX_CONCURRENT_FILE_PIPES
 
@@ -2565,6 +2612,14 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
 #endif
 
             struct File_Transfers *ft = &m->friendlist[i].file_receiving[filenumber];
+
+#ifdef FT_RECV_SEND_DEBUG
+            LOGGER_WARNING(m->log, "RECV:PACKET_ID_FILE_DATA:ft=%p", (void *)&m->friendlist[i].file_receiving[filenumber]);
+#endif
+
+#ifdef FT_RECV_SEND_DEBUG
+            LOGGER_WARNING(m->log, "RECV:PACKET_ID_FILE_DATA:ft->status=%d", ft->status);
+#endif
 
             if (ft->status != FILESTATUS_TRANSFERRING) {
                 // TODO: should we send something back to friend
