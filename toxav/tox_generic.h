@@ -50,6 +50,17 @@
 #define VIDEO_BITRATE_INITIAL_VALUE_H264 180
 #endif
 
+#ifdef HW_CODEC_CONFIG_HIGHVBITRATE
+// max video bitrate for TV
+#undef VIDEO_BITRATE_MAX_AUTO_VALUE_H264
+#define VIDEO_BITRATE_MAX_AUTO_VALUE_H264 10000
+
+#undef VIDEO_BITRATE_INITIAL_VALUE_H264
+#define VIDEO_BITRATE_INITIAL_VALUE_H264 5000
+#endif
+
+
+
 // -- these control how agressive the bandwidth control is --
 #define VIDEO_BITRATE_AUTO_INC_THRESHOLD 1.1 // threshold loss % to increase bitrate (in %)
 #define VIDEO_BITRATE_AUTO_DEC_THRESHOLD 2.8 // threshold loss % to lower the bitrate (in %)
