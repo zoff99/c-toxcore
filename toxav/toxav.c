@@ -314,6 +314,16 @@ void toxav_iterate(ToxAV *av)
             pthread_mutex_lock(i->toxav_call_mutex);
             pthread_mutex_unlock(av->mutex);
 
+            uint32_t fid = i->friend_number;
+            bool is_offline = check_peer_offline_status(av->tox, i->msi_call->session, fid);
+            
+            if (is_offline)
+            {
+                pthread_mutex_unlock(i->toxav_call_mutex);
+                pthread_mutex_lock(av->mutex);
+                break;
+            }
+
             // ------- ac_iterate for audio -------
             if (!audio_iterate_seperation_active) {
                 uint8_t res_ac = ac_iterate(i->audio,
@@ -331,7 +341,7 @@ void toxav_iterate(ToxAV *av)
             // ------- ac_iterate for audio -------
 
             // ------- av_iterate for VIDEO -------
-            uint8_t got_video_frame = vc_iterate(i->video, i->av->tox, i->skip_video_flag,
+            uint8_t got_video_frame = vc_iterate(i->video, av->tox, i->skip_video_flag,
                                                  &(i->last_incoming_audio_frame_rtimestamp),
                                                  &(i->last_incoming_audio_frame_ltimestamp),
                                                  &(i->last_incoming_video_frame_rtimestamp),
@@ -358,9 +368,6 @@ void toxav_iterate(ToxAV *av)
                 pthread_mutex_unlock(i->video->queue_mutex);
 
             }
-
-
-            uint32_t fid = i->friend_number;
 
             pthread_mutex_unlock(i->toxav_call_mutex);
             pthread_mutex_lock(av->mutex);

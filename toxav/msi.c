@@ -93,7 +93,6 @@ static void handle_push(MSICall *call, const MSIMessage *msg);
 static void handle_pop(MSICall *call, const MSIMessage *msg);
 static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length2, void *object);
 
-
 /**
  * Public functions
  */
@@ -171,6 +170,51 @@ int msi_kill(Tox *tox, MSISession *session, const Logger *log)
     LOGGER_API_DEBUG(tox, "Terminated session: %p", (void *)session);
     free(session);
     return 0;
+}
+
+/*
+ * return true if friend was offline and the call was canceled
+ */
+bool check_peer_offline_status(Tox *tox, MSISession* session, uint32_t friend_number)
+{
+    if (!tox)
+    {
+        return false;
+    }
+
+    if (!session)
+    {
+        return false;
+    }
+
+    TOX_ERR_FRIEND_QUERY f_con_query_error;
+    TOX_CONNECTION f_conn_status = tox_friend_get_connection_status(tox, friend_number, &f_con_query_error);
+
+    switch (f_conn_status) {
+        case 0: { /* Friend is now offline */
+            LOGGER_DEBUG(m->log, "Friend %d is now offline", friend_number);
+
+            pthread_mutex_lock(session->mutex);
+            MSICall *call = get_call(session, friend_number);
+
+            if (call == nullptr) {
+                pthread_mutex_unlock(session->mutex);
+                return true;
+            }
+
+            invoke_callback(call, MSI_ON_PEERTIMEOUT); /* Failure is ignored */
+            kill_call(call);
+            pthread_mutex_unlock(session->mutex);
+        }
+        return true;
+
+        case TOX_CONNECTION_TCP:
+        case TOX_CONNECTION_UDP:
+        default:
+            break;
+    }
+    
+    return false;
 }
 
 int msi_invite(MSISession *session, MSICall **call, uint32_t friend_number, uint8_t capabilities)
