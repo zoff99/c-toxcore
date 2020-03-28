@@ -1726,7 +1726,8 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
             if (m->friendlist[friendnumber].file_receiving[i].status != FILESTATUS_NONE) {
 
 #ifdef FT_RECV_SEND_DEBUG
-                LOGGER_DEBUG(m->log, "global_filetransfer_is_resumable:status=%d", m->friendlist[friendnumber].file_receiving[i].status);
+                LOGGER_DEBUG(m->log, "global_filetransfer_is_resumable:status=%d",
+                             m->friendlist[friendnumber].file_receiving[i].status);
 #endif
 
                 /* only reset avatar and msgV2 FTs, but NOT normal data FTs */
@@ -1734,11 +1735,13 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
                 } else {
 
 #ifdef FT_RECV_SEND_DEBUG
-                    LOGGER_DEBUG(m->log, "global_filetransfer_is_resumable:file_type=%d", m->friendlist[friendnumber].file_receiving[i].file_type);
+                    LOGGER_DEBUG(m->log, "global_filetransfer_is_resumable:file_type=%d",
+                                 m->friendlist[friendnumber].file_receiving[i].file_type);
 #endif
 
 #ifdef FT_RECV_SEND_DEBUG
-                    LOGGER_DEBUG(m->log, "global_filetransfer_is_resumable:needs_resend=%d", m->friendlist[friendnumber].file_receiving[i].needs_resend);
+                    LOGGER_DEBUG(m->log, "global_filetransfer_is_resumable:needs_resend=%d",
+                                 m->friendlist[friendnumber].file_receiving[i].needs_resend);
 #endif
 
                     if (m->friendlist[friendnumber].file_receiving[i].needs_resend == 1) {
