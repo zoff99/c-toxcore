@@ -340,7 +340,7 @@ void toxav_iterate(ToxAV *av)
             // ------- ac_iterate for audio -------
 
             // ------- av_iterate for VIDEO -------
-            uint8_t got_video_frame = vc_iterate(i->video, av->tox, i->skip_video_flag,
+            uint8_t got_video_frame = vc_iterate(i->video, i->av->tox, i->skip_video_flag,
                                                  &(i->last_incoming_audio_frame_rtimestamp),
                                                  &(i->last_incoming_audio_frame_ltimestamp),
                                                  &(i->last_incoming_video_frame_rtimestamp),
