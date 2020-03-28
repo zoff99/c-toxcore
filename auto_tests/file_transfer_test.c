@@ -810,7 +810,7 @@ static void file_transfer_test(void)
             printf("after %u iterations: %.2fKiB done\n", (unsigned int)i + 1, (double)size_recv / 1024);
         }
 
-        c_sleep(min_u32(tox1_interval, min_u32(tox2_interval, tox3_interval)));
+        c_sleep(200);
     }
 
     ck_assert_msg(file_sending_done, "file sending did not complete after %u iterations: sendf_ok:%u file_recv:%u "
