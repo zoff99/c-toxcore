@@ -154,6 +154,9 @@ ToxAV *toxav_new(Tox *tox, Toxav_Err_New *error)
     av->tox = tox;
     av->msi = msi_new(av->tox);
 
+    rtp_allow_receiving(av->tox);
+    bwc_allow_receiving(av->tox);
+
     av->toxav_mono_time = mono_time_new();
 
     if (av->msi == nullptr) {
@@ -201,6 +204,9 @@ void toxav_kill(ToxAV *av)
     for (uint8_t i = PACKET_ID_RANGE_LOSSY_AV_START; i <= PACKET_ID_RANGE_LOSSY_AV_END; ++i) {
         tox_callback_friend_lossy_packet_per_pktid(av->tox, nullptr, i);
     }
+
+    rtp_stop_receiving(av->tox);
+    bwc_stop_receiving(av->tox);
 
     /* To avoid possible deadlocks */
     while (av->msi && msi_kill(av->tox, av->msi, nullptr) != 0) {
@@ -566,8 +572,8 @@ bool toxav_call_control(ToxAV *av, uint32_t friend_number, Toxav_Call_Control co
                     goto RETURN;
                 }
 
-                rtp_allow_receiving(av->tox, call->audio_rtp);
-                rtp_allow_receiving(av->tox, call->video_rtp);
+                rtp_allow_receiving_mark(av->tox, call->audio_rtp);
+                rtp_allow_receiving_mark(av->tox, call->video_rtp);
             } else {
                 rc = TOXAV_ERR_CALL_CONTROL_INVALID_TRANSITION;
                 goto RETURN;
@@ -585,8 +591,8 @@ bool toxav_call_control(ToxAV *av, uint32_t friend_number, Toxav_Call_Control co
                     goto RETURN;
                 }
 
-                rtp_stop_receiving(av->tox, call->audio_rtp);
-                rtp_stop_receiving(av->tox, call->video_rtp);
+                rtp_stop_receiving_mark(av->tox, call->audio_rtp);
+                rtp_stop_receiving_mark(av->tox, call->video_rtp);
             } else {
                 rc = TOXAV_ERR_CALL_CONTROL_INVALID_TRANSITION;
                 goto RETURN;
@@ -621,7 +627,7 @@ bool toxav_call_control(ToxAV *av, uint32_t friend_number, Toxav_Call_Control co
                     goto RETURN;
                 }
 
-                rtp_stop_receiving(av->tox, call->audio_rtp);
+                rtp_stop_receiving_mark(av->tox, call->audio_rtp);
             } else {
                 rc = TOXAV_ERR_CALL_CONTROL_INVALID_TRANSITION;
                 goto RETURN;
@@ -637,7 +643,7 @@ bool toxav_call_control(ToxAV *av, uint32_t friend_number, Toxav_Call_Control co
                     goto RETURN;
                 }
 
-                rtp_allow_receiving(av->tox, call->audio_rtp);
+                rtp_allow_receiving_mark(av->tox, call->audio_rtp);
             } else {
                 rc = TOXAV_ERR_CALL_CONTROL_INVALID_TRANSITION;
                 goto RETURN;
@@ -653,7 +659,7 @@ bool toxav_call_control(ToxAV *av, uint32_t friend_number, Toxav_Call_Control co
                     goto RETURN;
                 }
 
-                rtp_stop_receiving(av->tox, call->video_rtp);
+                rtp_stop_receiving_mark(av->tox, call->video_rtp);
             } else {
                 rc = TOXAV_ERR_CALL_CONTROL_INVALID_TRANSITION;
                 goto RETURN;
@@ -669,7 +675,7 @@ bool toxav_call_control(ToxAV *av, uint32_t friend_number, Toxav_Call_Control co
                     goto RETURN;
                 }
 
-                rtp_allow_receiving(av->tox, call->video_rtp);
+                rtp_allow_receiving_mark(av->tox, call->video_rtp);
             } else {
                 rc = TOXAV_ERR_CALL_CONTROL_INVALID_TRANSITION;
                 goto RETURN;
@@ -2179,15 +2185,15 @@ static int callback_capabilites(void *toxav_inst, MSICall *call)
     pthread_mutex_lock(toxav->mutex);
 
     if (call->peer_capabilities & MSI_CAP_S_AUDIO) {
-        rtp_allow_receiving(toxav->tox, call->av_call->audio_rtp);
+        rtp_allow_receiving_mark(toxav->tox, call->av_call->audio_rtp);
     } else {
-        rtp_stop_receiving(toxav->tox, call->av_call->audio_rtp);
+        rtp_stop_receiving_mark(toxav->tox, call->av_call->audio_rtp);
     }
 
     if (call->peer_capabilities & MSI_CAP_S_VIDEO) {
-        rtp_allow_receiving(toxav->tox, call->av_call->video_rtp);
+        rtp_allow_receiving_mark(toxav->tox, call->av_call->video_rtp);
     } else {
-        rtp_stop_receiving(toxav->tox, call->av_call->video_rtp);
+        rtp_stop_receiving_mark(toxav->tox, call->av_call->video_rtp);
     }
 
     invoke_call_state_callback(toxav, call->friend_number, call->peer_capabilities);

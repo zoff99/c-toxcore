@@ -239,6 +239,7 @@ typedef struct RTPSession {
     Tox *tox;
     ToxAV *toxav;
     uint32_t friend_number;
+    bool rtp_receive_active;
     BWController *bwc;
     void *cs;
     rtp_m_cb *mcb;
@@ -268,8 +269,10 @@ size_t rtp_header_unpack(const uint8_t *data, struct RTPHeader *header);
 RTPSession *rtp_new(int payload_type, Tox *tox, ToxAV *toxav, uint32_t friendnumber,
                     BWController *bwc, void *cs, rtp_m_cb *mcb);
 void rtp_kill(Tox *tox, RTPSession *session);
-void rtp_allow_receiving(Tox *tox, RTPSession *session);
-void rtp_stop_receiving(Tox *tox, RTPSession *session);
+void rtp_allow_receiving_mark(Tox *tox, RTPSession *session);
+void rtp_stop_receiving_mark(Tox *tox, RTPSession *session);
+void rtp_allow_receiving(Tox *tox);
+void rtp_stop_receiving(Tox *tox);
 /**
  * Send a frame of audio or video data, chunked in \ref RTPMessage instances.
  *
