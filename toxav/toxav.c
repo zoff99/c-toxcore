@@ -64,7 +64,7 @@ typedef struct ToxAVCall_s {
     /** Required for monitoring changes in states */
     uint8_t previous_self_capabilities;
 
-    pthread_mutex_t mutex[1];
+    pthread_mutex_t toxav_call_mutex[1];
 
     struct ToxAVCall_s *prev;
     struct ToxAVCall_s *next;
@@ -294,14 +294,14 @@ void toxav_iterate(ToxAV *av)
 
     for (; i; i = i->next) {
         if (i->active) {
-            pthread_mutex_lock(i->mutex);
+            pthread_mutex_lock(i->toxav_call_mutex);
             pthread_mutex_unlock(av->mutex);
 
             uint32_t fid = i->friend_number;
             bool is_offline = check_peer_offline_status(av->tox, i->msi_call->session, fid);
 
             if (is_offline) {
-                pthread_mutex_unlock(i->mutex);
+                pthread_mutex_unlock(i->toxav_call_mutex);
                 pthread_mutex_lock(av->mutex);
                 break;
             }
@@ -321,7 +321,7 @@ void toxav_iterate(ToxAV *av)
                 pthread_mutex_unlock(i->video->queue_mutex);
             }
 
-            pthread_mutex_unlock(i->mutex);
+            pthread_mutex_unlock(i->toxav_call_mutex);
             pthread_mutex_lock(av->mutex);
 
             /* In case this call is popped from container stop iteration */
@@ -534,16 +534,16 @@ bool toxav_call_control(ToxAV *av, uint32_t friend_number, Toxav_Call_Control co
 
         case TOXAV_CALL_CONTROL_CANCEL: {
             /* Hang up */
-            pthread_mutex_lock(call->mutex);
+            pthread_mutex_lock(call->toxav_call_mutex);
 
             if (msi_hangup(call->msi_call) != 0) {
                 rc = TOXAV_ERR_CALL_CONTROL_SYNC;
-                pthread_mutex_unlock(call->mutex);
+                pthread_mutex_unlock(call->toxav_call_mutex);
                 goto RETURN;
             }
 
             call->msi_call = nullptr;
-            pthread_mutex_unlock(call->mutex);
+            pthread_mutex_unlock(call->toxav_call_mutex);
 
             /* No mather the case, terminate the call */
             call_kill_transmission(call);
@@ -668,7 +668,7 @@ bool toxav_audio_set_bit_rate(ToxAV *av, uint32_t friend_number, uint32_t audio_
         /* Audio sending is turned off; notify peer */
         call->audio_bit_rate = 0;
     } else {
-        pthread_mutex_lock(call->mutex);
+        pthread_mutex_lock(call->toxav_call_mutex);
 
         if (call->audio_bit_rate == 0) {
             LOGGER_API_DEBUG(av->tox, "Turned on audio sending");
@@ -676,7 +676,7 @@ bool toxav_audio_set_bit_rate(ToxAV *av, uint32_t friend_number, uint32_t audio_
             /* The audio has been turned off before this */
             if (msi_change_capabilities(call->msi_call, call->
                                         msi_call->self_capabilities | MSI_CAP_S_AUDIO) != 0) {
-                pthread_mutex_unlock(call->mutex);
+                pthread_mutex_unlock(call->toxav_call_mutex);
                 pthread_mutex_unlock(av->mutex);
                 rc = TOXAV_ERR_BIT_RATE_SET_SYNC;
                 goto RETURN;
@@ -686,7 +686,7 @@ bool toxav_audio_set_bit_rate(ToxAV *av, uint32_t friend_number, uint32_t audio_
         }
 
         call->audio_bit_rate = audio_bit_rate;
-        pthread_mutex_unlock(call->mutex);
+        pthread_mutex_unlock(call->toxav_call_mutex);
     }
 
     pthread_mutex_unlock(av->mutex);
@@ -741,7 +741,7 @@ bool toxav_video_set_bit_rate(ToxAV *av, uint32_t friend_number, uint32_t video_
 
         call->video_bit_rate = 0;
     } else {
-        pthread_mutex_lock(call->mutex);
+        pthread_mutex_lock(call->toxav_call_mutex);
 
         if (call->video_bit_rate == 0) {
             LOGGER_API_DEBUG(av->tox, "Turned on video sending");
@@ -749,7 +749,7 @@ bool toxav_video_set_bit_rate(ToxAV *av, uint32_t friend_number, uint32_t video_
             /* The video has been turned off before this */
             if (msi_change_capabilities(call->msi_call, call->
                                         msi_call->self_capabilities | MSI_CAP_S_VIDEO) != 0) {
-                pthread_mutex_unlock(call->mutex);
+                pthread_mutex_unlock(call->toxav_call_mutex);
                 pthread_mutex_unlock(av->mutex);
                 rc = TOXAV_ERR_BIT_RATE_SET_SYNC;
                 goto RETURN;
@@ -759,7 +759,7 @@ bool toxav_video_set_bit_rate(ToxAV *av, uint32_t friend_number, uint32_t video_
         }
 
         call->video_bit_rate = video_bit_rate;
-        pthread_mutex_unlock(call->mutex);
+        pthread_mutex_unlock(call->toxav_call_mutex);
     }
 
     pthread_mutex_unlock(av->mutex);
@@ -1259,7 +1259,7 @@ static ToxAVCall *call_new(ToxAV *av, uint32_t friend_number, Toxav_Err_Call *er
     call->av = av;
     call->friend_number = friend_number;
 
-    if (create_recursive_mutex(call->mutex)) {
+    if (create_recursive_mutex(call->toxav_call_mutex)) {
         free(call);
         call = nullptr;
         rc = TOXAV_ERR_CALL_MALLOC;
@@ -1270,7 +1270,7 @@ static ToxAVCall *call_new(ToxAV *av, uint32_t friend_number, Toxav_Err_Call *er
         av->calls = (ToxAVCall **)calloc(sizeof(ToxAVCall *), friend_number + 1);
 
         if (av->calls == nullptr) {
-            pthread_mutex_destroy(call->mutex);
+            pthread_mutex_destroy(call->toxav_call_mutex);
             free(call);
             call = nullptr;
             rc = TOXAV_ERR_CALL_MALLOC;
@@ -1283,7 +1283,7 @@ static ToxAVCall *call_new(ToxAV *av, uint32_t friend_number, Toxav_Err_Call *er
         ToxAVCall **tmp = (ToxAVCall **)realloc(av->calls, sizeof(ToxAVCall *) * (friend_number + 1));
 
         if (tmp == nullptr) {
-            pthread_mutex_destroy(call->mutex);
+            pthread_mutex_destroy(call->toxav_call_mutex);
             free(call);
             call = nullptr;
             rc = TOXAV_ERR_CALL_MALLOC;
@@ -1337,7 +1337,7 @@ static ToxAVCall *call_remove(ToxAVCall *call)
         call->msi_call->av_call = nullptr;
     }
 
-    pthread_mutex_destroy(call->mutex);
+    pthread_mutex_destroy(call->toxav_call_mutex);
     free(call);
 
     if (prev) {
@@ -1463,8 +1463,8 @@ static void call_kill_transmission(ToxAVCall *call)
     pthread_mutex_unlock(call->mutex_audio);
     pthread_mutex_lock(call->mutex_video);
     pthread_mutex_unlock(call->mutex_video);
-    pthread_mutex_lock(call->mutex);
-    pthread_mutex_unlock(call->mutex);
+    pthread_mutex_lock(call->toxav_call_mutex);
+    pthread_mutex_unlock(call->toxav_call_mutex);
 
     bwc_kill(call->bwc);
 
