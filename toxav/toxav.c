@@ -272,10 +272,10 @@ void toxav_audio_iterate(ToxAV *av)
         if (i) {
             if (i->active) {
 
+                pthread_mutex_unlock(av->mutex);
                 pthread_mutex_lock(i->toxav_call_mutex);
                 int64_t copy_of_value = i->call_timestamp_difference_to_sender;
 
-                pthread_mutex_unlock(av->mutex);
 
                 uint8_t res_ac = ac_iterate(i->audio,
                                             &(i->last_incoming_audio_frame_rtimestamp),
