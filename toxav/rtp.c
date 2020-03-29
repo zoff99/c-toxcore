@@ -500,6 +500,11 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         return;
     }
 
+    if (!session->rtp_receive_active) {
+        LOGGER_API_WARNING(tox, "receiving not allowed!");
+        return;
+    }
+
     // Get the packet type.
     const uint8_t packet_type = data[0];
     ++data;
@@ -726,6 +731,7 @@ RTPSession *rtp_new(int payload_type, Tox *tox, ToxAV *toxav, uint32_t friendnum
     session->tox = tox;
     session->toxav = toxav;
     session->friend_number = friendnumber;
+    session->rtp_receive_active = true; /* default: true */
 
     // set NULL just in case
     session->mp = nullptr;
@@ -735,8 +741,6 @@ RTPSession *rtp_new(int payload_type, Tox *tox, ToxAV *toxav, uint32_t friendnum
     session->bwc = bwc;
     session->cs = cs;
     session->mcb = mcb;
-
-    rtp_allow_receiving(tox, session);
 
     return session;
 }
@@ -748,8 +752,6 @@ void rtp_kill(Tox *tox, RTPSession *session)
     }
 
     LOGGER_API_DEBUG(session->tox, "Terminated RTP session: %p", (void *)session);
-    rtp_stop_receiving(tox, session);
-
     LOGGER_API_DEBUG(session->tox, "Terminated RTP session V3 work_buffer_list->next_free_entry: %d",
                      (int)session->work_buffer_list->next_free_entry);
 
@@ -757,20 +759,32 @@ void rtp_kill(Tox *tox, RTPSession *session)
     free(session);
 }
 
-void rtp_allow_receiving(Tox *tox, RTPSession *session)
+void rtp_allow_receiving_mark(Tox *tox, RTPSession *session)
 {
     if (session) {
-        // register callback
-        tox_callback_friend_lossy_packet_per_pktid(tox, handle_rtp_packet, session->payload_type);
+        session->rtp_receive_active = true;
     }
 }
 
-void rtp_stop_receiving(Tox *tox, RTPSession *session)
+void rtp_stop_receiving_mark(Tox *tox, RTPSession *session)
 {
     if (session) {
-        // UN-register callback
-        tox_callback_friend_lossy_packet_per_pktid(tox, nullptr, session->payload_type);
+        session->rtp_receive_active = false;
     }
+}
+
+void rtp_allow_receiving(Tox *tox)
+{
+    // register callback
+    tox_callback_friend_lossy_packet_per_pktid(tox, handle_rtp_packet, RTP_TYPE_AUDIO);
+    tox_callback_friend_lossy_packet_per_pktid(tox, handle_rtp_packet, RTP_TYPE_VIDEO);
+}
+
+void rtp_stop_receiving(Tox *tox)
+{
+    // UN-register callback
+    tox_callback_friend_lossy_packet_per_pktid(tox, nullptr, RTP_TYPE_AUDIO);
+    tox_callback_friend_lossy_packet_per_pktid(tox, nullptr, RTP_TYPE_VIDEO);
 }
 
 /**
@@ -781,7 +795,6 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
                   bool is_keyframe, const Logger *log)
 {
     if (!session) {
-        LOGGER_API_ERROR(session->tox, "No session!");
         return -1;
     }
 

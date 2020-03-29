@@ -52,6 +52,7 @@ struct BWController_s {
 
     uint32_t packet_loss_counted_cycles;
     Mono_Time *bwc_mono_time;
+    bool bwc_receive_active;
 };
 
 struct BWCMessage {
@@ -76,6 +77,7 @@ BWController *bwc_new(Tox *tox, uint32_t friendnumber, m_cb *mcb, void *mcb_user
     retu->cycle.last_sent_timestamp = now;
     retu->cycle.last_refresh_timestamp = now;
     retu->tox = tox;
+    retu->bwc_receive_active = true; /* default: true */
     retu->rcvpkt.rb = rb_new(BWC_AVG_PKT_COUNT);
     retu->cycle.lost = 0;
     retu->cycle.recv = 0;
@@ -86,9 +88,6 @@ BWController *bwc_new(Tox *tox, uint32_t friendnumber, m_cb *mcb, void *mcb_user
         rb_write(retu->rcvpkt.rb, &retu->rcvpkt.packet_length_array[i]);
     }
 
-    // register callback (should be lossless not lossy, to actually reach the other side)
-    tox_callback_friend_lossy_packet_per_pktid(tox, bwc_handle_data, BWC_PACKET_ID);
-
     return retu;
 }
 
@@ -97,9 +96,6 @@ void bwc_kill(BWController *bwc)
     if (!bwc) {
         return;
     }
-
-    // UN-register callback (should be lossless not lossy, to actually reach the other side)
-    tox_callback_friend_lossy_packet_per_pktid(bwc->tox, NULL, BWC_PACKET_ID);
 
     rb_kill(bwc->rcvpkt.rb);
     free(bwc);
@@ -222,6 +218,11 @@ static void bwc_handle_data(Tox *tox, uint32_t friendnumber, const uint8_t *data
         return;
     }
 
+    if (!bwc->bwc_receive_active) {
+        LOGGER_API_WARNING(tox, "receiving not allowed!");
+        return;
+    }
+
     size_t offset = 1;  // Ignore packet id.
     struct BWCMessage msg;
     offset += net_unpack_u32(data + offset, &msg.lost);
@@ -245,4 +246,14 @@ static int bwc_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const ui
     }
 
     return -1;
+}
+
+void bwc_allow_receiving(Tox *tox)
+{
+    tox_callback_friend_lossy_packet_per_pktid(tox, bwc_handle_data, BWC_PACKET_ID);
+}
+
+void bwc_stop_receiving(Tox *tox)
+{
+    tox_callback_friend_lossy_packet_per_pktid(tox, NULL, BWC_PACKET_ID);
 }
