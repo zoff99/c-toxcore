@@ -79,6 +79,10 @@ Mono_Time *toxav_get_av_mono_time(ToxAV *toxav);
 ToxAVCall *call_get(ToxAV *av, uint32_t friend_number);
 RTPSession *rtp_session_get(void *call, int payload_type);
 BWController *bwc_controller_get(void *call);
+int64_t call_last_ntp_req_ts_get(ToxAVCall *call);
+void call_last_ntp_req_ts_set(ToxAVCall *call, int64_t ts);
+int64_t call_last_ntp_ts_get(ToxAVCall *call);
+void call_last_ntp_ts_set(ToxAVCall *call, int64_t ts);
 
 
 MSISession *tox_av_msi_get(ToxAV *av)
@@ -102,6 +106,42 @@ ToxAVCall *call_get(ToxAV *av, uint32_t friend_number)
     }
 
     return av->calls[friend_number];
+}
+
+int64_t call_last_ntp_req_ts_get(ToxAVCall *call)
+{
+    if (call == nullptr) {
+        return 0;
+    }
+
+    return call->call_timestamp_last_ntp_request_sent;
+}
+
+void call_last_ntp_req_ts_set(ToxAVCall *call, int64_t ts)
+{
+    if (call == nullptr) {
+        return;
+    }
+    
+    call->call_timestamp_last_ntp_request_sent = ts;
+}
+
+int64_t call_last_ntp_ts_get(ToxAVCall *call)
+{
+    if (call == nullptr) {
+        return 0;
+    }
+
+    return call->call_timestamp_last_ntp_answer_received;
+}
+
+void call_last_ntp_ts_set(ToxAVCall *call, int64_t ts)
+{
+    if (call == nullptr) {
+        return;
+    }
+    
+    call->call_timestamp_last_ntp_answer_received = ts;
 }
 
 RTPSession *rtp_session_get(void *call, int payload_type)
