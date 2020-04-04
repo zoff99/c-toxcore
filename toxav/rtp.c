@@ -62,6 +62,11 @@ int rtp_send_custom_lossless_packet(Tox *tox, int32_t friendnumber, const uint8_
 
 int TOXAV_SEND_VIDEO_LOSSLESS_PACKETS = 0;
 
+#define NTP_SEND_INTERVAL_MS 200
+#define NTP_SEND_INTERVAL_MS_JITTER 90
+#define NTP_SEND_INTERVAL_RECVD_BYTES  600000
+#define NTP_SEND_INTERVAL_LOST_BYTES   (NTP_SEND_INTERVAL_RECVD_BYTES / 8) // simluate 8% loss
+
 
 /*
  * return -1 on failure, 0 on success
@@ -554,6 +559,10 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
 
 /* !!hack!! TODO:fix me */
 void *call_get(void *av, uint32_t friend_number);
+int64_t call_last_ntp_req_ts_get(void *call);
+void call_last_ntp_req_ts_set(void *call, int64_t ts);
+int64_t call_last_ntp_ts_get(void *call);
+void call_last_ntp_ts_set(void *call, int64_t ts);
 RTPSession *rtp_session_get(void *call, int payload_type);
 /* !!hack!! TODO:fix me */
 
@@ -630,6 +639,17 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         }
     }
 
+    int64_t last_ntp_answer = call_last_ntp_ts_get(call);
+    int64_t time_now = current_time_monotonic(rtp_get_mono_time_from_rtpsession(session));
+    // we have NOT received NTP answers within the last x ms?
+    if ((last_ntp_answer + (NTP_SEND_INTERVAL_MS + NTP_SEND_INTERVAL_MS_JITTER)) < time_now)
+    {
+        call_last_ntp_ts_set(call, current_time_monotonic(rtp_get_mono_time_from_rtpsession(session)));
+
+        LOGGER_API_ERROR(tox, "not NTP answer within: %d ms!", (int32_t)time_now - (int32_t)last_ntp_answer);
+        bwc_add_lost_v3(session->bwc, NTP_SEND_INTERVAL_LOST_BYTES, true); // say that x bytes were lost (just a random amount)
+        bwc_add_recv(session->bwc, NTP_SEND_INTERVAL_RECVD_BYTES);
+    }
 
     // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
     // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
@@ -696,6 +716,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                 LOGGER_API_DEBUG(tox, "RECVD:PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_ANSWER: %d %d %d %d",
                                  data[6], data[7], data[8], data[9]);
 
+                call_last_ntp_ts_set(call, current_time_monotonic(rtp_get_mono_time_from_rtpsession(session)));
 
                 ((VCSession *)(session->cs))->dummy_ntp_local_start =
                     ((uint32_t)(data[2]) << 24)
@@ -817,8 +838,39 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     }
 
 
-    LOGGER_API_DEBUG(tox, "header.pt %d, video %d", (uint8_t)header.pt, (RTP_TYPE_VIDEO % 128));
+    // ----------------- RTP timestamp -----------------
+    // ----------------- RTP timestamp -----------------
+    // ----------------- RTP timestamp -----------------
 
+    // LOGGER_API_DEBUG(tox, "rtp_packet_timestamp_delta:0:%d", (uint32_t)header.rtp_packet_timestamp);
+    // LOGGER_API_DEBUG(tox, "rtp_packet_timestamp_delta:1:%d", (uint32_t)session->incoming_rtp_packets_ts_last_remote);
+    int64_t time_now_ms = current_time_monotonic(rtp_get_mono_time_from_rtpsession(session));
+
+    int64_t rtp_ts_diff_remote = header.rtp_packet_timestamp - session->incoming_rtp_packets_ts_last_remote;
+    int64_t rtp_ts_diff_local = time_now_ms - session->incoming_rtp_packets_ts_last_local;
+
+    if ((rtp_ts_diff_local < 100) && (rtp_ts_diff_local > -100))
+    {
+        LOGGER_API_DEBUG(tox, "rtp_packet_timestamp_delta_local:T=%d:%d",
+            (uint8_t)header.pt,
+            (int32_t)rtp_ts_diff_remote);
+
+        LOGGER_API_DEBUG(tox, "rtp_packet_timestamp_delta_remote:T=%d:%d",
+            (uint8_t)header.pt,
+            (int32_t)rtp_ts_diff_local);
+
+        LOGGER_API_DEBUG(tox, "rtp_packet_timestamp_delta_l2r:T=%d:%d",
+            (uint8_t)header.pt,
+            (int32_t)rtp_ts_diff_local - (int32_t)rtp_ts_diff_remote);
+    }
+    session->incoming_rtp_packets_ts_last_remote = header.rtp_packet_timestamp;
+    session->incoming_rtp_packets_ts_last_local = time_now_ms;
+    // ----------------- RTP timestamp -----------------
+    // ----------------- RTP timestamp -----------------
+    // ----------------- RTP timestamp -----------------
+
+
+    LOGGER_API_DEBUG(tox, "header.pt %d, video %d", (uint8_t)header.pt, (RTP_TYPE_VIDEO % 128));
     LOGGER_API_DEBUG(tox, "rtp packet record time: %lu", (unsigned long)header.frame_record_timestamp);
 
 
@@ -841,12 +893,20 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
     // HINT: ask sender for dummy ntp values -------------
     if (
-        (
-            ((header.sequnum % 100) == 0)
-            ||
-            (header.sequnum < 30)
-        )
-        && (header.offset_lower == 0)) {
+            (call_last_ntp_req_ts_get(session) + NTP_SEND_INTERVAL_MS)
+                < current_time_monotonic(rtp_get_mono_time_from_rtpsession(session))
+       ) {
+
+    //if (
+    //    (
+    //        ((header.sequnum % 50) == 0)
+    //        ||
+    //        (header.sequnum < 30)
+    //    )
+    //    && (header.offset_lower == 0)) {
+
+        call_last_ntp_req_ts_set(call, current_time_monotonic(rtp_get_mono_time_from_rtpsession(session)));
+
         uint32_t pkg_buf_len = (sizeof(uint32_t) * 3) + 2;
         uint8_t pkg_buf[pkg_buf_len];
         pkg_buf[0] = PACKET_TOXAV_COMM_CHANNEL;
@@ -1064,6 +1124,7 @@ size_t rtp_header_pack(uint8_t *const rdata, const struct RTPHeader *header)
     p += net_pack_u32(p, header->real_frame_num);
     p += net_pack_u32(p, header->encoder_bit_rate_used);
     p += net_pack_u32(p, header->client_video_capture_delay_ms);
+    p += net_pack_u64(p, header->rtp_packet_timestamp);
     // ---------------------------- //
     //      custom fields here      //
     // ---------------------------- //
@@ -1107,6 +1168,7 @@ size_t rtp_header_unpack(const uint8_t *data, struct RTPHeader *header)
     p += net_unpack_u32(p, &header->real_frame_num);
     p += net_unpack_u32(p, &header->encoder_bit_rate_used);
     p += net_unpack_u32(p, &header->client_video_capture_delay_ms);
+    p += net_unpack_u64(p, &header->rtp_packet_timestamp);
     // ---------------------------- //
     //      custom fields here      //
     // ---------------------------- //
@@ -1322,11 +1384,17 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
         }
     }
 
+
+    Mono_Time *mt = rtp_get_mono_time_from_rtpsession(session);
+
     if (MAX_CRYPTO_DATA_SIZE > (length + RTP_HEADER_SIZE + 1)) {
         /**
          * The length is lesser than the maximum allowed length (including header)
          * Send the packet in single piece.
          */
+
+        header.rtp_packet_timestamp = current_time_monotonic(mt);
+
         rtp_header_pack(rdata + 1, &header);
         memcpy(rdata + 1 + RTP_HEADER_SIZE, data, length);
 
@@ -1349,6 +1417,9 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
         uint16_t piece = MAX_CRYPTO_DATA_SIZE - (RTP_HEADER_SIZE + 1);
 
         while ((length - sent) + RTP_HEADER_SIZE + 1 > MAX_CRYPTO_DATA_SIZE) {
+
+            header.rtp_packet_timestamp = current_time_monotonic(mt);
+
             rtp_header_pack(rdata + 1, &header);
             memcpy(rdata + 1 + RTP_HEADER_SIZE, data + sent, piece);
 
