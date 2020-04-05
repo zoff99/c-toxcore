@@ -62,7 +62,7 @@ static int bwc_handle_data(Messenger *m, uint32_t friendnumber, const uint8_t *d
 static void send_update(BWController *bwc);
 
 BWController *bwc_new(Messenger *m, uint32_t friendnumber, m_cb *mcb, void *mcb_user_data,
-                      Mono_Time *toxav_given_mono_time)
+                      Mono_Time *bwc_mono_time)
 {
     BWController *retu = (BWController *)calloc(sizeof(struct BWController_s), 1);
     LOGGER_DEBUG(m->log, "Creating bandwidth controller");
@@ -70,8 +70,8 @@ BWController *bwc_new(Messenger *m, uint32_t friendnumber, m_cb *mcb, void *mcb_
     retu->mcb_user_data = mcb_user_data;
     retu->m = m;
     retu->friend_number = friendnumber;
-    retu->bwc_mono_time = toxav_given_mono_time;
-    uint64_t now = current_time_monotonic(toxav_given_mono_time);
+    retu->bwc_mono_time = bwc_mono_time;
+    uint64_t now = current_time_monotonic(bwc_mono_time);
     retu->cycle.last_sent_timestamp = now;
     retu->cycle.last_refresh_timestamp = now;
     retu->rcvpkt.rb = rb_new(BWC_AVG_PKT_COUNT);
