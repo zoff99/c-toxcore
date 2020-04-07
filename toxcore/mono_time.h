@@ -46,7 +46,6 @@ extern "C" {
 typedef struct Mono_Time Mono_Time;
 #endif /* MONO_TIME_DEFINED */
 
-Mono_Time *mono_time_new_locking(bool with_locking);
 Mono_Time *mono_time_new(void);
 void mono_time_free(Mono_Time *mono_time);
 

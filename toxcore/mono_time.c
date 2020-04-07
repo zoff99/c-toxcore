@@ -45,7 +45,6 @@ struct Mono_Time {
 
     mono_time_current_time_cb *current_time_callback;
     void *user_data;
-    bool with_locking;
 };
 
 static uint64_t current_time_monotonic_default(Mono_Time *mono_time, void *user_data)
@@ -98,18 +97,12 @@ static uint64_t current_time_monotonic_default(Mono_Time *mono_time, void *user_
 
 Mono_Time *mono_time_new(void)
 {
-    return mono_time_new_locking(true);
-}
-
-Mono_Time *mono_time_new_locking(bool with_locking)
-{
     Mono_Time *mono_time = (Mono_Time *)malloc(sizeof(Mono_Time));
 
     if (mono_time == nullptr) {
         return nullptr;
     }
 
-    mono_time->with_locking = with_locking;
     mono_time->time_update_lock = (pthread_rwlock_t *)malloc(sizeof(pthread_rwlock_t));
 
     if (mono_time->time_update_lock == nullptr) {
@@ -117,13 +110,10 @@ Mono_Time *mono_time_new_locking(bool with_locking)
         return nullptr;
     }
 
-    if (mono_time->with_locking)
-    {
-        if (pthread_rwlock_init(mono_time->time_update_lock, nullptr) < 0) {
-            free(mono_time->time_update_lock);
-            free(mono_time);
-            return nullptr;
-        }
+    if (pthread_rwlock_init(mono_time->time_update_lock, nullptr) < 0) {
+        free(mono_time->time_update_lock);
+        free(mono_time);
+        return nullptr;
     }
 
     mono_time->current_time_callback = current_time_monotonic_default;
@@ -155,10 +145,7 @@ void mono_time_free(Mono_Time *mono_time)
 #ifdef OS_WIN32
     pthread_mutex_destroy(&mono_time->last_clock_lock);
 #endif
-    if (mono_time->with_locking)
-    {
-        pthread_rwlock_destroy(mono_time->time_update_lock);
-    }
+    pthread_rwlock_destroy(mono_time->time_update_lock);
     free(mono_time->time_update_lock);
     free(mono_time);
 }
@@ -177,29 +164,17 @@ void mono_time_update(Mono_Time *mono_time)
     pthread_mutex_unlock(&mono_time->last_clock_lock);
 #endif
 
-    if (mono_time->with_locking)
-    {
-        pthread_rwlock_wrlock(mono_time->time_update_lock);
-    }
+    pthread_rwlock_wrlock(mono_time->time_update_lock);
     mono_time->time = time;
-    if (mono_time->with_locking)
-    {
-        pthread_rwlock_unlock(mono_time->time_update_lock);
-    }
+    pthread_rwlock_unlock(mono_time->time_update_lock);
 }
 
 uint64_t mono_time_get(const Mono_Time *mono_time)
 {
     uint64_t time = 0;
-    if (mono_time->with_locking)
-    {
-        pthread_rwlock_rdlock(mono_time->time_update_lock);
-    }
+    pthread_rwlock_rdlock(mono_time->time_update_lock);
     time = mono_time->time;
-    if (mono_time->with_locking)
-    {
-        pthread_rwlock_unlock(mono_time->time_update_lock);
-    }
+    pthread_rwlock_unlock(mono_time->time_update_lock);
     return time;
 }
 
