@@ -122,9 +122,6 @@ typedef struct ToxAVCall_s {
     int64_t reference_diff_timestamp;
     uint8_t reference_diff_timestamp_set;
 
-    int64_t call_timestamp_last_ntp_answer_received;
-    int64_t call_timestamp_last_ntp_request_sent;
-
     /** Required for monitoring changes in states */
     uint8_t previous_self_capabilities;
 
