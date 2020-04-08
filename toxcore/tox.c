@@ -2283,10 +2283,7 @@ void tox_callback_friend_lossy_packet_per_pktid(Tox *tox, tox_friend_lossy_packe
 
     if (callback != nullptr) {
         if ((pktid >= PACKET_ID_RANGE_LOSSY_START) && (pktid <= PACKET_ID_RANGE_LOSSY_END)) {
-            // want to set the callback, check if it is unset first?
-            if (!tox->friend_lossy_packet_callback_per_pktid[pktid]) {
-                tox->friend_lossy_packet_callback_per_pktid[pktid] = callback;
-            }
+            tox->friend_lossy_packet_callback_per_pktid[pktid] = callback;
         }
     } else { // callback == nullptr
         if ((pktid >= PACKET_ID_RANGE_LOSSY_START) && (pktid <= PACKET_ID_RANGE_LOSSY_END)) {
