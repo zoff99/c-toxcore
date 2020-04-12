@@ -1455,6 +1455,9 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
                              0, av->call_comm_cb_user_data);
         }
 
+        // reset flag again
+        call->video->h264_video_capabilities_received = 0;
+
     }
 
     // HINT: auto switch encoder, if we got capabilities packet from friend ------
@@ -1641,7 +1644,7 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
         if ((call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8)
                 || (call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP9)) {
 
-            LOGGER_DEBUG(av->m->log, "++++++ encoding VP8 frame ++++++");
+            LOGGER_ERROR(av->m->log, "++++++ encoding VP8 frame ++++++");
 
             // HINT: vp8
             uint32_t result = encode_frame_vpx(av, friend_number, width, height,
@@ -1844,6 +1847,8 @@ bool toxav_video_send_frame_h264_age(ToxAV *av, uint32_t friend_number, uint16_t
                              0, av->call_comm_cb_user_data);
         }
 
+        // reset flag again
+        call->video->h264_video_capabilities_received = 0;
     }
 
     // HINT: auto switch encoder, if we got capabilities packet from friend ------
