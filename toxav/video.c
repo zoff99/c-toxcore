@@ -1031,14 +1031,19 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
 int vc_reconfigure_encoder(Logger *log, VCSession *vc, uint32_t bit_rate, uint16_t width, uint16_t height,
                            int16_t kf_max_dist)
 {
+    int ret = 0;
+    
     if (vc->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8) {
-        return vc_reconfigure_encoder_vpx(log, vc, bit_rate, width, height, kf_max_dist);
+        ret = vc_reconfigure_encoder_vpx(log, vc, bit_rate, width, height, kf_max_dist);
     } else {
 #ifdef RASPBERRY_PI_OMX
-        return vc_reconfigure_encoder_h264_omx_raspi(log, vc, bit_rate, width, height, kf_max_dist);
+        ret = vc_reconfigure_encoder_h264_omx_raspi(log, vc, bit_rate, width, height, kf_max_dist);
 #else
-        return vc_reconfigure_encoder_h264(log, vc, bit_rate, width, height, kf_max_dist);
+        ret = vc_reconfigure_encoder_h264(log, vc, bit_rate, width, height, kf_max_dist);
 #endif
     }
+
+    vc->video_encoder_coded_used_prev = vc->video_encoder_coded_used;
+    return ret;
 }
 
