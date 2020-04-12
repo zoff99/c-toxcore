@@ -813,6 +813,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             (vc->h264_enc_height == height) &&
             (vc->video_rc_max_quantizer == vc->video_rc_max_quantizer_prev) &&
             (vc->video_rc_min_quantizer == vc->video_rc_min_quantizer_prev) &&
+            (vc->video_encoder_coded_used == vc->video_encoder_coded_used_prev) &&
             (vc->h264_enc_bitrate != bit_rate) &&
             (kf_max_dist != -2)) {
         // only bit rate changed
@@ -853,6 +854,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
                 (vc->h264_enc_bitrate != bit_rate) ||
                 (vc->video_rc_max_quantizer != vc->video_rc_max_quantizer_prev) ||
                 (vc->video_rc_min_quantizer != vc->video_rc_min_quantizer_prev) ||
+                (vc->video_encoder_coded_used != vc->video_encoder_coded_used_prev) ||
                 (kf_max_dist == -2)
            ) {
             // input image size changed
