@@ -1,5 +1,8 @@
 #include "crypto_core.h"
 
+#include <algorithm>
+#include <vector>
+
 #include <gtest/gtest.h>
 
 #include <algorithm>
