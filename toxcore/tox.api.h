@@ -880,7 +880,7 @@ enum class CONNECTION {
 }
 
 
-namespace self {
+inline namespace self {
 
   CONNECTION connection_status {
     /**
@@ -934,7 +934,7 @@ void iterate(any user_data);
  ******************************************************************************/
 
 
-namespace self {
+inline namespace self {
 
   uint8_t[ADDRESS_SIZE] address {
     /**
@@ -1012,7 +1012,7 @@ error for set_info {
 }
 
 
-namespace self {
+inline namespace self {
 
   uint8_t[length <= MAX_NAME_LENGTH] name {
     /**
@@ -1252,7 +1252,7 @@ namespace friend {
 
 }
 
-namespace self {
+inline namespace self {
 
   uint32_t[size] friend_list {
     /**
@@ -1540,14 +1540,8 @@ namespace friend {
  *
  ******************************************************************************/
 
-error for set_typing {
-  /**
-   * The friend number did not designate a valid friend.
-   */
-  FRIEND_NOT_FOUND,
-}
 
-namespace self {
+inline namespace self {
 
   bool typing {
     /**
@@ -1560,7 +1554,12 @@ namespace self {
      *
      * @return true on success.
      */
-    set(uint32_t friend_number) with error for set_typing;
+    set(uint32_t friend_number) {
+      /**
+       * The friend number did not designate a valid friend.
+       */
+      FRIEND_NOT_FOUND,
+    }
   }
 
 }
@@ -2319,9 +2318,9 @@ namespace conference {
   namespace peer {
 
     /**
-     * Return the number of online peers in the conference. The unsigned
-     * integers less than this number are the valid values of peer_number for
-     * the functions querying these peers. Return value is unspecified on
+     * Return the number of online peers in the conference. The unsigned 
+     * integers less than this number are the valid values of peer_number for 
+     * the functions querying these peers. Return value is unspecified on 
      * failure.
      */
     const uint32_t count(uint32_t conference_number)
@@ -2370,8 +2369,8 @@ namespace conference {
   namespace offline_peer {
 
     /**
-     * Return the number of offline peers in the conference. The unsigned
-     * integers less than this number are the valid values of offline_peer_number for
+     * Return the number of offline peers in the conference. The unsigned 
+     * integers less than this number are the valid values of offline_peer_number for 
      * the functions querying these peers. Return value is unspecified on failure.
      */
     const uint32_t count(uint32_t conference_number)
@@ -2695,36 +2694,36 @@ namespace conference {
 
 namespace friend {
 
-  error for custom_packet {
-    NULL,
-    /**
-     * The friend number did not designate a valid friend.
-     */
-    FRIEND_NOT_FOUND,
-    /**
-     * This client is currently not connected to the friend.
-     */
-    FRIEND_NOT_CONNECTED,
-    /**
-     * The first byte of data was not in the specified range for the packet type.
-     * This range is 192-254 for lossy, and 69, 160-191 for lossless packets.
-     */
-    INVALID,
-    /**
-     * Attempted to send an empty packet.
-     */
-    EMPTY,
-    /**
-     * Packet data length exceeded $MAX_CUSTOM_PACKET_SIZE.
-     */
-    TOO_LONG,
-    /**
-     * Packet queue is full.
-     */
-    SENDQ,
-  }
+  inline namespace send {
 
-  namespace send {
+    error for custom_packet {
+      NULL,
+      /**
+       * The friend number did not designate a valid friend.
+       */
+      FRIEND_NOT_FOUND,
+      /**
+       * This client is currently not connected to the friend.
+       */
+      FRIEND_NOT_CONNECTED,
+      /**
+       * The first byte of data was not in the specified range for the packet type.
+       * This range is 200-254 for lossy, and 160-191 for lossless packets.
+       */
+      INVALID,
+      /**
+       * Attempted to send an empty packet.
+       */
+      EMPTY,
+      /**
+       * Packet data length exceeded $MAX_CUSTOM_PACKET_SIZE.
+       */
+      TOO_LONG,
+      /**
+       * Packet queue is full.
+       */
+      SENDQ,
+    }
 
     /**
      * Send a custom lossy packet to a friend.
@@ -2804,14 +2803,7 @@ namespace friend {
  ******************************************************************************/
 
 
-error for get_port {
-  /**
-   * The instance was not bound to any port.
-   */
-  NOT_BOUND,
-}
-
-namespace self {
+inline namespace self {
 
   uint8_t[PUBLIC_KEY_SIZE] dht_id {
     /**
@@ -2829,6 +2821,13 @@ namespace self {
     get();
   }
 
+
+  error for get_port {
+    /**
+     * The instance was not bound to any port.
+     */
+    NOT_BOUND,
+  }
 
 
   uint16_t udp_port {
