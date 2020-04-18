@@ -143,7 +143,7 @@ apt-get install -y --force-yes clang-9
 
 # --------- setup toktok-stack ---------
 cd /workspace/
-git clone --branch=upgrade-bazel --depth=1 https://github.com/iphydf/toktok-stack ./toktok-stack
+git clone --branch=master --depth=1 https://github.com/iphydf/toktok-stack ./toktok-stack
 cd ./toktok-stack/
 rm -f ./c-toxcore/
 rmdir ./c-toxcore/
