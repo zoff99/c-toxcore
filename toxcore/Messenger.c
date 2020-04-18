@@ -36,40 +36,28 @@ static void m_register_default_plugins(Messenger *m);
 // friend_not_valid determines if the friendnumber passed is valid in the Messenger object
 static uint8_t friend_not_valid(const Messenger *m, int32_t friendnumber)
 {
-    if (m->friendlist) {
-        if ((unsigned int)friendnumber < m->numfriends) {
-            if (m->friendlist[friendnumber].status != 0) {
-                return 0;
-            }
+    if ((unsigned int)friendnumber < m->numfriends) {
+        if (m->friendlist[friendnumber].status != 0) {
+            return 0;
         }
     }
 
     return 1;
 }
 
-/* Set the size of the friend list to num_new.
- * params: num_old -> current size
- *         num_new -> new size
+/* Set the size of the friend list to numfriends.
  *
- *  return -1 if it fails.
+ *  return -1 if realloc fails.
  */
-static int realloc_friendlist(Messenger *m, uint32_t num_new, uint32_t num_old)
+static int realloc_friendlist(Messenger *m, uint32_t num)
 {
-    if (num_new == num_old) {
-        // nothing to do
-        return 0;
-    }
-
-    if (num_new == 0) {
+    if (num == 0) {
         free(m->friendlist);
         m->friendlist = nullptr;
         return 0;
     }
 
-    Friend *newfriendlist = (Friend *)realloc(m->friendlist, num_new * sizeof(Friend));
-    /*
-     * Warning: new allocated space is NOT initialised!
-     */
+    Friend *newfriendlist = (Friend *)realloc(m->friendlist, num * sizeof(Friend));
 
     if (newfriendlist == nullptr) {
         return -1;
@@ -193,8 +181,8 @@ static int m_handle_lossy_packet(void *object, int friend_num, const uint8_t *pa
 
 static int32_t init_new_friend(Messenger *m, const uint8_t *real_pk, uint8_t status)
 {
-    // here we increase the list (+1)
-    if (realloc_friendlist(m, m->numfriends + 1, m->numfriends) != 0) {
+    /* Resize the friend list if necessary. */
+    if (realloc_friendlist(m, m->numfriends + 1) != 0) {
         return FAERR_NOMEM;
     }
 
@@ -433,7 +421,7 @@ static int do_receipts(Messenger *m, int32_t friendnumber, void *userdata)
  *  return 0 if success.
  *  return -1 if failure.
  */
-int m_delfriend(Messenger *m, uint32_t friendnumber)
+int m_delfriend(Messenger *m, int32_t friendnumber)
 {
     if (friend_not_valid(m, friendnumber)) {
         return -1;
@@ -459,10 +447,9 @@ int m_delfriend(Messenger *m, uint32_t friendnumber)
         }
     }
 
-    uint32_t numfriends_old = m->numfriends;
     m->numfriends = i;
 
-    if (realloc_friendlist(m, m->numfriends, numfriends_old) != 0) {
+    if (realloc_friendlist(m, m->numfriends) != 0) {
         return FAERR_NOMEM;
     }
 
@@ -2081,11 +2068,9 @@ int send_custom_lossless_packet(const Messenger *m, int32_t friendnumber, const 
         return -2;
     }
 
-    if (data[0] < PACKET_ID_RANGE_LOSSLESS_CUSTOM_START || data[0] > PACKET_ID_RANGE_LOSSLESS_CUSTOM_END) {
-        // allow PACKET_ID_MSI packets to be handled by custom packet handler
-        if (data[0] != PACKET_ID_MSI) {
-            return -3;
-        }
+    if ((data[0] < PACKET_ID_RANGE_LOSSLESS_CUSTOM_START || data[0] > PACKET_ID_RANGE_LOSSLESS_CUSTOM_END)
+            && data[0] != PACKET_ID_MSI) {
+        return -3;
     }
 
     if (m->friendlist[friendnumber].status != FRIEND_ONLINE) {
