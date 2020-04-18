@@ -23,6 +23,9 @@ jobs:
             cmake
             libconfig-dev
             libgtest-dev
+            libopus-dev
+            libsodium-dev
+            libvpx-dev
             llvm-dev
             ninja-build
             pkg-config
