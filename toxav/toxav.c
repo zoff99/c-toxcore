@@ -2403,7 +2403,7 @@ static bool call_prepare_transmission(ToxAVCall *call)
     }
 
     if (call->active) {
-        LOGGER_API_WARNING(av->tox, "Call already active!\n");
+        LOGGER_API_WARNING(av->tox, "Call already active!");
         return true;
     }
 
