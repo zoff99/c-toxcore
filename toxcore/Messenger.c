@@ -185,7 +185,7 @@ static int m_handle_lossy_packet(void *object, int friend_num, const uint8_t *pa
 
 static int32_t init_new_friend(Messenger *m, const uint8_t *real_pk, uint8_t status)
 {
-    /* Resize the friend list if necessary. */
+    /* here we always increase the list (+1) */
     if (realloc_friendlist(m, m->numfriends + 1) != 0) {
         return FAERR_NOMEM;
     }
