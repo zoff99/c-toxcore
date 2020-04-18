@@ -54,80 +54,11 @@ uint32_t _debug_skip_every_x_audio_frame = 10;
 #undef LOGGER_INFO
 #define LOGGER_INFO(log, ...) printf("")
 /*
-VPX_DL_REALTIME       (1)       deadline parameter analogous to VPx REALTIME mode.
-VPX_DL_GOOD_QUALITY   (1000000) deadline parameter analogous to VPx GOOD QUALITY mode.
-VPX_DL_BEST_QUALITY   (0)       deadline parameter analogous to VPx BEST QUALITY mode.
-*/
+ * Zoff: disable logging in ToxAV for now
+ */
 
-typedef struct ToxAVCall_s {
-    ToxAV *av;
+void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *user_data);
 
-    pthread_mutex_t mutex_audio[1];
-    RTPSession *audio_rtp;
-    ACSession *audio;
-
-    pthread_mutex_t mutex_video[1];
-    RTPSession *video_rtp;
-    VCSession *video;
-
-    BWController *bwc;
-
-    bool active;
-    MSICall *msi_call;
-    uint32_t friend_number;
-
-    uint32_t audio_bit_rate; /* Sending audio bit rate */
-    uint32_t video_bit_rate; /* Sending video bit rate */
-
-    /** Required for monitoring changes in states */
-    uint8_t previous_self_capabilities;
-
-    pthread_mutex_t toxav_call_mutex[1];
-
-    struct ToxAVCall_s *prev;
-    struct ToxAVCall_s *next;
-} ToxAVCall;
-
-struct ToxAV {
-    Tox *tox;
-    Messenger *m;
-    MSISession *msi;
-
-    /* Two-way storage: first is array of calls and second is list of calls with head and tail */
-    ToxAVCall **calls;
-    uint32_t calls_tail;
-    uint32_t calls_head;
-    pthread_mutex_t mutex[1];
-
-    /* Call callback */
-    toxav_call_cb *ccb;
-    void *ccb_user_data;
-    /* Call state callback */
-    toxav_call_state_cb *scb;
-    void *scb_user_data;
-    /* Audio frame receive callback */
-    toxav_audio_receive_frame_cb *acb;
-    void *acb_user_data;
-    /* Video frame receive callback */
-    toxav_video_receive_frame_cb *vcb;
-    void *vcb_user_data;
-    /* Bit rate control callback */
-    toxav_audio_bit_rate_cb *abcb;
-    void *abcb_user_data;
-    /* Bit rate control callback */
-    toxav_video_bit_rate_cb *vbcb;
-    void *vbcb_user_data;
-
-    /** Decode time measures */
-    int32_t dmssc; /** Measure count */
-    int32_t dmsst; /** Last cycle total */
-    int32_t dmssa; /** Average decoding time in ms */
-
-    uint32_t interval; /** Calculated interval */
-    Mono_Time *toxav_mono_time; /** ToxAV's own mono_time instance */
-};
-
-static void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *user_data);
 static int callback_invite(void *toxav_inst, MSICall *call);
 static int callback_start(void *toxav_inst, MSICall *call);
 static int callback_end(void *toxav_inst, MSICall *call);
@@ -2472,7 +2403,7 @@ static bool call_prepare_transmission(ToxAVCall *call)
     }
 
     if (call->active) {
-        LOGGER_WARNING(av->m->log, "Call already active!");
+        LOGGER_API_WARNING(av->tox, "Call already active!");
         return true;
     }
 
