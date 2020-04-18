@@ -95,23 +95,6 @@ int rtp_send_custom_lossless_packet(Tox *tox, int32_t friendnumber, const uint8_
     return -1;
 }
 
-
-/*
- * return -1 on failure, 0 on success
- *
- */
-static int rtp_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length)
-{
-    Tox_Err_Friend_Custom_Packet error;
-    tox_friend_send_lossy_packet(tox, friendnumber, data, (size_t)length, &error);
-
-    if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_OK) {
-        return 0;
-    }
-
-    return -1;
-}
-
 // allocate_len is NOT including header!
 static struct RTPMessage *new_message(Tox *tox, const struct RTPHeader *header, size_t allocate_len,
                                       const uint8_t *data,
@@ -327,7 +310,7 @@ static bool fill_data_into_slot(Tox *tox, struct RTPWorkBufferList *wkbl, const 
                                  sizeof(struct RTPMessage) + header->data_length_full + AV_INPUT_BUFFER_PADDING_SIZE);
 
         if (msg == nullptr) {
-            LOGGER_ERROR(log, "Out of memory while trying to allocate for frame of size %u",
+            LOGGER_DEBUG(log, "Out of memory while trying to allocate for frame of size %u\n",
                          (unsigned)header->data_length_full);
             // Out of memory: throw away the incoming data.
             return false;
