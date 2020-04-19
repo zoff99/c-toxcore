@@ -2021,11 +2021,11 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
 
             // HINT: sanity check --------------
 
-            if ((uint32_t)call->video_bit_rate_not_yet_set > ((uint32_t)call->video_bit_rate + 300)) {
+            //if ((uint32_t)call->video_bit_rate_not_yet_set > ((uint32_t)call->video_bit_rate + 300)) {
                 LOGGER_DEBUG(call->av->m->log, "callback_bwc:INC:vb=%d loss=%d", (int)call->video_bit_rate_not_yet_set,
                              (int)(loss * 100));
                 call->video_bit_rate = (uint32_t)call->video_bit_rate_not_yet_set;
-            }
+            //}
         }
     } else if ((loss * 100) > VIDEO_BITRATE_AUTO_DEC_THRESHOLD) {
         if (call->video_bit_rate > VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
