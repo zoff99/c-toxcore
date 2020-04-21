@@ -101,16 +101,16 @@ struct Tox {
 
 void global_lock(const Tox *tox)
 {
-    if (tox->mutex != nullptr) {
-        pthread_mutex_lock(tox->mutex);
-    }
+    //if (tox->mutex != nullptr) {
+    //    pthread_mutex_lock(tox->mutex);
+    //}
 }
 
 void global_unlock(const Tox *tox)
 {
-    if (tox->mutex != nullptr) {
-        pthread_mutex_unlock(tox->mutex);
-    }
+    //if (tox->mutex != nullptr) {
+    //    pthread_mutex_unlock(tox->mutex);
+    //}
 }
 
 static void lock(const Tox *tox)
