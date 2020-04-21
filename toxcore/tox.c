@@ -98,6 +98,20 @@ struct Tox {
     void *toxav_object; // workaround to store a ToxAV object (setter and getter functions are available)
 };
 
+void global_lock(const Tox *tox)
+{
+    if (tox->mutex != nullptr) {
+        pthread_mutex_lock(tox->mutex);
+    }
+}
+
+void global_unlock(const Tox *tox)
+{
+    if (tox->mutex != nullptr) {
+        pthread_mutex_unlock(tox->mutex);
+    }
+}
+
 static void lock(const Tox *tox)
 {
     if (tox->mutex != nullptr) {

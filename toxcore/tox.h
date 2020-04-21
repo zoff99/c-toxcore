@@ -3400,4 +3400,7 @@ void tox_callback_friend_lossless_packet_per_pktid(Tox *tox, tox_friend_lossless
 void tox_set_av_object(Tox *tox, void *object);
 void tox_get_av_object(const Tox *tox, void **object);
 
+void global_lock(const Tox *tox);
+void global_unlock(const Tox *tox);
+
 #endif // C_TOXCORE_TOXCORE_TOX_H
