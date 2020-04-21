@@ -508,13 +508,10 @@ int groupchat_disable_av(Group_Chats *g_c, uint32_t groupnumber)
 
     kill_group_av(group_av);
 
-    global_lock(group_av->tox);
     if (group_set_object(g_c, groupnumber, nullptr) == -1)
     {
-        global_unlock(group_av->tox);
         return -1;
     }
-    global_unlock(group_av->tox);
 
     if (callback_groupchat_peer_new(g_c, groupnumber, nullptr) == -1
             || callback_groupchat_peer_delete(g_c, groupnumber, nullptr) == -1
