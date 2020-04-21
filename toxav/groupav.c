@@ -454,15 +454,19 @@ int groupchat_enable_av(const Logger *log, Tox *tox, Group_Chats *g_c, uint32_t 
     }
 
     global_lock(tox);
-    if (group_set_object(g_c, groupnumber, group_av) == -1
-            || callback_groupchat_peer_new(g_c, groupnumber, group_av_peer_new) == -1
-            || callback_groupchat_peer_delete(g_c, groupnumber, group_av_peer_delete) == -1
-            || callback_groupchat_delete(g_c, groupnumber, group_av_groupchat_delete) == -1) {
+    if (group_set_object(g_c, groupnumber, group_av) == -1)
+    {
         global_unlock(tox);
-        kill_group_av(group_av);
         return -1;
     }
     global_unlock(tox);
+
+    if (callback_groupchat_peer_new(g_c, groupnumber, group_av_peer_new) == -1
+            || callback_groupchat_peer_delete(g_c, groupnumber, group_av_peer_delete) == -1
+            || callback_groupchat_delete(g_c, groupnumber, group_av_groupchat_delete) == -1) {
+        kill_group_av(group_av);
+        return -1;
+    }
 
     global_lock(tox);
     int numpeers = group_number_peers(g_c, groupnumber, false);
@@ -505,15 +509,19 @@ int groupchat_disable_av(Group_Chats *g_c, uint32_t groupnumber)
     kill_group_av(group_av);
 
     global_lock(group_av->tox);
-    if (group_set_object(g_c, groupnumber, nullptr) == -1
-            || callback_groupchat_peer_new(g_c, groupnumber, nullptr) == -1
-            || callback_groupchat_peer_delete(g_c, groupnumber, nullptr) == -1
-            || callback_groupchat_delete(g_c, groupnumber, nullptr) == -1) {
+    if (group_set_object(g_c, groupnumber, nullptr) == -1)
+    {
         global_unlock(group_av->tox);
         return -1;
     }
-
     global_unlock(group_av->tox);
+
+    if (callback_groupchat_peer_new(g_c, groupnumber, nullptr) == -1
+            || callback_groupchat_peer_delete(g_c, groupnumber, nullptr) == -1
+            || callback_groupchat_delete(g_c, groupnumber, nullptr) == -1) {
+        return -1;
+    }
+
     return 0;
 }
 
@@ -533,19 +541,19 @@ int add_av_groupchat(const Logger *log, Tox *tox, Group_Chats *g_c, audio_data_c
 {
     global_lock(tox);
     int groupnumber = add_groupchat(g_c, GROUPCHAT_TYPE_AV);
+    global_unlock(tox);
 
     if (groupnumber == -1) {
-        global_unlock(tox);
         return -1;
     }
 
     if (groupchat_enable_av(log, tox, g_c, groupnumber, audio_callback, userdata) == -1) {
+        global_lock(tox);
         del_groupchat(g_c, groupnumber, true);
         global_unlock(tox);
         return -1;
     }
 
-    global_unlock(tox);
     return groupnumber;
 }
 
@@ -559,19 +567,19 @@ int join_av_groupchat(const Logger *log, Tox *tox, Group_Chats *g_c, uint32_t fr
 {
     global_lock(tox);
     int groupnumber = join_groupchat(g_c, friendnumber, GROUPCHAT_TYPE_AV, data, length);
+    global_unlock(tox);
 
     if (groupnumber == -1) {
-        global_unlock(tox);
         return -1;
     }
 
     if (groupchat_enable_av(log, tox, g_c, groupnumber, audio_callback, userdata) == -1) {
+        global_lock(tox);
         del_groupchat(g_c, groupnumber, true);
         global_unlock(tox);
         return -1;
     }
 
-    global_unlock(tox);
     return groupnumber;
 }
 
