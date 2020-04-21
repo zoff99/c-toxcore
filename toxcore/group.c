@@ -657,7 +657,17 @@ static int addpeer(Group_Chats *g_c, uint32_t groupnumber, const uint8_t *real_p
     }
 
     if (g->peer_on_join) {
+        if (g->type == GROUPCHAT_TYPE_AV)
+        {
+            // Zoff
+            // UN-lock()
+        }
         g->peer_on_join(g->object, groupnumber, new_index);
+        if (g->type == GROUPCHAT_TYPE_AV)
+        {
+            // Zoff
+            // lock()
+        }
     }
 
     return new_index;
