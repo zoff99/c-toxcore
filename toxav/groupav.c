@@ -199,7 +199,7 @@ static int recreate_encoder(Group_AV *group_av)
 
     int rc = OPUS_OK;
     group_av->audio_encoder = opus_encoder_create(group_av->audio_sample_rate, group_av->audio_channels,
-                              OPUS_APPLICATION_AUDIO, &rc);
+                              OPUS_APPLICATION_VOIP, &rc);
 
     if (rc != OPUS_OK) {
         LOGGER_ERROR(group_av->log, "Error while starting audio encoder: %s", opus_strerror(rc));
@@ -208,6 +208,24 @@ static int recreate_encoder(Group_AV *group_av)
     }
 
     rc = opus_encoder_ctl(group_av->audio_encoder, OPUS_SET_BITRATE(group_av->audio_bitrate));
+
+    if (rc != OPUS_OK) {
+        LOGGER_ERROR(group_av->log, "Error while setting encoder ctl: %s", opus_strerror(rc));
+        opus_encoder_destroy(group_av->audio_encoder);
+        group_av->audio_encoder = nullptr;
+        return -1;
+    }
+
+    rc = opus_encoder_ctl(group_av->audio_encoder, OPUS_SET_PACKET_LOSS_PERC(20));
+
+    if (rc != OPUS_OK) {
+        LOGGER_ERROR(group_av->log, "Error while setting encoder ctl: %s", opus_strerror(status));
+        opus_encoder_destroy(group_av->audio_encoder);
+        group_av->audio_encoder = nullptr;
+        return -1;
+    }
+
+    rc = opus_encoder_ctl(group_av->audio_encoder, OPUS_SET_INBAND_FEC(1));
 
     if (rc != OPUS_OK) {
         LOGGER_ERROR(group_av->log, "Error while setting encoder ctl: %s", opus_strerror(rc));
