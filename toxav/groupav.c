@@ -442,6 +442,7 @@ static int handle_group_audio_packet(void *object, uint32_t groupnumber, uint32_
         return -1;
     }
 
+    // TODO: write into buffer, and iterate in a different thread!
     while (decode_audio_packet((Group_AV *)object, peer_av, groupnumber, friendgroupnumber) == 0) {
         continue;
     }
@@ -661,9 +662,9 @@ int group_send_audio(Group_Chats *g_c, uint32_t groupnumber, const int16_t *pcm,
         group_av->audio_sample_rate = sample_rate;
 
         if (channels == 1) {
-            group_av->audio_bitrate = 32000; // TODO(mannol): add way of adjusting bitrate
+            group_av->audio_bitrate = 16000; // TODO(mannol): add way of adjusting bitrate
         } else {
-            group_av->audio_bitrate = 64000; // TODO(mannol): add way of adjusting bitrate
+            group_av->audio_bitrate = 32000; // TODO(mannol): add way of adjusting bitrate
         }
 
         if (recreate_encoder(group_av) == -1) {
