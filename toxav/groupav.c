@@ -216,7 +216,9 @@ static int recreate_encoder(Group_AV *group_av)
         return -1;
     }
 
-    rc = opus_encoder_ctl(group_av->audio_encoder, OPUS_SET_PACKET_LOSS_PERC(20));
+#if 1
+    /* Loss percentage in the range 0-100, inclusive (default: 0). */
+    rc = opus_encoder_ctl(group_av->audio_encoder, OPUS_SET_PACKET_LOSS_PERC(8));
 
     if (rc != OPUS_OK) {
         LOGGER_ERROR(group_av->log, "Error while setting encoder ctl: %s", opus_strerror(status));
@@ -224,7 +226,11 @@ static int recreate_encoder(Group_AV *group_av)
         group_av->audio_encoder = nullptr;
         return -1;
     }
+#endif
 
+#if 1
+    /* 0    Inband FEC disabled (default). */
+    /* 1    Inband FEC enabled.            */
     rc = opus_encoder_ctl(group_av->audio_encoder, OPUS_SET_INBAND_FEC(1));
 
     if (rc != OPUS_OK) {
@@ -233,6 +239,7 @@ static int recreate_encoder(Group_AV *group_av)
         group_av->audio_encoder = nullptr;
         return -1;
     }
+#endif
 
     rc = opus_encoder_ctl(group_av->audio_encoder, OPUS_SET_COMPLEXITY(10));
 
