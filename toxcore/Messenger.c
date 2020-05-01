@@ -18,11 +18,17 @@
 #include <string.h>
 #include <time.h>
 
+#include "group_chats.h"
+#include "group_moderation.h"
 #include "logger.h"
 #include "mono_time.h"
 #include "network.h"
 #include "state.h"
 #include "util.h"
+#include "group_chats.h"
+#include "group_moderation.h"
+#include "onion_client.h"
+#include "DHT.h"
 #include "tox.h"
 
 // #define FT_RECV_SEND_DEBUG 1
@@ -42,8 +48,19 @@ static uint8_t friend_not_valid(const Messenger *m, int32_t friendnumber)
         }
     }
 
+bool friend_is_valid(const Messenger *m, int32_t friendnumber)
+{
+    return (unsigned int)friendnumber < m->numfriends && m->friendlist[friendnumber].status != 0;
+}
+
     return 1;
 }
+
+static bool group_is_valid(const Messenger *m, int32_t groupnumber)
+{
+    return groupnumber < m->numgroups;
+}
+
 
 /* Set the size of the friend list to numfriends.
  *

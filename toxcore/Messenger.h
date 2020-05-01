@@ -12,6 +12,8 @@
 
 #include "friend_connection.h"
 #include "friend_requests.h"
+#include "group_chats.h"
+#include "group_announce.h"
 #include "logger.h"
 #include "net_crypto.h"
 #include "state.h"
@@ -36,7 +38,15 @@ typedef enum Message_Type {
     MESSAGE_ACTION,
 } Message_Type;
 
+typedef enum Contact_Type {
+    CONTACT_FRIEND,
+    CONTACT_GROUP,
+} Contact_Type;
+
+#ifndef MESSENGER_DEFINED
+#define MESSENGER_DEFINED
 typedef struct Messenger Messenger;
+#endif /* MESSENGER_DEFINED */
 
 // Returns the size of the data
 typedef uint32_t m_state_size_cb(const Messenger *m);
@@ -126,6 +136,7 @@ typedef enum Friend_Add_Error {
     FAERR_BADCHECKSUM = -6,
     FAERR_SETNEWNOSPAM = -7,
     FAERR_NOMEM = -8,
+    FAERR_BADCONTYPE = -9,
 } Friend_Add_Error;
 
 
@@ -223,6 +234,8 @@ typedef void m_friend_lossless_packet_cb(Messenger *m, uint32_t friend_number, u
         size_t length, void *user_data);
 typedef void m_conference_invite_cb(Messenger *m, uint32_t friend_number, const uint8_t *cookie, uint16_t length,
                                     void *user_data);
+typedef void m_group_invite_cb(Messenger *m, uint32_t friendnumber, const uint8_t *data, size_t length,
+                               const uint8_t *group_name, size_t group_name_length, void *userdata);
 typedef int m_lossy_rtp_packet_cb(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint16_t len, void *object);
 
 int file_seek_for_resume(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uint64_t position,
@@ -270,6 +283,13 @@ typedef struct Friend {
     uint64_t toxcore_capabilities;
 } Friend;
 
+typedef struct Group {
+    uint8_t real_pk[CRYPTO_PUBLIC_KEY_SIZE];
+    int friendcon_id;
+    uint8_t last_connection_udp_tcp;
+    bool active;  // true if group is active.
+} Group;
+
 struct Messenger {
     Logger *log;
     Mono_Time *mono_time;
@@ -297,7 +317,13 @@ struct Messenger {
     Friend *friendlist;
     uint32_t numfriends;
 
+    Group *grouplist;
+    uint32_t numgroups;
+
     time_t lastdump;
+
+    GC_Session *group_handler;
+    GC_Announces_List *group_announce;
 
     bool has_added_relays; // If the first connection has occurred in do_messenger
 
@@ -314,6 +340,9 @@ struct Messenger {
 
     struct Group_Chats *conferences_object; /* Set by new_groupchats()*/
     m_conference_invite_cb *conference_invite;
+
+    m_group_invite_cb *group_invite;
+    void *group_invite_userdata;
 
     m_file_recv_cb *file_sendrequest;
     m_file_recv_control_cb *file_filecontrol;
@@ -364,6 +393,10 @@ int32_t m_addfriend(Messenger *m, const uint8_t *address, const uint8_t *data, u
  */
 int32_t m_addfriend_norequest(Messenger *m, const uint8_t *real_pk);
 
+int32_t m_add_group(Messenger *m, GC_Chat *chat);
+
+int32_t m_remove_group(Messenger *m, const GC_Chat *chat);
+
 /*  return the friend number associated to that client id.
  *  return -1 if no such friend.
  */
@@ -388,6 +421,13 @@ int getfriendcon_id(const Messenger *m, int32_t friendnumber);
  *  return -1 if failure
  */
 int m_delfriend(Messenger *m, int32_t friendnumber);
+
+/* Remove a group.
+ *
+ * Return 0 if success.
+ * Return -1 if failure.
+ */
+int m_delgroup(Messenger *m, int32_t groupnumber);
 
 /* Checks friend's connecting status.
  *
@@ -591,12 +631,27 @@ void m_callback_core_connection(Messenger *m, m_self_connection_status_cb *funct
  */
 void m_callback_conference_invite(Messenger *m, m_conference_invite_cb *function);
 
+/* Set the callback for group invites.
+ */
+void m_callback_group_invite(Messenger *m, m_group_invite_cb *function, void *userdata);
+
 /* Send a conference invite packet.
  *
  *  return 1 on success
  *  return 0 on failure
  */
 int send_conference_invite_packet(const Messenger *m, int32_t friendnumber, const uint8_t *data, uint16_t length);
+
+/* Send a group invite packet.
+ *
+ *  WARNING: Return-value semantics are different than for
+ *  send_conference_invite_packet().
+ *
+ *  return 0 on success
+ *  return -1 on failure
+ */
+int send_group_invite_packet(const Messenger *m, uint32_t friendnumber, const uint8_t *data, size_t length);
+
 
 /** FILE SENDING */
 
