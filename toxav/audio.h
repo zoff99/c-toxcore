@@ -28,7 +28,7 @@
 #define AUDIO_START_SAMPLING_RATE (48000)
 #define AUDIO_START_BITRATE_RATE (48000)
 #define AUDIO_START_CHANNEL_COUNT (2)
-#define AUDIO_OPUS_PACKET_LOSS_PERC (40) // allow upto XX % loss of audio packets
+#define AUDIO_OPUS_PACKET_LOSS_PERC (20) // allow upto XX % loss of audio packets
 
 #ifdef RPIZEROW
 #define AUDIO_OPUS_COMPLEXITY (0)
