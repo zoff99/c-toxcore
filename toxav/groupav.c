@@ -218,7 +218,7 @@ static int recreate_encoder(Group_AV *group_av)
 
 #if 1
     /* Loss percentage in the range 0-100, inclusive (default: 0). */
-    rc = opus_encoder_ctl(group_av->audio_encoder, OPUS_SET_PACKET_LOSS_PERC(8));
+    rc = opus_encoder_ctl(group_av->audio_encoder, OPUS_SET_PACKET_LOSS_PERC(1));
 
     if (rc != OPUS_OK) {
         LOGGER_ERROR(group_av->log, "Error while setting encoder ctl: %s", opus_strerror(status));
@@ -329,7 +329,9 @@ static int decode_audio_packet(Group_AV *group_av, Group_Peer_AV *peer_av, uint3
     int success;
     Group_Audio_Packet *pk = dequeue(peer_av->buffer, &success);
 
+    /* success is 0 when there is nothing to dequeue */
     if (success == 0) {
+        LOGGER_DEBUG(group_av->log, "cant dequeue audio pkt:success=0");
         return -1;
     }
 
@@ -338,7 +340,8 @@ static int decode_audio_packet(Group_AV *group_av, Group_Peer_AV *peer_av, uint3
 
     unsigned int sample_rate = 48000;
 
-    if (success == 1) {
+    if (success == 1) /* success is 1 when there's a good packet */
+    {
         int channels = opus_packet_get_nb_channels(pk->data);
 
         if (channels == OPUS_INVALID_PACKET) {
@@ -387,7 +390,11 @@ static int decode_audio_packet(Group_AV *group_av, Group_Peer_AV *peer_av, uint3
         }
 
         peer_av->last_packet_samples = out_audio_samples;
-    } else {
+    }
+    else /* success is 2 when there's a lost packet */
+    {
+        LOGGER_DEBUG(group_av->log, "decode lost audio pkt:success=2");
+
         if (!peer_av->audio_decoder) {
             return -1;
         }
