@@ -1963,9 +1963,22 @@ void toxav_callback_video_receive_frame_h264(ToxAV *av, toxav_video_receive_fram
  ******************************************************************************/
 void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *user_data)
 {
+    if (!user_data)
+    {
+        return;
+    }
+
     ToxAVCall *call = (ToxAVCall *)user_data;
 
     if (!call) {
+        return;
+    }
+
+    if (!call->toxav_call_mutex) {
+        return;
+    }
+
+    if (call->active == 0) {
         return;
     }
 
@@ -1987,9 +2000,9 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
         return;
     }
 
-    if (loss > 0) {
-        LOGGER_ERROR(call->av->m->log, "Reported loss of %f%% : %f", loss * 100, loss);
-    }
+    //if (loss > 0) {
+    //    LOGGER_ERROR(call->av->m->log, "Reported loss of %f%% : %f", loss * 100, loss);
+    //}
 
     pthread_mutex_lock(call->av->mutex);
 
@@ -2050,12 +2063,12 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
 
             if ((loss * 100) > 85) {
                 call->video->video_max_bitrate = (uint32_t)((uint32_t)call->video_bit_rate * 0.8f);
-                LOGGER_ERROR(call->av->m->log, "callback_bwc:DEC:2:lower max bitrate to: %d", (int)call->video->video_max_bitrate);
+                // LOGGER_ERROR(call->av->m->log, "callback_bwc:DEC:2:lower max bitrate to: %d", (int)call->video->video_max_bitrate);
             }
 
 #endif
-            LOGGER_ERROR(call->av->m->log, "callback_bwc:DEC:2:vbold=%d vbnew=%d loss=%d", (int)call->video_bit_rate, (int)tmp,
-                         (int)(loss * 100));
+            //LOGGER_ERROR(call->av->m->log, "callback_bwc:DEC:2:vbold=%d vbnew=%d loss=%d", (int)call->video_bit_rate, (int)tmp,
+            //             (int)(loss * 100));
 
             call->video_bit_rate = (uint32_t)tmp;
             call->video_bit_rate_not_yet_set = call->video_bit_rate;
@@ -2483,10 +2496,10 @@ static void call_kill_transmission(ToxAVCall *call)
     pthread_mutex_unlock(call->mutex_audio);
     pthread_mutex_lock(call->mutex_video);
     pthread_mutex_unlock(call->mutex_video);
-    pthread_mutex_lock(call->toxav_call_mutex);
-    pthread_mutex_unlock(call->toxav_call_mutex);
 
+    pthread_mutex_lock(call->toxav_call_mutex);
     bwc_kill(call->bwc);
+    pthread_mutex_unlock(call->toxav_call_mutex);
 
     ToxAV *av = call->av;
 
