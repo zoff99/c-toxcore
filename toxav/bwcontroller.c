@@ -123,7 +123,10 @@ void bwc_kill(BWController *bwc)
         return;
     }
 
+    bwc->bwc_receive_active = false;
+
     free(bwc);
+    bwc = nullptr;
 }
 
 void bwc_add_lost_v3(BWController *bwc, uint32_t bytes_lost, bool dummy)
