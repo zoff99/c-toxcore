@@ -1176,6 +1176,8 @@ void rtp_kill(Tox *tox, RTPSession *session)
         return;
     }
 
+    session->rtp_receive_active = false;
+
     LOGGER_API_DEBUG(session->tox, "Terminated RTP session: %p", (void *)session);
     LOGGER_API_DEBUG(session->tox, "Terminated RTP session V3 work_buffer_list->next_free_entry: %d",
                      (int)session->work_buffer_list->next_free_entry);
