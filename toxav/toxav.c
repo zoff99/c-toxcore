@@ -275,6 +275,7 @@ void toxav_audio_iterate(ToxAV *av)
                 pthread_mutex_unlock(av->mutex);
                 pthread_mutex_lock(i->toxav_call_mutex);
                 int64_t copy_of_value = i->call_timestamp_difference_to_sender;
+                int video_cap_copy = (int)(i->msi_call->self_capabilities & MSI_CAP_S_VIDEO);
 
 
                 uint8_t res_ac = ac_iterate(i->audio,
@@ -283,7 +284,8 @@ void toxav_audio_iterate(ToxAV *av)
                                             &(i->last_incoming_video_frame_rtimestamp),
                                             &(i->last_incoming_video_frame_ltimestamp),
                                             &(i->call_timestamp_difference_adjustment),
-                                            &(copy_of_value)
+                                            &(copy_of_value),
+                                            video_cap_copy
                                            );
                 pthread_mutex_unlock(i->toxav_call_mutex);
                 pthread_mutex_lock(av->mutex);
@@ -337,7 +339,8 @@ void toxav_iterate(ToxAV *av)
                                             &(i->last_incoming_video_frame_rtimestamp),
                                             &(i->last_incoming_video_frame_ltimestamp),
                                             &(i->call_timestamp_difference_adjustment),
-                                            &(i->call_timestamp_difference_to_sender)
+                                            &(i->call_timestamp_difference_to_sender),
+                                            (int)(i->msi_call->self_capabilities & MSI_CAP_S_VIDEO)
                                            );
 
                 i->skip_video_flag = 0;
@@ -2432,7 +2435,7 @@ static bool call_prepare_transmission(ToxAVCall *call)
     call->bwc = bwc_new(av->tox, av->toxav_mono_time, call->friend_number, callback_bwc, call);
 
     { /* Prepare audio */
-        call->audio = ac_new(av->toxav_mono_time, nullptr, av, call->friend_number, av->acb, av->acb_user_data);
+        call->audio = ac_new(av->toxav_mono_time, nullptr, av, av->tox, call->friend_number, av->acb, av->acb_user_data);
 
         if (!call->audio) {
             LOGGER_API_ERROR(av->tox, "Failed to create audio codec session");
