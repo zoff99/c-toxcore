@@ -45,7 +45,7 @@ static bool reconfigure_audio_decoder(ACSession *ac, int32_t sampling_rate, int8
 
 
 
-ACSession *ac_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t friend_number,
+ACSession *ac_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, Tox *tox, uint32_t friend_number,
                   toxav_audio_receive_frame_cb *cb, void *cb_data)
 {
     ACSession *ac = (ACSession *)calloc(sizeof(ACSession), 1);
@@ -111,6 +111,7 @@ ACSession *ac_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     ac->audio_received_first_frame = 0;
 
     ac->av = av;
+    ac->tox = tox;
     ac->friend_number = friend_number;
     ac->acb = cb;
     ac->acb_user_data = cb_data;
@@ -151,7 +152,8 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
         int64_t timestamp_difference_adjustment_,
         int64_t timestamp_difference_to_sender_,
         uint8_t encoder_frame_has_record_timestamp,
-        ACSession *ac)
+        ACSession *ac,
+        int video_send_cap)
 {
 #define AUDIO_CURRENT_TS_SPAN_MS 65
 
@@ -169,7 +171,8 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     uint32_t tsb_range_ms = AUDIO_CURRENT_TS_SPAN_MS;
 
     // HINT: compensate for older clients ----------------
-    if (encoder_frame_has_record_timestamp == 0) {
+    //       or when only receiving audio (no incoming video)
+    if ((encoder_frame_has_record_timestamp == 0) || (video_send_cap == 0)) {
         LOGGER_DEBUG(log, "old client:003");
         tsb_range_ms = UINT32_MAX;
         want_remote_video_ts = UINT32_MAX;
@@ -305,7 +308,8 @@ static inline bool jbuf_is_empty(struct TSBuffer *q)
 uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timestamp, uint64_t *v_r_timestamp,
                    uint64_t *v_l_timestamp,
                    int64_t *timestamp_difference_adjustment_,
-                   int64_t *timestamp_difference_to_sender_)
+                   int64_t *timestamp_difference_to_sender_,
+                   int video_send_cap)
 {
     if (!ac) {
         return 0;
@@ -333,7 +337,8 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
     while ((msg = jbuf_read(nullptr, jbuffer, &rc,
                             *timestamp_difference_adjustment_,
                             *timestamp_difference_to_sender_,
-                            ac->encoder_frame_has_record_timestamp, ac))
+                            ac->encoder_frame_has_record_timestamp, ac,
+                            video_send_cap))
             || rc == AUDIO_LOST_FRAME_INDICATOR) {
         pthread_mutex_unlock(ac->queue_mutex);
 
@@ -474,7 +479,7 @@ int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
     pthread_mutex_lock(ac->queue_mutex);
 
     const struct RTPHeader *header_v3 = (void *) & (msg->header);
-    // LOGGER_ERROR(ac->log, "TT:queue:A:seqnum=%d %llu", (int)header_v3->sequnum, header_v3->frame_record_timestamp);
+    // LOGGER_API_WARNING(ac->tox, "TT:queue:A:seqnum=%d %llu", (int)header_v3->sequnum, header_v3->frame_record_timestamp);
 
     // older clients do not send the frame record timestamp
     // compensate by using the frame sennt timestamp
