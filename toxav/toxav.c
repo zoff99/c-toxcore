@@ -274,19 +274,26 @@ void toxav_audio_iterate(ToxAV *av)
 
                 pthread_mutex_unlock(av->mutex);
                 pthread_mutex_lock(i->toxav_call_mutex);
-                int64_t copy_of_value = i->call_timestamp_difference_to_sender;
-                int video_cap_copy = (int)(i->msi_call->self_capabilities & MSI_CAP_S_VIDEO);
+                if ((!i->msi_call) || (i->active == 0))
+                {
+                    // this call has ended
+                }
+                else
+                {
+                    int64_t copy_of_value = i->call_timestamp_difference_to_sender;
+                    int video_cap_copy = (int)(i->msi_call->self_capabilities & MSI_CAP_S_VIDEO);
 
 
-                uint8_t res_ac = ac_iterate(i->audio,
-                                            &(i->last_incoming_audio_frame_rtimestamp),
-                                            &(i->last_incoming_audio_frame_ltimestamp),
-                                            &(i->last_incoming_video_frame_rtimestamp),
-                                            &(i->last_incoming_video_frame_ltimestamp),
-                                            &(i->call_timestamp_difference_adjustment),
-                                            &(copy_of_value),
-                                            video_cap_copy
-                                           );
+                    uint8_t res_ac = ac_iterate(i->audio,
+                                                &(i->last_incoming_audio_frame_rtimestamp),
+                                                &(i->last_incoming_audio_frame_ltimestamp),
+                                                &(i->last_incoming_video_frame_rtimestamp),
+                                                &(i->last_incoming_video_frame_ltimestamp),
+                                                &(i->call_timestamp_difference_adjustment),
+                                                &(copy_of_value),
+                                                video_cap_copy
+                                               );
+                }
                 pthread_mutex_unlock(i->toxav_call_mutex);
                 pthread_mutex_lock(av->mutex);
             }
@@ -323,6 +330,15 @@ void toxav_iterate(ToxAV *av)
             pthread_mutex_unlock(av->mutex);
 
             uint32_t fid = i->friend_number;
+
+            if ((!i->msi_call) || (i->active == 0))
+            {
+                // call has ended
+                pthread_mutex_unlock(i->toxav_call_mutex);
+                pthread_mutex_lock(av->mutex);
+                break;
+            }
+
             bool is_offline = check_peer_offline_status(av->tox, i->msi_call->session, fid);
 
             if (is_offline) {
