@@ -1368,7 +1368,15 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
     // LOGGER_ERROR(av->m->log, "OMX:H:001");
 
     // add the time the data has already aged (in the client)
-    uint64_t video_frame_record_timestamp = current_time_monotonic(av->toxav_mono_time) + age_ms;
+    uint64_t video_frame_record_timestamp;
+    if (current_time_monotonic(av->toxav_mono_time) <= (uint64_t)age_ms)
+    {
+        video_frame_record_timestamp = current_time_monotonic(av->toxav_mono_time);
+    }
+    else
+    {
+        video_frame_record_timestamp = current_time_monotonic(av->toxav_mono_time) - age_ms;
+    }
 
     if (toxav_friend_exists(av->tox, friend_number) == 0) {
         rc = TOXAV_ERR_SEND_FRAME_FRIEND_NOT_FOUND;
