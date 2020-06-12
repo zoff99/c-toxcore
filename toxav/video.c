@@ -143,6 +143,7 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     vc->encoder_frame_has_record_timestamp = 1;
     vc->video_max_bitrate = VIDEO_BITRATE_MAX_AUTO_VALUE_H264;
     vc->video_decoder_buffer_ms = MIN_AV_BUFFERING_MS;
+    vc->video_decoder_caused_delay_ms = 0;
     vc->video_decoder_add_delay_ms = 0;
     vc->video_decoder_buffer_sum_ms = vc->video_decoder_buffer_ms + vc->video_decoder_add_delay_ms;
     vc->video_decoder_adjustment_base_ms = MIN_AV_BUFFERING_MS - AV_BUFFERING_DELTA_MS;
@@ -482,19 +483,20 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
         vc->video_play_delay = ((current_time_monotonic(vc->av->toxav_mono_time) +
                                  vc->timestamp_difference_to_sender__for_video) - timestamp_out_);
-        vc->video_play_delay_real = vc->video_play_delay;
+        vc->video_play_delay_real = vc->video_play_delay + vc->video_decoder_caused_delay_ms;
 
         vc->video_frame_buffer_entries = (uint32_t)tsb_size((TSBuffer *)vc->vbuf_raw);
 
         if (removed_entries > 0) {
 
             LOGGER_API_DEBUG(tox,
-                             "seq:%d FC:%d min=%d max=%d want=%d got=%d diff=%d rm=%d pdelay=%d pdelayr=%d adj=%d dts=%d rtt=%d",
+                             "seq:%d FC:%d min=%d max=%d want=%d hgot=%d got=%d diff=%d rm=%d pdelay=%d pdelayr=%d adj=%d dts=%d rtt=%d decoder_delay=%d",
                              (int)header_v3_0->sequnum,
                              (int)tsb_size((TSBuffer *)vc->vbuf_raw),
                              timestamp_min,
                              timestamp_max,
                              (int)timestamp_want_get,
+                             (int)header_v3_0->frame_record_timestamp,
                              (int)timestamp_out_,
                              ((int)timestamp_want_get - (int)timestamp_out_),
                              (int)removed_entries,
@@ -502,7 +504,8 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                              (int)vc->video_play_delay_real,
                              (int)vc->timestamp_difference_adjustment,
                              (int)vc->timestamp_difference_to_sender__for_video,
-                             (int)vc->rountrip_time_ms);
+                             (int)vc->rountrip_time_ms,
+                             (int)vc->video_decoder_caused_delay_ms);
         }
 
         uint16_t buf_size = tsb_size((TSBuffer *)vc->vbuf_raw);

@@ -1180,8 +1180,8 @@ void get_info_from_sps(const Tox *tox, VCSession *vc, const Logger *log,
     }
 }
 
-//int32_t global_first_video_frame_data = 0;
-int32_t global_decoder_delay_counter = 0;
+//static int32_t global_first_video_frame_data = 0;
+//static int32_t global_decoder_delay_counter = 0;
 
 void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a_r_timestamp,
                        uint64_t *a_l_timestamp,
@@ -1420,14 +1420,25 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
 
                 */
 
+#if 0
                 global_decoder_delay_counter++;
 
                 if (global_decoder_delay_counter > 60) {
                     global_decoder_delay_counter = 0;
-                    LOGGER_DEBUG(vc->log, "dec:delay=%ld",
+                    LOGGER_API_DEBUG(vc->av->tox, "dec:delay=%ld",
                                  (long int)(h_frame_record_timestamp - frame->pkt_pts)
                                 );
                 }
+#endif
+                // give back h264 decoder delay value to vc_iterate()
+                int32_t delta_value = (int32_t)(h_frame_record_timestamp - frame->pkt_pts);
+
+                if ((delta_value >= 0) && (delta_value <= 3000))
+                {
+                    vc->video_decoder_caused_delay_ms = delta_value;
+                    LOGGER_API_DEBUG(vc->av->tox, "dec:delta_value=%d", vc->video_decoder_caused_delay_ms);
+                }
+
             }
 
             // start_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
@@ -1473,7 +1484,9 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
     free(p);
 }
 
-int32_t global_encoder_delay_counter = 0;
+//static int32_t global_encoder_delay_counter = 0;
+//static int32_t global_encode_first_frame_delayed_by = 0;
+//static int32_t global_encode_first_frame_got = 0;
 
 uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height,
                            const uint8_t *y,
@@ -1502,7 +1515,14 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
         call->video->h264_in_pic.i_type = X264_TYPE_AUTO;
     }
 
-    LOGGER_DEBUG(av->m->log, "X264 IN frame type=%d", (int)call->video->h264_in_pic.i_type);
+    LOGGER_API_DEBUG(av->tox, "X264 IN frame type=%d", (int)call->video->h264_in_pic.i_type);
+
+#if 0
+    if (global_encode_first_frame_got == 0)
+    {
+        global_encode_first_frame_delayed_by++;
+    }
+#endif
 
     *i_frame_size = x264_encoder_encode(call->video->h264_encoder,
                                         nal,
@@ -1510,15 +1530,16 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
                                         &(call->video->h264_in_pic),
                                         &(call->video->h264_out_pic));
 
+#if 0
     global_encoder_delay_counter++;
 
     if (global_encoder_delay_counter > 60) {
         global_encoder_delay_counter = 0;
-        LOGGER_DEBUG(av->m->log, "enc:delay=%ld",
+        LOGGER_API_DEBUG(av->tox, "enc:delay=%ld",
                      (long int)(call->video->h264_in_pic.i_pts - (int64_t)call->video->h264_out_pic.i_pts)
                     );
     }
-
+#endif
 
     *video_frame_record_timestamp = (uint64_t)call->video->h264_out_pic.i_pts;
 
@@ -1526,7 +1547,7 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
 
 
     if (IS_X264_TYPE_I(call->video->h264_out_pic.i_type)) {
-        LOGGER_DEBUG(av->m->log, "X264 out frame type=%d", (int)call->video->h264_out_pic.i_type);
+        LOGGER_API_DEBUG(av->tox, "X264 out frame type=%d", (int)call->video->h264_out_pic.i_type);
     }
 
 
@@ -1535,6 +1556,15 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
     } else if (*i_frame_size == 0) {
         // zero size output
     } else {
+
+#if 0
+        if (global_encode_first_frame_got == 0)
+        {
+            global_encode_first_frame_got = 1;
+            LOGGER_API_DEBUG(av->tox, "X264 encoder delay frame=%d", global_encode_first_frame_delayed_by);
+        }
+#endif
+
         // *nal->p_payload --> outbuf
         // *i_frame_size --> out size in bytes
 
@@ -1611,6 +1641,7 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
         // printf("Write packet %3"PRId64" (size=%5d)\n", call->video->h264_out_pic2->pts, call->video->h264_out_pic2->size);
         // fwrite(call->video->h264_out_pic2->data, 1, call->video->h264_out_pic2->size, outfile);
 
+#if 0
         global_encoder_delay_counter++;
 
         if (global_encoder_delay_counter > 60) {
@@ -1619,6 +1650,7 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
                          (long int)(frame->pts - (int64_t)call->video->h264_out_pic2->pts)
                         );
         }
+#endif
 
         LOGGER_DEBUG(av->m->log, "video packet record time[ECN:4b]: %d mtime=%d", (int)(*video_frame_record_timestamp),
                      (int)current_time_monotonic(av->toxav_mono_time));
@@ -1654,7 +1686,6 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
 
     if (*i_frame_size > 0) {
 
-        // use the record timestamp that was actually used for this frame
         *video_frame_record_timestamp = (uint64_t)call->video->h264_in_pic.i_pts; // TODO: --> is this wrong?
         const uint32_t frame_length_in_bytes = *i_frame_size;
         const int keyframe = (int)call->video->h264_out_pic.b_keyframe;
@@ -1694,8 +1725,6 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
 
     if (*i_frame_size > 0) {
 
-        LOGGER_DEBUG(av->m->log, "video packet record time[1a]: %d", (int)(*video_frame_record_timestamp));
-        // *video_frame_record_timestamp = (uint64_t)call->video->h264_out_pic2->pts;
         LOGGER_DEBUG(av->m->log, "video packet record time[1b]: %d mtime=%d", (int)(*video_frame_record_timestamp),
                      (int)current_time_monotonic(av->toxav_mono_time));
         const uint32_t frame_length_in_bytes = *i_frame_size;
