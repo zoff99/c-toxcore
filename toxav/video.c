@@ -149,6 +149,9 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     vc->video_decoder_adjustment_base_ms = MIN_AV_BUFFERING_MS - AV_BUFFERING_DELTA_MS;
     vc->client_video_capture_delay_ms = 0;
     vc->remote_client_video_capture_delay_ms = 0;
+    vc->global_decode_first_frame_delayed_by = 0;
+    vc->global_decode_first_frame_delayed_ms = 0;
+    vc->global_decode_first_frame_got = 0;
     // options ---
 
     vc->incoming_video_frames_gap_ms_index = 0;

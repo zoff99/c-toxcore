@@ -2001,10 +2001,6 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
         return;
     }
 
-    if (!call->toxav_call_mutex) {
-        return;
-    }
-
     if (call->active == 0) {
         return;
     }

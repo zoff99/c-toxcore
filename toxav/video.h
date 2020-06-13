@@ -251,6 +251,9 @@ typedef struct VCSession_s {
     int32_t video_decoder_caused_delay_ms;
     int32_t remote_client_video_capture_delay_ms;
     int32_t video_encoder_frame_orientation_angle;
+    int32_t global_decode_first_frame_delayed_by;
+    uint64_t global_decode_first_frame_delayed_ms;
+    int32_t global_decode_first_frame_got;
     // options ---
 
     void *vpx_frames_buf_list[VIDEO_MAX_FRAGMENT_BUFFER_COUNT];
