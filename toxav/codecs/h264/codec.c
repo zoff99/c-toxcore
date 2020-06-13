@@ -1192,7 +1192,7 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                        uint8_t *ret_value)
 {
 
-    LOGGER_DEBUG(vc->log, "decode_frame_h264:len=%d", full_data_len);
+    LOGGER_API_DEBUG(vc->av->tox, "decode_frame_h264:len=%d", full_data_len);
 
     if (p == NULL) {
         LOGGER_DEBUG(vc->log, "decode_frame_h264:NO data");
@@ -1243,7 +1243,18 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
 
 #endif
 
-    if ((p) && (p->data)) {
+#if 1
+    if (vc->global_decode_first_frame_got == 0)
+    {
+        if (vc->global_decode_first_frame_delayed_by == 0)
+        {
+            vc->global_decode_first_frame_delayed_ms = current_time_monotonic(vc->av->toxav_mono_time);
+        }
+        vc->global_decode_first_frame_delayed_by++;
+    }
+#endif
+
+    if (p) {
         get_info_from_sps(tox, vc, vc->log, p->data, full_data_len);
     }
 
@@ -1378,6 +1389,19 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                 DTS copied from the AVPacket that triggered returning this frame.
             */
 
+#if 1
+        if (vc->global_decode_first_frame_got == 0)
+        {
+            vc->global_decode_first_frame_got = 1;
+            vc->global_decode_first_frame_delayed_ms =
+                current_time_monotonic(vc->av->toxav_mono_time) - vc->global_decode_first_frame_delayed_ms;
+            LOGGER_API_INFO(vc->av->tox, "X264 decoder delay: %d f, %d ms",
+                    (vc->global_decode_first_frame_delayed_by - 1),
+                    (int)vc->global_decode_first_frame_delayed_ms);
+        }
+#endif
+
+
             // calculate the real play delay (from toxcore-in to toxcore-out)
             // this seems to give incorrect values :-(
             if (header_v3->frame_record_timestamp > 0) {
@@ -1433,9 +1457,21 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                 // give back h264 decoder delay value to vc_iterate()
                 int32_t delta_value = (int32_t)(h_frame_record_timestamp - frame->pkt_pts);
 
+                LOGGER_API_DEBUG(vc->av->tox, "dec:XX:03:%d %d %d %d %d",
+                        delta_value,
+                        (int)h_frame_record_timestamp,
+                        (int)frame->pkt_pts,
+                        (int)frame->pkt_dts,
+                        (int)frame->pts);
+
                 if ((delta_value >= 0) && (delta_value <= 3000))
                 {
                     vc->video_decoder_caused_delay_ms = delta_value;
+                    LOGGER_API_DEBUG(vc->av->tox, "dec:delta_value=%d", vc->video_decoder_caused_delay_ms);
+                }
+                else if (delta_value == -1)
+                {
+                    vc->video_decoder_caused_delay_ms = (int32_t)vc->global_decode_first_frame_delayed_ms;
                     LOGGER_API_DEBUG(vc->av->tox, "dec:delta_value=%d", vc->video_decoder_caused_delay_ms);
                 }
 
