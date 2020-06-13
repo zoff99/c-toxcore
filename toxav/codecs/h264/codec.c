@@ -1475,6 +1475,27 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                     LOGGER_API_DEBUG(vc->av->tox, "dec:delta_value=%d", vc->video_decoder_caused_delay_ms);
                 }
 
+                // calc mean value
+
+                vc->video_decoder_caused_delay_ms_array[vc->video_decoder_caused_delay_ms_array_index] = vc->video_decoder_caused_delay_ms;
+                vc->video_decoder_caused_delay_ms_array_index = (vc->video_decoder_caused_delay_ms_array_index + 1) %
+                        VIDEO_DECODER_CAUSED_DELAY_MS_ENTRIES;
+
+                uint32_t mean_value = 0;
+
+                for (int k = 0; k < VIDEO_DECODER_CAUSED_DELAY_MS_ENTRIES; k++) {
+                    mean_value = mean_value + vc->video_decoder_caused_delay_ms_array[k];
+                }
+
+                if (mean_value == 0) {
+                    vc->video_decoder_caused_delay_ms_mean_value = 0;
+                } else {
+                    vc->video_decoder_caused_delay_ms_mean_value = (mean_value * 10) / (VIDEO_DECODER_CAUSED_DELAY_MS_ENTRIES * 10);
+                }
+                
+                LOGGER_API_DEBUG(vc->av->tox, "dec:video_decoder_caused_delay_ms_mean_value=%d",
+                        vc->video_decoder_caused_delay_ms_mean_value);
+
             }
 
             // start_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
