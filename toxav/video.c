@@ -120,7 +120,7 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     vc->dummy_ntp_local_end = 0;
     vc->dummy_ntp_remote_start = 0;
     vc->dummy_ntp_remote_end = 0;
-    vc->rountrip_time_ms = 50; // set 50ms rountrip network time, before we get an actual value calculated
+    vc->rountrip_time_ms = 250; // set 250ms rountrip network time, before we get an actual value calculated
     vc->video_play_delay = 0;
     vc->video_play_delay_real = 0;
     vc->video_frame_buffer_entries = 0;
@@ -157,6 +157,9 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     vc->incoming_video_frames_gap_ms_index = 0;
     vc->incoming_video_frames_gap_last_ts = 0;
     vc->incoming_video_frames_gap_ms_mean_value = 0;
+
+    vc->video_decoder_caused_delay_ms_array_index = 0;
+    vc->video_decoder_caused_delay_ms_mean_value = 0;
 
     // set h264 callback
     vc->vcb_h264 = av->vcb_h264;
@@ -399,7 +402,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
     // HINT: compensate for older clients ----------------
 
-#if 0
+#if 1
 
     if ((int)tsb_size((TSBuffer *)vc->vbuf_raw) > 0) {
         LOGGER_ERROR(vc->log, "FC:%d min=%ld max=%ld want=%d diff=%d adj=%d roundtrip=%d",
@@ -420,11 +423,11 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                  (int)(-vc->timestamp_difference_adjustment),
                  (int)vc->video_decoder_adjustment_base_ms);
 
-    if (vc->rountrip_time_ms > (-vc->timestamp_difference_adjustment)) {
+    if ((vc->rountrip_time_ms/2) > (-vc->timestamp_difference_adjustment)) {
         // drift
         vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment - 1;
         LOGGER_DEBUG(vc->log, "rtt:drift:4:--1:%d", (int)(vc->timestamp_difference_adjustment));
-    } else if (vc->rountrip_time_ms < (-vc->timestamp_difference_adjustment)) {
+    } else if ((vc->rountrip_time_ms/2) < (-vc->timestamp_difference_adjustment)) {
         // drift
         vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment + 1;
         LOGGER_DEBUG(vc->log, "rtt:drift:7:+1:%d", (int)(vc->timestamp_difference_adjustment));
@@ -452,7 +455,6 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                      (int)(tsb_range_ms_used),
                      (int)tsb_size((TSBuffer *)vc->vbuf_raw)
                     );
-
 
 
     // HINT: give me video frames that happend "now" minus some diff
@@ -532,7 +534,9 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         // -----------------------------
         if ((int)vc->video_decoder_buffer_sum_ms < (int)vc->video_decoder_buffer_ms) {
             *timestamp_difference_adjustment_ = vc->timestamp_difference_adjustment - (vc->video_decoder_buffer_ms -
-                                                vc->video_decoder_add_delay_ms);
+                                                vc->video_decoder_add_delay_ms)
+                                                - vc->video_decoder_caused_delay_ms_mean_value;
+;
         } else {
             *timestamp_difference_adjustment_ = vc->timestamp_difference_adjustment - vc->video_decoder_buffer_ms;
         }
@@ -731,7 +735,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
             }
         }
 
-        // HINT: somtimes the singaling of H264 capability does not work
+        // HINT: sometimes the singaling of H264 capability does not work
         //       as workaround send it again on the first 30 frames
 
         if (DISABLE_H264_DECODER_FEATURE != 1) {
@@ -982,7 +986,7 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
                                                    (uint32_t)header->frame_record_timestamp);
 
             if (msg_old) {
-                LOGGER_WARNING(vc->log, "FPATH:%d kicked out", (int)msg_old->header.sequnum);
+                LOGGER_API_DEBUG(vc->av->tox, "FPATH:%d kicked out", (int)msg_old->header.sequnum);
                 free(msg_old);
             }
         } else {

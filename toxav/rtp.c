@@ -59,7 +59,6 @@ int rtp_send_custom_lossless_packet(Tox *tox, int32_t friendnumber, const uint8_
 
 #define DISABLE_H264_ENCODER_FEATURE    0
 
-
 int TOXAV_SEND_VIDEO_LOSSLESS_PACKETS = 0;
 
 
@@ -401,7 +400,7 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
     // frame or it's not a multipart frame, then this value is 0.
     const uint32_t offset = header->offset_full; // without header
 
-    LOGGER_DEBUG(log, "FPATH:%d", (int)header->sequnum);
+    LOGGER_API_DEBUG(session->tox, "FPATH:%d", (int)header->sequnum);
 
     // sanity checks ---------------
     if (full_frame_length == 0) {
@@ -688,7 +687,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                 LOGGER_API_DEBUG(tox, "RECVD:PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_REQUEST: %d %d %d %d",
                                  pkg_buf[6], pkg_buf[7], pkg_buf[8], pkg_buf[9]);
 
-                int result = rtp_send_custom_lossless_packet(session->tox, friendnumber, pkg_buf, pkg_buf_len);
+                int result = rtp_send_custom_lossless_packet(tox, friendnumber, pkg_buf, pkg_buf_len);
 
 
             } else if (data[1] == PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_ANSWER) {
@@ -839,6 +838,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
     // set flag indicating that we have real record-timestamps for frames ---
 
+
     // HINT: ask sender for dummy ntp values -------------
     if (
         (
@@ -857,7 +857,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         pkg_buf[4] = tmp >> 8  & 0xFF;
         pkg_buf[5] = tmp       & 0xFF;
 
-        int result = rtp_send_custom_lossless_packet(session->tox, friendnumber, pkg_buf, pkg_buf_len);
+        int result = rtp_send_custom_lossless_packet(tox, friendnumber, pkg_buf, pkg_buf_len);
     }
 
     // HINT: ask sender for dummy ntp values -------------
