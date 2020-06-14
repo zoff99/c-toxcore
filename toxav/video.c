@@ -540,12 +540,12 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
             LOGGER_API_DEBUG(tox, "VV:02");
 
-            if (vc->video_decoder_caused_delay_ms_mean_value > 50)
+            if (vc->video_decoder_caused_delay_ms_mean_value > 1)
             {
                 LOGGER_API_DEBUG(tox, "VV:03");
                 *timestamp_difference_adjustment_ = vc->timestamp_difference_adjustment - (vc->video_decoder_buffer_ms -
                         vc->video_decoder_add_delay_ms)
-                        - (vc->video_decoder_caused_delay_ms_mean_value - 50);
+                        - (vc->video_decoder_caused_delay_ms_mean_value - 1);
             }
             else
             {
