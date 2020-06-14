@@ -1467,19 +1467,15 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                 if ((delta_value >= 0) && (delta_value <= 1000))
                 {
                     vc->video_decoder_caused_delay_ms = delta_value;
-                    LOGGER_API_DEBUG(vc->av->tox, "dec:delta_value=%d", vc->video_decoder_caused_delay_ms);
+                    LOGGER_API_DEBUG(vc->av->tox, "dec:1:delta_value=%d", vc->video_decoder_caused_delay_ms);
                 }
                 else if (delta_value == -1)
                 {
-                    if (((int32_t)vc->global_decode_first_frame_delayed_ms >= 0) && ((int32_t)vc->global_decode_first_frame_delayed_ms <= 80))
-                    {
-                        vc->video_decoder_caused_delay_ms = (int32_t)vc->global_decode_first_frame_delayed_ms;
-                    }
-                    else
-                    {
-                        vc->video_decoder_caused_delay_ms = 2;
-                    }
-                    LOGGER_API_DEBUG(vc->av->tox, "dec:delta_value=%d", vc->video_decoder_caused_delay_ms);
+                    // since we do NOT have any idea how long the decoder delays frames,
+                    // and the decoder will lie to us, we just assume some random value
+                    // that works for our use cases (decoding on andriod via MediaCodec)
+                    vc->video_decoder_caused_delay_ms = 10;
+                    LOGGER_API_DEBUG(vc->av->tox, "dec:2:delta_value=%d", vc->video_decoder_caused_delay_ms);
                 }
 
                 // calc mean value
