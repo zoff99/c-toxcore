@@ -399,7 +399,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     param.b_deterministic = false;
     //#// param.i_sync_lookahead = 0;
     //#// param.i_lookahead_threads = 0;
-    //**// param.b_intra_refresh = 1;
+    param.b_intra_refresh = 30;
     param.i_bframe = 0;
     // param.b_open_gop = 20;
     param.i_keyint_max = VIDEO_MAX_KF_H264;
@@ -543,7 +543,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     av_opt_set_int(vc->h264_encoder2->priv_data, "bf", 0, 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "qmin", 3, 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "qmax", 51, 0);
-    av_opt_set(vc->h264_encoder2->priv_data, "forced-idr", "true", 0);
+    av_opt_set(vc->h264_encoder2->priv_data, "forced-idr", "false", 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "zerolatency", 1, AV_OPT_SEARCH_CHILDREN);
     //y// av_opt_set_int(vc->h264_encoder2->priv_data, "refs", 0, 0);
     av_opt_set(vc->h264_encoder2->priv_data, "no-scenecut", "true", 0);
@@ -889,7 +889,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
                 param.b_deterministic = false;
                 //#// param.i_sync_lookahead = 0;
                 //#// param.i_lookahead_threads = 0;
-                //**// param.b_intra_refresh = 1;
+                param.b_intra_refresh = 30;
                 param.i_bframe = 0;
                 // param.b_open_gop = 20;
                 param.i_keyint_max = VIDEO_MAX_KF_H264;
@@ -1038,7 +1038,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             av_opt_set_int(vc->h264_encoder2->priv_data, "bf", 0, 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "qmin", 3, 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "qmax", 51, 0);
-            av_opt_set(vc->h264_encoder2->priv_data, "forced-idr", "true", 0);
+            av_opt_set(vc->h264_encoder2->priv_data, "forced-idr", "false", 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "zerolatency", 1, AV_OPT_SEARCH_CHILDREN);
             //y// av_opt_set_int(vc->h264_encoder2->priv_data, "refs", 1, 0);
             av_opt_set(vc->h264_encoder2->priv_data, "no-scenecut", "true", 0);
