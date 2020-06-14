@@ -532,10 +532,17 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         // TODO: calculate the delay for the audio stream, and pass it back
         // bad hack -> make better!
         // -----------------------------
+
+        LOGGER_API_DEBUG(tox, "VV:01:%d %d", (int)vc->video_decoder_buffer_sum_ms, (int)vc->video_decoder_buffer_ms);
+
         if ((int)vc->video_decoder_buffer_sum_ms < (int)vc->video_decoder_buffer_ms) {
             // 50ms to correct for audio also having some delay
+
+            LOGGER_API_DEBUG(tox, "VV:02");
+
             if (vc->video_decoder_caused_delay_ms_mean_value > 50)
             {
+                LOGGER_API_DEBUG(tox, "VV:03");
                 *timestamp_difference_adjustment_ = vc->timestamp_difference_adjustment - (vc->video_decoder_buffer_ms -
                         vc->video_decoder_add_delay_ms)
                         - (vc->video_decoder_caused_delay_ms_mean_value - 50);
