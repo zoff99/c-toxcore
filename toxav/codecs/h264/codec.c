@@ -399,9 +399,9 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     param.b_deterministic = false;
     //#// param.i_sync_lookahead = 0;
     //#// param.i_lookahead_threads = 0;
-    param.b_intra_refresh = 30;
+    param.b_intra_refresh = 8;
     param.i_bframe = 0;
-    // param.b_open_gop = 20;
+    // param.b_open_gop = 4;
     param.i_keyint_max = VIDEO_MAX_KF_H264;
     // param.rc.i_rc_method = X264_RC_CRF; // X264_RC_ABR;
     // param.i_nal_hrd = X264_NAL_HRD_CBR;
@@ -889,9 +889,9 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
                 param.b_deterministic = false;
                 //#// param.i_sync_lookahead = 0;
                 //#// param.i_lookahead_threads = 0;
-                param.b_intra_refresh = 30;
+                param.b_intra_refresh = 8;
                 param.i_bframe = 0;
-                // param.b_open_gop = 20;
+                // param.b_open_gop = 4;
                 param.i_keyint_max = VIDEO_MAX_KF_H264;
                 // param.rc.i_rc_method = X264_RC_ABR;
                 //#// param.i_frame_reference = 1;
