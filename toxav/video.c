@@ -533,10 +533,19 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         // bad hack -> make better!
         // -----------------------------
         if ((int)vc->video_decoder_buffer_sum_ms < (int)vc->video_decoder_buffer_ms) {
-            *timestamp_difference_adjustment_ = vc->timestamp_difference_adjustment - (vc->video_decoder_buffer_ms -
-                                                vc->video_decoder_add_delay_ms)
-                                                - vc->video_decoder_caused_delay_ms_mean_value;
-;
+            // 50ms to correct for audio also having some delay
+            if (vc->video_decoder_caused_delay_ms_mean_value > 50)
+            {
+                *timestamp_difference_adjustment_ = vc->timestamp_difference_adjustment - (vc->video_decoder_buffer_ms -
+                        vc->video_decoder_add_delay_ms)
+                        - (vc->video_decoder_caused_delay_ms_mean_value - 50);
+            }
+            else
+            {
+                *timestamp_difference_adjustment_ = vc->timestamp_difference_adjustment - (vc->video_decoder_buffer_ms -
+                        vc->video_decoder_add_delay_ms)
+                        - vc->video_decoder_caused_delay_ms_mean_value;
+            }
         } else {
             *timestamp_difference_adjustment_ = vc->timestamp_difference_adjustment - vc->video_decoder_buffer_ms;
         }

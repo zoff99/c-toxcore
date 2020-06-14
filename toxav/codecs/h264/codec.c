@@ -1464,14 +1464,21 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                         (int)frame->pkt_dts,
                         (int)frame->pts);
 
-                if ((delta_value >= 0) && (delta_value <= 3000))
+                if ((delta_value >= 0) && (delta_value <= 1000))
                 {
                     vc->video_decoder_caused_delay_ms = delta_value;
                     LOGGER_API_DEBUG(vc->av->tox, "dec:delta_value=%d", vc->video_decoder_caused_delay_ms);
                 }
                 else if (delta_value == -1)
                 {
-                    vc->video_decoder_caused_delay_ms = (int32_t)vc->global_decode_first_frame_delayed_ms;
+                    if (((int32_t)vc->global_decode_first_frame_delayed_ms >= 0) && ((int32_t)vc->global_decode_first_frame_delayed_ms <= 80))
+                    {
+                        vc->video_decoder_caused_delay_ms = (int32_t)vc->global_decode_first_frame_delayed_ms;
+                    }
+                    else
+                    {
+                        vc->video_decoder_caused_delay_ms = 2;
+                    }
                     LOGGER_API_DEBUG(vc->av->tox, "dec:delta_value=%d", vc->video_decoder_caused_delay_ms);
                 }
 
