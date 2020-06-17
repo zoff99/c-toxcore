@@ -133,6 +133,7 @@ typedef enum PACKET_TOXAV_COMM_CHANNEL_FUNCTION {
 #define VIDEO_ENCODER_SOFT_DEADLINE_AUTOTUNE_ENTRIES 20
 #define VIDEO_INCOMING_FRAMES_GAP_MS_ENTRIES 20
 #define VIDEO_DECODER_CAUSED_DELAY_MS_ENTRIES 20
+#define VIDEO_BUF_MS_ENTRIES 20
 
 #include <pthread.h>
 
@@ -202,6 +203,10 @@ typedef struct VCSession_s {
     uint8_t video_decoder_caused_delay_ms_array_index;
     uint32_t video_decoder_caused_delay_ms_mean_value;
 
+    uint32_t video_buf_ms_array[VIDEO_BUF_MS_ENTRIES];
+    uint8_t video_buf_ms_array_index;
+    int32_t video_buf_ms_mean_value;
+
     uint8_t send_keyframe_request_received;
     uint8_t h264_video_capabilities_received;
     uint8_t skip_fps;
@@ -270,6 +275,7 @@ typedef struct VCSession_s {
     uint32_t incoming_video_bitrate_last_changed;
     uint32_t incoming_video_bitrate_last_cb_ts;
     uint32_t network_round_trip_time_last_cb_ts;
+    int32_t network_round_trip_adjustment;
     uint32_t last_requested_lower_fps_ts;
 
     /* Video frame receive callback */

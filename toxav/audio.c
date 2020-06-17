@@ -395,7 +395,12 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
             /* TODO: msg->data + 4, msg->len - 4
              * this should be defined, not hardcoded
              */
+
+            // uint64_t tt1 = current_time_monotonic(ac->mono_time);
+
             rc = opus_decode(ac->decoder, msg->data + 4, msg->len - 4, ac->temp_audio_buffer, 5760, use_fec);
+
+            // LOGGER_API_WARNING(ac->tox, "opus:DEC:time=%d", (int)(current_time_monotonic(ac->mono_time) - tt1));
 
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------

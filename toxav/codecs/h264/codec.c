@@ -1395,7 +1395,7 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
             vc->global_decode_first_frame_got = 1;
             vc->global_decode_first_frame_delayed_ms =
                 current_time_monotonic(vc->av->toxav_mono_time) - vc->global_decode_first_frame_delayed_ms;
-            LOGGER_API_INFO(vc->av->tox, "X264 decoder delay: %d f, %d ms",
+            LOGGER_API_DEBUG(vc->av->tox, "X264 decoder delay: %d f, %d ms",
                     (vc->global_decode_first_frame_delayed_by - 1),
                     (int)vc->global_decode_first_frame_delayed_ms);
         }

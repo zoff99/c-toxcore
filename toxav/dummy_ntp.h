@@ -24,7 +24,7 @@
 #include <stdint.h>
 
 /* NTP formula implementation */
-bool dntp_drift(int64_t *current_offset, const int64_t new_offset, const int64_t max_offset_for_drift);
+bool dntp_drift(int64_t *current_offset, const int64_t new_offset, const int64_t max_offset_for_drift, const uint32_t jitter);
 int64_t dntp_calc_offset(uint32_t remote_tstart, uint32_t remote_tend,
                          uint32_t local_tstart, uint32_t local_tend);
 uint32_t dntp_calc_roundtrip_delay(uint32_t remote_tstart, uint32_t remote_tend,
