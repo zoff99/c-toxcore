@@ -186,22 +186,28 @@ static uint16_t tsb_delete_old_entries(TSBuffer *b, Logger *log, const uint64_t 
     return removed_entries_before_last_out;
 }
 
-void tsb_get_range_in_buffer(TSBuffer *b, uint32_t *timestamp_min, uint32_t *timestamp_max)
+void tsb_get_range_in_buffer(Tox *tox, TSBuffer *b, uint32_t *timestamp_min, uint32_t *timestamp_max)
 {
     uint16_t current_element;
     uint16_t start_entry = b->start;
     *timestamp_min = UINT32_MAX;
     *timestamp_max = 0;
 
+    // LOGGER_API_ERROR(tox, "min=%d max=%d", *timestamp_min, *timestamp_max);
+
     for (int i = 0; i < tsb_size(b); i++) {
         current_element = (start_entry + i) % b->size;
 
-        if ((uint64_t)b->timestamp[current_element] > (uint64_t)*timestamp_max) {
+        // LOGGER_API_ERROR(tox, "cur=%d", (int)b->timestamp[current_element]);
+
+        if ((uint64_t)b->timestamp[current_element] >= (uint64_t)*timestamp_max) {
             *timestamp_max = b->timestamp[current_element];
+            // LOGGER_API_ERROR(tox, "max=%d", *timestamp_max);
         }
 
-        if ((uint64_t)b->timestamp[current_element] < (uint64_t)*timestamp_min) {
+        if ((uint64_t)b->timestamp[current_element] <= (uint64_t)*timestamp_min) {
             *timestamp_min = b->timestamp[current_element];
+            // LOGGER_API_ERROR(tox, "min=%d", *timestamp_min);
         }
     }
 }

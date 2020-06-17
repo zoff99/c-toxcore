@@ -1281,9 +1281,15 @@ bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pc
         VLA(uint8_t, dest, sample_count + sizeof(sampling_rate)); /* This is more than enough always */
 
         sampling_rate = net_htonl(sampling_rate);
+
+        // uint64_t tt1 = current_time_monotonic(av->toxav_mono_time);
+
         memcpy(dest, &sampling_rate, sizeof(sampling_rate));
         int vrc = opus_encode(call->audio->encoder, pcm, sample_count,
                               dest + sizeof(sampling_rate), SIZEOF_VLA(dest) - sizeof(sampling_rate));
+
+        // uint64_t opus_encoding_time = current_time_monotonic(av->toxav_mono_time) - tt1;
+        // LOGGER_API_DEBUG(av->tox, "opus:enc:time=%d", (int)(opus_encoding_time));
 
         if (vrc < 0) {
             LOGGER_API_WARNING(av->tox, "Failed to encode frame %s", opus_strerror(vrc));
@@ -1805,6 +1811,7 @@ bool toxav_video_send_frame_h264_age(ToxAV *av, uint32_t friend_number, uint16_t
     else
     {
         video_frame_record_timestamp = current_time_monotonic(av->toxav_mono_time) - age_ms;
+        LOGGER_API_DEBUG(av->tox, "toxav_video_send_frame_h264_age:age_ms=%d", age_ms);
     }
 
 

@@ -58,6 +58,7 @@ int rtp_send_custom_lossless_packet(Tox *tox, int32_t friendnumber, const uint8_
 
 
 #define DISABLE_H264_ENCODER_FEATURE    0
+#define DISABLE_H264_DECODER_FEATURE    0
 
 int TOXAV_SEND_VIDEO_LOSSLESS_PACKETS = 0;
 
@@ -742,20 +743,22 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                                       ((VCSession *)(session->cs))->dummy_ntp_local_end);
 
 #define NETWORK_ROUND_TRIP_FUZZ_THRESHOLD_MS 150
+#define NETWORK_ROUND_TRIP_CHANGE_THRESHOLD_MS 10
+#define NTP_JUMP_THRESHOLD_MS 200
 
-                if (roundtrip_ > ((VCSession *)(session->cs))->rountrip_time_ms) {
+                if (roundtrip_ > (((VCSession *)(session->cs))->rountrip_time_ms + NETWORK_ROUND_TRIP_CHANGE_THRESHOLD_MS)) {
                     if (roundtrip_ > ((((VCSession *)(session->cs))->rountrip_time_ms) + NETWORK_ROUND_TRIP_FUZZ_THRESHOLD_MS)) {
                         ((VCSession *)(session->cs))->rountrip_time_ms = ((VCSession *)(session->cs))->rountrip_time_ms +
                                 (NETWORK_ROUND_TRIP_FUZZ_THRESHOLD_MS / 2);
                     } else {
-                        ((VCSession *)(session->cs))->rountrip_time_ms = roundtrip_;
+                        ((VCSession *)(session->cs))->rountrip_time_ms++;
                     }
-                } else if (roundtrip_ < ((VCSession *)(session->cs))->rountrip_time_ms) {
+                } else if ((roundtrip_ + NETWORK_ROUND_TRIP_CHANGE_THRESHOLD_MS) < ((VCSession *)(session->cs))->rountrip_time_ms) {
                     if ((roundtrip_ + NETWORK_ROUND_TRIP_FUZZ_THRESHOLD_MS) < ((VCSession *)(session->cs))->rountrip_time_ms) {
                         ((VCSession *)(session->cs))->rountrip_time_ms = ((VCSession *)(session->cs))->rountrip_time_ms -
                                 (NETWORK_ROUND_TRIP_FUZZ_THRESHOLD_MS / 2);
                     } else {
-                        ((VCSession *)(session->cs))->rountrip_time_ms = roundtrip_;
+                        ((VCSession *)(session->cs))->rountrip_time_ms--;
                     }
                 }
 
@@ -764,9 +767,9 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
                 int64_t *ptmp = &(((VCSession *)(session->cs))->timestamp_difference_to_sender__for_video);
 
-                bool res4 = dntp_drift(ptmp, offset_, (int64_t)800);
-                LOGGER_API_DEBUG(tox, "DNTP:*B*:offset new=%lu",
-                                 (unsigned long)((VCSession *)(session->cs))->timestamp_difference_to_sender__for_video);
+                bool res4 = dntp_drift(ptmp, offset_, (int64_t)NTP_JUMP_THRESHOLD_MS, (int)NETWORK_ROUND_TRIP_CHANGE_THRESHOLD_MS);
+                LOGGER_API_DEBUG(tox, "DNTP:*B*:offset new=%d",
+                                 (int)((VCSession *)(session->cs))->timestamp_difference_to_sender__for_video);
             }
         }
 
@@ -787,6 +790,23 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     // Unpack the header.
     struct RTPHeader header;
     rtp_header_unpack(data, &header);
+
+
+#if 0
+    if (DISABLE_H264_DECODER_FEATURE != 1) {
+        if (header.sequnum < 30) {
+            // HINT: tell friend that we have H264 decoder capabilities -------
+            uint32_t pkg_buf_len = 2;
+            uint8_t pkg_buf[pkg_buf_len];
+            pkg_buf[0] = PACKET_TOXAV_COMM_CHANNEL;
+            pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO;
+
+            int result = rtp_send_custom_lossless_packet(tox, friendnumber, pkg_buf, pkg_buf_len);
+            LOGGER_API_DEBUG(tox, "PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO[rtp]=%d\n", (int)result);
+            // HINT: tell friend that we have H264 decoder capabilities -------
+        }
+    }
+#endif
 
     if (header.pt != packet_type % 128) {
         LOGGER_API_DEBUG(tox, "RTPHeader packet type and Tox protocol packet type did not agree: %d != %d",
@@ -820,9 +840,10 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
     LOGGER_API_DEBUG(tox, "rtp packet record time: %lu", (unsigned long)header.frame_record_timestamp);
 
+    LOGGER_API_DEBUG(tox, "RTP_ENCODER_HAS_RECORD_TIMESTAMP:fl=%d %d", (int)header.flags, (int)RTP_ENCODER_HAS_RECORD_TIMESTAMP);
 
     // check flag indicating that we have real record-timestamps for frames ---
-    if ((header.flags & RTP_ENCODER_HAS_RECORD_TIMESTAMP) == 0) {
+    if (!(header.flags & RTP_ENCODER_HAS_RECORD_TIMESTAMP)) {
         if (header.pt == (RTP_TYPE_VIDEO % 128)) {
             LOGGER_API_DEBUG(tox, "RTP_ENCODER_HAS_RECORD_TIMESTAMP:VV");
             ((VCSession *)(session->cs))->encoder_frame_has_record_timestamp = 0;
