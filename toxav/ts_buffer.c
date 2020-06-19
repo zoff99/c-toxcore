@@ -339,6 +339,67 @@ static bool tsb_return_oldest_entry_in_range(TSBuffer *b, Logger *log, void **p,
     return false;
 }
 
+static bool tsb_return_newest_entry_in_range(TSBuffer *b, Logger *log, void **p, uint64_t *data_type,
+        uint32_t *timestamp_out,
+        const uint32_t timestamp_in, const uint32_t timestamp_range)
+{
+    int32_t found_element = -1;
+    uint32_t found_timestamp = 0;
+    uint16_t start_entry = b->start;
+    uint16_t current_element;
+
+    for (int i = 0; i < tsb_size(b); i++) {
+        current_element = (start_entry + i) % b->size;
+
+        if ((((int64_t)b->timestamp[current_element]) >= ((int64_t)timestamp_in - (int64_t)timestamp_range))
+                &&
+                ((int64_t)b->timestamp[current_element] <= ((int64_t)timestamp_in + (int64_t)1))) {
+
+            // timestamp of entry is in range
+            if ((int64_t)b->timestamp[current_element] > (int64_t)found_timestamp) {
+
+                // entry is newer than previous found entry, or is the first found entry
+                found_timestamp = (uint32_t)b->timestamp[current_element];
+                found_element = (int32_t)current_element;
+            }
+        }
+    }
+
+    if (found_element > -1) {
+
+        // swap element with element in "start" position
+        if (found_element != (int32_t)b->start) {
+            void *p_save = b->data[found_element];
+            uint64_t data_type_save = b->type[found_element];
+            uint32_t timestamp_save = b->timestamp[found_element];
+
+            b->data[found_element] = b->data[b->start];
+            b->type[found_element] = b->type[b->start];
+            b->timestamp[found_element] = b->timestamp[b->start];
+
+            b->data[b->start] = p_save;
+            b->type[b->start] = data_type_save;
+            b->timestamp[b->start] = timestamp_save;
+        }
+
+        // fill data to return to caller
+        *p = b->data[b->start];
+        *data_type = b->type[b->start];
+        *timestamp_out = b->timestamp[b->start];
+
+        b->data[b->start] = NULL;
+        b->timestamp[b->start] = 0;
+        b->type[b->start] = 0;
+
+        // change start element pointer
+        b->start = (b->start + 1) % b->size;
+        return true;
+    }
+
+    *p = NULL;
+    return false;
+}
+
 bool tsb_read(TSBuffer *b, Logger *log, void **p, uint64_t *data_type, uint32_t *timestamp_out,
               const uint32_t timestamp_in, const uint32_t timestamp_range,
               uint16_t *removed_entries_back, uint16_t *is_skipping)
@@ -356,7 +417,7 @@ bool tsb_read(TSBuffer *b, Logger *log, void **p, uint64_t *data_type, uint32_t 
     }
 
     if ((int64_t)b->last_timestamp_out < ((int64_t)timestamp_in - (int64_t)timestamp_range)) {
-        /* caller is missing a time range, either call more often, or incread range */
+        /* caller is missing a time range, either call more often, or increase range */
         *is_skipping = (timestamp_in - timestamp_range) - b->last_timestamp_out;
     }
 

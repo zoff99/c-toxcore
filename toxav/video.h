@@ -43,8 +43,6 @@ VPX_DL_BEST_QUALITY   (0)       deadline parameter analogous to VPx BEST QUALITY
 
 #define AV_BUFFERING_MS_MIN 2
 #define AV_BUFFERING_MS_MAX 800
-#define MIN_AV_BUFFERING_MS 82
-#define AV_BUFFERING_DELTA_MS 1
 
 #ifdef HW_CODEC_CONFIG_RPI3_TBW_TV
 // more buffering for TV usecase
@@ -255,8 +253,6 @@ typedef struct VCSession_s {
     uint8_t encoder_frame_has_record_timestamp;
     int32_t video_decoder_buffer_ms;
     int32_t video_decoder_add_delay_ms;
-    int32_t video_decoder_buffer_sum_ms;
-    int32_t video_decoder_adjustment_base_ms;
     int32_t client_video_capture_delay_ms;
     int32_t video_decoder_caused_delay_ms;
     int32_t remote_client_video_capture_delay_ms;
