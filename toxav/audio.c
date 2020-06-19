@@ -166,7 +166,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     int64_t want_remote_video_ts = (current_time_monotonic(ac->mono_time) +
                                     timestamp_difference_to_sender_ +
                                     timestamp_difference_adjustment_for_audio2);
-    LOGGER_API_ERROR(ac->tox, "want_remote_video_ts:a:002=%d, %d %d %d",
+    LOGGER_API_DEBUG(ac->tox, "want_remote_video_ts:a:002=%d, %d %d %d",
             (int)want_remote_video_ts,
             (int)current_time_monotonic(ac->mono_time),
             (int)timestamp_difference_to_sender_,
@@ -199,7 +199,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     tsb_get_range_in_buffer(ac->tox, q, &timestamp_min, &timestamp_max);
 
     if ((int)tsb_size(q) > 0) {
-        LOGGER_API_WARNING(ac->tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d",
+        LOGGER_API_DEBUG(ac->tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d",
                        (int)tsb_size(q),
                        timestamp_min,
                        timestamp_max,
@@ -354,7 +354,7 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
         pthread_mutex_unlock(ac->queue_mutex);
 
 
-        LOGGER_API_ERROR(ac->tox, "TOXAV:A2V_DELAY:(pos==audio-before-video)%d", (int)(*a_r_timestamp - *v_r_timestamp));
+        LOGGER_API_DEBUG(ac->tox, "TOXAV:A2V_DELAY:(pos==audio-before-video)%d", (int)(*a_r_timestamp - *v_r_timestamp));
 
 
         if (rc == AUDIO_LOST_FRAME_INDICATOR) {

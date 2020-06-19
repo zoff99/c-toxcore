@@ -1496,7 +1496,7 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                     vc->video_decoder_caused_delay_ms_mean_value = (mean_value * 10) / (VIDEO_DECODER_CAUSED_DELAY_MS_ENTRIES * 10);
                 }
                 
-                LOGGER_API_WARNING(vc->av->tox, "dec:video_decoder_caused_delay_ms_mean_value=%d",
+                LOGGER_API_DEBUG(vc->av->tox, "dec:video_decoder_caused_delay_ms_mean_value=%d",
                         vc->video_decoder_caused_delay_ms_mean_value);
 
             }
