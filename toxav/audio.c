@@ -166,7 +166,12 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     int64_t want_remote_video_ts = (current_time_monotonic(ac->mono_time) +
                                     timestamp_difference_to_sender_ +
                                     timestamp_difference_adjustment_for_audio2);
-    LOGGER_API_ERROR(ac->tox, "want_remote_video_ts:002=%d", (int)want_remote_video_ts);
+    LOGGER_API_ERROR(ac->tox, "want_remote_video_ts:a:002=%d, %d %d %d",
+            (int)want_remote_video_ts,
+            (int)current_time_monotonic(ac->mono_time),
+            (int)timestamp_difference_to_sender_,
+            (int)timestamp_difference_adjustment_for_audio2
+            );
     /**
      *
      */
