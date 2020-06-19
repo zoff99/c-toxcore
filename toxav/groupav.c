@@ -131,7 +131,7 @@ static int queue(Group_JitterBuffer *q, const Mono_Time *mono_time, Group_Audio_
 /* success is 0 when there is nothing to dequeue, 1 when there's a good packet, 2 when there's a lost packet */
 static Group_Audio_Packet *dequeue(Group_JitterBuffer *q, int *success)
 {
-    if (q)
+    if (!q)
     {
         *success = 0;
         return nullptr;
@@ -332,7 +332,7 @@ static int decode_audio_packet(Group_AV *group_av, Group_Peer_AV *peer_av, uint3
         return -1;
     }
 
-    if (peer_av->buffer)
+    if (!(peer_av->buffer))
     {
         return -1;
     }
