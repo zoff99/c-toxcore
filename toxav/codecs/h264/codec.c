@@ -1474,7 +1474,7 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                     // since we do NOT have any idea how long the decoder delays frames,
                     // and the decoder will lie to us, we just assume some random value
                     // that works for our use cases (decoding on andriod via MediaCodec)
-                    vc->video_decoder_caused_delay_ms = 10;
+                    vc->video_decoder_caused_delay_ms = 1;
                     LOGGER_API_DEBUG(vc->av->tox, "dec:2:delta_value=%d", vc->video_decoder_caused_delay_ms);
                 }
 
@@ -1507,7 +1507,7 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
-#if 0
+#if 1
                 *v_r_timestamp = h_frame_record_timestamp;
                 *v_l_timestamp = current_time_monotonic(vc->av->toxav_mono_time);
 #endif

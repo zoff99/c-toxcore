@@ -99,8 +99,6 @@ ACSession *ac_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, Tox *tox, 
     ac->last_incoming_frame_ts = 0;
     ac->timestamp_difference_to_sender = 0; // no difference to sender as start value
 
-    ac->video_decoder_add_delay_ms_copy = 0;
-
     /* These need to be set in order to properly
      * do error correction with opus */
     ac->lp_frame_duration = AUDIO_MAX_FRAME_DURATION_MS;
@@ -149,7 +147,7 @@ void ac_kill(ACSession *ac)
 // static int global_last_aiterate_ts = 0;
 
 static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int32_t *success,
-        int64_t timestamp_difference_adjustment_,
+        int64_t timestamp_difference_adjustment_for_audio2,
         int64_t timestamp_difference_to_sender_,
         uint8_t encoder_frame_has_record_timestamp,
         ACSession *ac,
@@ -160,10 +158,18 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     void *ret = NULL;
     uint64_t lost_frame = 0;
     uint32_t timestamp_out_ = 0;
-    int64_t want_remote_video_ts = (current_time_monotonic(ac->mono_time) + timestamp_difference_to_sender_ +
-                                    timestamp_difference_adjustment_);
 
-    LOGGER_DEBUG(log, "audio_read:before:%ld,%d", want_remote_video_ts, (int)ac->video_decoder_add_delay_ms_copy);
+
+    /**
+     * this is the magic value that gives the wanted timestamps:
+     */
+    int64_t want_remote_video_ts = (current_time_monotonic(ac->mono_time) +
+                                    timestamp_difference_to_sender_ +
+                                    timestamp_difference_adjustment_for_audio2);
+    LOGGER_API_ERROR(ac->tox, "want_remote_video_ts:002=%d", (int)want_remote_video_ts);
+    /**
+     *
+     */
 
     *success = 0;
     uint16_t removed_entries;
@@ -181,20 +187,20 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     // HINT: compensate for older clients ----------------
 
 
-#if 0
+#if 1
 
     uint32_t timestamp_min = 0;
     uint32_t timestamp_max = 0;
-    tsb_get_range_in_buffer(q, &timestamp_min, &timestamp_max);
+    tsb_get_range_in_buffer(ac->tox, q, &timestamp_min, &timestamp_max);
 
     if ((int)tsb_size(q) > 0) {
-        LOGGER_WARNING(log, "FC:%d min=%ld max=%ld want=%d diff=%d adj=%d",
+        LOGGER_API_WARNING(ac->tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d",
                        (int)tsb_size(q),
                        timestamp_min,
                        timestamp_max,
                        (int)want_remote_video_ts,
                        (int)want_remote_video_ts - (int)timestamp_max,
-                       (int)timestamp_difference_adjustment_);
+                       (int)timestamp_difference_adjustment_for_audio2);
     }
 
 #endif
@@ -307,7 +313,7 @@ static inline bool jbuf_is_empty(struct TSBuffer *q)
 
 uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timestamp, uint64_t *v_r_timestamp,
                    uint64_t *v_l_timestamp,
-                   int64_t *timestamp_difference_adjustment_,
+                   int64_t *timestamp_difference_adjustment_for_audio,
                    int64_t *timestamp_difference_to_sender_,
                    int video_send_cap)
 {
@@ -335,12 +341,16 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
 
 
     while ((msg = jbuf_read(nullptr, jbuffer, &rc,
-                            *timestamp_difference_adjustment_,
+                            *timestamp_difference_adjustment_for_audio,
                             *timestamp_difference_to_sender_,
                             ac->encoder_frame_has_record_timestamp, ac,
                             video_send_cap))
             || rc == AUDIO_LOST_FRAME_INDICATOR) {
         pthread_mutex_unlock(ac->queue_mutex);
+
+
+        LOGGER_API_ERROR(ac->tox, "TOXAV:A2V_DELAY:(pos==audio-before-video)%d", (int)(*a_r_timestamp - *v_r_timestamp));
+
 
         if (rc == AUDIO_LOST_FRAME_INDICATOR) {
             LOGGER_DEBUG(ac->log, "OPUS correction for lost frame (3)");
@@ -405,7 +415,7 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
-#if 0
+#if 1
 
             if (rc >= 0) {
                 // what is the audio to video latency?

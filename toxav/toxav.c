@@ -376,7 +376,6 @@ void toxav_iterate(ToxAV *av)
                                                 );
             // ------- av_iterate for VIDEO -------
 
-
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
             if (i->msi_call->self_capabilities & MSI_CAP_R_AUDIO &&
@@ -826,17 +825,11 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
             LOGGER_DEBUG(av->m->log, "video decoder video_decoder_add_delay_ms already set to: %d", (int)value);
         } else {
 
-            if (((int32_t)value < -200) || ((int32_t)value > 1200)) {
+            if (((int32_t)value < -150) || ((int32_t)value > 150)) {
                 LOGGER_DEBUG(av->m->log, "video decoder video_decoder_add_delay_ms value outside of valid range: %d", (int)value);
             } else {
                 vc->video_decoder_add_delay_ms = (int32_t)value;
             }
-
-            ACSession *ac = (ACSession *)call->audio;
-            ac->video_decoder_add_delay_ms_copy = vc->video_decoder_add_delay_ms;
-            vc->video_decoder_buffer_sum_ms = vc->video_decoder_buffer_ms + vc->video_decoder_add_delay_ms;
-            LOGGER_DEBUG(av->m->log, "video decoder setting video_decoder_add_delay_ms to: %d",
-                         (int)vc->video_decoder_buffer_sum_ms);
         }
     } else if (option == TOXAV_DECODER_VIDEO_BUFFER_MS) {
         VCSession *vc = (VCSession *)call->video;
@@ -844,15 +837,11 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
         if (vc->video_decoder_buffer_ms == (int32_t)value) {
             LOGGER_WARNING(av->m->log, "video decoder video_decoder_buffer_ms already set to: %d", (int)value);
         } else {
-            vc->video_decoder_buffer_ms = (int32_t)value;
-
-            if ((vc->video_decoder_buffer_ms - AV_BUFFERING_DELTA_MS) > 1) {
-                vc->video_decoder_adjustment_base_ms = vc->video_decoder_buffer_ms - AV_BUFFERING_DELTA_MS;
+            if (((int32_t)value < 0) || ((int32_t)value > 300)) {
+                LOGGER_DEBUG(av->m->log, "video decoder video_decoder_buffer_ms value outside of valid range: %d", (int)value);
             } else {
-                vc->video_decoder_adjustment_base_ms = 1;
+                vc->video_decoder_buffer_ms = (int32_t)value;
             }
-
-            vc->video_decoder_buffer_sum_ms = vc->video_decoder_buffer_ms + vc->video_decoder_add_delay_ms;
 
             LOGGER_WARNING(av->m->log, "video decoder setting video_decoder_buffer_ms to: %d", (int)value);
         }
