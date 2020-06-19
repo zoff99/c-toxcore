@@ -120,7 +120,9 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     vc->dummy_ntp_local_end = 0;
     vc->dummy_ntp_remote_start = 0;
     vc->dummy_ntp_remote_end = 0;
-    vc->rountrip_time_ms = 50; // set xxx ms rountrip network time, before we get an actual value calculated
+    vc->rountrip_time_ms = 300; // set xxx ms rountrip network time, before we get an actual value calculated
+    vc->has_rountrip_time_ms = 0;
+    vc->pinned_to_rountrip_time_ms = 0;
     vc->video_play_delay = 0;
     vc->video_play_delay_real = 0;
     vc->video_frame_buffer_entries = 0;
@@ -339,11 +341,6 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         return 0;
     }
 
-    LOGGER_API_DEBUG(tox, "----vc_iterate-----");
-
-
-    // global___ts1 = (int)(current_time_monotonic(m->mono_time));
-
     uint8_t ret_value = 0;
     struct RTPMessage *p;
     bool have_requested_index_frame = false;
@@ -375,7 +372,13 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                                 (int)vc->timestamp_difference_to_sender__for_video +
                                 (int)vc->timestamp_difference_adjustment -
                                 (int)vc->video_decoder_buffer_ms);
-    LOGGER_API_ERROR(tox, "want_remote_video_ts:002=%d", (int)want_remote_video_ts);
+    LOGGER_API_ERROR(tox, "want_remote_video_ts:v:002=%d, %d %d %d %d",
+            (int)want_remote_video_ts,
+            (int)current_time_monotonic(vc->av->toxav_mono_time),
+            (int)vc->timestamp_difference_to_sender__for_video,
+            (int)vc->timestamp_difference_adjustment,
+            (int)vc->video_decoder_buffer_ms
+            );
     /**
      *
      */
@@ -389,8 +392,6 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                     );
 
     uint32_t timestamp_want_get = (int)want_remote_video_ts;
-    LOGGER_API_DEBUG(tox,"timestamp_want_get:001=%d", (int)timestamp_want_get);
-
 
     // HINT: compensate for older clients ----------------
     if (vc->encoder_frame_has_record_timestamp == 0) {
@@ -402,20 +403,14 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
     // HINT: compensate for older clients ----------------
 
-#if 1
-
-    //if ((int)tsb_size((TSBuffer *)vc->vbuf_raw) > 0) {
-        LOGGER_API_INFO(tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d roundtrip=%d",
-                     (int)tsb_size((TSBuffer *)vc->vbuf_raw),
-                     timestamp_min,
-                     timestamp_max,
-                     (int)timestamp_want_get,
-                     (int)timestamp_want_get - (int)timestamp_max,
-                     (int)vc->timestamp_difference_adjustment,
-                     (int)vc->rountrip_time_ms);
-    //}
-
-#endif
+    LOGGER_API_INFO(tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d roundtrip=%d",
+                 (int)tsb_size((TSBuffer *)vc->vbuf_raw),
+                 timestamp_min,
+                 timestamp_max,
+                 (int)timestamp_want_get,
+                 (int)timestamp_want_get - (int)timestamp_max,
+                 (int)vc->timestamp_difference_adjustment,
+                 (int)vc->rountrip_time_ms);
 
 
     int32_t video_frame_diff = (int)timestamp_want_get - (int)timestamp_max;
@@ -442,102 +437,46 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     // ------- calc mean value -------
 
 
-#if 1
-    if ((int)tsb_size((TSBuffer *)vc->vbuf_raw) > 0)
-    {
-        LOGGER_API_WARNING(tox, "rtt:drift:vfd:a:%d %d m=%d", (int)(vc->timestamp_difference_adjustment), video_frame_diff, vc->video_buf_ms_mean_value);
+    LOGGER_API_WARNING(tox, "rtt:drift:vfd:a:%d %d m=%d", (int)(vc->timestamp_difference_adjustment), video_frame_diff, vc->video_buf_ms_mean_value);
 
-        if (vc->video_buf_ms_mean_value > 900)
+    if ((vc->pinned_to_rountrip_time_ms == 0) && (vc->has_rountrip_time_ms == 1))
+    {
+        // ------------ pin play out timestamps to (RTT/2 + "GUESS_REMOTE_ENCODER_DELAY_MS" ms)
+        vc->timestamp_difference_adjustment = -(int)((vc->rountrip_time_ms/2) + GUESS_REMOTE_ENCODER_DELAY_MS);
+        vc->network_round_trip_adjustment = vc->rountrip_time_ms;
+        LOGGER_API_INFO(tox, "adj:drift:5a:jmp:%d video_frame_diff=%d rtt_adj=%d", (int)(vc->timestamp_difference_adjustment), video_frame_diff, vc->network_round_trip_adjustment);
+        vc->pinned_to_rountrip_time_ms = 1;
+    }
+
+    LOGGER_API_INFO(tox, "adj:xxxx:9:%d video_frame_diff=%d rtt_adj=%d", (int)(vc->timestamp_difference_adjustment), video_frame_diff, vc->network_round_trip_adjustment);
+
+    if (vc->has_rountrip_time_ms == 1)
+    {
+        // im RTT changed by 2ms in either direction then drift network_round_trip_adjustment in that way by 1ms
+        if (vc->network_round_trip_adjustment > ((int32_t)vc->rountrip_time_ms + 1))
         {
-            vc->timestamp_difference_adjustment = -(int)((vc->rountrip_time_ms/2) + 240);
             vc->network_round_trip_adjustment = vc->rountrip_time_ms;
-            LOGGER_API_INFO(tox, "adj:drift:5a:jmp:%d video_frame_diff=%d rtt_adj=%d", (int)(vc->timestamp_difference_adjustment), video_frame_diff, vc->network_round_trip_adjustment);
-            has_adjusted = 1;
-        }
-        else if (vc->video_buf_ms_mean_value > 150)
-        {
             vc->timestamp_difference_adjustment--;
+            LOGGER_API_INFO(tox, "adj:drift:aa--");
+        }
+        else if (vc->network_round_trip_adjustment < ((int32_t)vc->rountrip_time_ms - 1))
+        {
             vc->network_round_trip_adjustment = vc->rountrip_time_ms;
-            LOGGER_API_INFO(tox, "adj:drift:5b:--:%d video_frame_diff=%d rtt_adj=%d", (int)(vc->timestamp_difference_adjustment), video_frame_diff, vc->network_round_trip_adjustment);
-            has_adjusted = 1;
-        }
-        else if ((vc->video_buf_ms_mean_value + (int)vc->video_decoder_buffer_ms) < -350)
-        {
-            LOGGER_API_INFO(tox, "adj:drift:5c1:+:%d video_frame_diff=%d rtt_adj=%d", (int)(vc->timestamp_difference_adjustment), video_frame_diff, vc->network_round_trip_adjustment);
-            vc->timestamp_difference_adjustment = -(int)((vc->rountrip_time_ms/2) + 150);
-            vc->network_round_trip_adjustment = vc->rountrip_time_ms;
-            LOGGER_API_INFO(tox, "adj:drift:5c2:+:%d video_frame_diff=%d rtt_adj=%d", (int)(vc->timestamp_difference_adjustment), video_frame_diff, vc->network_round_trip_adjustment);
-            has_adjusted = 1;
-        }
-        else if (vc->video_buf_ms_mean_value > 1)
-        {
-            vc->timestamp_difference_adjustment--;
-            LOGGER_API_DEBUG(tox, "adj:drift:9:--:%d video_frame_diff=%d rtt_adj=%d", (int)(vc->timestamp_difference_adjustment), video_frame_diff, vc->network_round_trip_adjustment);
-            has_adjusted = 1;
-        }
-        else if ((vc->video_buf_ms_mean_value + (int)vc->video_decoder_buffer_ms) < -50)
-        {
             vc->timestamp_difference_adjustment++;
-            LOGGER_API_INFO(tox, "adj:drift:8:+++:%d video_frame_diff=%d rtt_adj=%d", (int)(vc->timestamp_difference_adjustment), video_frame_diff, vc->network_round_trip_adjustment);
-            has_adjusted = 1;
+            LOGGER_API_INFO(tox, "adj:drift:aa+++++");
         }
     }
 
-    if (vc->network_round_trip_adjustment > ((int32_t)vc->rountrip_time_ms + 1))
-    {
-        vc->network_round_trip_adjustment = vc->rountrip_time_ms;
-        vc->timestamp_difference_adjustment--;
-        LOGGER_API_INFO(tox, "adj:drift:aa--");
-    }
-    else if (vc->network_round_trip_adjustment < ((int32_t)vc->rountrip_time_ms - 1))
-    {
-        vc->network_round_trip_adjustment = vc->rountrip_time_ms;
-        vc->timestamp_difference_adjustment++;
-        LOGGER_API_INFO(tox, "adj:drift:aa+++++");
-    }
-
-#endif
-
-
-#if 0
-    if (has_adjusted == 0)
-    {
-        LOGGER_API_DEBUG(tox, "rtt:drift:1:%d %d %d", (int)(vc->rountrip_time_ms),
-                     (int)(-vc->timestamp_difference_adjustment),
-                     vc->network_round_trip_adjustment);
-
-        int64_t check_value = (int64_t)((int32_t)vc->rountrip_time_ms / 2);
-        check_value = check_value - (int64_t)vc->network_round_trip_adjustment;
-
-        LOGGER_API_DEBUG(tox, "rtt:drift:x:%d %d %d %d",
-                (int)(vc->rountrip_time_ms/2),
-                vc->network_round_trip_adjustment,
-                (int)-vc->timestamp_difference_adjustment,
-                (int)check_value
-                );
-
-        if ((int)check_value > (int)-vc->timestamp_difference_adjustment) {
-            // drift
-            //vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment - 1;
-            //LOGGER_API_ERROR(tox, "rtt:drift:4:--1:%d", (int)(vc->timestamp_difference_adjustment));
-        } else if ((int)check_value < (int)-vc->timestamp_difference_adjustment) {
-            // drift
-            vc->timestamp_difference_adjustment = vc->timestamp_difference_adjustment + 1;
-            LOGGER_API_DEBUG(tox, "rtt:drift:7:+1:%d", (int)(vc->timestamp_difference_adjustment));
-        }
-    }
-#endif
 
     uint16_t removed_entries;
     uint16_t is_skipping = 0;
-
 
     uint32_t tsb_range_ms_used = vc->tsb_range_ms + vc->startup_video_timespan;
     uint32_t timestamp_want_get_used = timestamp_want_get;
     LOGGER_API_DEBUG(tox,"timestamp_want_get_used:001=%d", (int)timestamp_want_get_used);
 
 
-    if (vc->video_received_first_frame == 0) {
+    if ((vc->video_received_first_frame == 0) || (vc->has_rountrip_time_ms == 0)) {
         tsb_range_ms_used = UINT32_MAX;
         timestamp_want_get_used = UINT32_MAX;
         LOGGER_API_DEBUG(tox,"first_frame:001:timestamp_want_get_used:002=%d", (int)timestamp_want_get_used);
@@ -567,15 +506,6 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
         const struct RTPHeader *header_v3_0 = (void *) & (p->header);
 
-//         LOGGER_API_WARNING(tox, "tsb_read got: now=%d iter=%d seq:%d FC:%d is_skipping=%d",
-//                          (int)current_time_monotonic(m->mono_time),
-//                          (int)current_time_monotonic(m->mono_time) - global_last_viterate_ts,
-//                          (int)header_v3_0->sequnum,
-//                          (int)tsb_size((TSBuffer *)vc->vbuf_raw),
-//                          (int)is_skipping);
-//
-//        global_last_viterate_ts = (int)current_time_monotonic(m->mono_time);
-
         LOGGER_API_DEBUG(tox, "XLS01:%d,%d, diff_got=%d",
                          (int)(timestamp_want_get - current_time_monotonic(vc->av->toxav_mono_time)),
                          (int)(timestamp_out_ - current_time_monotonic(vc->av->toxav_mono_time)),
@@ -590,7 +520,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
         if (removed_entries > 0) {
 
-            LOGGER_API_DEBUG(tox,
+            LOGGER_API_WARNING(tox,
                              "seq:%d FC:%d min=%d max=%d want=%d hgot=%d got=%d diff=%d rm=%d pdelay=%d pdelayr=%d adj=%d dts=%d rtt=%d decoder_delay=%d",
                              (int)header_v3_0->sequnum,
                              (int)tsb_size((TSBuffer *)vc->vbuf_raw),
@@ -613,7 +543,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         int32_t diff_want_to_got = (int)timestamp_want_get - (int)timestamp_out_;
 
 
-        LOGGER_API_DEBUG(tox, "values:diff_to_sender=%d adj=%d tsb_range=%d bufsize=%d",
+        LOGGER_API_WARNING(tox, "values:diff_to_sender=%d adj=%d tsb_range=%d bufsize=%d",
                          (int)vc->timestamp_difference_to_sender__for_video, (int)vc->timestamp_difference_adjustment,
                          (int)vc->tsb_range_ms,
                          (int)buf_size);
@@ -639,6 +569,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         *timestamp_difference_adjustment_for_audio = vc->timestamp_difference_adjustment -
                 delay_audio_stream_relative_to_video_stream -
                 vc->video_decoder_caused_delay_ms_mean_value;
+        LOGGER_API_WARNING(tox, "want_remote_video_ts:v:003=%d", (int)timestamp_difference_adjustment_for_audio);
         LOGGER_API_WARNING(tox, "VV:01:%d", (int)vc->video_decoder_buffer_ms);
         LOGGER_API_WARNING(tox, "VV:02:%d %d", (int)*timestamp_difference_adjustment_for_audio, (int)vc->timestamp_difference_adjustment);
         LOGGER_API_WARNING(tox, "VV:03:%d %d", (int)vc->video_decoder_add_delay_ms, (int)vc->video_decoder_caused_delay_ms_mean_value);

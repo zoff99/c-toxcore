@@ -726,50 +726,69 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
                 ((VCSession *)(session->cs))->dummy_ntp_local_end = current_time_monotonic(rtp_get_mono_time_from_rtpsession(session));
 
-                LOGGER_API_DEBUG(tox, "DNTP:%d %d %d %d",
-                                 ((VCSession *)(session->cs))->dummy_ntp_local_start,
-                                 ((VCSession *)(session->cs))->dummy_ntp_remote_start,
-                                 ((VCSession *)(session->cs))->dummy_ntp_remote_end,
-                                 ((VCSession *)(session->cs))->dummy_ntp_local_end);
-
-                int64_t offset_ = dntp_calc_offset(((VCSession *)(session->cs))->dummy_ntp_remote_start,
-                                                   ((VCSession *)(session->cs))->dummy_ntp_remote_end,
-                                                   ((VCSession *)(session->cs))->dummy_ntp_local_start,
-                                                   ((VCSession *)(session->cs))->dummy_ntp_local_end);
-
-                uint32_t roundtrip_ = dntp_calc_roundtrip_delay(((VCSession *)(session->cs))->dummy_ntp_remote_start,
-                                      ((VCSession *)(session->cs))->dummy_ntp_remote_end,
-                                      ((VCSession *)(session->cs))->dummy_ntp_local_start,
-                                      ((VCSession *)(session->cs))->dummy_ntp_local_end);
-
-#define NETWORK_ROUND_TRIP_FUZZ_THRESHOLD_MS 150
-#define NETWORK_ROUND_TRIP_CHANGE_THRESHOLD_MS 10
-#define NTP_JUMP_THRESHOLD_MS 200
-
-                if (roundtrip_ > (((VCSession *)(session->cs))->rountrip_time_ms + NETWORK_ROUND_TRIP_CHANGE_THRESHOLD_MS)) {
-                    if (roundtrip_ > ((((VCSession *)(session->cs))->rountrip_time_ms) + NETWORK_ROUND_TRIP_FUZZ_THRESHOLD_MS)) {
-                        ((VCSession *)(session->cs))->rountrip_time_ms = ((VCSession *)(session->cs))->rountrip_time_ms +
-                                (NETWORK_ROUND_TRIP_FUZZ_THRESHOLD_MS / 2);
-                    } else {
-                        ((VCSession *)(session->cs))->rountrip_time_ms++;
-                    }
-                } else if ((roundtrip_ + NETWORK_ROUND_TRIP_CHANGE_THRESHOLD_MS) < ((VCSession *)(session->cs))->rountrip_time_ms) {
-                    if ((roundtrip_ + NETWORK_ROUND_TRIP_FUZZ_THRESHOLD_MS) < ((VCSession *)(session->cs))->rountrip_time_ms) {
-                        ((VCSession *)(session->cs))->rountrip_time_ms = ((VCSession *)(session->cs))->rountrip_time_ms -
-                                (NETWORK_ROUND_TRIP_FUZZ_THRESHOLD_MS / 2);
-                    } else {
-                        ((VCSession *)(session->cs))->rountrip_time_ms--;
-                    }
+                if (
+                    (( (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_end - (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_start ) > 500)
+                     ||
+                    (( (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_end - (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_start ) < 1)
+                   )
+                {
+                    LOGGER_API_WARNING(tox, "DNTP:took_too_long:%d %d %d %d",
+                                     ((VCSession *)(session->cs))->dummy_ntp_local_start,
+                                     ((VCSession *)(session->cs))->dummy_ntp_remote_start,
+                                     ((VCSession *)(session->cs))->dummy_ntp_remote_end,
+                                     ((VCSession *)(session->cs))->dummy_ntp_local_end);
                 }
+                else
+                {
+                    LOGGER_API_WARNING(tox, "DNTP:OK:%d %d %d %d",
+                                     ((VCSession *)(session->cs))->dummy_ntp_local_start,
+                                     ((VCSession *)(session->cs))->dummy_ntp_remote_start,
+                                     ((VCSession *)(session->cs))->dummy_ntp_remote_end,
+                                     ((VCSession *)(session->cs))->dummy_ntp_local_end);
 
-                LOGGER_API_DEBUG(tox, "DNTP:offset=%ld roundtrip=%u", (long)offset_, roundtrip_);
-                // LOGGER_WARNING(m->log, "DNTP:A:offset new=%lld", ((VCSession *)(session->cs))->timestamp_difference_to_sender);
+                    int64_t offset_ = dntp_calc_offset(((VCSession *)(session->cs))->dummy_ntp_remote_start,
+                                                       ((VCSession *)(session->cs))->dummy_ntp_remote_end,
+                                                       ((VCSession *)(session->cs))->dummy_ntp_local_start,
+                                                       ((VCSession *)(session->cs))->dummy_ntp_local_end);
 
-                int64_t *ptmp = &(((VCSession *)(session->cs))->timestamp_difference_to_sender__for_video);
+                    uint32_t roundtrip_ = dntp_calc_roundtrip_delay(((VCSession *)(session->cs))->dummy_ntp_remote_start,
+                                          ((VCSession *)(session->cs))->dummy_ntp_remote_end,
+                                          ((VCSession *)(session->cs))->dummy_ntp_local_start,
+                                          ((VCSession *)(session->cs))->dummy_ntp_local_end);
 
-                bool res4 = dntp_drift(ptmp, offset_, (int64_t)NTP_JUMP_THRESHOLD_MS, (int)NETWORK_ROUND_TRIP_CHANGE_THRESHOLD_MS);
-                LOGGER_API_DEBUG(tox, "DNTP:*B*:offset new=%d",
-                                 (int)((VCSession *)(session->cs))->timestamp_difference_to_sender__for_video);
+#define NETWORK_ROUND_TRIP_CHANGE_THRESHOLD_MS 10
+#define NETWORK_ROUND_TRIP_FUZZ_THRESHOLD_MS 150
+#define NETWORK_NTP_JUMP_MS 100
+
+                    if (roundtrip_ > (((VCSession *)(session->cs))->rountrip_time_ms + NETWORK_ROUND_TRIP_CHANGE_THRESHOLD_MS)) {
+                        if (roundtrip_ > ((((VCSession *)(session->cs))->rountrip_time_ms) + NETWORK_ROUND_TRIP_FUZZ_THRESHOLD_MS)) {
+                            ((VCSession *)(session->cs))->rountrip_time_ms = ((VCSession *)(session->cs))->rountrip_time_ms + 40;
+                        } else {
+                            ((VCSession *)(session->cs))->rountrip_time_ms++;
+                        }
+                    } else if ((roundtrip_ + NETWORK_ROUND_TRIP_CHANGE_THRESHOLD_MS) < ((VCSession *)(session->cs))->rountrip_time_ms) {
+                        if ((roundtrip_ + NETWORK_ROUND_TRIP_FUZZ_THRESHOLD_MS) < ((VCSession *)(session->cs))->rountrip_time_ms) {
+                            ((VCSession *)(session->cs))->rountrip_time_ms = ((VCSession *)(session->cs))->rountrip_time_ms - 40;
+                        } else {
+                            ((VCSession *)(session->cs))->rountrip_time_ms--;
+                        }
+                    }
+
+                    ((VCSession *)(session->cs))->has_rountrip_time_ms = 1;
+
+                    LOGGER_API_WARNING(tox, "DNTP:offset=%ld roundtrip=%u roundtrip_old=%u", (long)offset_, roundtrip_, ((VCSession *)(session->cs))->rountrip_time_ms);
+                    // LOGGER_WARNING(m->log, "DNTP:A:offset new=%lld", ((VCSession *)(session->cs))->timestamp_difference_to_sender);
+
+                    LOGGER_API_WARNING(tox, "DNTP:*B*:offset_old=%d",
+                                     (int)((VCSession *)(session->cs))->timestamp_difference_to_sender__for_video);
+
+                    int64_t *ptmp = &(((VCSession *)(session->cs))->timestamp_difference_to_sender__for_video);
+
+                    bool res4 = dntp_drift(ptmp, offset_, (int64_t)NETWORK_NTP_JUMP_MS, (int)NETWORK_ROUND_TRIP_CHANGE_THRESHOLD_MS);
+
+                    LOGGER_API_WARNING(tox, "DNTP:*B*:offset_new=%d",
+                                     (int)((VCSession *)(session->cs))->timestamp_difference_to_sender__for_video);
+                }
             }
         }
 
@@ -863,9 +882,9 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     // HINT: ask sender for dummy ntp values -------------
     if (
         (
-            ((header.sequnum % 100) == 0)
+            ((header.sequnum % 60) == 0)
             ||
-            (header.sequnum < 30)
+            (header.sequnum < 10)
         )
         && (header.offset_lower == 0)) {
         uint32_t pkg_buf_len = (sizeof(uint32_t) * 3) + 2;
