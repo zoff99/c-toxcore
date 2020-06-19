@@ -155,7 +155,6 @@ ToxAV *toxav_new(Tox *tox, Toxav_Err_New *error)
     av->msi = msi_new(av->tox);
 
     rtp_allow_receiving(av->tox);
-    bwc_allow_receiving(av->tox);
 
     av->toxav_mono_time = mono_time_new();
 
@@ -454,6 +453,11 @@ bool toxav_call(ToxAV *av, uint32_t friend_number, uint32_t audio_bit_rate, uint
 
     call->msi_call->av_call = call;
 
+    if (rc == TOXAV_ERR_CALL_OK)
+    {
+        bwc_allow_receiving(av->tox);
+    }
+
 RETURN:
     pthread_mutex_unlock(av->mutex);
 
@@ -542,6 +546,11 @@ bool toxav_answer(ToxAV *av, uint32_t friend_number, uint32_t audio_bit_rate, ui
         rc = TOXAV_ERR_ANSWER_SYNC;
     }
 
+    if (rc == TOXAV_ERR_ANSWER_OK)
+    {
+        bwc_allow_receiving(av->tox);
+    }
+
 RETURN:
     pthread_mutex_unlock(av->mutex);
 
@@ -621,6 +630,8 @@ bool toxav_call_control(ToxAV *av, uint32_t friend_number, Toxav_Call_Control co
         case TOXAV_CALL_CONTROL_CANCEL: {
             /* Hang up */
             pthread_mutex_lock(call->toxav_call_mutex);
+
+            bwc_stop_receiving(av->tox);
 
             if (msi_hangup(call->msi_call) != 0) {
                 rc = TOXAV_ERR_CALL_CONTROL_SYNC;
@@ -2014,25 +2025,32 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
         return;
     }
 
+    pthread_mutex_lock(call->av->mutex);
+    pthread_mutex_lock(call->toxav_call_mutex);
+
     if (call->video_bit_rate == 0) {
         // HINT: video is turned off -> just do nothing
+        pthread_mutex_unlock(call->toxav_call_mutex);
+        pthread_mutex_unlock(call->av->mutex);
         return;
     }
 
     if (!call->video) {
+        pthread_mutex_unlock(call->toxav_call_mutex);
+        pthread_mutex_unlock(call->av->mutex);
         return;
     }
 
     if (call->video->video_bitrate_autoset == 0) {
         // HINT: client does not want bitrate autoset
+        pthread_mutex_unlock(call->toxav_call_mutex);
+        pthread_mutex_unlock(call->av->mutex);
         return;
     }
 
     //if (loss > 0) {
     //    LOGGER_ERROR(call->av->m->log, "Reported loss of %f%% : %f", loss * 100, loss);
     //}
-
-    pthread_mutex_lock(call->av->mutex);
 
     if ((loss * 100) < VIDEO_BITRATE_AUTO_INC_THRESHOLD) {
         if (call->video_bit_rate < VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
@@ -2132,6 +2150,7 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
 
     // HINT: sanity check --------------
 
+    pthread_mutex_unlock(call->toxav_call_mutex);
     pthread_mutex_unlock(call->av->mutex);
 }
 
