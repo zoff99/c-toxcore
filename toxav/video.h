@@ -52,7 +52,7 @@ VPX_DL_BEST_QUALITY   (0)       deadline parameter analogous to VPx BEST QUALITY
 #define AV_BUFFERING_DELTA_MS 5
 #endif
 
-#define GUESS_REMOTE_ENCODER_DELAY_MS 90 // guess how long the remote end took to encoder 1 video frame in ms
+#define GUESS_REMOTE_ENCODER_DELAY_MS 140 // guess how long the remote end took to encoder 1 video frame in ms
 
 typedef enum PACKET_TOXAV_COMM_CHANNEL_FUNCTION {
     PACKET_TOXAV_COMM_CHANNEL_REQUEST_KEYFRAME = 0,
