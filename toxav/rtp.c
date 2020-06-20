@@ -724,13 +724,22 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
                 ((VCSession *)(session->cs))->dummy_ntp_local_end = current_time_monotonic(rtp_get_mono_time_from_rtpsession(session));
 
+#define NETWORK_ROUND_TRIP_MAX_VALID_MS 700
+
                 if (
-                    (( (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_end - (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_start ) > 500)
+                    (( (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_end - (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_start ) > NETWORK_ROUND_TRIP_MAX_VALID_MS)
                      ||
                     (( (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_end - (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_start ) < 1)
                    )
                 {
-                    LOGGER_API_DEBUG(tox, "DNTP:took_too_long:%d %d %d %d",
+                    uint32_t roundtrip_too_long = dntp_calc_roundtrip_delay(((VCSession *)(session->cs))->dummy_ntp_remote_start,
+                                          ((VCSession *)(session->cs))->dummy_ntp_remote_end,
+                                          ((VCSession *)(session->cs))->dummy_ntp_local_start,
+                                          ((VCSession *)(session->cs))->dummy_ntp_local_end);
+
+
+                    LOGGER_API_WARNING(tox, "DNTP:took_too_long:%d : %d %d %d %d",
+                                     roundtrip_too_long,
                                      ((VCSession *)(session->cs))->dummy_ntp_local_start,
                                      ((VCSession *)(session->cs))->dummy_ntp_remote_start,
                                      ((VCSession *)(session->cs))->dummy_ntp_remote_end,
@@ -738,7 +747,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                 }
                 else
                 {
-                    LOGGER_API_DEBUG(tox, "DNTP:OK:%d %d %d %d",
+                    LOGGER_API_WARNING(tox, "DNTP:OK:%d %d %d %d",
                                      ((VCSession *)(session->cs))->dummy_ntp_local_start,
                                      ((VCSession *)(session->cs))->dummy_ntp_remote_start,
                                      ((VCSession *)(session->cs))->dummy_ntp_remote_end,
@@ -774,7 +783,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
                     ((VCSession *)(session->cs))->has_rountrip_time_ms = 1;
 
-                    LOGGER_API_DEBUG(tox, "DNTP:offset=%ld roundtrip=%u roundtrip_old=%u", (long)offset_, roundtrip_, ((VCSession *)(session->cs))->rountrip_time_ms);
+                    LOGGER_API_WARNING(tox, "DNTP:offset=%ld roundtrip=%u roundtrip_old=%u", (long)offset_, roundtrip_, ((VCSession *)(session->cs))->rountrip_time_ms);
                     // LOGGER_WARNING(m->log, "DNTP:A:offset new=%lld", ((VCSession *)(session->cs))->timestamp_difference_to_sender);
 
                     LOGGER_API_DEBUG(tox, "DNTP:*B*:offset_old=%d",

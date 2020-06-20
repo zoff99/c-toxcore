@@ -96,7 +96,8 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
                    uint64_t *v_l_timestamp,
                    int64_t *timestamp_difference_adjustment_,
                    int64_t *timestamp_difference_to_sender_,
-                   int video_send_cap);
+                   int video_send_cap,
+                   int32_t *video_has_rountrip_time_ms);
 int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg);
 int ac_reconfigure_encoder(ACSession *ac, int32_t bit_rate, int32_t sampling_rate, uint8_t channels);
 
