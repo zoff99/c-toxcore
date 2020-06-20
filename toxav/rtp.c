@@ -623,11 +623,9 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         return;
     }
 
-    if (packet_type != PACKET_TOXAV_COMM_CHANNEL) {
-        if (!session->rtp_receive_active) {
-            LOGGER_API_WARNING(tox, "receiving not allowed!");
-            return;
-        }
+    if (!session->rtp_receive_active) {
+        LOGGER_API_WARNING(tox, "receiving not allowed!");
+        return;
     }
 
 
