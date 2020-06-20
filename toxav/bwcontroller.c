@@ -255,7 +255,7 @@ void bwc_handle_data(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_
     bwc = bwc_controller_get(call);
 
     if (!bwc) {
-        LOGGER_API_WARNING(tox, "No session!");
+        LOGGER_API_WARNING(tox, "No BWC Object!");
         return;
     }
 
