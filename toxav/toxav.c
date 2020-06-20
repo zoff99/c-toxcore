@@ -290,7 +290,8 @@ void toxav_audio_iterate(ToxAV *av)
                                                 &(i->last_incoming_video_frame_ltimestamp),
                                                 &(i->call_timestamp_difference_adjustment),
                                                 &(copy_of_value),
-                                                video_cap_copy
+                                                video_cap_copy,
+                                                &(i->call_video_has_rountrip_time_ms)
                                                );
                 }
                 pthread_mutex_unlock(i->toxav_call_mutex);
@@ -355,7 +356,8 @@ void toxav_iterate(ToxAV *av)
                                             &(i->last_incoming_video_frame_ltimestamp),
                                             &(i->call_timestamp_difference_adjustment),
                                             &(i->call_timestamp_difference_to_sender),
-                                            (int)(i->msi_call->self_capabilities & MSI_CAP_S_VIDEO)
+                                            (int)(i->msi_call->self_capabilities & MSI_CAP_S_VIDEO),
+                                            &(i->call_video_has_rountrip_time_ms)
                                            );
 
                 i->skip_video_flag = 0;
@@ -371,7 +373,8 @@ void toxav_iterate(ToxAV *av)
                                                  &(i->last_incoming_video_frame_ltimestamp),
                                                  i->bwc,
                                                  &(i->call_timestamp_difference_adjustment),
-                                                 &(i->call_timestamp_difference_to_sender)
+                                                 &(i->call_timestamp_difference_to_sender),
+                                                 &(i->call_video_has_rountrip_time_ms)
                                                 );
             // ------- av_iterate for VIDEO -------
 
@@ -2317,6 +2320,7 @@ static ToxAVCall *call_new(ToxAV *av, uint32_t friend_number, Toxav_Err_Call *er
     call->reference_ltimestamp = 0;
     call->reference_diff_timestamp = 0;
     call->reference_diff_timestamp_set = 0;
+    call->call_video_has_rountrip_time_ms = 0;
 
     if (call == nullptr) {
         rc = TOXAV_ERR_CALL_MALLOC;

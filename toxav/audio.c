@@ -151,7 +151,8 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
         int64_t timestamp_difference_to_sender_,
         uint8_t encoder_frame_has_record_timestamp,
         ACSession *ac,
-        int video_send_cap)
+        int video_send_cap,
+        int32_t video_has_rountrip_time_ms)
 {
 #define AUDIO_CURRENT_TS_SPAN_MS 65
 
@@ -166,7 +167,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     int64_t want_remote_video_ts = (current_time_monotonic(ac->mono_time) +
                                     timestamp_difference_to_sender_ +
                                     timestamp_difference_adjustment_for_audio2);
-    LOGGER_API_DEBUG(ac->tox, "want_remote_video_ts:a:002=%d, %d %d %d",
+    LOGGER_API_ERROR(ac->tox, "want_remote_video_ts:a:002=%d, %d %d %d",
             (int)want_remote_video_ts,
             (int)current_time_monotonic(ac->mono_time),
             (int)timestamp_difference_to_sender_,
@@ -199,7 +200,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     tsb_get_range_in_buffer(ac->tox, q, &timestamp_min, &timestamp_max);
 
     if ((int)tsb_size(q) > 0) {
-        LOGGER_API_DEBUG(ac->tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d",
+        LOGGER_API_ERROR(ac->tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d",
                        (int)tsb_size(q),
                        timestamp_min,
                        timestamp_max,
@@ -215,7 +216,8 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     uint32_t tsb_range_ms_used = tsb_range_ms;
     uint32_t timestamp_want_get_used = want_remote_video_ts;
 
-    if (ac->audio_received_first_frame == 0) {
+    if ((ac->audio_received_first_frame) == 0 || (video_has_rountrip_time_ms == 0)) {
+        LOGGER_API_ERROR(ac->tox, "AA:%d %d", (int)ac->audio_received_first_frame, (int)video_has_rountrip_time_ms);
         tsb_range_ms_used = UINT32_MAX;
         timestamp_want_get_used = UINT32_MAX;
     }
@@ -320,7 +322,8 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
                    uint64_t *v_l_timestamp,
                    int64_t *timestamp_difference_adjustment_for_audio,
                    int64_t *timestamp_difference_to_sender_,
-                   int video_send_cap)
+                   int video_send_cap,
+                   int32_t *video_has_rountrip_time_ms)
 {
     if (!ac) {
         return 0;
@@ -349,7 +352,8 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
                             *timestamp_difference_adjustment_for_audio,
                             *timestamp_difference_to_sender_,
                             ac->encoder_frame_has_record_timestamp, ac,
-                            video_send_cap))
+                            video_send_cap,
+                            *video_has_rountrip_time_ms))
             || rc == AUDIO_LOST_FRAME_INDICATOR) {
         pthread_mutex_unlock(ac->queue_mutex);
 

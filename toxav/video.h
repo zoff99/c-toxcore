@@ -52,7 +52,7 @@ VPX_DL_BEST_QUALITY   (0)       deadline parameter analogous to VPx BEST QUALITY
 #define AV_BUFFERING_DELTA_MS 5
 #endif
 
-#define GUESS_REMOTE_ENCODER_DELAY_MS 140 // guess how long the remote end took to encoder 1 video frame in ms
+#define GUESS_REMOTE_ENCODER_DELAY_MS 100 // guess how long the remote end took to encode 1 video frame in ms
 
 typedef enum PACKET_TOXAV_COMM_CHANNEL_FUNCTION {
     PACKET_TOXAV_COMM_CHANNEL_REQUEST_KEYFRAME = 0,
@@ -295,7 +295,8 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                    uint64_t *a_l_timestamp,
                    uint64_t *v_r_timestamp, uint64_t *v_l_timestamp, BWController *bwc,
                    int64_t *timestamp_difference_adjustment_,
-                   int64_t *timestamp_difference_to_sender_);
+                   int64_t *timestamp_difference_to_sender_,
+                   int32_t *video_has_rountrip_time_ms);
 int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg);
 int vc_reconfigure_encoder(Logger *log, VCSession *vc, uint32_t bit_rate, uint16_t width, uint16_t height,
                            int16_t kf_max_dist);

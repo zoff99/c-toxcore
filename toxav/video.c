@@ -334,7 +334,8 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                    uint64_t *a_l_timestamp,
                    uint64_t *v_r_timestamp, uint64_t *v_l_timestamp, BWController *bwc,
                    int64_t *timestamp_difference_adjustment_for_audio,
-                   int64_t *timestamp_difference_to_sender_)
+                   int64_t *timestamp_difference_to_sender_,
+                   int32_t *video_has_rountrip_time_ms)
 {
 
     if (!vc) {
@@ -372,7 +373,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                                 (int)vc->timestamp_difference_to_sender__for_video +
                                 (int)vc->timestamp_difference_adjustment -
                                 (int)vc->video_decoder_buffer_ms);
-    LOGGER_API_DEBUG(tox, "want_remote_video_ts:v:002=%d, %d %d %d %d",
+    LOGGER_API_ERROR(tox, "want_remote_video_ts:v:002=%d, %d %d %d %d",
             (int)want_remote_video_ts,
             (int)current_time_monotonic(vc->av->toxav_mono_time),
             (int)vc->timestamp_difference_to_sender__for_video,
@@ -403,7 +404,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
     // HINT: compensate for older clients ----------------
 
-    LOGGER_API_DEBUG(tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d roundtrip=%d",
+    LOGGER_API_ERROR(tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d roundtrip=%d",
                  (int)tsb_size((TSBuffer *)vc->vbuf_raw),
                  timestamp_min,
                  timestamp_max,
@@ -456,14 +457,14 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         if (vc->network_round_trip_adjustment > ((int32_t)vc->rountrip_time_ms + 1))
         {
             vc->network_round_trip_adjustment = vc->rountrip_time_ms;
-            vc->timestamp_difference_adjustment--;
-            LOGGER_API_DEBUG(tox, "adj:drift:aa--");
+            vc->timestamp_difference_adjustment++;
+            LOGGER_API_DEBUG(tox, "adj:drift:aa++");
         }
         else if (vc->network_round_trip_adjustment < ((int32_t)vc->rountrip_time_ms - 1))
         {
             vc->network_round_trip_adjustment = vc->rountrip_time_ms;
-            vc->timestamp_difference_adjustment++;
-            LOGGER_API_DEBUG(tox, "adj:drift:aa+++++");
+            vc->timestamp_difference_adjustment--;
+            LOGGER_API_DEBUG(tox, "adj:drift:aa-----");
         }
     }
 
@@ -475,12 +476,58 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     uint32_t timestamp_want_get_used = timestamp_want_get;
     LOGGER_API_DEBUG(tox,"timestamp_want_get_used:001=%d", (int)timestamp_want_get_used);
 
-
-    if ((vc->video_received_first_frame == 0) || (vc->has_rountrip_time_ms == 0)) {
+    int use_range_all = 0;
+    if ((vc->video_received_first_frame == 0) || (vc->has_rountrip_time_ms == 0) || ((video_frame_diff > 1000) && (video_frame_diff < 10000))) {
         tsb_range_ms_used = UINT32_MAX;
         timestamp_want_get_used = UINT32_MAX;
+        use_range_all = 1;
         LOGGER_API_DEBUG(tox,"first_frame:001:timestamp_want_get_used:002=%d", (int)timestamp_want_get_used);
     }
+
+    if (use_range_all == 1)
+    {
+        // this will force audio stream to play anything that comes in without timestamps
+        *video_has_rountrip_time_ms = 0;
+    }
+    else
+    {
+        *video_has_rountrip_time_ms = vc->has_rountrip_time_ms;
+    }
+
+
+    if ((video_frame_diff > 1000) && (video_frame_diff < 10000))
+    {
+        LOGGER_API_INFO(tox, "video frames are delayed[a] for more than 1000ms (%d ms), turn down bandwidth fast", (int)video_frame_diff);
+        bwc_add_lost_v3(bwc, 199999, true);
+    }
+    else if ((video_frame_diff > 800) && (video_frame_diff < 10000))
+    {
+        LOGGER_API_INFO(tox, "video frames are delayed[b] for more than 800ms (%d ms), turn down bandwidth", (int)video_frame_diff);
+        bwc_add_lost_v3(bwc, 60, true);
+    }
+    else if ((vc->has_rountrip_time_ms == 1) && (video_frame_diff > 1) && (video_frame_diff > ((vc->rountrip_time_ms) + 100)) && (video_frame_diff < 10000))
+    {
+        if ((vc->rountrip_time_ms > 300) && (vc->rountrip_time_ms < 1000))
+        {
+            LOGGER_API_INFO(tox, "video frames are delayed[c] (%d ms, RTT=%d ms), turn down bandwidth", (int)video_frame_diff, (int)vc->rountrip_time_ms);
+            bwc_add_lost_v3(bwc, 3, true);
+        }
+    }
+#if 0
+    else if ((vc->has_rountrip_time_ms == 1) && (vc->video_buf_ms_mean_value < 0) && (vc->video_buf_ms_mean_value > -200))
+    {
+        if ((vc->rountrip_time_ms > 300) && (vc->rountrip_time_ms < 800))
+        {
+            if ((vc->video_decoder_buffer_ms > 0) && (vc->video_decoder_buffer_ms < 298))
+            {
+                // TODO: the problem is this buffer increase will never be turned back.
+                //       let's not do this for now.
+                vc->video_decoder_buffer_ms++;
+                LOGGER_API_INFO(tox, "video frames are delayed[d] (%d ms, RTT=%d ms dbuf=%d ms), add more buffering", (int)vc->video_buf_ms_mean_value, (int)vc->rountrip_time_ms, (int)vc->video_decoder_buffer_ms);
+            }
+        }
+    }
+#endif
 
     LOGGER_API_DEBUG(tox, "tsb_read got: want=%d %d %d %d %d",
                      (int)timestamp_want_get_used,
