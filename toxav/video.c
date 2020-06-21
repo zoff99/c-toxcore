@@ -418,7 +418,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     int has_adjusted = 0;
 
     // ------- calc mean value -------
-    if ((video_frame_diff > -800) && (video_frame_diff < 2000))
+    if ((video_frame_diff > -800) && (video_frame_diff < 3000))
     {
         vc->video_buf_ms_array[vc->video_buf_ms_array_index] = video_frame_diff + 1000;
         vc->video_buf_ms_array_index = (vc->video_buf_ms_array_index + 1) %
@@ -456,13 +456,15 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         // im RTT changed by 2ms in either direction then drift network_round_trip_adjustment in that way by 1ms
         if (vc->network_round_trip_adjustment > ((int32_t)vc->rountrip_time_ms + 1))
         {
-            vc->network_round_trip_adjustment = vc->rountrip_time_ms;
+            vc->network_round_trip_adjustment--;
+            vc->network_round_trip_adjustment--;
             vc->timestamp_difference_adjustment++;
             LOGGER_API_DEBUG(tox, "adj:drift:aa++");
         }
         else if (vc->network_round_trip_adjustment < ((int32_t)vc->rountrip_time_ms - 1))
         {
-            vc->network_round_trip_adjustment = vc->rountrip_time_ms;
+            vc->network_round_trip_adjustment++;
+            vc->network_round_trip_adjustment++;
             vc->timestamp_difference_adjustment--;
             LOGGER_API_DEBUG(tox, "adj:drift:aa-----");
         }
@@ -481,7 +483,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         tsb_range_ms_used = UINT32_MAX;
         timestamp_want_get_used = UINT32_MAX;
         use_range_all = 1;
-        LOGGER_API_DEBUG(tox,"first_frame:001:timestamp_want_get_used:002=%d", (int)timestamp_want_get_used);
+        LOGGER_API_INFO(tox,"first_frame:001:timestamp_want_get_used:002=%d", (int)timestamp_want_get_used);
     }
 
     if (use_range_all == 1)
@@ -500,19 +502,26 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         LOGGER_API_INFO(tox, "video frames are delayed[a] for more than 1000ms (%d ms), turn down bandwidth fast", (int)video_frame_diff);
         bwc_add_lost_v3(bwc, 199999, true);
     }
+#if 0
     else if ((video_frame_diff > 800) && (video_frame_diff < 10000))
     {
         LOGGER_API_INFO(tox, "video frames are delayed[b] for more than 800ms (%d ms), turn down bandwidth", (int)video_frame_diff);
         bwc_add_lost_v3(bwc, 60, true);
     }
+#endif
+#if 0
     else if ((vc->has_rountrip_time_ms == 1) && (video_frame_diff > 1) && (video_frame_diff > ((vc->rountrip_time_ms) + 100)) && (video_frame_diff < 10000))
     {
-        if ((vc->rountrip_time_ms > 300) && (vc->rountrip_time_ms < 1000))
+        if ((uint32_t)tsb_size((TSBuffer *)vc->vbuf_raw) > 0)
         {
-            LOGGER_API_INFO(tox, "video frames are delayed[c] (%d ms, RTT=%d ms), turn down bandwidth", (int)video_frame_diff, (int)vc->rountrip_time_ms);
-            bwc_add_lost_v3(bwc, 3, true);
+            if ((vc->rountrip_time_ms > 300) && (vc->rountrip_time_ms < 1000))
+            {
+                LOGGER_API_INFO(tox, "video frames are delayed[c] (%d ms, RTT=%d ms), turn down bandwidth", (int)video_frame_diff, (int)vc->rountrip_time_ms);
+                bwc_add_lost_v3(bwc, 3, true);
+            }
         }
     }
+#endif
 #if 0
     else if ((vc->has_rountrip_time_ms == 1) && (vc->video_buf_ms_mean_value < 0) && (vc->video_buf_ms_mean_value > -200))
     {
@@ -612,7 +621,13 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         //{
         //    delay_audio_stream_relative_to_video_stream = 0;
         //}
-        
+
+        uint32_t video_decoder_caused_delay_ms_mean_value_used = vc->video_decoder_caused_delay_ms_mean_value;
+        if (video_decoder_caused_delay_ms_mean_value_used > 300)
+        {
+            video_decoder_caused_delay_ms_mean_value_used = 300;
+        }
+
         *timestamp_difference_adjustment_for_audio = vc->timestamp_difference_adjustment -
                 delay_audio_stream_relative_to_video_stream -
                 vc->video_decoder_caused_delay_ms_mean_value;
