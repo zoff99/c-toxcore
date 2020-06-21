@@ -502,17 +502,17 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         LOGGER_API_INFO(tox, "video frames are delayed[a] for more than 1000ms (%d ms), turn down bandwidth fast", (int)video_frame_diff);
         bwc_add_lost_v3(bwc, 199999, true);
     }
-#if 0
+#if 1
     else if ((video_frame_diff > 800) && (video_frame_diff < 10000))
     {
         LOGGER_API_INFO(tox, "video frames are delayed[b] for more than 800ms (%d ms), turn down bandwidth", (int)video_frame_diff);
         bwc_add_lost_v3(bwc, 60, true);
     }
 #endif
-#if 0
+#if 1
     else if ((vc->has_rountrip_time_ms == 1) && (video_frame_diff > 1) && (video_frame_diff > ((vc->rountrip_time_ms) + 100)) && (video_frame_diff < 10000))
     {
-        if ((uint32_t)tsb_size((TSBuffer *)vc->vbuf_raw) > 0)
+        //if ((uint32_t)tsb_size((TSBuffer *)vc->vbuf_raw) > 0)
         {
             if ((vc->rountrip_time_ms > 300) && (vc->rountrip_time_ms < 1000))
             {
