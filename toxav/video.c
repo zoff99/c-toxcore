@@ -167,6 +167,9 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     vc->video_buf_ms_array_index = 0;
     vc->video_buf_ms_mean_value = 0;
 
+    vc->video_buf_ms_array_index_long = 0;
+    vc->video_buf_ms_mean_value_long = 0;
+
     // set h264 callback
     vc->vcb_h264 = av->vcb_h264;
     vc->vcb_h264_user_data = av->vcb_h264_user_data;
@@ -438,7 +441,33 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     // ------- calc mean value -------
 
 
-    LOGGER_API_DEBUG(tox, "rtt:drift:vfd:a:%d %d m=%d", (int)(vc->timestamp_difference_adjustment), video_frame_diff, vc->video_buf_ms_mean_value);
+    // ------- calc mean value -------
+    if ((video_frame_diff > -3000) && (video_frame_diff < 20000))
+    {
+        vc->video_buf_ms_array_long[vc->video_buf_ms_array_index_long] = video_frame_diff + 4000;
+        vc->video_buf_ms_array_index_long = (vc->video_buf_ms_array_index_long + 1) %
+                VIDEO_BUF_MS_ENTRIES_LONG;
+
+        int32_t mean_value = 0;
+
+        for (int k = 0; k < VIDEO_BUF_MS_ENTRIES_LONG; k++) {
+            mean_value = mean_value + vc->video_buf_ms_array_long[k];
+        }
+
+        if (mean_value == 0) {
+        } else {
+            vc->video_buf_ms_mean_value_long = (mean_value / VIDEO_BUF_MS_ENTRIES_LONG) - 4000;
+        }
+    }
+    // ------- calc mean value -------
+
+
+    LOGGER_API_INFO(tox, "rtt:drift:vfd:a:rtt=%d adj=%d cur=%d m=%d ml=%d",
+                    (int32_t)vc->rountrip_time_ms,
+                    (int)(vc->timestamp_difference_adjustment),
+                    video_frame_diff,
+                    vc->video_buf_ms_mean_value,
+                    vc->video_buf_ms_mean_value_long);
 
     if ((vc->pinned_to_rountrip_time_ms == 0) && (vc->has_rountrip_time_ms == 1))
     {
@@ -537,6 +566,15 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         }
     }
 #endif
+
+    if ((video_frame_diff > ((int)vc->video_buf_ms_mean_value_long + 300)) && (video_frame_diff < 100000))
+    {
+        bwc_add_lost_v3(bwc, 70, true);
+        LOGGER_API_INFO(tox, "video frames are delayed[e], (vdf=%d RTT=%d ml=%d) turn down bandwidth",
+            (int)video_frame_diff,
+            (int)vc->rountrip_time_ms,
+            (int)vc->video_buf_ms_mean_value_long);
+    }
 
     LOGGER_API_DEBUG(tox, "tsb_read got: want=%d %d %d %d %d",
                      (int)timestamp_want_get_used,
