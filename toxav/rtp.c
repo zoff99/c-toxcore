@@ -724,7 +724,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
                 ((VCSession *)(session->cs))->dummy_ntp_local_end = current_time_monotonic(rtp_get_mono_time_from_rtpsession(session));
 
-#define NETWORK_ROUND_TRIP_MAX_VALID_MS 700
+#define NETWORK_ROUND_TRIP_MAX_VALID_MS 800
 
                 if (
                     (( (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_end - (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_start ) > NETWORK_ROUND_TRIP_MAX_VALID_MS)
