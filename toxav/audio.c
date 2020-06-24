@@ -167,7 +167,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     int64_t want_remote_video_ts = (current_time_monotonic(ac->mono_time) +
                                     timestamp_difference_to_sender_ +
                                     timestamp_difference_adjustment_for_audio2);
-    LOGGER_API_ERROR(ac->tox, "want_remote_video_ts:a:002=%d, %d %d %d",
+    LOGGER_API_DEBUG(ac->tox, "want_remote_video_ts:a:002=%d, %d %d %d",
             (int)want_remote_video_ts,
             (int)current_time_monotonic(ac->mono_time),
             (int)timestamp_difference_to_sender_,
@@ -200,7 +200,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     tsb_get_range_in_buffer(ac->tox, q, &timestamp_min, &timestamp_max);
 
     if ((int)tsb_size(q) > 0) {
-        LOGGER_API_ERROR(ac->tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d",
+        LOGGER_API_DEBUG(ac->tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d",
                        (int)tsb_size(q),
                        timestamp_min,
                        timestamp_max,
@@ -217,7 +217,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     uint32_t timestamp_want_get_used = want_remote_video_ts;
 
     if ((ac->audio_received_first_frame) == 0 || (video_has_rountrip_time_ms == 0)) {
-        LOGGER_API_ERROR(ac->tox, "AA:%d %d", (int)ac->audio_received_first_frame, (int)video_has_rountrip_time_ms);
+        LOGGER_API_DEBUG(ac->tox, "AA:%d %d", (int)ac->audio_received_first_frame, (int)video_has_rountrip_time_ms);
         tsb_range_ms_used = UINT32_MAX;
         timestamp_want_get_used = UINT32_MAX;
     }
