@@ -376,7 +376,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                                 (int)vc->timestamp_difference_to_sender__for_video +
                                 (int)vc->timestamp_difference_adjustment -
                                 (int)vc->video_decoder_buffer_ms);
-    LOGGER_API_ERROR(tox, "want_remote_video_ts:v:002=%d, %d %d %d %d",
+    LOGGER_API_DEBUG(tox, "want_remote_video_ts:v:002=%d, %d %d %d %d",
             (int)want_remote_video_ts,
             (int)current_time_monotonic(vc->av->toxav_mono_time),
             (int)vc->timestamp_difference_to_sender__for_video,
@@ -407,7 +407,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
     // HINT: compensate for older clients ----------------
 
-    LOGGER_API_ERROR(tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d roundtrip=%d",
+    LOGGER_API_DEBUG(tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d roundtrip=%d",
                  (int)tsb_size((TSBuffer *)vc->vbuf_raw),
                  timestamp_min,
                  timestamp_max,
@@ -462,7 +462,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     // ------- calc mean value -------
 
 
-    LOGGER_API_INFO(tox, "rtt:drift:vfd:a:rtt=%d adj=%d cur=%d m=%d ml=%d",
+    LOGGER_API_DEBUG(tox, "rtt:drift:vfd:a:rtt=%d adj=%d cur=%d m=%d ml=%d",
                     (int32_t)vc->rountrip_time_ms,
                     (int)(vc->timestamp_difference_adjustment),
                     video_frame_diff,
@@ -512,7 +512,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         tsb_range_ms_used = UINT32_MAX;
         timestamp_want_get_used = UINT32_MAX;
         use_range_all = 1;
-        LOGGER_API_INFO(tox,"first_frame:001:timestamp_want_get_used:002=%d", (int)timestamp_want_get_used);
+        LOGGER_API_DEBUG(tox,"first_frame:001:timestamp_want_get_used:002=%d", (int)timestamp_want_get_used);
     }
 
     if (use_range_all == 1)
@@ -528,13 +528,13 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
     if ((video_frame_diff > 1000) && (video_frame_diff < 10000))
     {
-        LOGGER_API_INFO(tox, "video frames are delayed[a] for more than 1000ms (%d ms), turn down bandwidth fast", (int)video_frame_diff);
+        LOGGER_API_DEBUG(tox, "video frames are delayed[a] for more than 1000ms (%d ms), turn down bandwidth fast", (int)video_frame_diff);
         bwc_add_lost_v3(bwc, 199999, true);
     }
 #if 1
     else if ((video_frame_diff > 800) && (video_frame_diff < 10000))
     {
-        LOGGER_API_INFO(tox, "video frames are delayed[b] for more than 800ms (%d ms), turn down bandwidth", (int)video_frame_diff);
+        LOGGER_API_DEBUG(tox, "video frames are delayed[b] for more than 800ms (%d ms), turn down bandwidth", (int)video_frame_diff);
         bwc_add_lost_v3(bwc, 60, true);
     }
 #endif
@@ -545,7 +545,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         {
             if ((vc->rountrip_time_ms > 300) && (vc->rountrip_time_ms < 1000))
             {
-                LOGGER_API_INFO(tox, "video frames are delayed[c] (%d ms, RTT=%d ms), turn down bandwidth", (int)video_frame_diff, (int)vc->rountrip_time_ms);
+                LOGGER_API_DEBUG(tox, "video frames are delayed[c] (%d ms, RTT=%d ms), turn down bandwidth", (int)video_frame_diff, (int)vc->rountrip_time_ms);
                 bwc_add_lost_v3(bwc, 3, true);
             }
         }
@@ -561,7 +561,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                 // TODO: the problem is this buffer increase will never be turned back.
                 //       let's not do this for now.
                 vc->video_decoder_buffer_ms++;
-                LOGGER_API_INFO(tox, "video frames are delayed[d] (%d ms, RTT=%d ms dbuf=%d ms), add more buffering", (int)vc->video_buf_ms_mean_value, (int)vc->rountrip_time_ms, (int)vc->video_decoder_buffer_ms);
+                LOGGER_API_DEBUG(tox, "video frames are delayed[d] (%d ms, RTT=%d ms dbuf=%d ms), add more buffering", (int)vc->video_buf_ms_mean_value, (int)vc->rountrip_time_ms, (int)vc->video_decoder_buffer_ms);
             }
         }
     }
@@ -570,7 +570,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     if ((video_frame_diff > ((int)vc->video_buf_ms_mean_value_long + 300)) && (video_frame_diff < 100000))
     {
         bwc_add_lost_v3(bwc, 70, true);
-        LOGGER_API_INFO(tox, "video frames are delayed[e], (vdf=%d RTT=%d ml=%d) turn down bandwidth",
+        LOGGER_API_DEBUG(tox, "video frames are delayed[e], (vdf=%d RTT=%d ml=%d) turn down bandwidth",
             (int)video_frame_diff,
             (int)vc->rountrip_time_ms,
             (int)vc->video_buf_ms_mean_value_long);
