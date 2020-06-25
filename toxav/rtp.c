@@ -58,7 +58,6 @@ int rtp_send_custom_lossless_packet(Tox *tox, int32_t friendnumber, const uint8_
 
 
 #define DISABLE_H264_ENCODER_FEATURE    0
-#define DISABLE_H264_DECODER_FEATURE    0
 
 int TOXAV_SEND_VIDEO_LOSSLESS_PACKETS = 0;
 
