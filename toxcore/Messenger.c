@@ -28,6 +28,7 @@
 // #define FT_RECV_SEND_DEBUG 1
 
 extern bool global_filetransfer_is_resumable;
+extern bool global_force_udp_only_mode;
 
 static int write_cryptpacket_id(const Messenger *m, int32_t friendnumber, uint8_t packet_id, const uint8_t *data,
                                 uint32_t length, uint8_t congestion_control);
@@ -3598,11 +3599,13 @@ static uint8_t *save_tcp_relays(const Messenger *m, uint8_t *data)
 
 static State_Load_Status load_tcp_relays(Messenger *m, const uint8_t *data, uint32_t length)
 {
-    if (length != 0) {
-        m->num_loaded_relays = unpack_nodes(m->loaded_relays, NUM_SAVED_TCP_RELAYS, nullptr, data, length, 1);
-        m->has_added_relays = false;
+    if (!global_force_udp_only_mode)
+    {
+        if (length != 0) {
+            m->num_loaded_relays = unpack_nodes(m->loaded_relays, NUM_SAVED_TCP_RELAYS, nullptr, data, length, 1);
+            m->has_added_relays = false;
+        }
     }
-
     return STATE_LOAD_STATUS_CONTINUE;
 }
 
