@@ -34,6 +34,7 @@
 #define SET_ERROR_PARAMETER(param, x) do { if (param) { *param = x; } } while (0)
 
 bool global_filetransfer_is_resumable = false;
+bool global_force_udp_only_mode = false;
 
 #if TOX_HASH_LENGTH != CRYPTO_SHA256_SIZE
 #error "TOX_HASH_LENGTH is assumed to be equal to CRYPTO_SHA256_SIZE"
@@ -2868,4 +2869,9 @@ bool tox_messagev2_get_message_text(const uint8_t *raw_message, uint32_t raw_mes
 void tox_set_filetransfer_resumable(bool value)
 {
     global_filetransfer_is_resumable = value;
+}
+
+void tox_set_force_udp_only_mode(bool value)
+{
+    global_force_udp_only_mode = value;
 }
