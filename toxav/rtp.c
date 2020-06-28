@@ -160,7 +160,7 @@ static int8_t get_slot(Tox *tox, struct RTPWorkBufferList *wkbl, bool is_keyfram
                 // In reality, these will almost certainly either both match or
                 // both not match. Only if somehow there were 65535 frames
                 // between, the timestamp will matter.
-                LOGGER_API_DEBUG(tox, "get_slot:found slot num %d", (int)i);
+                LOGGER_API_INFO(tox, "get_slot:found slot num %d", (int)i);
                 return i;
             }
         }
@@ -207,11 +207,11 @@ static int8_t get_slot(Tox *tox, struct RTPWorkBufferList *wkbl, bool is_keyfram
         // Not all slots are filled, and the packet is newer than our most
         // recent slot, so it's a new frame we want to start assembling. This is
         // the second situation in the above diagram.
-        LOGGER_API_DEBUG(tox, "get_slot:slot=%d", (int)wkbl->next_free_entry);
+        LOGGER_API_INFO(tox, "get_slot:slot=%d", (int)wkbl->next_free_entry);
         return wkbl->next_free_entry;
     }
 
-    LOGGER_API_DEBUG(tox, "get_slot:slot=GET_SLOT_RESULT_DROP_OLDEST_SLOT");
+    LOGGER_API_INFO(tox, "get_slot:slot=GET_SLOT_RESULT_DROP_OLDEST_SLOT");
     return GET_SLOT_RESULT_DROP_OLDEST_SLOT;
 }
 
@@ -401,59 +401,59 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
     // frame or it's not a multipart frame, then this value is 0.
     const uint32_t offset = header->offset_full; // without header
 
-    LOGGER_API_DEBUG(session->tox, "FPATH:%d", (int)header->sequnum);
+    LOGGER_API_INFO(session->tox, "FPATH:%d", (int)header->sequnum);
 
     // sanity checks ---------------
     if (full_frame_length == 0) {
-        LOGGER_API_DEBUG(session->tox, "EE:1:VSEQ:%d", (int)header->sequnum);
+        LOGGER_API_INFO(session->tox, "EE:1:VSEQ:%d", (int)header->sequnum);
         return -1;
     }
 
     if (offset == full_frame_length) {
-        LOGGER_API_DEBUG(session->tox, "EE:2:VSEQ:%d", (int)header->sequnum);
+        LOGGER_API_INFO(session->tox, "EE:2:VSEQ:%d", (int)header->sequnum);
         return -1;
     }
 
     if (offset > full_frame_length) {
-        LOGGER_API_DEBUG(session->tox, "EE:3:VSEQ:%d", (int)header->sequnum);
+        LOGGER_API_INFO(session->tox, "EE:3:VSEQ:%d", (int)header->sequnum);
         return -1;
     }
 
-    LOGGER_API_DEBUG(session->tox, "II:4:VSEQ:%d", (int)header->sequnum);
+    LOGGER_API_INFO(session->tox, "II:4:VSEQ:%d", (int)header->sequnum);
 
-    LOGGER_API_DEBUG(session->tox, "FPATH:%d", (int)header->sequnum);
+    LOGGER_API_INFO(session->tox, "FPATH:%d", (int)header->sequnum);
 
     // sanity checks ---------------
 
     // The sender tells us whether this is a key frame.
     const bool is_keyframe = 0; // (header->flags & RTP_KEY_FRAME) != 0;
 
-    LOGGER_API_DEBUG(session->tox, "-- handle_video_packet -- full lens=%u len=%u offset=%u is_keyframe=%s",
+    LOGGER_API_INFO(session->tox, "-- handle_video_packet -- full lens=%u len=%u offset=%u is_keyframe=%s",
                  (unsigned)incoming_data_length, (unsigned)full_frame_length, (unsigned)offset, is_keyframe ? "K" : ".");
-    LOGGER_API_DEBUG(session->tox, "wkbl->next_free_entry:003=%d", session->work_buffer_list->next_free_entry);
+    LOGGER_API_INFO(session->tox, "wkbl->next_free_entry:003=%d", session->work_buffer_list->next_free_entry);
 
     const bool is_multipart = (full_frame_length != incoming_data_length);
 
     /* The message was sent in single part */
     int8_t slot_id = get_slot(session->tox, session->work_buffer_list, is_keyframe, header, is_multipart);
-    LOGGER_API_DEBUG(session->tox, "II:5:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
+    LOGGER_API_INFO(session->tox, "II:5:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
 
-    LOGGER_API_DEBUG(session->tox, "FPATH:%d slot=%d", (int)header->sequnum, slot_id);
+    LOGGER_API_INFO(session->tox, "FPATH:%d slot=%d", (int)header->sequnum, slot_id);
 
 
     // get_slot told us to drop the packet, so we ignore it.
     if (slot_id == GET_SLOT_RESULT_DROP_INCOMING) {
-        LOGGER_API_DEBUG(session->tox, "FPATH:%d slot=%d", (int)header->sequnum, slot_id);
-        LOGGER_API_DEBUG(session->tox, "EE:6:VSEQ:%d", (int)header->sequnum);
+        LOGGER_API_INFO(session->tox, "FPATH:%d slot=%d", (int)header->sequnum, slot_id);
+        LOGGER_API_INFO(session->tox, "EE:6:VSEQ:%d", (int)header->sequnum);
         return -1;
     }
 
     // get_slot said there is no free slot.
     if (slot_id == GET_SLOT_RESULT_DROP_OLDEST_SLOT) {
-        LOGGER_API_DEBUG(session->tox, "there was no free slot, so we process the oldest frame");
-        LOGGER_API_DEBUG(session->tox, "II:7:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
+        LOGGER_API_INFO(session->tox, "there was no free slot, so we process the oldest frame");
+        LOGGER_API_INFO(session->tox, "II:7:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
 
-        LOGGER_API_DEBUG(session->tox, "FPATH:%d slot=%d", (int)header->sequnum, slot_id);
+        LOGGER_API_INFO(session->tox, "FPATH:%d slot=%d", (int)header->sequnum, slot_id);
 
         // We now own the frame.
         struct RTPMessage *m_new = process_frame(session->tox, session->work_buffer_list, 0);
@@ -500,11 +500,11 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
                 incoming_data,
                 incoming_data_length)) {
 
-        LOGGER_API_DEBUG(session->tox, "FPATH:10:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
+        LOGGER_API_INFO(session->tox, "FPATH:10:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
 
         return -1;
     } else {
-        LOGGER_API_DEBUG(session->tox, "FPATH:10c:slot num=%d:VSEQ:%d *message_complete*",
+        LOGGER_API_INFO(session->tox, "FPATH:10c:slot num=%d:VSEQ:%d *message_complete*",
                      slot_id, (int)header->sequnum);
     }
 
@@ -518,12 +518,12 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
 
         if ((m_new0) && (m_new2)) {
             if ((m_new0->header.sequnum + 2) < m_new2->header.sequnum) {
-                LOGGER_API_DEBUG(session->tox, "kick out:m_new0 seq#=%d", (int)m_new0->header.sequnum);
+                LOGGER_API_INFO(session->tox, "kick out:m_new0 seq#=%d", (int)m_new0->header.sequnum);
                 // change slot_id to "0" to process oldest frame in buffer instead of current one
                 struct RTPMessage *m_new = process_frame(session->tox, session->work_buffer_list, slot_id);
 
                 if (m_new) {
-                    LOGGER_API_DEBUG(session->tox, "FPATH:11x:slot num=%d:VSEQ:%d", slot_id, (int)m_new->header.sequnum);
+                    LOGGER_API_INFO(session->tox, "FPATH:11x:slot num=%d:VSEQ:%d", slot_id, (int)m_new->header.sequnum);
                     session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, m_new);
                     m_new = NULL;
                 }
@@ -537,7 +537,7 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
 
     if (m_new) {
 
-        LOGGER_API_DEBUG(session->tox, "FPATH:11:slot num=%d:VSEQ:%d", slot_id, (int)m_new->header.sequnum);
+        LOGGER_API_INFO(session->tox, "FPATH:11:slot num=%d:VSEQ:%d", slot_id, (int)m_new->header.sequnum);
 
         // LOGGER_API_DEBUG(session->tox, "-- handle_video_packet -- CALLBACK-003a b0=%d b1=%d", (int)m_new->data[0], (int)m_new->data[1]);
         session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, m_new);
@@ -545,7 +545,7 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
         m_new = nullptr;
     }
 
-    LOGGER_API_DEBUG(session->tox, "FPATH:12:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
+    LOGGER_API_INFO(session->tox, "FPATH:12:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
 
     return 0;
 }

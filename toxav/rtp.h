@@ -54,7 +54,7 @@ enum {
 };
 
 
-#define USED_RTP_WORKBUFFER_COUNT 10
+#define USED_RTP_WORKBUFFER_COUNT 4
 #define VIDEO_FRAGMENT_NUM_NO_FRAG (-1)
 
 
