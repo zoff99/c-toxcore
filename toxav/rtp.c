@@ -516,8 +516,6 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
         struct RTPWorkBuffer *const slot2 = &wkbl->work_buffer[slot_id];
         struct RTPMessage *const m_new2 = slot2->buf;
 
-#define LINGER_OLD_FRAMES_COUNT 2
-
         if ((m_new0) && (m_new2)) {
             if ((m_new0->header.sequnum + 2) < m_new2->header.sequnum) {
                 LOGGER_API_DEBUG(session->tox, "kick out:m_new0 seq#=%d", (int)m_new0->header.sequnum);
