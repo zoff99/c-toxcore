@@ -519,6 +519,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     {
         // this will force audio stream to play anything that comes in without timestamps
         *video_has_rountrip_time_ms = 0;
+        LOGGER_API_DEBUG(tox,"force_audio");
     }
     else
     {
