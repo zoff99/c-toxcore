@@ -353,12 +353,12 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
     vpx_codec_err_t rc = 0;
 
-    LOGGER_API_INFO(tox, "try_lock");
+    LOGGER_API_DEBUG(tox, "try_lock");
     if (pthread_mutex_trylock(vc->queue_mutex) != 0) {
-        LOGGER_API_INFO(tox, "NO_lock");
+        LOGGER_API_DEBUG(tox, "NO_lock");
         return 0;
     }
-    LOGGER_API_INFO(tox, "got_lock");
+    LOGGER_API_DEBUG(tox, "got_lock");
 
     uint64_t frame_flags;
     uint8_t data_type;
@@ -383,7 +383,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                                 (int)vc->timestamp_difference_to_sender__for_video +
                                 (int)vc->timestamp_difference_adjustment -
                                 (int)vc->video_decoder_buffer_ms);
-    LOGGER_API_INFO(tox, "want_remote_video_ts:v:002=%d, %d %d %d %d",
+    LOGGER_API_DEBUG(tox, "want_remote_video_ts:v:002=%d, %d %d %d %d",
             (int)want_remote_video_ts,
             (int)current_time_monotonic(vc->av->toxav_mono_time),
             (int)vc->timestamp_difference_to_sender__for_video,
@@ -395,7 +395,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
      */
 
 
-    LOGGER_API_INFO(tox, "VC_TS_CALC:01:%d %d %d %d",
+    LOGGER_API_DEBUG(tox, "VC_TS_CALC:01:%d %d %d %d",
                      (int)want_remote_video_ts,
                      (int)(current_time_monotonic(vc->av->toxav_mono_time)),
                      (int)vc->timestamp_difference_to_sender__for_video,
@@ -414,7 +414,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
     // HINT: compensate for older clients ----------------
 
-    LOGGER_API_INFO(tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d roundtrip=%d",
+    LOGGER_API_DEBUG(tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d roundtrip=%d",
                  (int)tsb_size((TSBuffer *)vc->vbuf_raw),
                  timestamp_min,
                  timestamp_max,
@@ -469,7 +469,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     // ------- calc mean value -------
 
 
-    LOGGER_API_INFO(tox, "rtt:drift:vfd:a:rtt=%d adj=%d cur=%d m=%d ml=%d",
+    LOGGER_API_DEBUG(tox, "rtt:drift:vfd:a:rtt=%d adj=%d cur=%d m=%d ml=%d",
                     (int32_t)vc->rountrip_time_ms,
                     (int)(vc->timestamp_difference_adjustment),
                     video_frame_diff,
@@ -481,11 +481,11 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         // ------------ pin play out timestamps to (RTT/2 + "GUESS_REMOTE_ENCODER_DELAY_MS" ms)
         vc->timestamp_difference_adjustment = -(int)((vc->rountrip_time_ms/2) + GUESS_REMOTE_ENCODER_DELAY_MS);
         vc->network_round_trip_adjustment = vc->rountrip_time_ms;
-        LOGGER_API_INFO(tox, "adj:drift:5a:jmp:%d video_frame_diff=%d rtt_adj=%d", (int)(vc->timestamp_difference_adjustment), video_frame_diff, vc->network_round_trip_adjustment);
+        LOGGER_API_DEBUG(tox, "adj:drift:5a:jmp:%d video_frame_diff=%d rtt_adj=%d", (int)(vc->timestamp_difference_adjustment), video_frame_diff, vc->network_round_trip_adjustment);
         vc->pinned_to_rountrip_time_ms = 1;
     }
 
-    LOGGER_API_INFO(tox, "adj:xxxx:9:%d video_frame_diff=%d rtt_adj=%d", (int)(vc->timestamp_difference_adjustment), video_frame_diff, vc->network_round_trip_adjustment);
+    LOGGER_API_DEBUG(tox, "adj:xxxx:9:%d video_frame_diff=%d rtt_adj=%d", (int)(vc->timestamp_difference_adjustment), video_frame_diff, vc->network_round_trip_adjustment);
 
     if (vc->has_rountrip_time_ms == 1)
     {
@@ -512,7 +512,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
     uint32_t tsb_range_ms_used = vc->tsb_range_ms + vc->startup_video_timespan;
     uint32_t timestamp_want_get_used = timestamp_want_get;
-    LOGGER_API_INFO(tox,"timestamp_want_get_used:001=%d", (int)timestamp_want_get_used);
+    LOGGER_API_DEBUG(tox,"timestamp_want_get_used:001=%d", (int)timestamp_want_get_used);
 
     int use_range_all = 0;
     if (
@@ -526,14 +526,14 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         tsb_range_ms_used = UINT32_MAX;
         timestamp_want_get_used = UINT32_MAX;
         use_range_all = 1;
-        LOGGER_API_INFO(tox,"first_frame:001:timestamp_want_get_used:002=%d", (int)timestamp_want_get_used);
+        LOGGER_API_DEBUG(tox,"first_frame:001:timestamp_want_get_used:002=%d", (int)timestamp_want_get_used);
     }
 
     if (use_range_all == 1)
     {
         // this will force audio stream to play anything that comes in without timestamps
         *video_has_rountrip_time_ms = 0;
-        LOGGER_API_INFO(tox,"force_audio");
+        LOGGER_API_DEBUG(tox,"force_audio");
     }
     else
     {
@@ -543,13 +543,13 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
     if ((video_frame_diff > 1000) && (video_frame_diff < 10000))
     {
-        LOGGER_API_INFO(tox, "video frames are delayed[a] for more than 1000ms (%d ms), turn down bandwidth fast", (int)video_frame_diff);
+        LOGGER_API_DEBUG(tox, "video frames are delayed[a] for more than 1000ms (%d ms), turn down bandwidth fast", (int)video_frame_diff);
         bwc_add_lost_v3(bwc, 199999, true);
     }
 #if 1
     else if ((video_frame_diff > 800) && (video_frame_diff < 10000))
     {
-        LOGGER_API_INFO(tox, "video frames are delayed[b] for more than 800ms (%d ms), turn down bandwidth", (int)video_frame_diff);
+        LOGGER_API_DEBUG(tox, "video frames are delayed[b] for more than 800ms (%d ms), turn down bandwidth", (int)video_frame_diff);
         bwc_add_lost_v3(bwc, 60, true);
     }
 #endif
@@ -560,7 +560,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         {
             if ((vc->rountrip_time_ms > 300) && (vc->rountrip_time_ms < 1000))
             {
-                LOGGER_API_INFO(tox, "video frames are delayed[c] (%d ms, RTT=%d ms), turn down bandwidth", (int)video_frame_diff, (int)vc->rountrip_time_ms);
+                LOGGER_API_DEBUG(tox, "video frames are delayed[c] (%d ms, RTT=%d ms), turn down bandwidth", (int)video_frame_diff, (int)vc->rountrip_time_ms);
                 bwc_add_lost_v3(bwc, 3, true);
             }
         }
@@ -576,7 +576,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                 // TODO: the problem is this buffer increase will never be turned back.
                 //       let's not do this for now.
                 vc->video_decoder_buffer_ms++;
-                LOGGER_API_INFO(tox, "video frames are delayed[d] (%d ms, RTT=%d ms dbuf=%d ms), add more buffering", (int)vc->video_buf_ms_mean_value, (int)vc->rountrip_time_ms, (int)vc->video_decoder_buffer_ms);
+                LOGGER_API_DEBUG(tox, "video frames are delayed[d] (%d ms, RTT=%d ms dbuf=%d ms), add more buffering", (int)vc->video_buf_ms_mean_value, (int)vc->rountrip_time_ms, (int)vc->video_decoder_buffer_ms);
             }
         }
     }
@@ -585,13 +585,13 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     if ((video_frame_diff > ((int)vc->video_buf_ms_mean_value_long + 300)) && (video_frame_diff < 100000))
     {
         bwc_add_lost_v3(bwc, 70, true);
-        LOGGER_API_INFO(tox, "video frames are delayed[e], (vdf=%d RTT=%d ml=%d) turn down bandwidth",
+        LOGGER_API_DEBUG(tox, "video frames are delayed[e], (vdf=%d RTT=%d ml=%d) turn down bandwidth",
             (int)video_frame_diff,
             (int)vc->rountrip_time_ms,
             (int)vc->video_buf_ms_mean_value_long);
     }
 
-    LOGGER_API_INFO(tox, "tsb_read got: want=%d (%d %d) %d %d %d %d",
+    LOGGER_API_DEBUG(tox, "tsb_read got: want=%d (%d %d) %d %d %d %d",
                      (int)timestamp_want_get_used,
                      (int)timestamp_min,
                      (int)timestamp_max,
@@ -617,7 +617,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
         const struct RTPHeader *header_v3_0 = (void *) & (p->header);
 
-        LOGGER_API_INFO(tox, "XLS01:%d,%d, diff_got=%d",
+        LOGGER_API_DEBUG(tox, "XLS01:%d,%d, diff_got=%d",
                          (int)(timestamp_want_get - current_time_monotonic(vc->av->toxav_mono_time)),
                          (int)(timestamp_out_ - current_time_monotonic(vc->av->toxav_mono_time)),
                          (int)(timestamp_want_get - timestamp_out_)
@@ -631,7 +631,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
         if (removed_entries > 0) {
 
-            LOGGER_API_INFO(tox,
+            LOGGER_API_DEBUG(tox,
                              "seq:%d FC:%d min=%d max=%d want=%d hgot=%d got=%d diff=%d rm=%d pdelay=%d pdelayr=%d adj=%d dts=%d rtt=%d decoder_delay=%d",
                              (int)header_v3_0->sequnum,
                              (int)tsb_size((TSBuffer *)vc->vbuf_raw),
@@ -695,7 +695,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         // ----------------------------------------
 
 
-        LOGGER_API_INFO(tox, "--VSEQ:%d", (int)header_v3_0->sequnum);
+        LOGGER_API_DEBUG(tox, "--VSEQ:%d", (int)header_v3_0->sequnum);
 
         data_type = (uint8_t)((frame_flags & RTP_KEY_FRAME) != 0);
         h264_encoded_video_frame = (uint8_t)((frame_flags & RTP_ENCODER_IS_H264) != 0);
@@ -741,7 +741,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
             free(p);
             pthread_mutex_unlock(vc->queue_mutex);
-            LOGGER_API_INFO(tox, "un_lock");
+            LOGGER_API_DEBUG(tox, "un_lock");
             return 0;
         }
 
@@ -796,7 +796,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
         //* PREVIOUS UNLOCK *//
         pthread_mutex_unlock(vc->queue_mutex);
-        LOGGER_API_INFO(tox, "un_lock");
+        LOGGER_API_DEBUG(tox, "un_lock");
 
         const struct RTPHeader *header_v3 = (void *) & (p->header);
 
@@ -935,7 +935,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
             uint32_t end_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
 
             if ((int)(end_time_ms - start_time_ms) > 4) {
-                LOGGER_API_WARNING(tox, "decode_frame_h264: %d ms", (int)(end_time_ms - start_time_ms));
+                LOGGER_API_DEBUG(tox, "decode_frame_h264: %d ms", (int)(end_time_ms - start_time_ms));
             }
 
 #endif
@@ -1002,9 +1002,9 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
     }
 
 
-    LOGGER_API_INFO(vc->av->tox, "want_lock");
+    LOGGER_API_DEBUG(vc->av->tox, "want_lock");
     pthread_mutex_lock(vc->queue_mutex);
-    LOGGER_API_INFO(vc->av->tox, "got_lock");
+    LOGGER_API_DEBUG(vc->av->tox, "got_lock");
 
 
     // calculate mean "frame incoming every x milliseconds" --------------
@@ -1039,7 +1039,7 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
     vc->incoming_video_frames_gap_last_ts = current_time_monotonic(mono_time);
     // calculate mean "frame incoming every x milliseconds" --------------
 
-    LOGGER_API_INFO(vc->av->tox, "TT:queue:V:fragnum=%ld", (long)header_v3->fragment_num);
+    LOGGER_API_DEBUG(vc->av->tox, "TT:queue:V:fragnum=%ld", (long)header_v3->fragment_num);
 
     // older clients do not send the frame record timestamp
     // compensate by using the frame sennt timestamp
@@ -1137,14 +1137,14 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
             }
 
 
-            LOGGER_API_INFO(vc->av->tox, "vc_queue_msg:tsb_write : %d", (uint32_t)header->frame_record_timestamp);
+            LOGGER_API_DEBUG(vc->av->tox, "vc_queue_msg:tsb_write : %d", (uint32_t)header->frame_record_timestamp);
 
             struct RTPMessage *msg_old = tsb_write((TSBuffer *)vc->vbuf_raw, msg,
                                                    (uint64_t)header->flags,
                                                    (uint32_t)header->frame_record_timestamp);
 
             if (msg_old) {
-                LOGGER_API_INFO(vc->av->tox, "FPATH:%d kicked out", (int)msg_old->header.sequnum);
+                LOGGER_API_DEBUG(vc->av->tox, "FPATH:%d kicked out", (int)msg_old->header.sequnum);
                 free(msg_old);
             }
         } else {
@@ -1190,7 +1190,7 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
     vc->linfts = current_time_monotonic(mono_time);
 
     pthread_mutex_unlock(vc->queue_mutex);
-    LOGGER_API_INFO(vc->av->tox, "un_lock");
+    LOGGER_API_DEBUG(vc->av->tox, "un_lock");
 
     return 0;
 }
