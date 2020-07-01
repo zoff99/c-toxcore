@@ -748,7 +748,7 @@ Messenger *new_messenger(Mono_Time *mono_time, Messenger_Options *options, unsig
 void kill_messenger(Messenger *m);
 
 /* The main loop that needs to be run at least 20 times per second. */
-void do_messenger(Messenger *m, void *userdata);
+void do_messenger(Messenger *m, pthread_mutex_t *tox_main_mutex, void *userdata);
 
 /* Return the time in milliseconds before do_messenger() should be called again
  * for optimal performance.

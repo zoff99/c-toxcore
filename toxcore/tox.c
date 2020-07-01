@@ -865,7 +865,7 @@ void tox_iterate(Tox *tox, void *user_data)
     mono_time_update(tox->mono_time);
 
     struct Tox_Userdata tox_data = { tox, user_data };
-    do_messenger(tox->m, &tox_data);
+    do_messenger(tox->m, tox->mutex, &tox_data);
 
     unlock(tox);
     lock(tox);
