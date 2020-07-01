@@ -34,6 +34,20 @@ static int write_cryptpacket_id(const Messenger *m, int32_t friendnumber, uint8_
                                 uint32_t length, uint8_t congestion_control);
 static void m_register_default_plugins(Messenger *m);
 
+static void lock_friendlist(const Messenger *m)
+{
+    if (m->friendlist_mutex != nullptr) {
+        pthread_mutex_lock(m->friendlist_mutex);
+    }
+}
+
+static void unlock_friendlist(const Messenger *m)
+{
+    if (m->friendlist_mutex != nullptr) {
+        pthread_mutex_unlock(m->friendlist_mutex);
+    }
+}
+
 // friend_not_valid determines if the friendnumber passed is valid in the Messenger object
 static uint8_t friend_not_valid(const Messenger *m, int32_t friendnumber)
 {
@@ -2115,11 +2129,21 @@ Messenger *new_messenger(Mono_Time *mono_time, Messenger_Options *options, unsig
         return nullptr;
     }
 
+    m->friendlist_mutex = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+    if (m->friendlist_mutex == nullptr) {
+        free(m);
+        return nullptr;
+    }
+
+    pthread_mutex_init(m->friendlist_mutex, nullptr);
+
     m->mono_time = mono_time;
 
     m->fr = friendreq_new();
 
     if (!m->fr) {
+        pthread_mutex_destroy(m->friendlist_mutex);
+        free(m->friendlist_mutex);
         free(m);
         return nullptr;
     }
@@ -2128,6 +2152,8 @@ Messenger *new_messenger(Mono_Time *mono_time, Messenger_Options *options, unsig
 
     if (m->log == nullptr) {
         friendreq_kill(m->fr);
+        pthread_mutex_destroy(m->friendlist_mutex);
+        free(m->friendlist_mutex);
         free(m);
         return nullptr;
     }
@@ -2153,6 +2179,10 @@ Messenger *new_messenger(Mono_Time *mono_time, Messenger_Options *options, unsig
     if (m->net == nullptr) {
         friendreq_kill(m->fr);
         logger_kill(m->log);
+
+        pthread_mutex_destroy(m->friendlist_mutex);
+        free(m->friendlist_mutex);
+
         free(m);
 
         if (error && net_err == 1) {
@@ -2168,6 +2198,10 @@ Messenger *new_messenger(Mono_Time *mono_time, Messenger_Options *options, unsig
         kill_networking(m->net);
         friendreq_kill(m->fr);
         logger_kill(m->log);
+
+        pthread_mutex_destroy(m->friendlist_mutex);
+        free(m->friendlist_mutex);
+
         free(m);
         return nullptr;
     }
@@ -2179,6 +2213,10 @@ Messenger *new_messenger(Mono_Time *mono_time, Messenger_Options *options, unsig
         kill_dht(m->dht);
         friendreq_kill(m->fr);
         logger_kill(m->log);
+
+        pthread_mutex_destroy(m->friendlist_mutex);
+        free(m->friendlist_mutex);
+
         free(m);
         return nullptr;
     }
@@ -2198,6 +2236,10 @@ Messenger *new_messenger(Mono_Time *mono_time, Messenger_Options *options, unsig
         kill_networking(m->net);
         friendreq_kill(m->fr);
         logger_kill(m->log);
+
+        pthread_mutex_destroy(m->friendlist_mutex);
+        free(m->friendlist_mutex);
+
         free(m);
         return nullptr;
     }
@@ -2216,6 +2258,10 @@ Messenger *new_messenger(Mono_Time *mono_time, Messenger_Options *options, unsig
             kill_networking(m->net);
             friendreq_kill(m->fr);
             logger_kill(m->log);
+
+            pthread_mutex_destroy(m->friendlist_mutex);
+            free(m->friendlist_mutex);
+
             free(m);
 
             if (error) {
@@ -2274,6 +2320,12 @@ void kill_messenger(Messenger *m)
     friendreq_kill(m->fr);
 
     free(m->options.state_plugins);
+
+    if (m->friendlist_mutex != nullptr) {
+        pthread_mutex_destroy(m->friendlist_mutex);
+        free(m->friendlist_mutex);
+    }
+
     free(m);
 }
 
