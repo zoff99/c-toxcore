@@ -866,6 +866,10 @@ void tox_iterate(Tox *tox, void *user_data)
 
     struct Tox_Userdata tox_data = { tox, user_data };
     do_messenger(tox->m, &tox_data);
+
+    unlock(tox);
+    lock(tox);
+
     do_groupchats(tox->m->conferences_object, &tox_data);
 
     unlock(tox);
