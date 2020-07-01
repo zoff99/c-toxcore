@@ -1147,9 +1147,7 @@ bool tox_friend_get_public_key(const Tox *tox, uint32_t friend_number, uint8_t *
 
 bool tox_friend_exists(const Tox *tox, uint32_t friend_number)
 {
-    lock(tox);
     bool ret = m_friend_exists(tox->m, friend_number);
-    unlock(tox);
     return ret;
 }
 
@@ -2248,9 +2246,9 @@ bool tox_friend_send_lossy_packet(Tox *tox, uint32_t friend_number, const uint8_
         return 0;
     }
 
-    lock(tox);
+    // lock(tox);
     const int ret = m_send_custom_lossy_packet(tox->m, friend_number, data, length);
-    unlock(tox);
+    // unlock(tox);
 
     set_custom_packet_error(ret, error);
 
