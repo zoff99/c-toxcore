@@ -51,11 +51,28 @@ static void unlock_friendlist(const Messenger *m)
 // friend_not_valid determines if the friendnumber passed is valid in the Messenger object
 static uint8_t friend_not_valid(const Messenger *m, int32_t friendnumber)
 {
+    lock_friendlist(m);
     if ((unsigned int)friendnumber < m->numfriends) {
         if (m->friendlist[friendnumber].status != 0) {
+            unlock_friendlist(m);
             return 0;
         }
     }
+    unlock_friendlist(m);
+
+    return 1;
+}
+
+static uint8_t friend_not_valid_fast(const Messenger *m, int32_t friendnumber)
+{
+    lock_friendlist(m);
+    if ((unsigned int)friendnumber < m->numfriends) {
+        if (m->friendlist[friendnumber].status != 0) {
+            unlock_friendlist(m);
+            return 0;
+        }
+    }
+    unlock_friendlist(m);
 
     return 1;
 }
@@ -197,11 +214,14 @@ static int m_handle_lossy_packet(void *object, int friend_num, const uint8_t *pa
 static int32_t init_new_friend(Messenger *m, const uint8_t *real_pk, uint8_t status)
 {
     /* here we always increase the list (+1) */
+    lock_friendlist(m);
     if (realloc_friendlist(m, m->numfriends + 1) != 0) {
+        unlock_friendlist(m);
         return FAERR_NOMEM;
     }
 
     memset(&m->friendlist[m->numfriends], 0, sizeof(Friend));
+    unlock_friendlist(m);
 
     int friendcon_id = new_friend_connection(m->fr_c, real_pk);
 
@@ -454,6 +474,8 @@ int m_delfriend(Messenger *m, int32_t friendnumber)
     }
 
     kill_friend_connection(m->fr_c, m->friendlist[friendnumber].friendcon_id);
+
+    lock_friendlist(m);
     memset(&m->friendlist[friendnumber], 0, sizeof(Friend));
     uint32_t i;
 
@@ -466,9 +488,11 @@ int m_delfriend(Messenger *m, int32_t friendnumber)
     m->numfriends = i;
 
     if (realloc_friendlist(m, m->numfriends) != 0) {
+        unlock_friendlist(m);
         return FAERR_NOMEM;
     }
 
+    unlock_friendlist(m);
     return 0;
 }
 
@@ -502,7 +526,7 @@ int m_get_friend_connectionstatus(const Messenger *m, int32_t friendnumber)
 
 int m_friend_exists(const Messenger *m, int32_t friendnumber)
 {
-    if (!friend_is_valid(m, friendnumber)) {
+    if (friend_not_valid_fast(m, friendnumber)) {
         return 0;
     }
 
@@ -2023,7 +2047,7 @@ void custom_lossy_packet_registerhandler(Messenger *m, m_friend_lossy_packet_cb 
 
 int m_send_custom_lossy_packet(const Messenger *m, int32_t friendnumber, const uint8_t *data, uint32_t length)
 {
-    if (!friend_is_valid(m, friendnumber)) {
+    if (friend_not_valid_fast(m, friendnumber)) {
         return -1;
     }
 
@@ -2078,7 +2102,7 @@ void custom_lossless_packet_registerhandler(Messenger *m, m_friend_lossless_pack
 
 int send_custom_lossless_packet(const Messenger *m, int32_t friendnumber, const uint8_t *data, uint32_t length)
 {
-    if (friend_not_valid(m, friendnumber)) {
+    if (friend_not_valid_fast(m, friendnumber)) {
         return -1;
     }
 
