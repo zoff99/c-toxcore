@@ -295,6 +295,7 @@ struct Messenger {
     Userstatus userstatus;
 
     Friend *friendlist;
+    pthread_mutex_t *friendlist_mutex;
     uint32_t numfriends;
 
     time_t lastdump;
