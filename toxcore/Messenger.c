@@ -29,6 +29,7 @@
 
 extern bool global_filetransfer_is_resumable;
 extern bool global_force_udp_only_mode;
+extern bool global_onion_active;
 
 static int write_cryptpacket_id(const Messenger *m, int32_t friendnumber, uint8_t packet_id, const uint8_t *data,
                                 uint32_t length, uint8_t congestion_control);
@@ -2951,36 +2952,13 @@ void do_messenger(Messenger *m, pthread_mutex_t *tox_main_mutex, void *userdata)
     }
 
     if (!m->options.udp_disabled) {
-#ifdef DEBUG_DO_MESSENGER
-        ttt1 = current_time_monotonic(m->mono_time);
-#endif
-
         networking_poll(m->net, userdata);
         m_tox_unlock(tox_main_mutex);
         m_tox_lock(tox_main_mutex);
 
-#ifdef DEBUG_DO_MESSENGER
-        ttt12 = current_time_monotonic(m->mono_time);
-        if ((ttt12 - ttt1) > 10)
-        {
-            LOGGER_WARNING(m->log, "do_messenger:1:networking_poll:rt %d ms", (int)(ttt12 - ttt1));
-        }
-#endif
-#ifdef DEBUG_DO_MESSENGER
-        ttt1 = current_time_monotonic(m->mono_time);
-#endif
-
         do_dht(m->dht);
         m_tox_unlock(tox_main_mutex);
         m_tox_lock(tox_main_mutex);
-
-#ifdef DEBUG_DO_MESSENGER
-        ttt12 = current_time_monotonic(m->mono_time);
-        if ((ttt12 - ttt1) > 10)
-        {
-            LOGGER_WARNING(m->log, "do_messenger:2:do_dht:rt %d ms", (int)(ttt12 - ttt1));
-        }
-#endif
     }
 
     if (m->tcp_server) {
@@ -3002,66 +2980,37 @@ void do_messenger(Messenger *m, pthread_mutex_t *tox_main_mutex, void *userdata)
         LOGGER_WARNING(m->log, "do_messenger:3:do_net_crypto:rt %d ms", (int)(ttt12 - ttt1));
     }
 #endif
-#ifdef DEBUG_DO_MESSENGER
-    ttt1 = current_time_monotonic(m->mono_time);
-#endif
 
-    do_onion_client(m->onion_c);
-    m_tox_unlock(tox_main_mutex);
-    m_tox_lock(tox_main_mutex);
-
-#ifdef DEBUG_DO_MESSENGER
-    ttt12 = current_time_monotonic(m->mono_time);
-    if ((ttt12 - ttt1) > 10)
+    if (global_onion_active)
     {
-        LOGGER_WARNING(m->log, "do_messenger:4:do_onion_client:rt %d ms", (int)(ttt12 - ttt1));
-    }
-#endif
 #ifdef DEBUG_DO_MESSENGER
-    ttt1 = current_time_monotonic(m->mono_time);
+        ttt1 = current_time_monotonic(m->mono_time);
 #endif
+
+        do_onion_client(m->onion_c);
+        m_tox_unlock(tox_main_mutex);
+        m_tox_lock(tox_main_mutex);
+
+#ifdef DEBUG_DO_MESSENGER
+        ttt12 = current_time_monotonic(m->mono_time);
+        if ((ttt12 - ttt1) > 10)
+        {
+            LOGGER_WARNING(m->log, "do_messenger:4:do_onion_client:rt %d ms", (int)(ttt12 - ttt1));
+        }
+#endif
+
+    }
 
     do_friend_connections(m->fr_c, userdata);
     m_tox_unlock(tox_main_mutex);
     m_tox_lock(tox_main_mutex);
 
-#ifdef DEBUG_DO_MESSENGER
-    ttt12 = current_time_monotonic(m->mono_time);
-    if ((ttt12 - ttt1) > 10)
-    {
-        LOGGER_WARNING(m->log, "do_messenger:5:do_friend_connections:rt %d ms", (int)(ttt12 - ttt1));
-    }
-#endif
-#ifdef DEBUG_DO_MESSENGER
-    ttt1 = current_time_monotonic(m->mono_time);
-#endif
-
     do_friends(m, userdata);
     m_tox_unlock(tox_main_mutex);
     m_tox_lock(tox_main_mutex);
 
-#ifdef DEBUG_DO_MESSENGER
-    ttt12 = current_time_monotonic(m->mono_time);
-    if ((ttt12 - ttt1) > 10)
-    {
-        LOGGER_WARNING(m->log, "do_messenger:6:do_friends:rt %d ms", (int)(ttt12 - ttt1));
-    }
-#endif
-#ifdef DEBUG_DO_MESSENGER
-    ttt1 = current_time_monotonic(m->mono_time);
-#endif
-
     connection_status_callback(m, userdata);
-    m_tox_unlock(tox_main_mutex);
-    m_tox_lock(tox_main_mutex);
 
-#ifdef DEBUG_DO_MESSENGER
-    ttt12 = current_time_monotonic(m->mono_time);
-    if ((ttt12 - ttt1) > 10)
-    {
-        LOGGER_WARNING(m->log, "do_messenger:7:rt %d ms", (int)(ttt12 - ttt1));
-    }
-#endif
 
     if (mono_time_get(m->mono_time) > m->lastdump + DUMPING_CLIENTS_FRIENDS_EVERY_N_SECONDS) {
         m->lastdump = mono_time_get(m->mono_time);
