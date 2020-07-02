@@ -35,6 +35,7 @@
 bool global_filetransfer_is_resumable = false;
 bool global_force_udp_only_mode = false;
 bool global_do_not_sync_av = false;
+bool global_onion_active = true;
 
 #if TOX_HASH_LENGTH != CRYPTO_SHA256_SIZE
 #error "TOX_HASH_LENGTH is assumed to be equal to CRYPTO_SHA256_SIZE"
@@ -2747,4 +2748,9 @@ void tox_set_force_udp_only_mode(bool value)
 void tox_set_do_not_sync_av(bool value)
 {
     global_do_not_sync_av = value;
+}
+
+void tox_set_onion_active(bool value)
+{
+    global_onion_active = value;
 }
