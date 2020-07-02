@@ -1813,6 +1813,7 @@ unsigned int onion_connection_status(const Onion_Client *onion_c)
 
 void do_onion_client(Onion_Client *onion_c)
 {
+    // run onion stuff every second
     if (onion_c->last_run == mono_time_get(onion_c->mono_time)) {
         return;
     }

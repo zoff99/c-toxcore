@@ -386,7 +386,7 @@ uint32_t tox_max_hostname_length(void);
 void tox_set_filetransfer_resumable(bool value);
 void tox_set_force_udp_only_mode(bool value);
 void tox_set_do_not_sync_av(bool value);
-
+void tox_set_onion_active(bool value);
 
 /*******************************************************************************
  *
