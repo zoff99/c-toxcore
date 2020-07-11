@@ -176,6 +176,8 @@ uint32_t tox_version_patch(void);
 
 #define TOX_HAVE_TOXAV_CALLBACKS_002   1
 
+#define TOX_GIT_COMMIT_HASH "00000004"
+
 /**
  * A macro to check at preprocessing time whether the client code is compatible
  * with the installed version of Tox. Leading zeros in the version number are
