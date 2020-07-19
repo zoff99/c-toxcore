@@ -821,7 +821,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
             float percent_lost = 0.0f;
 
             if (header_v3->received_length_full > 0) {
-                percent_lost = (float)full_data_len / (float)header_v3->received_length_full;
+                percent_lost = 100.0f * (1.0f - ((float)header_v3->received_length_full / (float)full_data_len));
             }
 
             LOGGER_API_ERROR(tox, "BWC:lost:004:lost bytes=%d recevied=%d full=%d per=%.3f",
