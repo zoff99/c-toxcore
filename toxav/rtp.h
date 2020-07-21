@@ -29,7 +29,7 @@ extern "C" {
  * Number of 32 bit padding fields between \ref RTPHeader::offset_lower and
  * everything before it.
  */
-#define RTP_PADDING_FIELDS 5
+#define RTP_PADDING_FIELDS 4
 
 #define PACKET_LOSSLESS_VIDEO 171 // DO NOT USE THIS! only for debugging!
 #define PACKET_TOXAV_COMM_CHANNEL 172
@@ -155,6 +155,7 @@ struct RTPHeader {
     uint32_t real_frame_num; /* unused for now */
     uint32_t encoder_bit_rate_used; /* what was the encoder bit rate used to encode this frame */
     uint32_t client_video_capture_delay_ms; /* how long did the client take to capture a video frame in ms */
+    uint32_t rtp_packet_number; /* rtp packet number */
     // ---------------------------- //
     //      custom fields here      //
     // ---------------------------- //
@@ -228,6 +229,7 @@ typedef struct RTPSession {
     uint16_t sequnum;      /* Sending sequence number */
     uint16_t rsequnum;     /* Receiving sequence number */
     uint32_t rtimestamp;
+    uint32_t rtp_packet_num;
     uint32_t ssrc; //  this seems to be unused!?
     struct RTPMessage *mp; /* Expected parted message */
     struct RTPWorkBufferList *work_buffer_list;

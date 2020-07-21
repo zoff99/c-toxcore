@@ -833,13 +833,13 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 #endif
 
     if (header.pt != packet_type % 128) {
-        LOGGER_API_DEBUG(tox, "RTPHeader packet type and Tox protocol packet type did not agree: %d != %d",
+        LOGGER_API_WARNING(tox, "RTPHeader packet type and Tox protocol packet type did not agree: %d != %d",
                          header.pt, packet_type % 128);
         return;
     }
 
     if (header.pt != session->payload_type % 128) {
-        LOGGER_API_DEBUG(tox, "RTPHeader packet type does not match this session's payload type: %d != %d",
+        LOGGER_API_WARNING(tox, "RTPHeader packet type does not match this session's payload type: %d != %d",
                          header.pt, session->payload_type % 128);
         return;
     }
@@ -879,6 +879,10 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
     if (header.pt == (RTP_TYPE_VIDEO % 128)) {
         ((VCSession *)(session->cs))->remote_client_video_capture_delay_ms = header.client_video_capture_delay_ms;
+
+        LOGGER_API_DEBUG(tox, "RTP_pkt_num:V:%d:%d", header.rtp_packet_number, header.sequnum);
+    } else {
+        LOGGER_API_DEBUG(tox, "RTP_pkt_num:AA:%d:%d", header.rtp_packet_number, header.sequnum);
     }
 
     // set flag indicating that we have real record-timestamps for frames ---
@@ -1109,6 +1113,7 @@ size_t rtp_header_pack(uint8_t *const rdata, const struct RTPHeader *header)
     p += net_pack_u32(p, header->real_frame_num);
     p += net_pack_u32(p, header->encoder_bit_rate_used);
     p += net_pack_u32(p, header->client_video_capture_delay_ms);
+    p += net_pack_u32(p, header->rtp_packet_number);
     // ---------------------------- //
     //      custom fields here      //
     // ---------------------------- //
@@ -1152,6 +1157,7 @@ size_t rtp_header_unpack(const uint8_t *data, struct RTPHeader *header)
     p += net_unpack_u32(p, &header->real_frame_num);
     p += net_unpack_u32(p, &header->encoder_bit_rate_used);
     p += net_unpack_u32(p, &header->client_video_capture_delay_ms);
+    p += net_unpack_u32(p, &header->rtp_packet_number);
     // ---------------------------- //
     //      custom fields here      //
     // ---------------------------- //
@@ -1371,9 +1377,11 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
 
     if (MAX_CRYPTO_DATA_SIZE > (length + RTP_HEADER_SIZE + 1)) {
         /**
-         * The length is lesser than the maximum allowed length (including header)
+         * The length is less than the maximum allowed length (including header)
          * Send the packet in single piece.
          */
+        header.rtp_packet_number = session->rtp_packet_num;
+        session->rtp_packet_num++;
         rtp_header_pack(rdata + 1, &header);
         memcpy(rdata + 1 + RTP_HEADER_SIZE, data, length);
 
@@ -1396,6 +1404,8 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
         uint16_t piece = MAX_CRYPTO_DATA_SIZE - (RTP_HEADER_SIZE + 1);
 
         while ((length - sent) + RTP_HEADER_SIZE + 1 > MAX_CRYPTO_DATA_SIZE) {
+            header.rtp_packet_number = session->rtp_packet_num;
+            session->rtp_packet_num++;
             rtp_header_pack(rdata + 1, &header);
             memcpy(rdata + 1 + RTP_HEADER_SIZE, data + sent, piece);
 
@@ -1410,6 +1420,8 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
                                                        rdata, piece + RTP_HEADER_SIZE + 1)) {
                     LOGGER_API_WARNING(session->tox, "RTP send failed (len: %d)! std error: %s",
                                        piece + RTP_HEADER_SIZE + 1, strerror(errno));
+                } else {
+                    LOGGER_API_DEBUG(session->tox, "RTP send:A:rtp_pkg_num:%d:%d", header.rtp_packet_number, header.sequnum);
                 }
             }
 
@@ -1422,6 +1434,8 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
         piece = length - sent;
 
         if (piece) {
+            header.rtp_packet_number = session->rtp_packet_num;
+            session->rtp_packet_num++;
             rtp_header_pack(rdata + 1, &header);
             memcpy(rdata + 1 + RTP_HEADER_SIZE, data + sent, piece);
 
@@ -1436,6 +1450,8 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
                                                        piece + RTP_HEADER_SIZE + 1)) {
                     LOGGER_API_WARNING(session->tox, "RTP send failed (len: %d)! std error: %s",
                                        piece + RTP_HEADER_SIZE + 1, strerror(errno));
+                } else {
+                    LOGGER_API_DEBUG(session->tox, "RTP send:B:rtp_pkg_num:%d:%d", header.rtp_packet_number, header.sequnum);
                 }
             }
         }
