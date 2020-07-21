@@ -824,7 +824,8 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                 percent_lost = 100.0f * (1.0f - ((float)header_v3->received_length_full / (float)full_data_len));
             }
 
-            LOGGER_API_ERROR(tox, "BWC:lost:004:lost bytes=%d recevied=%d full=%d per=%.3f",
+            LOGGER_API_ERROR(tox, "BWC:lost:004:seq=%d,lost bytes=%d recevied=%d full=%d per=%.3f",
+                         (int)header_v3->sequnum,
                          (int)(full_data_len - header_v3->received_length_full),
                          (int)header_v3->received_length_full,
                          (int)full_data_len,
