@@ -827,7 +827,7 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
             LOGGER_DEBUG(av->m->log, "video decoder video_decoder_add_delay_ms already set to: %d", (int)value);
         } else {
 
-            if (((int32_t)value < -350) || ((int32_t)value > 350)) {
+            if (((int32_t)value < -650) || ((int32_t)value > 350)) {
                 LOGGER_DEBUG(av->m->log, "video decoder video_decoder_add_delay_ms value outside of valid range: %d", (int)value);
             } else {
                 vc->video_decoder_add_delay_ms = (int32_t)value;
@@ -837,7 +837,7 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
         VCSession *vc = (VCSession *)call->video;
 
         if (vc->video_decoder_buffer_ms == (int32_t)value) {
-            LOGGER_WARNING(av->m->log, "video decoder video_decoder_buffer_ms already set to: %d", (int)value);
+            LOGGER_DEBUG(av->m->log, "video decoder video_decoder_buffer_ms already set to: %d", (int)value);
         } else {
             if (((int32_t)value < 0) || ((int32_t)value > 2000)) {
                 LOGGER_DEBUG(av->m->log, "video decoder video_decoder_buffer_ms value outside of valid range: %d", (int)value);
