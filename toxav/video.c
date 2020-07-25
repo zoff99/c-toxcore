@@ -554,7 +554,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     }
 #endif
 #if 1
-    else if ((vc->has_rountrip_time_ms == 1) && (video_frame_diff > 1) && (video_frame_diff > ((vc->rountrip_time_ms) + 100)) && (video_frame_diff < 10000))
+    else if ((vc->has_rountrip_time_ms == 1) && (video_frame_diff > 1) && (video_frame_diff > (((int32_t)vc->rountrip_time_ms) + 100)) && (video_frame_diff < 10000))
     {
         //if ((uint32_t)tsb_size((TSBuffer *)vc->vbuf_raw) > 0)
         {
@@ -686,10 +686,11 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         *timestamp_difference_adjustment_for_audio = vc->timestamp_difference_adjustment -
                 delay_audio_stream_relative_to_video_stream -
                 vc->video_decoder_caused_delay_ms_mean_value;
-        LOGGER_API_DEBUG(tox, "want_remote_video_ts:v:003=%d", (int)timestamp_difference_adjustment_for_audio);
+        LOGGER_API_DEBUG(tox, "want_remote_video_ts:v:003=%d", (int)*timestamp_difference_adjustment_for_audio);
         LOGGER_API_DEBUG(tox, "VV:01:%d", (int)vc->video_decoder_buffer_ms);
         LOGGER_API_DEBUG(tox, "VV:02:%d %d", (int)*timestamp_difference_adjustment_for_audio, (int)vc->timestamp_difference_adjustment);
         LOGGER_API_DEBUG(tox, "VV:03:%d %d", (int)vc->video_decoder_add_delay_ms, (int)vc->video_decoder_caused_delay_ms_mean_value);
+        LOGGER_API_DEBUG(tox, "VV:04:%d %d", (int)delay_audio_stream_relative_to_video_stream, (int)vc->video_decoder_buffer_ms);
         // ----------------------------------------
         // ----------------------------------------
         // ----------------------------------------
