@@ -10,6 +10,8 @@
 #include "config.h"
 #endif
 
+#define BYTES_SOCKET_SEND_AND_RECEIVE_BUFFERS 1024*1024*2 // 2 Mbytes
+
 #ifdef __APPLE__
 #define _DARWIN_C_SOURCE
 #endif
@@ -798,7 +800,7 @@ Networking_Core *new_networking_ex(const Logger *log, IP ip, uint16_t port_from,
 
     /* Functions to increase the size of the send and receive UDP buffers.
      */
-    int n = 1024 * 1024 * 2;
+    int n = BYTES_SOCKET_SEND_AND_RECEIVE_BUFFERS; // 1024 * 1024 * 2;
     setsockopt(temp->sock.socket, SOL_SOCKET, SO_RCVBUF, (const char *)&n, sizeof(n));
     setsockopt(temp->sock.socket, SOL_SOCKET, SO_SNDBUF, (const char *)&n, sizeof(n));
 
