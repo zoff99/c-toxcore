@@ -2950,12 +2950,12 @@ void do_messenger(Messenger *m, pthread_mutex_t *tox_main_mutex, void *userdata)
 
     if (!m->options.udp_disabled) {
         networking_poll(m->net, userdata);
-        m_tox_unlock(tox_main_mutex);
-        m_tox_lock(tox_main_mutex);
+        //**// m_tox_unlock(tox_main_mutex);
+        //**// m_tox_lock(tox_main_mutex);
 
         do_dht(m->dht);
-        m_tox_unlock(tox_main_mutex);
-        m_tox_lock(tox_main_mutex);
+        //**// m_tox_unlock(tox_main_mutex);
+        //**// m_tox_lock(tox_main_mutex);
     }
 
     if (m->tcp_server) {
@@ -2967,8 +2967,8 @@ void do_messenger(Messenger *m, pthread_mutex_t *tox_main_mutex, void *userdata)
 #endif
 
     do_net_crypto(m->net_crypto, userdata);
-    m_tox_unlock(tox_main_mutex);
-    m_tox_lock(tox_main_mutex);
+    //**// m_tox_unlock(tox_main_mutex);
+    //**// m_tox_lock(tox_main_mutex);
 
 #ifdef DEBUG_DO_MESSENGER
     ttt12 = current_time_monotonic(m->mono_time);
@@ -2985,8 +2985,8 @@ void do_messenger(Messenger *m, pthread_mutex_t *tox_main_mutex, void *userdata)
 #endif
 
         do_onion_client(m->onion_c);
-        m_tox_unlock(tox_main_mutex);
-        m_tox_lock(tox_main_mutex);
+        //**// m_tox_unlock(tox_main_mutex);
+        //**// m_tox_lock(tox_main_mutex);
 
 #ifdef DEBUG_DO_MESSENGER
         ttt12 = current_time_monotonic(m->mono_time);
@@ -2999,12 +2999,12 @@ void do_messenger(Messenger *m, pthread_mutex_t *tox_main_mutex, void *userdata)
     }
 
     do_friend_connections(m->fr_c, userdata);
-    m_tox_unlock(tox_main_mutex);
-    m_tox_lock(tox_main_mutex);
+    //**// m_tox_unlock(tox_main_mutex);
+    //**// m_tox_lock(tox_main_mutex);
 
     do_friends(m, userdata);
-    m_tox_unlock(tox_main_mutex);
-    m_tox_lock(tox_main_mutex);
+    //**// m_tox_unlock(tox_main_mutex);
+    //**// m_tox_lock(tox_main_mutex);
 
     connection_status_callback(m, userdata);
 
