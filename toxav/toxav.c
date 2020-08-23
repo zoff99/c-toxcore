@@ -282,6 +282,7 @@ void toxav_audio_iterate(ToxAV *av)
                     int64_t copy_of_value = i->call_timestamp_difference_to_sender;
                     int video_cap_copy = (int)(i->msi_call->self_capabilities & MSI_CAP_S_VIDEO);
 
+                    LOGGER_API_WARNING(av->tox, "AAiterate:000:START:fnum=%d:h=%d t=%d", fid, av->calls_head, av->calls_tail);
 
                     uint8_t res_ac = ac_iterate(i->audio,
                                                 &(i->last_incoming_audio_frame_rtimestamp),
@@ -318,9 +319,14 @@ void toxav_iterate(ToxAV *av)
 
     ToxAVCall *i = av->calls[av->calls_head];
 
+    LOGGER_API_WARNING(av->tox, "iterate:000:START:h=%d t=%d i=%p", av->calls_head, av->calls_tail, i);
+    uint32_t dummy_counter = 0;
     for (; i; i = i->next) {
+        dummy_counter++;
 
         audio_iterations = 0;
+
+        LOGGER_API_WARNING(av->tox, "iterate:001:%d:i->active=%d i=%p", dummy_counter, (int)i->active, i);
 
         if (i->active) {
 
@@ -330,10 +336,12 @@ void toxav_iterate(ToxAV *av)
             pthread_mutex_unlock(av->mutex);
 
             uint32_t fid = i->friend_number;
+            LOGGER_API_WARNING(av->tox, "iterate:002:%d:fnum=%d i=%p", dummy_counter, fid, i);
 
             if ((!i->msi_call) || (i->active == 0))
             {
                 // call has ended
+                LOGGER_API_WARNING(av->tox, "iterate:003:%d:fnum=%d:call has ended", dummy_counter, fid);
                 pthread_mutex_unlock(i->toxav_call_mutex);
                 pthread_mutex_lock(av->mutex);
                 break;
@@ -342,6 +350,7 @@ void toxav_iterate(ToxAV *av)
             bool is_offline = check_peer_offline_status(av->tox, i->msi_call->session, fid);
 
             if (is_offline) {
+                LOGGER_API_WARNING(av->tox, "iterate:004:%d:fnum=%d:is_offline=%d", dummy_counter, fid, is_offline);
                 pthread_mutex_unlock(i->toxav_call_mutex);
                 pthread_mutex_lock(av->mutex);
                 break;
@@ -366,6 +375,8 @@ void toxav_iterate(ToxAV *av)
             // ------- ac_iterate for audio -------
 
             // ------- av_iterate for VIDEO -------
+
+            LOGGER_API_WARNING(av->tox, "iterate:005:%d:fnum=%d:call->vc_iterate", dummy_counter, fid);
             uint8_t got_video_frame = vc_iterate(i->video, i->av->tox, i->skip_video_flag,
                                                  &(i->last_incoming_audio_frame_rtimestamp),
                                                  &(i->last_incoming_audio_frame_ltimestamp),
@@ -399,6 +410,7 @@ void toxav_iterate(ToxAV *av)
 
             /* In case this call is popped from container stop iteration */
             if (call_get(av, fid) != i) {
+                LOGGER_API_WARNING(av->tox, "iterate:077:pop:fnum=%d:h=%d t=%d", fid, av->calls_head, av->calls_tail);
                 break;
             }
 
@@ -413,6 +425,8 @@ void toxav_iterate(ToxAV *av)
         av->dmssc = 0;
         av->dmsst = 0;
     }
+
+    LOGGER_API_WARNING(av->tox, "iterate:099:END:h=%d t=%d", av->calls_head, av->calls_tail);
 
     pthread_mutex_unlock(av->mutex);
 }
@@ -505,7 +519,10 @@ bool toxav_answer(ToxAV *av, uint32_t friend_number, uint32_t audio_bit_rate, ui
     Toxav_Err_Answer rc = TOXAV_ERR_ANSWER_OK;
     ToxAVCall *call;
 
+    LOGGER_API_WARNING(av->tox, "answer:fnum=%d", friend_number);
+
     if (toxav_friend_exists(av->tox, friend_number) == 0) {
+        LOGGER_API_WARNING(av->tox, "answer:fnum=%d:TOXAV_ERR_ANSWER_FRIEND_NOT_FOUND", friend_number);
         rc = TOXAV_ERR_ANSWER_FRIEND_NOT_FOUND;
         goto RETURN;
     }
@@ -513,6 +530,7 @@ bool toxav_answer(ToxAV *av, uint32_t friend_number, uint32_t audio_bit_rate, ui
     if ((audio_bit_rate && audio_bit_rate_invalid(audio_bit_rate))
             || (video_bit_rate && video_bit_rate_invalid(video_bit_rate))
        ) {
+        LOGGER_API_WARNING(av->tox, "answer:fnum=%d:TOXAV_ERR_ANSWER_INVALID_BIT_RATE", friend_number);
         rc = TOXAV_ERR_ANSWER_INVALID_BIT_RATE;
         goto RETURN;
     }
@@ -520,11 +538,13 @@ bool toxav_answer(ToxAV *av, uint32_t friend_number, uint32_t audio_bit_rate, ui
     call = call_get(av, friend_number);
 
     if (call == nullptr) {
+        LOGGER_API_WARNING(av->tox, "answer:fnum=%d:TOXAV_ERR_ANSWER_FRIEND_NOT_CALLING", friend_number);
         rc = TOXAV_ERR_ANSWER_FRIEND_NOT_CALLING;
         goto RETURN;
     }
 
     if (!call_prepare_transmission(call)) {
+        LOGGER_API_WARNING(av->tox, "answer:fnum=%d:TOXAV_ERR_ANSWER_CODEC_INITIALIZATION", friend_number);
         rc = TOXAV_ERR_ANSWER_CODEC_INITIALIZATION;
         goto RETURN;
     }
@@ -533,14 +553,13 @@ bool toxav_answer(ToxAV *av, uint32_t friend_number, uint32_t audio_bit_rate, ui
     call->video_bit_rate = video_bit_rate;
     call->video_bit_rate_not_yet_set = call->video_bit_rate;
 
-    LOGGER_ERROR(av->m->log, "toxav_answer:vb=%d", (int)video_bit_rate);
-
     call->previous_self_capabilities = MSI_CAP_R_AUDIO | MSI_CAP_R_VIDEO;
 
     call->previous_self_capabilities |= audio_bit_rate > 0 ? MSI_CAP_S_AUDIO : 0;
     call->previous_self_capabilities |= video_bit_rate > 0 ? MSI_CAP_S_VIDEO : 0;
 
     if (msi_answer(call->msi_call, call->previous_self_capabilities) != 0) {
+        LOGGER_API_WARNING(av->tox, "answer:fnum=%d:TOXAV_ERR_ANSWER_SYNC", friend_number);
         rc = TOXAV_ERR_ANSWER_SYNC;
     }
 
@@ -2290,8 +2309,11 @@ static ToxAVCall *call_new(ToxAV *av, uint32_t friend_number, Toxav_Err_Call *er
     Toxav_Err_Call rc = TOXAV_ERR_CALL_OK;
     ToxAVCall *call = nullptr;
 
+    LOGGER_API_WARNING(av->tox, "enter ...:fnum=%d", friend_number);
+
     if (toxav_friend_exists(av->tox, friend_number) == 0) {
         rc = TOXAV_ERR_CALL_FRIEND_NOT_FOUND;
+        LOGGER_API_WARNING(av->tox, "TOXAV_ERR_CALL_FRIEND_NOT_FOUND:fnum=%d", friend_number);
         goto RETURN;
     }
 
@@ -2300,10 +2322,12 @@ static ToxAVCall *call_new(ToxAV *av, uint32_t friend_number, Toxav_Err_Call *er
 
     if (f_conn_status == TOX_CONNECTION_NONE) {
         rc = TOXAV_ERR_CALL_FRIEND_NOT_CONNECTED;
+        LOGGER_API_WARNING(av->tox, "TOXAV_ERR_CALL_FRIEND_NOT_CONNECTED:fnum=%d", friend_number);
         goto RETURN;
     }
 
     if (call_get(av, friend_number) != nullptr) {
+        LOGGER_API_WARNING(av->tox, "TOXAV_ERR_CALL_FRIEND_ALREADY_IN_CALL:fnum=%d", friend_number);
         rc = TOXAV_ERR_CALL_FRIEND_ALREADY_IN_CALL;
         goto RETURN;
     }
@@ -2323,6 +2347,7 @@ static ToxAVCall *call_new(ToxAV *av, uint32_t friend_number, Toxav_Err_Call *er
     call->call_video_has_rountrip_time_ms = 0;
 
     if (call == nullptr) {
+        LOGGER_API_WARNING(av->tox, "TOXAV_ERR_CALL_MALLOC:fnum=%d", friend_number);
         rc = TOXAV_ERR_CALL_MALLOC;
         goto RETURN;
     }
@@ -2333,30 +2358,40 @@ static ToxAVCall *call_new(ToxAV *av, uint32_t friend_number, Toxav_Err_Call *er
     if (create_recursive_mutex(call->toxav_call_mutex)) {
         free(call);
         call = nullptr;
+        LOGGER_API_WARNING(av->tox, "TOXAV_ERR_CALL_MALLOC:2:fnum=%d", friend_number);
         rc = TOXAV_ERR_CALL_MALLOC;
         goto RETURN;
     }
 
     if (av->calls == nullptr) { /* Creating */
-        av->calls = (ToxAVCall **)calloc(sizeof(ToxAVCall *), friend_number + 1);
+        av->calls = (ToxAVCall **)calloc((friend_number + 1), sizeof(ToxAVCall *));
+
+        LOGGER_API_INFO(av->tox, "Creating:fnum=%d bytes=%d", friend_number, (int)((friend_number + 1) * sizeof(ToxAVCall *)));
 
         if (av->calls == nullptr) {
             pthread_mutex_destroy(call->toxav_call_mutex);
             free(call);
             call = nullptr;
+            LOGGER_API_WARNING(av->tox, "TOXAV_ERR_CALL_MALLOC:3:fnum=%d", friend_number);
             rc = TOXAV_ERR_CALL_MALLOC;
             goto RETURN;
         }
 
         av->calls_tail = friend_number;
         av->calls_head = friend_number;
-    } else if (av->calls_tail < friend_number) { /* Appending */
-        ToxAVCall **tmp = (ToxAVCall **)realloc(av->calls, sizeof(ToxAVCall *) * (friend_number + 1));
+
+        LOGGER_API_INFO(av->tox, "Creating:fnum=%d h=%d t=%d", friend_number, av->calls_head, av->calls_tail);
+
+    } else if (friend_number > av->calls_tail) { /* Appending */
+        ToxAVCall **tmp = (ToxAVCall **)realloc(av->calls, (friend_number + 1) * sizeof(ToxAVCall *));
+
+        LOGGER_API_INFO(av->tox, "Appending:fnum=%d bytes=%d", friend_number, (int)((friend_number + 1) * sizeof(ToxAVCall *)));
 
         if (tmp == nullptr) {
             pthread_mutex_destroy(call->toxav_call_mutex);
             free(call);
             call = nullptr;
+            LOGGER_API_WARNING(av->tox, "TOXAV_ERR_CALL_MALLOC:4:fnum=%d", friend_number);
             rc = TOXAV_ERR_CALL_MALLOC;
             goto RETURN;
         }
@@ -2372,11 +2407,58 @@ static ToxAVCall *call_new(ToxAV *av, uint32_t friend_number, Toxav_Err_Call *er
         av->calls[av->calls_tail]->next = call;
 
         av->calls_tail = friend_number;
+
+        LOGGER_API_INFO(av->tox, "Appending:fnum=%d h=%d t=%d", friend_number, av->calls_head, av->calls_tail);
+
     } else if (av->calls_head > friend_number) { /* Inserting at front */
+
+        LOGGER_API_INFO(av->tox, "Inserting at front:fnum=%d", friend_number);
+
         call->next = av->calls[av->calls_head];
         av->calls[av->calls_head]->prev = call;
         av->calls_head = friend_number;
+
+        LOGGER_API_INFO(av->tox, "Inserting at front:fnum=%d h=%d t=%d", friend_number, av->calls_head, av->calls_tail);
+    } else { /* right in the middle somewhere */
+        // find the previous entry
+        ToxAVCall *found_prev_entry = nullptr;
+        for (uint32_t i=av->calls_head;i<=av->calls_tail;i++)
+        {
+            if (av->calls[i])
+            {
+                if (i < friend_number)
+                {
+                    found_prev_entry = av->calls[i];
+                }
+                else
+                {
+                    break;
+                }
+            }
+        }
+
+        // find the next entry
+        ToxAVCall *found_next_entry = nullptr;
+        for (uint32_t i=av->calls_head;i<=av->calls_tail;i++)
+        {
+            if (av->calls[i])
+            {
+                if (i > friend_number)
+                {
+                    found_next_entry = av->calls[i];
+                    break;
+                }
+            }
+        }
+
+        // set chain-links correctly
+        call->prev = found_prev_entry;
+        found_prev_entry->next = call;
+        //
+        call->next = found_next_entry;
+        found_next_entry->prev = call;
     }
+
 
     av->calls[friend_number] = call;
 
@@ -2398,6 +2480,9 @@ static ToxAVCall *call_remove(ToxAVCall *call)
     uint32_t friend_number = call->friend_number;
     ToxAV *av = call->av;
 
+    LOGGER_API_INFO(av->tox, "call:remove:fnum=%d", friend_number);
+    LOGGER_API_INFO(av->tox, "call:remove:fnum=%d before:h=%d t=%d", friend_number, av->calls_head, av->calls_tail);
+
     ToxAVCall *prev = call->prev;
     ToxAVCall *next = call->next;
 
@@ -2409,7 +2494,12 @@ static ToxAVCall *call_remove(ToxAVCall *call)
     }
 
     pthread_mutex_destroy(call->toxav_call_mutex);
+
+    LOGGER_API_WARNING(av->tox, "call:freeing ...");
     free(call);
+    LOGGER_API_WARNING(av->tox, "call:freed");
+    call = nullptr;
+    LOGGER_API_WARNING(av->tox, "call:NULL");
 
     if (prev) {
         prev->next = next;
@@ -2428,6 +2518,9 @@ static ToxAVCall *call_remove(ToxAVCall *call)
     }
 
     av->calls[friend_number] = nullptr;
+
+    LOGGER_API_INFO(av->tox, "call:remove:fnum=%d after_01:h=%d t=%d", friend_number, av->calls_head, av->calls_tail);
+
     return next;
 
 CLEAR:
@@ -2435,6 +2528,8 @@ CLEAR:
     av->calls_tail = 0;
     free(av->calls);
     av->calls = nullptr;
+
+    LOGGER_API_INFO(av->tox, "call:remove:fnum=%d after_02:h=%d t=%d", friend_number, av->calls_head, av->calls_tail);
 
     return nullptr;
 }
@@ -2448,6 +2543,8 @@ static bool call_prepare_transmission(ToxAVCall *call)
     }
 
     ToxAV *av = call->av;
+
+    LOGGER_API_INFO(av->tox, "prepare_transmissio:fnum=%d", call->friend_number);
 
     if (!av->acb && !av->vcb) {
         /* It makes no sense to have CSession without callbacks */
@@ -2525,7 +2622,11 @@ FAILURE_2:
 
 static void call_kill_transmission(ToxAVCall *call)
 {
-    if (call == nullptr || call->active == 0) {
+    if (call == nullptr) {
+        return;
+    }
+
+    if (call->active == 0) {
         return;
     }
 

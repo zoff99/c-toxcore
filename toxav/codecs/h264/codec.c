@@ -362,7 +362,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     // ENCODER -------
 
-    LOGGER_WARNING(log, "HW CODEC CONFIG ACTIVE: %s", ACTIVE_HW_CODEC_CONFIG_NAME);
+    LOGGER_API_WARNING(av->tox, "HW CODEC CONFIG ACTIVE: %s", ACTIVE_HW_CODEC_CONFIG_NAME);
 
 #ifdef X264_ENCODE_USED
 
@@ -438,17 +438,17 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         if (x264_param_apply_profile(&param,
                                      "high") < 0) { // "baseline", "main", "high", "high10", "high422", "high444"
             // goto fail;
-            LOGGER_WARNING(log, "h264: setting high encoder failed");
+            LOGGER_API_WARNING(av->tox, "h264: setting high encoder failed");
         } else {
-            LOGGER_WARNING(log, "h264: setting high encoder OK");
+            LOGGER_API_WARNING(av->tox, "h264: setting high encoder OK");
         }
     } else {
         if (x264_param_apply_profile(&param,
                                      "baseline") < 0) { // "baseline", "main", "high", "high10", "high422", "high444"
             // goto fail;
-            LOGGER_WARNING(log, "h264: setting BASELINE encoder failed");
+            LOGGER_API_WARNING(av->tox, "h264: setting BASELINE encoder failed");
         } else {
-            LOGGER_WARNING(log, "h264: setting BASELINE encoder OK");
+            LOGGER_API_WARNING(av->tox, "h264: setting BASELINE encoder OK");
         }
     }
 
@@ -483,10 +483,10 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     codec2 = avcodec_find_encoder_by_name(H264_WANT_ENCODER_NAME);
 
     if (!codec2) {
-        LOGGER_WARNING(log, "codec not found HW Accel H264 on encoder, trying software decoder ...");
+        LOGGER_API_WARNING(av->tox, "codec not found HW Accel H264 on encoder, trying software decoder ...");
         codec2 = avcodec_find_encoder_by_name("libx264");
     } else {
-        LOGGER_ERROR(log, "FOUND: *HW Accel* H264 encoder: %s", H264_WANT_ENCODER_NAME);
+        LOGGER_API_ERROR(av->tox, "FOUND: *HW Accel* H264 encoder: %s", H264_WANT_ENCODER_NAME);
     }
 
 #else
@@ -593,7 +593,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     AVDictionary *opts = NULL;
 
     if (avcodec_open2(vc->h264_encoder2, codec2, &opts) < 0) {
-        LOGGER_ERROR(log, "could not open codec H264 on encoder");
+        LOGGER_API_ERROR(av->tox, "could not open codec H264 on encoder");
     }
 
     av_dict_free(&opts);
@@ -632,10 +632,10 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     codec = avcodec_find_decoder_by_name(H264_WANT_DECODER_NAME);
 
     if (!codec) {
-        LOGGER_WARNING(log, "codec not found HW Accel H264 on decoder, trying software decoder ...");
+        LOGGER_API_WARNING(av->tox, "codec not found HW Accel H264 on decoder, trying software decoder ...");
         codec = avcodec_find_decoder(AV_CODEC_ID_H264);
     } else {
-        LOGGER_WARNING(log, "FOUND: *HW Accel* H264 on decoder");
+        LOGGER_API_WARNING(av->tox, "FOUND: *HW Accel* H264 on decoder");
     }
 
 #else
@@ -644,7 +644,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
 
     if (!codec) {
-        LOGGER_WARNING(log, "codec not found H264 on decoder");
+        LOGGER_API_WARNING(av->tox, "codec not found H264 on decoder");
         assert(!"codec not found H264 on decoder");
     }
 
@@ -682,10 +682,10 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         }
 
 #if (defined (HW_CODEC_CONFIG_RPI3_TBW_TV) || defined (HW_CODEC_CONFIG_RPI3_TBW_BIDI)) && defined (RAPI_HWACCEL_DEC)
-        LOGGER_WARNING(log, "setting up h264_mmal decoder ...");
+        LOGGER_API_WARNING(av->tox, "setting up h264_mmal decoder ...");
         av_opt_set_int(vc->h264_decoder->priv_data, "extra_buffers)", 1, AV_OPT_SEARCH_CHILDREN);
         av_opt_set_int(vc->h264_decoder->priv_data, "extra_decoder_buffers)", 1, AV_OPT_SEARCH_CHILDREN);
-        LOGGER_WARNING(log, "extra_buffers, extra_decoder_buffers");
+        LOGGER_API_WARNING(av->tox, "extra_buffers, extra_decoder_buffers");
 #endif
 
         vc->h264_decoder->refcounted_frames = 0;
@@ -710,7 +710,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
 #ifdef _TRIFA_CODEC_DECODER_
 
-        LOGGER_WARNING(log, "setting up h264_mediacodec decoder ...");
+        LOGGER_API_WARNING(av->tox, "setting up h264_mediacodec decoder ...");
 
 
         const uint8_t sps[] = {0x00, 0x00, 0x00, 0x01, 0x67, 0x42, 0x80, 0x0C, 0xE4, 0x40, 0xA0, 0xFD, 0x00, 0xDA, 0x14, 0x26, 0xA0};
@@ -765,7 +765,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
             codec->has_b_frames           = par->video_delay;
         */
 
-        LOGGER_WARNING(log, "setting up h264_mediacodec decoder ... DONE");
+        LOGGER_API_WARNING(av->tox, "setting up h264_mediacodec decoder ... DONE");
 
         av_log_set_level(AV_LOG_ERROR);
         // av_log_set_level(AV_LOG_DEBUG);
@@ -777,7 +777,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
 
         if (avcodec_open2(vc->h264_decoder, codec, NULL) < 0) {
-            LOGGER_WARNING(log, "could not open codec H264 on decoder");
+            LOGGER_API_WARNING(av->tox, "could not open codec H264 on decoder");
             assert(!"could not open codec H264 on decoder");
         }
 
@@ -1192,7 +1192,7 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                        uint8_t *ret_value)
 {
 
-    LOGGER_API_DEBUG(vc->av->tox, "decode_frame_h264:len=%d", full_data_len);
+    LOGGER_API_INFO(vc->av->tox, "decode_frame_h264:fnum=%d,len=%d", vc->friend_number, full_data_len);
 
     if (p == NULL) {
         LOGGER_DEBUG(vc->log, "decode_frame_h264:NO data");

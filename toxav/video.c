@@ -76,17 +76,17 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     VCSession *vc = (VCSession *)calloc(sizeof(VCSession), 1);
 
     if (!vc) {
-        LOGGER_WARNING(log, "Allocation failed! Application might misbehave!");
+        LOGGER_API_WARNING(av->tox, "Allocation failed! Application might misbehave!");
         return NULL;
     }
 
     if (create_recursive_mutex(vc->queue_mutex) != 0) {
-        LOGGER_WARNING(log, "Failed to create recursive mutex!");
+        LOGGER_API_WARNING(av->tox, "Failed to create recursive mutex!");
         free(vc);
         return NULL;
     }
 
-    LOGGER_WARNING(log, "vc_new ...");
+    LOGGER_API_WARNING(av->tox, "vc_new ...");
 
     // options ---
     vc->video_encoder_cpu_used = VP8E_SET_CPUUSED_VALUE;
@@ -198,7 +198,7 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
 
 #endif
 
-    LOGGER_WARNING(log, "vc_new:rb_new OK");
+    LOGGER_API_WARNING(av->tox, "vc_new:rb_new OK");
 
     // HINT: tell client what encoder and decoder are in use now -----------
     if (av->call_comm_cb) {
@@ -232,13 +232,7 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     // HINT: initialize the H264 encoder
 
 
-#ifdef RASPBERRY_PI_OMX
-    LOGGER_WARNING(log, "OMX:002");
-    vc = vc_new_h264_omx_raspi(log, av, friend_number, cb, cb_data, vc);
-    LOGGER_WARNING(log, "OMX:003");
-#else
     vc = vc_new_h264(log, av, friend_number, cb, cb_data, vc);
-#endif
 
     // HINT: initialize VP8 encoder
     return vc_new_vpx(log, av, friend_number, cb, cb_data, vc);
@@ -342,7 +336,6 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                    int64_t *timestamp_difference_to_sender_,
                    int32_t *video_has_rountrip_time_ms)
 {
-
     if (!vc) {
         return 0;
     }
@@ -352,6 +345,8 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     bool have_requested_index_frame = false;
 
     vpx_codec_err_t rc = 0;
+
+    LOGGER_API_INFO(tox, "vc_iterate:enter:fnum=%d", vc->friend_number);
 
     LOGGER_API_DEBUG(tox, "try_lock");
     if (pthread_mutex_trylock(vc->queue_mutex) != 0) {
