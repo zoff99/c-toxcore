@@ -455,7 +455,7 @@ bool toxav_call(ToxAV *av, uint32_t friend_number, uint32_t audio_bit_rate, uint
     call->video_bit_rate = video_bit_rate;
     call->video_bit_rate_not_yet_set = call->video_bit_rate;
 
-    LOGGER_ERROR(av->m->log, "toxav_call:vb=%d", (int)video_bit_rate);
+    LOGGER_DEBUG(av->m->log, "toxav_call:vb=%d", (int)video_bit_rate);
 
     call->previous_self_capabilities = MSI_CAP_R_AUDIO | MSI_CAP_R_VIDEO;
 
