@@ -1192,7 +1192,7 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                        uint8_t *ret_value)
 {
 
-    LOGGER_API_INFO(vc->av->tox, "decode_frame_h264:fnum=%d,len=%d", vc->friend_number, full_data_len);
+    LOGGER_API_DEBUG(vc->av->tox, "decode_frame_h264:fnum=%d,len=%d", vc->friend_number, full_data_len);
 
     if (p == NULL) {
         LOGGER_DEBUG(vc->log, "decode_frame_h264:NO data");

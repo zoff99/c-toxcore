@@ -346,7 +346,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
     vpx_codec_err_t rc = 0;
 
-    LOGGER_API_INFO(tox, "vc_iterate:enter:fnum=%d", vc->friend_number);
+    LOGGER_API_DEBUG(tox, "vc_iterate:enter:fnum=%d", vc->friend_number);
 
     LOGGER_API_DEBUG(tox, "try_lock");
     if (pthread_mutex_trylock(vc->queue_mutex) != 0) {

@@ -570,7 +570,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     // TODO(Zoff): is this ok?
     uint16_t length = (uint16_t)length2;
 
-    LOGGER_API_INFO(tox, "******handle_rtp_packet******handle_rtp_packet****** = fn=%d, %d %d %d\n", friendnumber, (uint8_t)data[0],
+    LOGGER_API_DEBUG(tox, "******handle_rtp_packet******handle_rtp_packet****** = fn=%d, %d %d %d\n", friendnumber, (uint8_t)data[0],
                      (int)length2, length);
 
     if (!data) {
