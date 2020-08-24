@@ -17,11 +17,11 @@
  * Error codes.
  */
 typedef enum MSIError {
-    MSI_E_NONE,
+    MSI_E_NONE, // 0
     MSI_E_INVALID_MESSAGE,
     MSI_E_INVALID_PARAM,
-    MSI_E_INVALID_STATE,
-    MSI_E_STRAY_MESSAGE,
+    MSI_E_INVALID_STATE, // 3
+    MSI_E_STRAY_MESSAGE, // 4
     MSI_E_SYSTEM,
     MSI_E_HANDLE,
     MSI_E_UNDISCLOSED, /* NOTE: must be last enum otherwise parsing will not work */
