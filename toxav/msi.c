@@ -825,13 +825,17 @@ static void handle_init(MSICall *call, const MSIMessage *msg)
 
         case MSI_CALL_REQUESTING: {
             /* Call starting */
-            LOGGER_API_INFO(call->session->tox,"MSI_CALL_REQUESTED:Friend answered our call");
+            LOGGER_API_INFO(call->session->tox,"MSI_CALL_REQUESTING:Friend sent an invite, but we are waiting for an call answer to our call");
+
+            /* if 2 friends call each other at the same time, ignore for now */
+#if 0
             call->peer_capabilities = msg->capabilities.value;
             call->state = MSI_CALL_ACTIVE;
 
             if (invoke_callback(call, MSI_ON_START) == -1) {
                 goto FAILURE;
             }
+#endif
         }
         break;
 
