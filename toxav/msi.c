@@ -264,7 +264,11 @@ int msi_invite(MSISession *session, MSICall **call, uint32_t friend_number, uint
 
 int msi_hangup(MSICall *call)
 {
-    if (!call || !call->session) {
+    if (!call) {
+        return -1;
+    }
+
+    if (!call->session) {
         return -1;
     }
 
@@ -274,12 +278,12 @@ int msi_hangup(MSICall *call)
                      call->friend_number);
 
     if (pthread_mutex_trylock(session->mutex) != 0) {
-        LOGGER_API_ERROR(session->tox, "Failed to acquire lock on msi mutex");
+        // LOGGER_API_ERROR(session->tox, "Failed to acquire lock on msi mutex");
         return -1;
     }
 
     if (call->state == MSI_CALL_INACTIVE) {
-        LOGGER_API_ERROR(session->tox, "Call is in invalid state!");
+        // LOGGER_API_ERROR(session->tox, "Call is in invalid state!");
         pthread_mutex_unlock(session->mutex);
         return -1;
     }
