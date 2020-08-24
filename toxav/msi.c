@@ -823,9 +823,9 @@ static void handle_init(MSICall *call, const MSIMessage *msg)
         }
         break;
 
-        case MSI_CALL_REQUESTED: {
-            /* Call requested */
-            LOGGER_API_INFO(call->session->tox,"MSI_CALL_REQUESTED");
+        case MSI_CALL_REQUESTING: {
+            /* Call starting */
+            LOGGER_API_INFO(call->session->tox,"MSI_CALL_REQUESTED:Friend answered our call");
             call->peer_capabilities = msg->capabilities.value;
             call->state = MSI_CALL_ACTIVE;
 
@@ -859,8 +859,8 @@ static void handle_init(MSICall *call, const MSIMessage *msg)
         }
         break;
 
-        case MSI_CALL_REQUESTING: {
-            LOGGER_API_WARNING(call->session->tox, "MSI_CALL_REQUESTING:Session: %p Invalid state on 'init'", (void *)call->session);
+        case MSI_CALL_REQUESTED: {
+            LOGGER_API_WARNING(call->session->tox, "MSI_CALL_REQUESTED:Session: %p Invalid state on 'init'", (void *)call->session);
             call->error = MSI_E_INVALID_STATE;
             goto FAILURE;
         }
