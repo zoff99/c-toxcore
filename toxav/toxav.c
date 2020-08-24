@@ -2162,6 +2162,9 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
     pthread_mutex_unlock(call->av->mutex);
 }
 
+// ------------ MSI callback function ------------
+// ------------ MSI callback function ------------
+// ------------ MSI callback function ------------
 static int callback_invite(void *toxav_inst, MSICall *call)
 {
     ToxAV *toxav = (ToxAV *)toxav_inst;
@@ -2274,6 +2277,9 @@ static int callback_capabilites(void *toxav_inst, MSICall *call)
     pthread_mutex_unlock(toxav->mutex);
     return 0;
 }
+// ------------ MSI callback function ------------
+// ------------ MSI callback function ------------
+// ------------ MSI callback function ------------
 
 static bool audio_bit_rate_invalid(uint32_t bit_rate)
 {

@@ -794,6 +794,9 @@ CLEAR_CONTAINER:
 }
 
 
+/*
+ * INIT -> friend sent a message to us, and wants to initiate a call (e.g. friend is trying to call us)
+ */
 static void handle_init(MSICall *call, const MSIMessage *msg)
 {
     assert(call);
@@ -809,10 +812,23 @@ static void handle_init(MSICall *call, const MSIMessage *msg)
     switch (call->state) {
         case MSI_CALL_INACTIVE: {
             /* Call requested */
+            LOGGER_API_INFO(call->session->tox,"MSI_CALL_INACTIVE");
             call->peer_capabilities = msg->capabilities.value;
             call->state = MSI_CALL_REQUESTED;
 
             if (invoke_callback(call, MSI_ON_INVITE) == -1) {
+                goto FAILURE;
+            }
+        }
+        break;
+
+        case MSI_CALL_REQUESTED: {
+            /* Call requested */
+            LOGGER_API_INFO(call->session->tox,"MSI_CALL_REQUESTED");
+            call->peer_capabilities = msg->capabilities.value;
+            call->state = MSI_CALL_ACTIVE;
+
+            if (invoke_callback(call, MSI_ON_START) == -1) {
                 goto FAILURE;
             }
         }
@@ -826,7 +842,7 @@ static void handle_init(MSICall *call, const MSIMessage *msg)
              * we can automatically answer the re-call.
              */
 
-            LOGGER_API_INFO(call->session->tox, "Friend is recalling us");
+            LOGGER_API_INFO(call->session->tox, "MSI_CALL_ACTIVE:Friend is recalling us");
 
             MSIMessage out_msg;
             msg_init(&out_msg, REQU_PUSH);
@@ -842,9 +858,8 @@ static void handle_init(MSICall *call, const MSIMessage *msg)
         }
         break;
 
-        case MSI_CALL_REQUESTED: // fall-through
         case MSI_CALL_REQUESTING: {
-            LOGGER_API_WARNING(call->session->tox, "Session: %p Invalid state on 'init'", (void *)call->session);
+            LOGGER_API_WARNING(call->session->tox, "MSI_CALL_REQUESTING:Session: %p Invalid state on 'init'", (void *)call->session);
             call->error = MSI_E_INVALID_STATE;
             goto FAILURE;
         }
@@ -856,6 +871,9 @@ FAILURE:
     kill_call(call);
 }
 
+/*
+ * PUSH -> friend sent a message to us (friend is sending some info, or answering our request to call him)
+ */
 static void handle_push(MSICall *call, const MSIMessage *msg)
 {
     assert(call);
@@ -873,7 +891,7 @@ static void handle_push(MSICall *call, const MSIMessage *msg)
         case MSI_CALL_ACTIVE: {
             /* Only act if capabilities changed */
             if (call->peer_capabilities != msg->capabilities.value) {
-                LOGGER_API_INFO(call->session->tox, "Friend is changing capabilities to: %u", msg->capabilities.value);
+                LOGGER_API_INFO(call->session->tox, "MSI_CALL_ACTIVE:Friend is changing capabilities to: %u", msg->capabilities.value);
 
                 call->peer_capabilities = msg->capabilities.value;
 
@@ -885,7 +903,7 @@ static void handle_push(MSICall *call, const MSIMessage *msg)
         break;
 
         case MSI_CALL_REQUESTING: {
-            LOGGER_API_INFO(call->session->tox, "Friend answered our call");
+            LOGGER_API_INFO(call->session->tox, "MSI_CALL_REQUESTING:Friend answered our call");
 
             /* Call started */
             call->peer_capabilities = msg->capabilities.value;
@@ -898,9 +916,13 @@ static void handle_push(MSICall *call, const MSIMessage *msg)
         break;
 
         /* Pushes during initialization state are ignored */
-        case MSI_CALL_INACTIVE: // fall-through
+        case MSI_CALL_INACTIVE: {
+            LOGGER_API_WARNING(call->session->tox, "MSI_CALL_INACTIVE:Ignoring invalid push");
+        }
+        break;
+
         case MSI_CALL_REQUESTED: {
-            LOGGER_API_WARNING(call->session->tox, "Ignoring invalid push");
+            LOGGER_API_WARNING(call->session->tox, "MSI_CALL_INACTIVE:Ignoring invalid push");
         }
         break;
     }
@@ -928,27 +950,27 @@ static void handle_pop(MSICall *call, const MSIMessage *msg)
     } else {
         switch (call->state) {
             case MSI_CALL_INACTIVE: {
-                LOGGER_API_ERROR(call->session->tox, "Handling what should be impossible case");
+                LOGGER_API_ERROR(call->session->tox, "MSI_CALL_INACTIVE:Handling what should be impossible case");
                 abort();
             }
 
             case MSI_CALL_ACTIVE: {
                 /* Hangup */
-                LOGGER_API_INFO(call->session->tox, "Friend hung up on us");
+                LOGGER_API_INFO(call->session->tox, "MSI_CALL_ACTIVE:Friend hung up on us");
                 invoke_callback(call, MSI_ON_END);
             }
             break;
 
             case MSI_CALL_REQUESTING: {
                 /* Reject */
-                LOGGER_API_INFO(call->session->tox, "Friend rejected our call");
+                LOGGER_API_INFO(call->session->tox, "MSI_CALL_REQUESTING:Friend rejected our call");
                 invoke_callback(call, MSI_ON_END);
             }
             break;
 
             case MSI_CALL_REQUESTED: {
                 /* Cancel */
-                LOGGER_API_INFO(call->session->tox, "Friend canceled call invite");
+                LOGGER_API_INFO(call->session->tox, "MSI_CALL_REQUESTED:Friend canceled call invite");
                 invoke_callback(call, MSI_ON_END);
             }
             break;
@@ -997,14 +1019,14 @@ static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *d
         return;
     }
 
-    LOGGER_API_INFO(tox, "Successfully parsed message");
+    LOGGER_API_INFO(tox, "Successfully parsed message:msg.request.value=%d", (int)msg.request.value);
 
     pthread_mutex_lock(session->mutex);
     MSICall *call = get_call(session, friend_number);
 
     if (call == nullptr) {
         if (msg.request.value != REQU_INIT) {
-            send_error(tox, friend_number, MSI_E_STRAY_MESSAGE);
+            // send_error(tox, friend_number, MSI_E_STRAY_MESSAGE); // MSI_E_STRAY_MESSAGE is never handled anywhere, so dont send it
             pthread_mutex_unlock(session->mutex);
             return;
         }
