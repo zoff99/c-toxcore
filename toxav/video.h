@@ -163,6 +163,7 @@ typedef struct VCSession_s {
     AVPacket *h264_out_pic2;
 // ------ ffmpeg encoder ------
 
+    char *encoder_codec_used_name;
 
 #ifdef RASPBERRY_PI_OMX
     struct OMXContext *omx_ctx;

@@ -172,6 +172,8 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     vc->video_buf_ms_array_index_long = 0;
     vc->video_buf_ms_mean_value_long = 0;
 
+    vc->encoder_codec_used_name = calloc(1, 500);
+
     // set h264 callback
     vc->vcb_h264 = av->vcb_h264;
     vc->vcb_h264_user_data = av->vcb_h264_user_data;
@@ -231,7 +233,6 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
 
     // HINT: initialize the H264 encoder
 
-
     vc = vc_new_h264(log, av, friend_number, cb, cb_data, vc);
 
     // HINT: initialize VP8 encoder
@@ -265,6 +266,12 @@ void vc_kill(VCSession *vc)
     vc_kill_h264(vc);
 #endif
     vc_kill_vpx(vc);
+
+    if (vc->encoder_codec_used_name)
+    {
+        free(vc->encoder_codec_used_name);
+        vc->encoder_codec_used_name = NULL;
+    }
 
     void *p;
     uint64_t dummy;

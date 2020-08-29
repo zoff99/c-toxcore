@@ -86,6 +86,22 @@ int global_h264_enc_profile_high_enabled_switch = 0;
  */
 
 
+#ifdef HW_CODEC_CONFIG_ACCELDEFAULT
+/* ---------------------------------------------------
+ * default with possible HW accel
+ */
+#undef ACTIVE_HW_CODEC_CONFIG_NAME
+#undef RAPI_HWACCEL_ENC
+#undef X264_ENCODE_USED
+// --
+#define ACTIVE_HW_CODEC_CONFIG_NAME "HW_CODEC_CONFIG_ACCELDEFAULT"
+#define RAPI_HWACCEL_ENC 1
+/* ---------------------------------------------------
+ * default with possible HW accel
+ */
+#endif
+
+
 #ifdef HW_CODEC_CONFIG_TRIFA
 /* ---------------------------------------------------
  * TRIfA
@@ -355,10 +371,105 @@ void my_log_callback(void *ptr, int level, const char *fmt, va_list vargs)
     // LOGGER_WARNING(global__log, fmt, vargs);
 }
 
+static int exists_encoder_codec_by_name(char *codec_name)
+{
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
+    avcodec_register_all();
+#endif
+
+    AVCodec *codec = NULL;
+    codec = avcodec_find_encoder_by_name(codec_name);
+    if (codec)
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+static int works_encoder_codec_by_name(char *codec_name)
+{
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
+    avcodec_register_all();
+#endif
+
+    AVCodec *codec = NULL;
+    codec = avcodec_find_encoder_by_name(codec_name);
+    if (codec)
+    {
+        AVCodecContext *avctx = avcodec_alloc_context3(codec);
+
+        // -------- wanted (and also needed settings) --------
+        av_opt_set(avctx->priv_data, "profile", "baseline", 0);
+        avctx->profile = FF_PROFILE_H264_BASELINE;
+
+        av_opt_set(avctx->priv_data, "annex_b", "1", 0);
+        av_opt_set(avctx->priv_data, "repeat_headers", "1", 0);
+        av_opt_set_int(avctx->priv_data, "b", 200 * 1000, 0);
+        av_opt_set_int(avctx->priv_data, "bitrate", 200 * 1000, 0);
+
+        av_opt_set_int(avctx->priv_data, "cbr", true, 0);
+        av_opt_set(avctx->priv_data, "rc", "cbr_ld_hq", 0);
+        av_opt_set_int(avctx->priv_data, "delay", 0, 0);
+
+        if (strncmp(codec_name, "h264_nvenc", strlen("h264_nvenc")) == 0)
+        {
+            printf("llhq\n");
+            av_opt_set(avctx->priv_data, "preset", "llhq", 0);
+        }
+        else
+        {
+            av_opt_set(avctx->priv_data, "preset", "ultrafast", 0);
+            printf("ultrafast\n");
+        }
+
+        av_opt_set_int(avctx->priv_data, "bf", 0, 0);
+        av_opt_set_int(avctx->priv_data, "qmin", 3, 0);
+        av_opt_set_int(avctx->priv_data, "qmax", 51, 0);
+        av_opt_set(avctx->priv_data, "forced-idr", "false", 0);
+        av_opt_set_int(avctx->priv_data, "zerolatency", 1, AV_OPT_SEARCH_CHILDREN);
+        av_opt_set(avctx->priv_data, "no-scenecut", "true", 0);
+        av_opt_set(avctx->priv_data, "strict_gop", "true", 0);
+        avctx->bit_rate = 200 * 1000;
+        avctx->width = 1920;
+        avctx->height = 1080;
+        avctx->gop_size = 60;
+        avctx->max_b_frames = 0;
+        avctx->pix_fmt = AV_PIX_FMT_YUV420P;
+        avctx->time_base.num = 1;
+        avctx->time_base.den = 1000;
+
+        avctx->time_base = (AVRational) {
+            25, 1000
+        };
+        avctx->framerate = (AVRational) {
+            1000, 25
+        };
+        // -------- wanted (and also needed settings) --------
+
+
+        AVDictionary *opts = NULL;
+        if (avcodec_open2(avctx, codec, &opts) < 0)
+        {
+            printf("avcodec_open2:ERR\n");
+            av_free(avctx);
+            return 0;
+        }
+
+        av_dict_free(&opts);
+        avcodec_free_context(&avctx);
+
+        printf("avcodec_open2:OK\n");
+
+        return 1;
+    }
+
+    return 0;
+}
+
 VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data,
                        VCSession *vc)
 {
-
 
     // ENCODER -------
 
@@ -466,7 +577,68 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
     vc->h264_encoder = NULL;
 
-// ------ ffmpeg encoder ------
+// ------ ffmpeg encoder --------------------------------------------------------------
+// ------ ffmpeg encoder --------------------------------------------------------------
+// ------ ffmpeg encoder --------------------------------------------------------------
+// ------ ffmpeg encoder --------------------------------------------------------------
+// ------ ffmpeg encoder --------------------------------------------------------------
+
+#ifdef RAPI_HWACCEL_ENC
+    // ----- detect H264 encoder -----
+    int res_detect = 0;
+
+    res_detect = exists_encoder_codec_by_name("h264_omx");
+    dbg(9, "h264_omx:e:%d\n", res_detect);
+    res_detect = works_encoder_codec_by_name("h264_omx");
+    dbg(9, "h264_omx:w:%d\n", res_detect);
+
+    if (res_detect == 1)
+    {
+        strncpy(vc->encoder_codec_used_name, "h264_omx", strlen("h264_omx"));
+        dbg(9, "using_encoder:%s\n", vc->encoder_codec_used_name);
+    }
+    else
+    {
+        res_detect = exists_encoder_codec_by_name("h264_nvenc");
+        dbg(9, "h264_nvenc:e:%d\n", res_detect);
+        res_detect = works_encoder_codec_by_name("h264_nvenc");
+        dbg(9, "h264_nvenc:w:%d\n", res_detect);
+
+        if (res_detect == 1)
+        {
+            strncpy(vc->encoder_codec_used_name, "h264_nvenc", strlen("h264_nvenc"));
+            dbg(9, "using_encoder:%s\n", vc->encoder_codec_used_name);
+        }
+        else
+        {
+            res_detect = exists_encoder_codec_by_name("h264_vaapi");
+            dbg(9, "h264_vaapi:e:%d\n", res_detect);
+            res_detect = works_encoder_codec_by_name("h264_vaapi");
+            dbg(9, "h264_vaapi:w:%d\n", res_detect);
+
+            if (res_detect == 1)
+            {
+                strncpy(vc->encoder_codec_used_name, "h264_vaapi", strlen("h264_vaapi"));
+                dbg(9, "using_encoder:%s\n", vc->encoder_codec_used_name);
+            }
+            else
+            {
+                res_detect = exists_encoder_codec_by_name("libx264");
+                dbg(9, "libx264:e:%d\n", res_detect);
+                res_detect = works_encoder_codec_by_name("libx264");
+                dbg(9, "libx264:w:%d\n", res_detect);
+
+                strncpy(vc->encoder_codec_used_name, "libx264", strlen("libx264"));
+                dbg(9, "using_fallback_encoder:%s\n", vc->encoder_codec_used_name);
+            }
+        }
+    }
+    // ----- detect H264 encoder -----
+#else
+#endif
+
+
+
     AVCodec *codec2 = NULL;
     vc->h264_encoder2 = NULL;
 
@@ -480,7 +652,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     codec2 = NULL;
 
 #ifdef RAPI_HWACCEL_ENC
-    codec2 = avcodec_find_encoder_by_name(H264_WANT_ENCODER_NAME);
+    codec2 = avcodec_find_encoder_by_name(vc->encoder_codec_used_name); //(H264_WANT_ENCODER_NAME);
 
     if (!codec2) {
         LOGGER_API_WARNING(av->tox, "codec not found HW Accel H264 on encoder, trying software decoder ...");
@@ -490,7 +662,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     }
 
 #else
-    codec2 = avcodec_find_encoder_by_name("libx264");
+    codec2 = avcodec_find_encoder_by_name(vc->encoder_codec_used_name);
 #endif
 
     vc->h264_encoder2 = avcodec_alloc_context3(codec2);
@@ -539,7 +711,16 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     av_opt_set(vc->h264_encoder2->priv_data, "rc", "cbr_ld_hq", 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "delay", 0, 0);
     // av_opt_set_int(vc->h264_encoder2->priv_data, "rc-lookahead", 0, 0);
-    av_opt_set(vc->h264_encoder2->priv_data, "preset", "llhq", 0);
+
+    if (strncmp(vc->encoder_codec_used_name, "h264_nvenc", strlen("h264_nvenc")) == 0)
+    {
+        av_opt_set(vc->h264_encoder2->priv_data, "preset", "llhq", 0);
+    }
+    else
+    {
+        av_opt_set(vc->h264_encoder2->priv_data, "preset", "ultrafast", 0);
+    }
+
     av_opt_set_int(vc->h264_encoder2->priv_data, "bf", 0, 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "qmin", 3, 0);
     av_opt_set_int(vc->h264_encoder2->priv_data, "qmax", 51, 0);
@@ -599,7 +780,11 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     av_dict_free(&opts);
 
 
-// ------ ffmpeg encoder ------
+// ------ ffmpeg encoder --------------------------------------------------------------
+// ------ ffmpeg encoder --------------------------------------------------------------
+// ------ ffmpeg encoder --------------------------------------------------------------
+// ------ ffmpeg encoder --------------------------------------------------------------
+// ------ ffmpeg encoder --------------------------------------------------------------
 
 #endif
 
@@ -992,7 +1177,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             codec2 = NULL;
 
 #ifdef RAPI_HWACCEL_ENC
-            codec2 = avcodec_find_encoder_by_name(H264_WANT_ENCODER_NAME);
+            codec2 = avcodec_find_encoder_by_name(vc->encoder_codec_used_name); //(H264_WANT_ENCODER_NAME);
 
             if (!codec2) {
                 LOGGER_WARNING(log, "codec not found HW Accel H264 on encoder, trying software decoder ...");
@@ -1034,7 +1219,16 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
             av_opt_set(vc->h264_encoder2->priv_data, "rc", "cbr_ld_hq", 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "delay", 0, 0);
             // av_opt_set_int(vc->h264_encoder2->priv_data, "rc-lookahead", 0, 0);
-            av_opt_set(vc->h264_encoder2->priv_data, "preset", "llhq", 0);
+
+            if (strncmp(vc->encoder_codec_used_name, "h264_nvenc", strlen("h264_nvenc")) == 0)
+            {
+                av_opt_set(vc->h264_encoder2->priv_data, "preset", "llhq", 0);
+            }
+            else
+            {
+                av_opt_set(vc->h264_encoder2->priv_data, "preset", "ultrafast", 0);
+            }
+
             av_opt_set_int(vc->h264_encoder2->priv_data, "bf", 0, 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "qmin", 3, 0);
             av_opt_set_int(vc->h264_encoder2->priv_data, "qmax", 51, 0);
@@ -1860,5 +2054,3 @@ void vc_kill_h264(VCSession *vc)
 
     avcodec_free_context(&vc->h264_decoder);
 }
-
-
