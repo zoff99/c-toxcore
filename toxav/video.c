@@ -173,6 +173,7 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     vc->video_buf_ms_mean_value_long = 0;
 
     vc->encoder_codec_used_name = calloc(1, 500);
+    vc->x264_software_encoder_used = 1;
 
     // set h264 callback
     vc->vcb_h264 = av->vcb_h264;
