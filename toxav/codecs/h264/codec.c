@@ -665,7 +665,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
             LOGGER_API_WARNING(av->tox, "codec not found HW Accel H264 on encoder, trying software decoder ...");
             codec2 = avcodec_find_encoder_by_name("libx264");
         } else {
-            LOGGER_API_ERROR(av->tox, "FOUND: *HW Accel* H264 encoder: %s", H264_WANT_ENCODER_NAME);
+            LOGGER_API_ERROR(av->tox, "FOUND: *HW Accel* H264 encoder: %s", vc->encoder_codec_used_name);
         }
 
         vc->h264_encoder2 = avcodec_alloc_context3(codec2);
@@ -1166,7 +1166,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
                     LOGGER_WARNING(log, "codec not found HW Accel H264 on encoder, trying software decoder ...");
                     codec2 = avcodec_find_encoder_by_name("libx264");
                 } else {
-                    LOGGER_ERROR(log, "FOUND: *HW Accel* H264 encoder: %s", H264_WANT_ENCODER_NAME);
+                    LOGGER_ERROR(log, "FOUND: *HW Accel* H264 encoder: %s", vc->encoder_codec_used_name);
                 }
 
                 vc->h264_encoder2 = avcodec_alloc_context3(codec2);
