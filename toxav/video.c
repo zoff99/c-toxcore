@@ -723,7 +723,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
         if ((int32_t)header_v3_0->sequnum < (int32_t)vc->last_seen_fragment_seqnum) {
             // drop frame with too old sequence number
-            LOGGER_API_ERROR(tox, "skipping incoming video frame (0) with sn=%d lastseen=%d old_frames_count=%d",
+            LOGGER_API_DEBUG(tox, "skipping incoming video frame (0) with sn=%d lastseen=%d old_frames_count=%d",
                            (int)header_v3_0->sequnum,
                            (int)vc->last_seen_fragment_seqnum,
                            (int)vc->count_old_video_frames_seen);
@@ -732,7 +732,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
             if ((int32_t)(header_v3_0->sequnum + 1) != (int32_t)vc->last_seen_fragment_seqnum) {
                 // TODO: check why we often get exactly the previous video frame here?!?!
-                LOGGER_API_ERROR(tox, "got previous seq number");
+                LOGGER_API_DEBUG(tox, "got previous seq number");
             }
 
             if (vc->count_old_video_frames_seen > 6) {
@@ -740,7 +740,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                 // a seqnum rollover or something else. just play those frames then
                 vc->last_seen_fragment_seqnum = (int32_t)header_v3_0->sequnum;
                 vc->count_old_video_frames_seen = 0;
-                LOGGER_API_ERROR(tox, "count_old_video_frames_seen > 6");
+                LOGGER_API_DEBUG(tox, "count_old_video_frames_seen > 6");
             }
 
             free(p);
@@ -753,7 +753,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
             int32_t missing_frames_count = (int32_t)header_v3_0->sequnum -
                                            (int32_t)(vc->last_seen_fragment_seqnum + 1);
 
-            LOGGER_API_ERROR(tox, "missing some video frames: missing count=%d", (int)missing_frames_count);
+            LOGGER_API_DEBUG(tox, "missing some video frames: missing count=%d", (int)missing_frames_count);
 
 #define NORMAL_MISSING_FRAME_COUNT_TOLERANCE 0
 #define WHEN_SKIPPING_MISSING_FRAME_COUNT_TOLERANCE 2
