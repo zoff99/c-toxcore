@@ -1300,7 +1300,7 @@ bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pc
         // LOGGER_API_DEBUG(av->tox, "opus:enc:time=%d", (int)(opus_encoding_time));
 
         if (vrc < 0) {
-            LOGGER_API_WARNING(av->tox, "Failed to encode frame %s", opus_strerror(vrc));
+            LOGGER_API_DEBUG(av->tox, "Failed to encode frame %s", opus_strerror(vrc));
             pthread_mutex_unlock(call->mutex_audio);
             rc = TOXAV_ERR_SEND_FRAME_INVALID;
             goto RETURN;
@@ -1339,7 +1339,7 @@ bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pc
                               0,
                               0,
                               nullptr) != 0) {
-                LOGGER_WARNING(av->m->log, "Failed to send audio packet");
+                LOGGER_DEBUG(av->m->log, "Failed to send audio packet");
                 rc = TOXAV_ERR_SEND_FRAME_RTP_FAILED;
             }
 
