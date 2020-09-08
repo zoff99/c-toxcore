@@ -1686,12 +1686,32 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 // -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
 
-                vc->vcb(vc->av, vc->friend_number, frame->width, frame->height,
-                        (const uint8_t *)frame->data[0],
-                        (const uint8_t *)frame->data[1],
-                        (const uint8_t *)frame->data[2],
-                        frame->linesize[0], frame->linesize[1],
-                        frame->linesize[2], vc->vcb_user_data);
+                if (vc->vcb_pts)
+                {
+                    uint64_t pts_for_client = h_frame_record_timestamp;
+                    int32_t delta_check = (int32_t)(h_frame_record_timestamp - frame->pkt_pts);
+                    if ((delta_check >= 0) && (delta_check <= 100))
+                    {
+                        pts_for_client = frame->pkt_pts;
+                    }
+
+                    vc->vcb_pts(vc->av, vc->friend_number, frame->width, frame->height,
+                            (const uint8_t *)frame->data[0],
+                            (const uint8_t *)frame->data[1],
+                            (const uint8_t *)frame->data[2],
+                            frame->linesize[0], frame->linesize[1],
+                            frame->linesize[2], vc->vcb_pts_user_data,
+                            pts_for_client);
+                }
+                else
+                {
+                    vc->vcb(vc->av, vc->friend_number, frame->width, frame->height,
+                            (const uint8_t *)frame->data[0],
+                            (const uint8_t *)frame->data[1],
+                            (const uint8_t *)frame->data[2],
+                            frame->linesize[0], frame->linesize[1],
+                            frame->linesize[2], vc->vcb_user_data);
+                }
             }
 
             // end_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
