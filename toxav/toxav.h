@@ -826,6 +826,14 @@ void toxav_callback_video_receive_frame(ToxAV *av, toxav_video_receive_frame_cb 
 
 
 
+typedef void toxav_video_receive_frame_pts_cb(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height,
+        const uint8_t *y, const uint8_t *u, const uint8_t *v, int32_t ystride, int32_t ustride, int32_t vstride,
+        void *user_data, uint64_t pts);
+
+void toxav_callback_video_receive_frame_pts(ToxAV *av, toxav_video_receive_frame_pts_cb *callback, void *user_data);
+
+
+
 
 
 typedef void toxav_video_receive_frame_h264_cb(ToxAV *av, uint32_t friend_number,
@@ -837,8 +845,6 @@ typedef void toxav_video_receive_frame_h264_cb(ToxAV *av, uint32_t friend_number
  *
  */
 void toxav_callback_video_receive_frame_h264(ToxAV *av, toxav_video_receive_frame_h264_cb *callback, void *user_data);
-
-
 
 
 /**

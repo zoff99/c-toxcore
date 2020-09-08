@@ -179,6 +179,11 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     vc->vcb_h264 = av->vcb_h264;
     vc->vcb_h264_user_data = av->vcb_h264_user_data;
 
+    // set pts callback
+    vc->vcb_pts = av->vcb_pts;
+    vc->vcb_pts_user_data = av->vcb_pts_user_data;
+
+
     for (int i = 0; i < VIDEO_INCOMING_FRAMES_GAP_MS_ENTRIES; i++) {
         vc->incoming_video_frames_gap_ms[i] = 0;
     }

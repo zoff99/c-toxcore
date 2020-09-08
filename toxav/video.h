@@ -287,6 +287,8 @@ typedef struct VCSession_s {
     /* Video frame receive callback */
     toxav_video_receive_frame_cb *vcb;
     void *vcb_user_data;
+    toxav_video_receive_frame_pts_cb *vcb_pts;
+    void *vcb_pts_user_data;
     toxav_video_receive_frame_h264_cb *vcb_h264;
     void *vcb_h264_user_data;
 
