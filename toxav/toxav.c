@@ -1990,6 +1990,14 @@ void toxav_callback_audio_receive_frame(ToxAV *av, toxav_audio_receive_frame_cb 
     pthread_mutex_unlock(av->mutex);
 }
 
+void toxav_callback_audio_receive_frame_pts(ToxAV *av, toxav_audio_receive_frame_pts_cb *callback, void *user_data)
+{
+    pthread_mutex_lock(av->mutex);
+    av->acb_pts = callback;
+    av->acb_pts_user_data = user_data;
+    pthread_mutex_unlock(av->mutex);
+}
+
 void toxav_callback_video_receive_frame(ToxAV *av, toxav_video_receive_frame_cb *callback, void *user_data)
 {
     pthread_mutex_lock(av->mutex);
@@ -2580,7 +2588,9 @@ static bool call_prepare_transmission(ToxAVCall *call)
     call->bwc = bwc_new(av->tox, av->toxav_mono_time, call->friend_number, callback_bwc, call);
 
     { /* Prepare audio */
-        call->audio = ac_new(av->toxav_mono_time, nullptr, av, av->tox, call->friend_number, av->acb, av->acb_user_data);
+        call->audio = ac_new(av->toxav_mono_time, nullptr, av, av->tox, call->friend_number,
+                                av->acb, av->acb_user_data,
+                                av->acb_pts, av->acb_pts_user_data);
 
         if (!call->audio) {
             LOGGER_API_ERROR(av->tox, "Failed to create audio codec session");

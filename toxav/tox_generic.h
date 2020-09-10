@@ -157,6 +157,8 @@ struct ToxAV {
     /* Audio frame receive callback */
     toxav_audio_receive_frame_cb *acb;
     void *acb_user_data;
+    toxav_audio_receive_frame_pts_cb *acb_pts;
+    void *acb_pts_user_data;
     /* Video frame receive callback */
     toxav_video_receive_frame_cb *vcb;
     void *vcb_user_data;

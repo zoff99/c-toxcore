@@ -793,6 +793,12 @@ typedef void toxav_audio_receive_frame_cb(ToxAV *av, uint32_t friend_number, con
  */
 void toxav_callback_audio_receive_frame(ToxAV *av, toxav_audio_receive_frame_cb *callback, void *user_data);
 
+
+typedef void toxav_audio_receive_frame_pts_cb(ToxAV *av, uint32_t friend_number, const int16_t *pcm, size_t sample_count,
+        uint8_t channels, uint32_t sampling_rate, void *user_data, uint64_t pts);
+
+void toxav_callback_audio_receive_frame_pts(ToxAV *av, toxav_audio_receive_frame_pts_cb *callback, void *user_data);
+
 /**
  * The function type for the video_receive_frame callback.
  *
