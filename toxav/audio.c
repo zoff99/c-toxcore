@@ -46,7 +46,8 @@ static bool reconfigure_audio_decoder(ACSession *ac, int32_t sampling_rate, int8
 
 
 ACSession *ac_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, Tox *tox, uint32_t friend_number,
-                  toxav_audio_receive_frame_cb *cb, void *cb_data)
+                  toxav_audio_receive_frame_cb *cb, void *cb_data,
+                  toxav_audio_receive_frame_pts_cb *cb_pts, void *cb_pts_data)
 {
     ACSession *ac = (ACSession *)calloc(sizeof(ACSession), 1);
 
@@ -111,8 +112,14 @@ ACSession *ac_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, Tox *tox, 
     ac->av = av;
     ac->tox = tox;
     ac->friend_number = friend_number;
+
+    // set callback
     ac->acb = cb;
     ac->acb_user_data = cb_data;
+
+    // set pts callback
+    ac->acb_pts = cb_pts;
+    ac->acb_pts_user_data = cb_pts_data;
 
     return ac;
 
@@ -330,6 +337,7 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
     }
 
     uint8_t ret_value = 1;
+    uint64_t header_pts_saved = 0;
 
     pthread_mutex_lock(ac->queue_mutex);
 
@@ -432,13 +440,14 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
 
                 // LOGGER_ERROR(ac->log, "AUDIO:TTx: %llu %lld now=%llu", header_v3->frame_record_timestamp, (long long)*a_r_timestamp, current_time_monotonic(ac->mono_time));
                 if (header_v3->frame_record_timestamp > 0) {
+                    header_pts_saved = header_v3->frame_record_timestamp;
                     if (*a_r_timestamp < header_v3->frame_record_timestamp) {
                         // LOGGER_ERROR(ac->log, "AUDIO:TTx:2: %llu", header_v3->frame_record_timestamp);
                         *a_r_timestamp = header_v3->frame_record_timestamp;
                         *a_l_timestamp = current_time_monotonic(ac->mono_time);
                     } else {
                         // TODO: this should not happen here!
-                        LOGGER_DEBUG(ac->log, "AUDIO: remote timestamp older");
+                        LOGGER_API_DEBUG(ac->tox, "AUDIO: remote timestamp older");
                     }
                 }
 
@@ -455,11 +464,19 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
         }
 
         if (rc < 0) {
-            LOGGER_WARNING(ac->log, "Decoding error: %s", opus_strerror(rc));
-        } else if (ac->acb) {
-            ac->lp_frame_duration = (rc * 1000) / ac->lp_sampling_rate;
-            ac->acb(ac->av, ac->friend_number, ac->temp_audio_buffer, rc, ac->lp_channel_count,
-                    ac->lp_sampling_rate, ac->acb_user_data);
+            LOGGER_API_WARNING(ac->tox, "Decoding error: %s", opus_strerror(rc));
+        } else {
+            if (ac->acb_pts) {
+                ac->lp_frame_duration = (rc * 1000) / ac->lp_sampling_rate;
+                ac->acb_pts(ac->av, ac->friend_number, ac->temp_audio_buffer, rc, ac->lp_channel_count,
+                        ac->lp_sampling_rate, ac->acb_pts_user_data, header_pts_saved);
+                return ret_value;
+            } else if (ac->acb) {
+                ac->lp_frame_duration = (rc * 1000) / ac->lp_sampling_rate;
+                ac->acb(ac->av, ac->friend_number, ac->temp_audio_buffer, rc, ac->lp_channel_count,
+                        ac->lp_sampling_rate, ac->acb_user_data);
+                return ret_value;
+            }
         }
 
         return ret_value;

@@ -87,10 +87,14 @@ typedef struct ACSession_s {
     /* Audio frame receive callback */
     toxav_audio_receive_frame_cb *acb;
     void *acb_user_data;
+
+    toxav_audio_receive_frame_pts_cb *acb_pts;
+    void *acb_pts_user_data;
 } ACSession;
 
 ACSession *ac_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, Tox *tox, uint32_t friend_number,
-                  toxav_audio_receive_frame_cb *cb, void *cb_data);
+                  toxav_audio_receive_frame_cb *cb, void *cb_data,
+                  toxav_audio_receive_frame_pts_cb *cb_pts, void *cb_pts_data);
 void ac_kill(ACSession *ac);
 uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timestamp, uint64_t *v_r_timestamp,
                    uint64_t *v_l_timestamp,
