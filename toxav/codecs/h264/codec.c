@@ -508,10 +508,11 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         }
         else
         {
-            res_detect = exists_encoder_codec_by_name("h264_vaapi");
-            LOGGER_API_WARNING(av->tox, "h264_vaapi:e:%d", res_detect);
-            res_detect = works_encoder_codec_by_name("h264_vaapi");
-            LOGGER_API_WARNING(av->tox, "h264_vaapi:w:%d", res_detect);
+            res_detect = 0;
+            //res_detect = exists_encoder_codec_by_name("h264_vaapi");
+            //LOGGER_API_WARNING(av->tox, "h264_vaapi:e:%d", res_detect);
+            //res_detect = works_encoder_codec_by_name("h264_vaapi");
+            //LOGGER_API_WARNING(av->tox, "h264_vaapi:w:%d", res_detect);
 
             if (res_detect == 1)
             {
