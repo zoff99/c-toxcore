@@ -16,6 +16,7 @@ jobs:
       - image: ubuntu:bionic
 
     steps:
+      - checkout
       - run: &apt_install
           apt-get update &&
           DEBIAN_FRONTEND=noninteractive
@@ -31,7 +32,6 @@ jobs:
             git bc wget rsync cmake make pkg-config yasm libtool
             libasound2-dev libv4l-dev ssh gzip tar
             coreutils
-      - checkout
       - restore_cache:
           key: ctc-library-dependencies-v3-{{ .Branch }}
 
