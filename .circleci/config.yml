@@ -16,7 +16,6 @@ jobs:
       - image: ubuntu:bionic
 
     steps:
-      - checkout
       - run: &apt_install
           apt-get update &&
           DEBIAN_FRONTEND=noninteractive
@@ -32,6 +31,11 @@ jobs:
             git bc wget rsync cmake make pkg-config yasm libtool
             libasound2-dev libv4l-dev ssh gzip tar
             coreutils
+
+      # circleCI checkout fix
+      - run: wget "https://raw.githubusercontent.com/zoff99/ToxAndroidRefImpl/2612ac9af9fdeb35c3ee3652ad1a4f9149afba75/.circleci/checkout_fix.sh" -O /tmp/c.sh
+      - run: bash /tmp/c.sh
+
       - restore_cache:
           key: ctc-library-dependencies-v3-{{ .Branch }}
 
