@@ -1242,9 +1242,21 @@ bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pc
         goto RETURN;
     }
 
+#if 0
     if (pthread_mutex_trylock(av->mutex) != 0) {
         rc = TOXAV_ERR_SEND_FRAME_SYNC;
         goto RETURN;
+    }
+#endif
+
+    // always wait and send audio frame
+    pthread_mutex_lock(av->mutex);
+
+    uint64_t t2_debug = current_time_monotonic(av->toxav_mono_time);
+    int debug_delayed_audio_send_ms = (int)(t2_debug - audio_frame_record_timestamp);
+    if (debug_delayed_audio_send_ms > 4)
+    {
+        LOGGER_API_WARNING(av->tox, "audio frame sending delayed by %d ms", debug_delayed_audio_send_ms);
     }
 
     call = call_get(av, friend_number);
