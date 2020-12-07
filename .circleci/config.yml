@@ -32,6 +32,7 @@ jobs:
             libasound2-dev libv4l-dev ssh gzip tar
             coreutils
 
+      - run: mkdir -p ~/.ssh/
       - run: echo 'StrictHostKeyChecking no' >> ~/.ssh/config
       - run:
           name: SSH debug
