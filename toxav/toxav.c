@@ -879,6 +879,21 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
 
             LOGGER_WARNING(av->m->log, "video encoder setting video_max_bitrate to: %d", (int)value);
         }
+    } else if (option == TOXAV_ENCODER_VIDEO_MIN_BITRATE) {
+        VCSession *vc = (VCSession *)call->video;
+
+        if (vc->video_min_bitrate == (int32_t)value) {
+            LOGGER_WARNING(av->m->log, "video encoder video_min_bitrate already set to: %d", (int)value);
+        } else {
+            vc->video_min_bitrate = (int32_t)value;
+
+            if (call->video_bit_rate < (uint32_t)vc->video_min_bitrate) {
+                call->video_bit_rate = (uint32_t)vc->video_min_bitrate;
+                call->video_bit_rate_not_yet_set = call->video_bit_rate;
+            }
+
+            LOGGER_WARNING(av->m->log, "video encoder setting video_min_bitrate to: %d", (int)value);
+        }
     } else if (option == TOXAV_ENCODER_VIDEO_BITRATE_AUTOSET) {
         VCSession *vc = (VCSession *)call->video;
 
@@ -2170,6 +2185,10 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
 
     if (call->video_bit_rate > (uint32_t)call->video->video_max_bitrate) {
         call->video_bit_rate = (uint32_t)call->video->video_max_bitrate;
+    }
+
+    if (call->video_bit_rate < (uint32_t)call->video->video_min_bitrate) {
+        call->video_bit_rate = (uint32_t)call->video->video_min_bitrate;
     }
 
     // HINT: sanity check --------------
