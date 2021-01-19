@@ -868,7 +868,7 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
         VCSession *vc = (VCSession *)call->video;
 
         if (vc->video_max_bitrate == (int32_t)value) {
-            LOGGER_WARNING(av->m->log, "video encoder video_max_bitrate already set to: %d", (int)value);
+            LOGGER_API_WARNING(av->tox, "video encoder video_max_bitrate already set to: %d", (int)value);
         } else {
             vc->video_max_bitrate = (int32_t)value;
 
@@ -877,13 +877,13 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
                 call->video_bit_rate_not_yet_set = call->video_bit_rate;
             }
 
-            LOGGER_WARNING(av->m->log, "video encoder setting video_max_bitrate to: %d", (int)value);
+            LOGGER_API_WARNING(av->tox, "video encoder setting video_max_bitrate to: %d", (int)value);
         }
     } else if (option == TOXAV_ENCODER_VIDEO_MIN_BITRATE) {
         VCSession *vc = (VCSession *)call->video;
 
         if (vc->video_min_bitrate == (int32_t)value) {
-            LOGGER_WARNING(av->m->log, "video encoder video_min_bitrate already set to: %d", (int)value);
+                    LOGGER_API_WARNING(av->tox, "video encoder video_min_bitrate already set to: %d", (int)value);
         } else {
             vc->video_min_bitrate = (int32_t)value;
 
@@ -892,7 +892,7 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
                 call->video_bit_rate_not_yet_set = call->video_bit_rate;
             }
 
-            LOGGER_WARNING(av->m->log, "video encoder setting video_min_bitrate to: %d", (int)value);
+            LOGGER_API_WARNING(av->tox, "video encoder setting video_min_bitrate to: %d", (int)value);
         }
     } else if (option == TOXAV_ENCODER_VIDEO_BITRATE_AUTOSET) {
         VCSession *vc = (VCSession *)call->video;
