@@ -296,27 +296,43 @@ int main(void)
 
     fprintf(stderr, "All peers are online\n");
 
+
+    uint32_t ii = 0;
+    char msg[100];
+    const int max_messages_to_send = 10;
+
+    for (ii = 0;ii<max_messages_to_send;ii++)
     {
-        fprintf(stderr, "tox1 sends a message to the group: \"hello!\"\n");
-        Tox_Err_Conference_Send_Message err;
-        tox_conference_send_message(tox1, state1.conference, TOX_MESSAGE_TYPE_NORMAL,
-                                    (const uint8_t *)"hello!", 7, &err);
+        {
+            sprintf(msg, "ping:%d", ii);
+            fprintf(stderr, "tox1 sends a message to the group: %s\n", msg);
+            Tox_Err_Conference_Send_Message err;
+            tox_conference_send_message(tox1, state1.conference, TOX_MESSAGE_TYPE_NORMAL,
+                                        (const uint8_t *)(msg), strlen(msg), &err);
 
-        if (err != TOX_ERR_CONFERENCE_SEND_MESSAGE_OK) {
-            fprintf(stderr, "ERROR: %d\n", err);
-            exit(EXIT_FAILURE);
+            if (err != TOX_ERR_CONFERENCE_SEND_MESSAGE_OK) {
+                fprintf(stderr, "ERROR: %d\n", err);
+                exit(EXIT_FAILURE);
+            }
         }
+
+        fprintf(stderr, "Waiting for messages to arrive\n");
+
+        do {
+            tox_iterate(tox1, &state1);
+            tox_iterate(tox2, &state2);
+            tox_iterate(tox3, &state3);
+
+            c_sleep(iteration_sleep_ms);
+        } while (!state2.received || !state3.received);
+
+
+        state1.received = false;
+        state2.received = false;
+        state3.received = false;
+        fprintf(stderr, "Messages received. #%d\n", ii);
+
     }
-
-    fprintf(stderr, "Waiting for messages to arrive\n");
-
-    do {
-        tox_iterate(tox1, &state1);
-        tox_iterate(tox2, &state2);
-        tox_iterate(tox3, &state3);
-
-        c_sleep(iteration_sleep_ms);
-    } while (!state2.received || !state3.received);
 
     fprintf(stderr, "Messages received. Test complete.\n");
 
