@@ -98,6 +98,20 @@ static void setup_conference(Group_c *g)
     memset(g, 0, sizeof(Group_c));
 
     g->maxfrozen = MAX_FROZEN_DEFAULT;
+
+    // DEBUG: ---------------------------------
+    // DEBUG: ---------------------------------
+    // DEBUG: this is for testing rollover of group message number ONLY
+    // DEBUG: ---------------------------------
+    // DEBUG: ---------------------------------
+    //
+    // g->message_number = (uint32_t)((uint64_t)UINT32_MAX - 5);
+    //
+    // DEBUG: ---------------------------------
+    // DEBUG: ---------------------------------
+    // DEBUG: this is for testing rollover of group message number ONLY
+    // DEBUG: ---------------------------------
+    // DEBUG: ---------------------------------
 }
 
 /* Create a new empty groupchat connection.
