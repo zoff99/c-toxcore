@@ -94,8 +94,12 @@ static uint32_t num_recv;
 
 static void handle_conference_message(
     Tox *tox, uint32_t groupnumber, uint32_t peernumber, Tox_Message_Type type,
-    const uint8_t *message, size_t length, void *user_data)
+    const uint8_t *message2, size_t length2, void *user_data)
 {
+
+    const uint8_t *message = message2 + 9;
+    size_t length = length2 - 9;
+
     if (length == (sizeof(GROUP_MESSAGE) - 1) && memcmp(message, GROUP_MESSAGE, sizeof(GROUP_MESSAGE) - 1) == 0) {
         ++num_recv;
     }
