@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 set -eu
 
@@ -24,7 +24,7 @@ cmake -B_build -H. -GNinja			\
 
 cd _build
 
-ninja install -j"$(nproc)"
+ninja install -j$(nproc)
 
 export ASAN_OPTIONS="detect_invalid_pointer_pairs=1"
 export ASAN_OPTIONS="$ASAN_OPTIONS,detect_stack_use_after_return=1"
@@ -32,4 +32,4 @@ export ASAN_OPTIONS="$ASAN_OPTIONS,strict_init_order=1"
 export ASAN_OPTIONS="$ASAN_OPTIONS,strict_string_checks=1"
 export ASAN_OPTIONS="$ASAN_OPTIONS,symbolize=1"
 ctest -j50 --output-on-failure ||
-  ctest -j50 --output-on-failure --rerun-failed
+ctest -j50 --output-on-failure --rerun-failed

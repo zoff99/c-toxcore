@@ -85,14 +85,13 @@ static int msg_parse_in(Tox *tox, MSIMessage *dest, const uint8_t *data, uint16_
 static uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, uint8_t value_len,
                                      uint16_t *length);
 static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg);
-int send_error(Tox *tox, uint32_t friend_number, MSIError error);
+static int send_error(Tox *tox, uint32_t friend_number, MSIError error);
 static MSICall *get_call(MSISession *session, uint32_t friend_number);
-MSICall *new_call(MSISession *session, uint32_t friend_number);
-void on_peer_status(const Tox *tox, uint32_t friend_number, uint8_t status, void *data);
-void handle_init(MSICall *call, const MSIMessage *msg);
-void handle_push(MSICall *call, const MSIMessage *msg);
-void handle_pop(MSICall *call, const MSIMessage *msg);
-void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length2, void *object);
+static MSICall *new_call(MSISession *session, uint32_t friend_number);
+static void handle_init(MSICall *call, const MSIMessage *msg);
+static void handle_push(MSICall *call, const MSIMessage *msg);
+static void handle_pop(MSICall *call, const MSIMessage *msg);
+static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length2, void *object);
 
 /**
  * Public functions
@@ -573,7 +572,7 @@ static int send_message(Tox *tox, uint32_t friend_number, const MSIMessage *msg)
     return -1;
 }
 
-int send_error(Tox *tox, uint32_t friend_number, MSIError error)
+static int send_error(Tox *tox, uint32_t friend_number, MSIError error)
 {
     assert(tox);
 
@@ -630,7 +629,7 @@ static MSICall *get_call(MSISession *session, uint32_t friend_number)
     return session->calls[friend_number];
 }
 
-MSICall *new_call(MSISession *session, uint32_t friend_number)
+static MSICall *new_call(MSISession *session, uint32_t friend_number)
 {
     assert(session);
 
@@ -946,7 +945,7 @@ FAILURE:
     kill_call(call);
 }
 
-void handle_pop(MSICall *call, const MSIMessage *msg)
+static void handle_pop(MSICall *call, const MSIMessage *msg)
 {
     assert(call);
 
@@ -995,7 +994,7 @@ void handle_pop(MSICall *call, const MSIMessage *msg)
 /* !!hack!! */
 MSISession *tox_av_msi_get(void *av);
 
-void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length2, void *object)
+static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length2, void *object)
 {
     if (length2 < 2) {
         // we need more than the ID byte for MSI messages

@@ -690,7 +690,7 @@ int file_data(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uin
  */
 uint64_t file_dataremaining(const Messenger *m, int32_t friendnumber, uint8_t filenumber, uint8_t send_receive);
 
-/**********************************************/
+/** CUSTOM PACKETS */
 
 /* Set handlers for custom lossy packets.
  *

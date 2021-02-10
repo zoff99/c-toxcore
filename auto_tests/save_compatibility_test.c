@@ -21,7 +21,7 @@
 
 static size_t get_file_size(const char *save_path)
 {
-    FILE *const fp = fopen(save_path, "rb");
+    FILE *const fp = fopen(save_path, "r");
 
     if (fp == nullptr) {
         return 0;
@@ -42,7 +42,7 @@ static uint8_t *read_save(const char *save_path, size_t *length)
         return nullptr;
     }
 
-    FILE *const fp = fopen(save_path, "rb");
+    FILE *const fp = fopen(save_path, "r");
 
     if (!fp) {
         return nullptr;
@@ -123,9 +123,6 @@ static void test_save_compatibility(const char *save_path)
     to_hex(tox_id_str, tox_id, TOX_ADDRESS_SIZE);
     ck_assert_msg(strncmp(tox_id_str, EXPECTED_TOX_ID, TOX_ADDRESS_SIZE * 2) == 0,
                   "tox ids do not match, expected %s got %s", EXPECTED_TOX_ID, tox_id_str);
-
-    /* Giving the tox a chance to error on iterate due to corrupted loaded structures */
-    tox_iterate(tox, nullptr);
 
     tox_kill(tox);
 }

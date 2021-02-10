@@ -1293,7 +1293,7 @@ bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pc
         goto RETURN;
     }
 
-    {   /* Encode and send */
+    { /* Encode and send */
         if (ac_reconfigure_encoder(call->audio, call->audio_bit_rate * 1000, sampling_rate, channels) != 0) {
             pthread_mutex_unlock(call->mutex_audio);
             LOGGER_WARNING(av->m->log, "Failed reconfigure audio encoder");
@@ -2229,7 +2229,7 @@ static int callback_invite(void *toxav_inst, MSICall *call)
     return 0;
 }
 
-int callback_start(void *toxav_inst, MSICall *call)
+static int callback_start(void *toxav_inst, MSICall *call)
 {
     ToxAV *toxav = (ToxAV *)toxav_inst;
     pthread_mutex_lock(toxav->mutex);
@@ -2258,7 +2258,7 @@ int callback_start(void *toxav_inst, MSICall *call)
     return 0;
 }
 
-int callback_end(void *toxav_inst, MSICall *call)
+static int callback_end(void *toxav_inst, MSICall *call)
 {
     ToxAV *toxav = (ToxAV *)toxav_inst;
     pthread_mutex_lock(toxav->mutex);
@@ -2274,7 +2274,7 @@ int callback_end(void *toxav_inst, MSICall *call)
     return 0;
 }
 
-int callback_error(void *toxav_inst, MSICall *call)
+static int callback_error(void *toxav_inst, MSICall *call)
 {
     ToxAV *toxav = (ToxAV *)toxav_inst;
     pthread_mutex_lock(toxav->mutex);
@@ -2290,7 +2290,7 @@ int callback_error(void *toxav_inst, MSICall *call)
     return 0;
 }
 
-int callback_capabilites(void *toxav_inst, MSICall *call)
+static int callback_capabilites(void *toxav_inst, MSICall *call)
 {
     ToxAV *toxav = (ToxAV *)toxav_inst;
     pthread_mutex_lock(toxav->mutex);
@@ -2316,7 +2316,7 @@ int callback_capabilites(void *toxav_inst, MSICall *call)
 // ------------ MSI callback function ------------
 // ------------ MSI callback function ------------
 
-bool audio_bit_rate_invalid(uint32_t bit_rate)
+static bool audio_bit_rate_invalid(uint32_t bit_rate)
 {
     /* Opus RFC 6716 section-2.1.1 dictates the following:
      * Opus supports all bit rates from 6 kbit/s to 510 kbit/s.
@@ -2324,14 +2324,14 @@ bool audio_bit_rate_invalid(uint32_t bit_rate)
     return bit_rate < 6 || bit_rate > 510;
 }
 
-bool video_bit_rate_invalid(uint32_t bit_rate)
+static bool video_bit_rate_invalid(uint32_t bit_rate)
 {
     (void) bit_rate;
     // TODO: remove this, its useless
     return false;
 }
 
-bool invoke_call_state_callback(ToxAV *av, uint32_t friend_number, uint32_t state)
+static bool invoke_call_state_callback(ToxAV *av, uint32_t friend_number, uint32_t state)
 {
     if (av->scb) {
         av->scb(av, friend_number, state, av->scb_user_data);

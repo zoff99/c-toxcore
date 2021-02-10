@@ -14,8 +14,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-//!TOKSTYLE-
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -169,7 +167,7 @@ const VERSION_MINOR                = 2;
  * The patch or revision number. Incremented when bugfixes are applied without
  * changing any functionality or API or ABI.
  */
-const VERSION_PATCH                = 12;
+const VERSION_PATCH                = 11;
 
 #define TOX_HAVE_TOXUTIL               1
 #define TOX_HAVE_TOXAV_CALLBACKS_002   1
@@ -2728,7 +2726,7 @@ namespace friend {
     /**
      * Send a custom lossy packet to a friend.
      *
-     * The first byte of data must be in the range 192-254. Maximum length of a
+     * The first byte of data must be in the range 200-254. Maximum length of a
      * custom packet is $MAX_CUSTOM_PACKET_SIZE.
      *
      * Lossy packets behave like UDP packets, meaning they might never reach the
@@ -2752,7 +2750,7 @@ namespace friend {
     /**
      * Send a custom lossless packet to a friend.
      *
-     * The first byte of data must be in the range 69, 160-191. Maximum length of a
+     * The first byte of data must be in the range 160-191. Maximum length of a
      * custom packet is $MAX_CUSTOM_PACKET_SIZE.
      *
      * Lossless packet behaviour is comparable to TCP (reliability, arrive in order)

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 set -eu
 
@@ -24,10 +24,10 @@ cmake -H. -B_build -GNinja			\
 
 cd _build
 
-ninja install -j"$(nproc)"
+ninja install -j$(nproc)
 
 export TSAN_OPTIONS="halt_on_error=1"
 export TSAN_OPTIONS="$TSAN_OPTIONS,second_deadlock_stack=1"
 export TSAN_OPTIONS="$TSAN_OPTIONS,symbolize=1"
 ctest -j50 --output-on-failure ||
-  ctest -j50 --output-on-failure --rerun-failed
+ctest -j50 --output-on-failure --rerun-failed

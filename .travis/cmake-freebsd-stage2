@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Toxcore building
 
@@ -35,7 +35,7 @@ travis_install() {
   cd "$OLD_PWD"
 
   # Copy over toxcore code from Travis to qemu
-  scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -P "$SSH_PORT" -r ./* root@localhost:~
+  scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -P $SSH_PORT -r ./* root@localhost:~
 
   RUN ls -lh
 }
@@ -57,7 +57,6 @@ travis_script() {
     -DCMAKE_INSTALL_PREFIX:PATH="_install" \
     -DMIN_LOGGER_LEVEL=TRACE \
     -DMUST_BUILD_TOXAV=ON \
-    -DNON_HERMETIC_TESTS=ON \
     -DSTRICT_ABI=ON \
     -DTEST_TIMEOUT_SECONDS=300 \
     -DUSE_IPV6=OFF \

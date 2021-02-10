@@ -17,7 +17,6 @@
 #define _XOPEN_SOURCE 600
 #endif
 
-#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

@@ -1,9 +1,8 @@
 #include "ping_array.h"
 
-#include <gtest/gtest.h>
-
 #include <memory>
 
+#include <gtest/gtest.h>
 #include "mono_time.h"
 
 namespace {

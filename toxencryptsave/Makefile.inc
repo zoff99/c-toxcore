@@ -42,7 +42,7 @@ libtoxencryptsave_la_LDFLAGS =  $(LT_LDFLAGS) \
 
 libtoxencryptsave_la_LIBADD =   $(LIBSODIUM_LIBS) \
                         $(NACL_OBJECTS) \
-                        $(NACL_LIBS) \
+                        $(NAC_LIBS) \
                         $(PTHREAD_LIBS) \
                         libtoxcore.la
 
