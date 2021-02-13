@@ -583,7 +583,8 @@ int pack_nodes(uint8_t *data, uint16_t length, const Node_format *nodes, uint16_
 int unpack_nodes(Node_format *nodes, uint16_t max_num_nodes, uint16_t *processed_data_len, const uint8_t *data,
                  uint16_t length, bool tcp_enabled)
 {
-    uint32_t num = 0, len_processed = 0;
+    uint32_t num = 0;
+    uint32_t len_processed = 0;
 
     while (num < max_num_nodes && len_processed < length) {
         const int ipp_size = unpack_ip_port(&nodes[num].ip_port, data + len_processed, length - len_processed, tcp_enabled);
@@ -899,7 +900,8 @@ static bool incorrect_hardening(const IPPTsPng *assoc)
 
 static int cmp_dht_entry(const void *a, const void *b)
 {
-    DHT_Cmp_data cmp1, cmp2;
+    DHT_Cmp_data cmp1;
+    DHT_Cmp_data cmp2;
     memcpy(&cmp1, a, sizeof(DHT_Cmp_data));
     memcpy(&cmp2, b, sizeof(DHT_Cmp_data));
     const Client_data entry1 = cmp1.entry;
@@ -1292,7 +1294,7 @@ static void returnedip_ports(DHT *dht, IP_Port ip_port, const uint8_t *public_ke
 }
 
 /* Send a getnodes request.
-   sendback_node is the node that it will send back the response to (set to NULL to disable this) */
+ * sendback_node is the node that it will send back the response to (set to NULL to disable this) */
 static int getnodes(DHT *dht, IP_Port ip_port, const uint8_t *public_key, const uint8_t *client_id,
                     const Node_format *sendback_node)
 {
@@ -1425,7 +1427,7 @@ static int handle_getnodes(void *object, IP_Port source, const uint8_t *packet, 
 }
 
 /* return false if no
-   return true if yes */
+ * return true if yes */
 static bool sent_getnode_to_node(DHT *dht, const uint8_t *public_key, IP_Port node_ip_port, uint64_t ping_id,
                                  Node_format *sendback_node)
 {
@@ -2417,7 +2419,8 @@ static int handle_hardening(void *object, IP_Port source, const uint8_t *source_
                 return 1;
             }
 
-            Node_format node, tocheck_node;
+            Node_format node;
+            Node_format tocheck_node;
             node.ip_port = source;
             memcpy(node.public_key, source_pubkey, CRYPTO_PUBLIC_KEY_SIZE);
             memcpy(&tocheck_node, packet + 1, sizeof(Node_format));
@@ -2444,7 +2447,7 @@ static int handle_hardening(void *object, IP_Port source, const uint8_t *source_
                                                length_nodes, 0);
 
             /* TODO(irungentoo): MAX_SENT_NODES nodes should be returned at all times
-             (right now we have a small network size so it could cause problems for testing and etc..) */
+             * (right now we have a small network size so it could cause problems for testing and etc..) */
             if (num_nodes <= 0) {
                 return 1;
             }
@@ -2721,6 +2724,11 @@ DHT *new_dht(const Logger *log, Mono_Time *mono_time, Networking_Core *net, bool
     dht->dht_ping_array = ping_array_new(DHT_PING_ARRAY_SIZE, PING_TIMEOUT);
     dht->dht_harden_ping_array = ping_array_new(DHT_PING_ARRAY_SIZE, PING_TIMEOUT);
 
+    if (dht->dht_ping_array == nullptr || dht->dht_harden_ping_array == nullptr) {
+        kill_dht(dht);
+        return nullptr;
+    }
+
     for (uint32_t i = 0; i < DHT_FAKE_FRIEND_NUMBER; ++i) {
         uint8_t random_public_key_bytes[CRYPTO_PUBLIC_KEY_SIZE];
         uint8_t random_secret_key_bytes[CRYPTO_SECRET_KEY_SIZE];
@@ -2822,7 +2830,12 @@ void dht_save(const DHT *dht, uint8_t *data)
     /* get right offset. we write the actual header later. */
     data = state_write_section_header(data, DHT_STATE_COOKIE_TYPE, 0, 0);
 
-    Node_format clients[MAX_SAVED_DHT_NODES];
+    Node_format *clients = (Node_format *)malloc(MAX_SAVED_DHT_NODES * sizeof(Node_format));
+
+    if (clients == nullptr) {
+        LOGGER_ERROR(dht->log, "could not allocate %u nodes", MAX_SAVED_DHT_NODES);
+        return;
+    }
 
     uint32_t num = 0;
 
@@ -2865,6 +2878,8 @@ void dht_save(const DHT *dht, uint8_t *data)
 
     state_write_section_header(old_data, DHT_STATE_COOKIE_TYPE, pack_nodes(data, sizeof(Node_format) * num, clients, num),
                                DHT_STATE_TYPE_NODES);
+
+    free(clients);
 }
 
 /* Bootstrap from this number of nodes every time dht_connect_after_load() is called */
@@ -2911,6 +2926,12 @@ static State_Load_Status dht_load_state_callback(void *outer, const uint8_t *dat
             free(dht->loaded_nodes_list);
             // Copy to loaded_clients_list
             dht->loaded_nodes_list = (Node_format *)calloc(MAX_SAVED_DHT_NODES, sizeof(Node_format));
+
+            if (dht->loaded_nodes_list == nullptr) {
+                LOGGER_ERROR(dht->log, "could not allocate %u nodes", MAX_SAVED_DHT_NODES);
+                dht->loaded_num_nodes = 0;
+                break;
+            }
 
             const int num = unpack_nodes(dht->loaded_nodes_list, MAX_SAVED_DHT_NODES, nullptr, data, length, 0);
 

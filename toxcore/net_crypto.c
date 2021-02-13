@@ -167,23 +167,23 @@ DHT *nc_get_dht(const Net_Crypto *c)
     return c->dht;
 }
 
-static uint8_t crypt_connection_id_not_valid(const Net_Crypto *c, int crypt_connection_id)
+static bool crypt_connection_id_is_valid(const Net_Crypto *c, int crypt_connection_id)
 {
     if ((uint32_t)crypt_connection_id >= c->crypto_connections_length) {
-        return 1;
+        return false;
     }
 
     if (c->crypto_connections == nullptr) {
-        return 1;
+        return false;
     }
 
     const Crypto_Conn_State status = c->crypto_connections[crypt_connection_id].status;
 
     if (status == CRYPTO_CONN_NO_CONNECTION || status == CRYPTO_CONN_FREE) {
-        return 1;
+        return false;
     }
 
-    return 0;
+    return true;
 }
 
 /* cookie timeout in seconds */
@@ -548,7 +548,7 @@ static int handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t 
 
 static Crypto_Connection *get_crypto_connection(const Net_Crypto *c, int crypt_connection_id)
 {
-    if (crypt_connection_id_not_valid(c, crypt_connection_id)) {
+    if (!crypt_connection_id_is_valid(c, crypt_connection_id)) {
         return nullptr;
     }
 
@@ -610,7 +610,8 @@ static IP_Port return_ip_port_connection(Net_Crypto *c, int crypt_connection_id)
     }
 
     const uint64_t current_time = mono_time_get(c->mono_time);
-    bool v6 = 0, v4 = 0;
+    bool v6 = 0;
+    bool v4 = 0;
 
     if ((UDP_DIRECT_TIMEOUT + conn->direct_lastrecv_timev4) > current_time) {
         v4 = 1;
@@ -915,9 +916,9 @@ static int generate_request_packet(const Logger *log, uint8_t *data, uint16_t le
         return cur_len;
     }
 
-    uint32_t i, n = 1;
+    uint32_t n = 1;
 
-    for (i = recv_array->buffer_start; i != recv_array->buffer_end; ++i) {
+    for (uint32_t i = recv_array->buffer_start; i != recv_array->buffer_end; ++i) {
         uint32_t num = i % CRYPTO_PACKET_BUFFER_SIZE;
 
         if (!recv_array->buffer[num]) {
@@ -1098,7 +1099,7 @@ static int reset_max_speed_reached(Net_Crypto *c, int crypt_connection_id)
     }
 
     /* If last packet send failed, try to send packet again.
-       If sending it fails we won't be able to send the new packet. */
+     * If sending it fails we won't be able to send the new packet. */
     if (conn->maximum_speed_reached) {
         Packet_Data *dt = nullptr;
         const uint32_t packet_num = conn->send_array.buffer_end - 1;
@@ -1136,7 +1137,7 @@ static int64_t send_lossless_packet(Net_Crypto *c, int crypt_connection_id, cons
     }
 
     /* If last packet send failed, try to send packet again.
-       If sending it fails we won't be able to send the new packet. */
+     * If sending it fails we won't be able to send the new packet. */
     reset_max_speed_reached(c, crypt_connection_id);
 
     if (conn->maximum_speed_reached && congestion_control) {
@@ -1268,9 +1269,10 @@ static int send_requested_packets(Net_Crypto *c, int crypt_connection_id, uint32
     }
 
     const uint64_t temp_time = current_time_monotonic(c->mono_time);
-    uint32_t i, num_sent = 0, array_size = num_packets_array(&conn->send_array);
+    const uint32_t array_size = num_packets_array(&conn->send_array);
+    uint32_t num_sent = 0;
 
-    for (i = 0; i < array_size; ++i) {
+    for (uint32_t i = 0; i < array_size; ++i) {
         Packet_Data *dt;
         const uint32_t packet_num = i + conn->send_array.buffer_start;
         const int ret = get_data_pointer(c->log, &conn->send_array, &dt, packet_num);
@@ -1477,7 +1479,8 @@ static int handle_data_packet_core(Net_Crypto *c, int crypt_connection_id, const
         return -1;
     }
 
-    uint32_t buffer_start, num;
+    uint32_t buffer_start;
+    uint32_t num;
     memcpy(&buffer_start, data, sizeof(uint32_t));
     memcpy(&num, data + sizeof(uint32_t), sizeof(uint32_t));
     buffer_start = net_ntohl(buffer_start);
@@ -1797,7 +1800,7 @@ static int wipe_crypto_connection(Net_Crypto *c, int crypt_connection_id)
 static int getcryptconnection_id(const Net_Crypto *c, const uint8_t *public_key)
 {
     for (uint32_t i = 0; i < c->crypto_connections_length; ++i) {
-        if (crypt_connection_id_not_valid(c, i)) {
+        if (!crypt_connection_id_is_valid(c, i)) {
             continue;
         }
 
@@ -2197,7 +2200,7 @@ unsigned int copy_connected_tcp_relays(Net_Crypto *c, Node_format *tcp_relays, u
 
 static void do_tcp(Net_Crypto *c, void *userdata)
 {
-    do_tcp_connections(c->tcp_c, userdata);
+    do_tcp_connections(c->log, c->tcp_c, userdata);
 
     uint32_t i;
 
@@ -2385,7 +2388,7 @@ static int udp_handle_packet(void *object, IP_Port source, const uint8_t *packet
 }
 
 /* The dT for the average packet receiving rate calculations.
-   Also used as the */
+ * Also used as the */
 #define PACKET_COUNTER_AVERAGE_INTERVAL 50
 
 /* Ratio of recv queue size / recv packet rate (in seconds) times
@@ -2471,7 +2474,7 @@ static void send_crypto_packets(Net_Crypto *c)
                 conn->packets_resent = 0;
 
                 /* conjestion control
-                    calculate a new value of conn->packet_send_rate based on some data
+                 *  calculate a new value of conn->packet_send_rate based on some data
                  */
 
                 unsigned int pos = conn->last_sendqueue_counter % CONGESTION_QUEUE_ARRAY_SIZE;
@@ -2494,7 +2497,8 @@ static void send_crypto_packets(Net_Crypto *c)
 
                 /* When switching from TCP to UDP, don't change the packet send rate for CONGESTION_EVENT_TIMEOUT ms. */
                 if (!(direct_connected && conn->last_tcp_sent + CONGESTION_EVENT_TIMEOUT > temp_time)) {
-                    long signed int total_sent = 0, total_resent = 0;
+                    long signed int total_sent = 0;
+                    long signed int total_resent = 0;
 
                     // TODO(irungentoo): use real delay
                     unsigned int delay = (unsigned int)((conn->rtt_time / PACKET_COUNTER_AVERAGE_INTERVAL) + 0.5);

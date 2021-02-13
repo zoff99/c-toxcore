@@ -39,7 +39,7 @@ static void iterate_all_wait(uint32_t tox_count, Tox **toxes, State *state, uint
     }
 
     /* Also actually sleep a little, to allow for local network processing */
-    c_sleep(20);
+    c_sleep(5);
 }
 
 static uint64_t get_state_clock_callback(Mono_Time *mono_time, void *user_data)

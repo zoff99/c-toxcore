@@ -168,7 +168,7 @@ uint32_t tox_version_minor(void);
  * The patch or revision number. Incremented when bugfixes are applied without
  * changing any functionality or API or ABI.
  */
-#define TOX_VERSION_PATCH              11
+#define TOX_VERSION_PATCH              12
 
 uint32_t tox_version_patch(void);
 
@@ -1912,7 +1912,6 @@ void tox_callback_friend_message(Tox *tox, tox_friend_message_cb *callback);
  */
 bool tox_hash(uint8_t *hash, const uint8_t *data, size_t length);
 
-
 /**
  * A list of pre-defined file kinds. Toxcore itself does not behave
  * differently for different file kinds. These are a hint to the client
@@ -2181,7 +2180,6 @@ typedef enum TOX_ERR_FILE_GET {
  */
 bool tox_file_get_file_id(const Tox *tox, uint32_t friend_number, uint32_t file_number, uint8_t *file_id,
                           TOX_ERR_FILE_GET *error);
-
 
 
 /*******************************************************************************
