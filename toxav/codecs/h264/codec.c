@@ -371,6 +371,8 @@ void my_log_callback(void *ptr, int level, const char *fmt, va_list vargs)
     // LOGGER_WARNING(global__log, fmt, vargs);
 }
 
+#ifdef X264_ENCODE_USED
+#else
 static int exists_encoder_codec_by_name(char *codec_name)
 {
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
@@ -386,7 +388,10 @@ static int exists_encoder_codec_by_name(char *codec_name)
 
     return 0;
 }
+#endif
 
+#ifdef X264_ENCODE_USED
+#else
 static int works_encoder_codec_by_name(char *codec_name)
 {
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
@@ -466,6 +471,7 @@ static int works_encoder_codec_by_name(char *codec_name)
 
     return 0;
 }
+#endif
 
 VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data,
                        VCSession *vc)

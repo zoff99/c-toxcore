@@ -319,14 +319,14 @@ void toxav_iterate(ToxAV *av)
 
     ToxAVCall *i = av->calls[av->calls_head];
 
-    LOGGER_API_DEBUG(av->tox, "iterate:000:START:h=%d t=%d i=%p", av->calls_head, av->calls_tail, i);
+    LOGGER_API_DEBUG(av->tox, "iterate:000:START:h=%d t=%d i=%p", av->calls_head, av->calls_tail, (void *)i);
     uint32_t dummy_counter = 0;
     for (; i; i = i->next) {
         dummy_counter++;
 
         audio_iterations = 0;
 
-        LOGGER_API_DEBUG(av->tox, "iterate:001:%d:i->active=%d i=%p", dummy_counter, (int)i->active, i);
+        LOGGER_API_DEBUG(av->tox, "iterate:001:%d:i->active=%d i=%p", dummy_counter, (int)i->active, (void *)i);
 
         if (i->active) {
 
@@ -336,7 +336,7 @@ void toxav_iterate(ToxAV *av)
             pthread_mutex_unlock(av->mutex);
 
             uint32_t fid = i->friend_number;
-            LOGGER_API_DEBUG(av->tox, "iterate:002:%d:fnum=%d i=%p", dummy_counter, fid, i);
+            LOGGER_API_DEBUG(av->tox, "iterate:002:%d:fnum=%d i=%p", dummy_counter, fid, (void *)i);
 
             if ((!i->msi_call) || (i->active == 0))
             {

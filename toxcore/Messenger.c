@@ -2924,19 +2924,19 @@ uint32_t messenger_run_interval(const Messenger *m)
     return crypto_interval;
 }
 
-static void m_tox_lock(pthread_mutex_t *mutex)
-{
-    if (mutex != nullptr) {
-        pthread_mutex_lock(mutex);
-    }
-}
+// static void m_tox_lock(pthread_mutex_t *mutex)
+// {
+//     if (mutex != nullptr) {
+//         pthread_mutex_lock(mutex);
+//     }
+// }
 
-static void m_tox_unlock(pthread_mutex_t *mutex)
-{
-    if (mutex != nullptr) {
-        pthread_mutex_unlock(mutex);
-    }
-}
+// static void m_tox_unlock(pthread_mutex_t *mutex)
+// {
+//     if (mutex != nullptr) {
+//         pthread_mutex_unlock(mutex);
+//     }
+// }
 
 // #define DEBUG_DO_MESSENGER 1
 

@@ -339,6 +339,7 @@ static bool tsb_return_oldest_entry_in_range(TSBuffer *b, Logger *log, void **p,
     return false;
 }
 
+#if 0
 static bool tsb_return_newest_entry_in_range(TSBuffer *b, Logger *log, void **p, uint64_t *data_type,
         uint32_t *timestamp_out,
         const uint32_t timestamp_in, const uint32_t timestamp_range)
@@ -399,6 +400,7 @@ static bool tsb_return_newest_entry_in_range(TSBuffer *b, Logger *log, void **p,
     *p = NULL;
     return false;
 }
+#endif
 
 bool tsb_read(TSBuffer *b, Logger *log, void **p, uint64_t *data_type, uint32_t *timestamp_out,
               const uint32_t timestamp_in, const uint32_t timestamp_range,
