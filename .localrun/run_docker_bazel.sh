@@ -114,7 +114,7 @@ mkdir -p /workspace/c-toxcore/
 redirect_cmd rsync -avz --exclude=".localrun" ./ /workspace/c-toxcore/
 
 # --------- install bazel ---------
-wget https://github.com/bazelbuild/bazel/releases/download/2.2.0/bazel_2.2.0-linux-x86_64.deb -O /tmp/b.deb
+wget https://github.com/bazelbuild/bazel/releases/download/3.3.1/bazel_3.3.1-linux-x86_64.deb -O /tmp/b.deb
 dpkg -i /tmp/b.deb
 # --------- install bazel ---------
 
