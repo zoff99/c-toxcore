@@ -163,7 +163,7 @@ int main(int argc, char *argv[])
         printf("%s\n", name);
 
         m_send_message_generic(m, num, MESSAGE_NORMAL, (const uint8_t *)"Test", 5, nullptr);
-        do_messenger(m, nullptr, nullptr);
+        do_messenger(m, nullptr);
         c_sleep(30);
         FILE *file = fopen(filename, "wb");
 
