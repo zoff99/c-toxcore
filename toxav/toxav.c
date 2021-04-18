@@ -252,8 +252,21 @@ void toxav_audio_iterate_seperation(ToxAV *av, bool active)
     }
 }
 
+// #define DEBUG_DO_TOXAV_ITERATE_TIMING 1
+
 void toxav_audio_iterate(ToxAV *av)
 {
+#ifdef DEBUG_DO_TOXAV_ITERATE_TIMING
+    uint64_t ttt1;
+    uint64_t ttt12;
+    uint64_t xttt1;
+    uint64_t xttt12;
+#endif
+
+#ifdef DEBUG_DO_TOXAV_ITERATE_TIMING
+    xttt1 = current_time_monotonic(av->toxav_mono_time);
+#endif
+
     pthread_mutex_lock(av->mutex);
 
     if (av->calls == nullptr) {
@@ -302,10 +315,29 @@ void toxav_audio_iterate(ToxAV *av)
     }
 
     pthread_mutex_unlock(av->mutex);
+
+#ifdef DEBUG_DO_TOXAV_ITERATE_TIMING
+    xttt12 = current_time_monotonic(av->toxav_mono_time);
+    if ((xttt12 - xttt1) > 10)
+    {
+        LOGGER_API_DEBUG(av->tox, "toxav_audio_iterate:4:full_time:rt %d ms", (int)(xttt12 - xttt1));
+    }
+#endif
 }
 
 void toxav_iterate(ToxAV *av)
 {
+#ifdef DEBUG_DO_TOXAV_ITERATE_TIMING
+    uint64_t ttt1;
+    uint64_t ttt12;
+    uint64_t xttt1;
+    uint64_t xttt12;
+#endif
+
+#ifdef DEBUG_DO_TOXAV_ITERATE_TIMING
+    xttt1 = current_time_monotonic(av->toxav_mono_time);
+#endif
+
     pthread_mutex_lock(av->mutex);
 
     if (av->calls == nullptr) {
@@ -429,6 +461,15 @@ void toxav_iterate(ToxAV *av)
     LOGGER_API_DEBUG(av->tox, "iterate:099:END:h=%d t=%d", av->calls_head, av->calls_tail);
 
     pthread_mutex_unlock(av->mutex);
+
+#ifdef DEBUG_DO_TOXAV_ITERATE_TIMING
+    xttt12 = current_time_monotonic(av->toxav_mono_time);
+    if ((xttt12 - xttt1) > 10)
+    {
+        LOGGER_API_DEBUG(av->tox, "toxav_iterate:4:full_time:rt %d ms", (int)(xttt12 - xttt1));
+    }
+#endif
+
 }
 
 bool toxav_call(ToxAV *av, uint32_t friend_number, uint32_t audio_bit_rate, uint32_t video_bit_rate,

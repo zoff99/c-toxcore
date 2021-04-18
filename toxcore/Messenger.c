@@ -2946,6 +2946,12 @@ void do_messenger(Messenger *m, pthread_mutex_t *tox_main_mutex, void *userdata)
 #ifdef DEBUG_DO_MESSENGER
     uint64_t ttt1;
     uint64_t ttt12;
+    uint64_t xttt1;
+    uint64_t xttt12;
+#endif
+
+#ifdef DEBUG_DO_MESSENGER
+    xttt1 = current_time_monotonic(m->mono_time);
 #endif
 
     // Add the TCP relays, but only if this is the first time calling do_messenger
@@ -3138,6 +3144,15 @@ void do_messenger(Messenger *m, pthread_mutex_t *tox_main_mutex, void *userdata)
             }
         }
     }
+
+#ifdef DEBUG_DO_MESSENGER
+        xttt12 = current_time_monotonic(m->mono_time);
+        if ((xttt12 - xttt1) > 10)
+        {
+            LOGGER_WARNING(m->log, "do_messenger:4:full_time:rt %d ms", (int)(xttt12 - xttt1));
+        }
+#endif
+
 }
 
 /* new messenger format for load/save, more robust and forward compatible */
