@@ -1264,6 +1264,8 @@ long int new_filesender(const Messenger *m, int32_t friendnumber, uint32_t file_
     memcpy(ft->id, file_id, FILE_ID_LENGTH);
 
     ++m->friendlist[friendnumber].num_sending_files;
+    LOGGER_DEBUG(m->log, "filenum %d to friend %d: num_sending_files=%d",
+                     i, friendnumber, m->friendlist[friendnumber].num_sending_files);
 
     return i;
 }
@@ -1286,6 +1288,27 @@ static int send_file_control_packet(const Messenger *m, int32_t friendnumber, ui
     }
 
     return write_cryptpacket_id(m, friendnumber, PACKET_ID_FILE_CONTROL, packet, SIZEOF_VLA(packet), 0);
+}
+
+uint32_t file_sending_active(const Messenger *m, int32_t friendnumber)
+{
+    return m->friendlist[friendnumber].num_sending_files;
+}
+
+uint32_t file_receiving_active(const Messenger *m, int32_t friendnumber)
+{
+    uint32_t num_file_rcv = 0;
+
+    for (uint32_t i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i)
+    {
+        // Any status other than NONE means the file transfer is active.
+        if (m->friendlist[friendnumber].file_receiving[i].status != FILESTATUS_NONE)
+        {
+            num_file_rcv++;
+        }
+    }
+
+    return num_file_rcv;
 }
 
 /* Send a file control request.
@@ -1328,6 +1351,9 @@ int file_control(const Messenger *m, int32_t friendnumber, uint32_t filenumber, 
 
     file_number = temp_filenum;
 
+    LOGGER_DEBUG(m->log, "filenum %d to friend %d: num_sending_files=%d",
+                         filenumber, friendnumber, m->friendlist[friendnumber].num_sending_files);
+
     struct File_Transfers *ft;
 
     if (send_receive) {
@@ -1369,12 +1395,17 @@ int file_control(const Messenger *m, int32_t friendnumber, uint32_t filenumber, 
     }
 
     if (send_file_control_packet(m, friendnumber, send_receive, file_number, control, nullptr, 0)) {
+
+        LOGGER_DEBUG(m->log, "filenum %d to friend %d: file_control=%d", file_number, friendnumber, control);
+
         if (control == FILECONTROL_KILL) {
+            LOGGER_DEBUG(m->log, "filenum %d to friend %d: file_control==FILECONTROL_KILL", file_number, friendnumber);
             ft->status = FILESTATUS_NONE;
             ft->needs_resend = 0;
 
             if (send_receive == 0) {
                 --m->friendlist[friendnumber].num_sending_files;
+                LOGGER_DEBUG(m->log, "filenum %d to friend %d: num_sending_files=%d", file_number, friendnumber, m->friendlist[friendnumber].num_sending_files);
             }
         } else if (control == FILECONTROL_PAUSE) {
             ft->paused |= FILE_PAUSE_US;
@@ -1428,6 +1459,10 @@ int file_seek(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uin
     assert(temp_filenum <= UINT8_MAX);
     uint8_t file_number = temp_filenum;
 
+    LOGGER_DEBUG(m->log, "filenum %d to friend %d: num_sending_files=%d",
+                         filenumber, friendnumber, m->friendlist[friendnumber].num_sending_files);
+
+
     // We're always receiving at this point.
     struct File_Transfers *ft = &m->friendlist[friendnumber].file_receiving[file_number];
 
@@ -1475,6 +1510,10 @@ int file_seek_for_resume(const Messenger *m, int32_t friendnumber, uint32_t file
 
     assert(filenumber <= UINT8_MAX);
     uint8_t file_number = filenumber;
+
+    LOGGER_DEBUG(m->log, "filenum %d to friend %d: num_sending_files=%d",
+                         filenumber, friendnumber, m->friendlist[friendnumber].num_sending_files);
+
 
     // We're always receiving at this point.
     struct File_Transfers *ft = &m->friendlist[friendnumber].file_receiving[file_number];
@@ -1701,6 +1740,7 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
                 // Now it's inactive, we're no longer sending this.
                 ft->status = FILESTATUS_NONE;
                 --friendcon->num_sending_files;
+                LOGGER_DEBUG(m->log, "filenum %d to friend %d: num_sending_files=%d", i, friendnumber, m->friendlist[friendnumber].num_sending_files);
             }
 
             // Decrease free slots by the number of slots this FT uses.
@@ -1758,16 +1798,16 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
 static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdata)
 {
 
-#ifdef FT_RECV_SEND_DEBUG
-    LOGGER_DEBUG(m->log, "do_reqchunk_filecb:enter");
-#endif
+//#ifdef FT_RECV_SEND_DEBUG
+//    LOGGER_DEBUG(m->log, "do_reqchunk_filecb:enter");
+//#endif
 
     // check if we need to send SEEK for any incoming but resumed FTs
     if (global_filetransfer_is_resumable) {
 
-#ifdef FT_RECV_SEND_DEBUG
-        LOGGER_DEBUG(m->log, "global_filetransfer_is_resumable");
-#endif
+//#ifdef FT_RECV_SEND_DEBUG
+//        LOGGER_DEBUG(m->log, "global_filetransfer_is_resumable");
+//#endif
 
         for (uint32_t i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
 
@@ -1926,6 +1966,10 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, uint8_t receiv
     uint32_t real_filenumber;
     struct File_Transfers *ft = get_file_transfer(receive_send, filenumber, &real_filenumber, &m->friendlist[friendnumber]);
 
+    LOGGER_DEBUG(m->log, "filenum %d to friend %d: num_sending_files=%d control_type=%d",
+                         filenumber, friendnumber, m->friendlist[friendnumber].num_sending_files, control_type);
+
+
     if (ft == nullptr) {
         LOGGER_DEBUG(m->log, "file control (friend %d, file %d): file transfer does not exist; telling the other to kill it",
                      friendnumber, filenumber);
@@ -1972,6 +2016,8 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, uint8_t receiv
         }
 
         case FILECONTROL_KILL: {
+            LOGGER_DEBUG(m->log, "file control (friend %d, file %d): 1num_sending_files=%d FILECONTROL_KILL",
+                             friendnumber, filenumber, m->friendlist[friendnumber].num_sending_files);
             if (m->file_filecontrol) {
                 m->file_filecontrol(m, friendnumber, real_filenumber, control_type, userdata);
             }
@@ -1981,6 +2027,8 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, uint8_t receiv
 
             if (receive_send) {
                 --m->friendlist[friendnumber].num_sending_files;
+                LOGGER_DEBUG(m->log, "file control (friend %d, file %d): 2num_sending_files=%d FILECONTROL_KILL",
+                                friendnumber, filenumber, m->friendlist[friendnumber].num_sending_files);
             }
 
             return 0;

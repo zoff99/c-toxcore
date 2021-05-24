@@ -1550,6 +1550,22 @@ bool tox_file_get_file_id(const Tox *tox, uint32_t friend_number, uint32_t file_
     return 0;
 }
 
+uint32_t tox_file_sending_active(Tox *tox, uint32_t friend_number)
+{
+    lock(tox);
+    uint32_t file_num = file_sending_active(tox->m, friend_number);
+    unlock(tox);
+    return file_num;
+}
+
+uint32_t tox_file_receiving_active(Tox *tox, uint32_t friend_number)
+{
+    lock(tox);
+    uint32_t file_num = file_receiving_active(tox->m, friend_number);
+    unlock(tox);
+    return file_num;
+}
+
 uint32_t tox_file_send(Tox *tox, uint32_t friend_number, uint32_t kind, uint64_t file_size, const uint8_t *file_id,
                        const uint8_t *filename, size_t filename_length, Tox_Err_File_Send *error)
 {

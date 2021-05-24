@@ -2068,6 +2068,8 @@ typedef enum TOX_ERR_FILE_CONTROL {
 bool tox_file_control(Tox *tox, uint32_t friend_number, uint32_t file_number, TOX_FILE_CONTROL control,
                       TOX_ERR_FILE_CONTROL *error);
 
+
+
 /**
  * When receiving TOX_FILE_CONTROL_CANCEL, the client should release the
  * resources associated with the file number and consider the transfer failed.
@@ -2225,6 +2227,21 @@ typedef enum TOX_ERR_FILE_SEND {
 
 } TOX_ERR_FILE_SEND;
 
+/**
+ * Give the number of active sending filetransfers for friend.
+ *
+ * @param friend_number The friend number.
+ * @return number of active sending filetransfers.
+ */
+uint32_t tox_file_sending_active(Tox *tox, uint32_t friend_number);
+
+/**
+ * Give the number of active receiving filetransfers for friend.
+ *
+ * @param friend_number The friend number.
+ * @return number of active receiving filetransfers.
+ */
+uint32_t tox_file_receiving_active(Tox *tox, uint32_t friend_number);
 
 /**
  * Send a file transmission request.

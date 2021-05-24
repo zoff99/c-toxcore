@@ -640,6 +640,18 @@ int file_get_id(const Messenger *m, int32_t friendnumber, uint32_t filenumber, u
 long int new_filesender(const Messenger *m, int32_t friendnumber, uint32_t file_type, uint64_t filesize,
                         const uint8_t *file_id, const uint8_t *filename, uint16_t filename_length);
 
+/* Give the number of active sending filetransfers for friend
+ *
+ *  return number of active sending filetransfers
+ */
+uint32_t file_sending_active(const Messenger *m, int32_t friendnumber);
+
+/* Give the number of active receiving filetransfers for friend
+ *
+ *  return number of active receiving filetransfers
+ */
+uint32_t file_receiving_active(const Messenger *m, int32_t friendnumber);
+
 /* Send a file control request.
  *
  *  return 0 on success
