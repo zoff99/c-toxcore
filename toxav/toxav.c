@@ -2414,6 +2414,12 @@ static ToxAVCall *call_new(ToxAV *av, uint32_t friend_number, Toxav_Err_Call *er
 
     call = (ToxAVCall *)calloc(sizeof(ToxAVCall), 1);
 
+    if (call == nullptr) {
+        LOGGER_API_WARNING(av->tox, "TOXAV_ERR_CALL_MALLOC:fnum=%d", friend_number);
+        rc = TOXAV_ERR_CALL_MALLOC;
+        goto RETURN;
+    }
+
     call->last_incoming_video_frame_rtimestamp = 0;
     call->last_incoming_video_frame_ltimestamp = 0;
 
@@ -2425,12 +2431,6 @@ static ToxAVCall *call_new(ToxAV *av, uint32_t friend_number, Toxav_Err_Call *er
     call->reference_diff_timestamp = 0;
     call->reference_diff_timestamp_set = 0;
     call->call_video_has_rountrip_time_ms = 0;
-
-    if (call == nullptr) {
-        LOGGER_API_WARNING(av->tox, "TOXAV_ERR_CALL_MALLOC:fnum=%d", friend_number);
-        rc = TOXAV_ERR_CALL_MALLOC;
-        goto RETURN;
-    }
 
     call->av = av;
     call->friend_number = friend_number;
@@ -2533,10 +2533,16 @@ static ToxAVCall *call_new(ToxAV *av, uint32_t friend_number, Toxav_Err_Call *er
 
         // set chain-links correctly
         call->prev = found_prev_entry;
-        found_prev_entry->next = call;
+        if (found_prev_entry)
+        {
+            found_prev_entry->next = call;
+        }
         //
         call->next = found_next_entry;
-        found_next_entry->prev = call;
+        if (found_next_entry)
+        {
+            found_next_entry->prev = call;
+        }
     }
 
 
