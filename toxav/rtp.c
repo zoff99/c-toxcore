@@ -1388,11 +1388,11 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
 
         if ((session->payload_type == RTP_TYPE_VIDEO) && (TOXAV_SEND_VIDEO_LOSSLESS_PACKETS == 1)) {
             if (-1 == rtp_send_custom_lossless_packet(session->tox, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
-                LOGGER_API_WARNING(session->tox, "RTP send failed (len: %zu)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
+                LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %zu)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
             }
         } else {
             if (-1 == rtp_send_custom_lossy_packet(session->tox, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
-                LOGGER_API_WARNING(session->tox, "RTP send failed (len: %zu)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
+                LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %zu)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
             }
         }
     } else {
@@ -1442,13 +1442,13 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
             if ((session->payload_type == RTP_TYPE_VIDEO) && (TOXAV_SEND_VIDEO_LOSSLESS_PACKETS == 1)) {
                 if (-1 == rtp_send_custom_lossless_packet(session->tox, session->friend_number, rdata,
                         piece + RTP_HEADER_SIZE + 1)) {
-                    LOGGER_WARNING(session->m->log, "RTP send failed (len: %d)! std error: %s",
+                    LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %d)! std error: %s",
                                    piece + RTP_HEADER_SIZE + 1, strerror(errno));
                 }
             } else {
                 if (-1 == rtp_send_custom_lossy_packet(session->tox, session->friend_number, rdata,
                                                        piece + RTP_HEADER_SIZE + 1)) {
-                    LOGGER_API_WARNING(session->tox, "RTP send failed (len: %d)! std error: %s",
+                    LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %d)! std error: %s",
                                        piece + RTP_HEADER_SIZE + 1, strerror(errno));
                 } else {
                     LOGGER_API_DEBUG(session->tox, "RTP send:B:rtp_pkg_num:%d:%d", header.rtp_packet_number, header.sequnum);
