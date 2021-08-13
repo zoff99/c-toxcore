@@ -355,9 +355,6 @@ static int handle_LANdiscovery(void *object, IP_Port source, const uint8_t *pack
     char ip_str[IP_NTOA_LEN] = { 0 };
     ip_ntoa(&source.ip, ip_str, sizeof(ip_str));
 
-    // zoff //
-    printf("handle_LANdiscovery\n");
-
     if (!ip_is_lan(source.ip)) {
         return 1;
     }
@@ -376,8 +373,6 @@ int lan_discovery_send(uint16_t port, DHT *dht)
     uint8_t data[CRYPTO_PUBLIC_KEY_SIZE + 1];
     data[0] = NET_PACKET_LAN_DISCOVERY;
     id_copy(data + 1, dht_get_self_public_key(dht));
-    // zoff //
-    printf("lan_discovery_send\n");
 
     send_broadcasts(dht_get_net(dht), port, data, 1 + CRYPTO_PUBLIC_KEY_SIZE);
 
@@ -411,14 +406,10 @@ int lan_discovery_send(uint16_t port, DHT *dht)
 
 void lan_discovery_init(DHT *dht)
 {
-    // zoff //
-    printf("lan_discovery_init\n");
     networking_registerhandler(dht_get_net(dht), NET_PACKET_LAN_DISCOVERY, &handle_LANdiscovery, dht);
 }
 
 void lan_discovery_kill(DHT *dht)
 {
-    // zoff //
-    printf("lan_discovery_kill\n");
     networking_registerhandler(dht_get_net(dht), NET_PACKET_LAN_DISCOVERY, nullptr, nullptr);
 }
