@@ -1545,6 +1545,11 @@ typedef enum TOX_ERR_FRIEND_QUERY {
 
 } TOX_ERR_FRIEND_QUERY;
 
+/**
+ * Return the capabilities flags for a friend. If the friend number is invalid, the
+ * return value is unspecified.
+ */
+uint64_t tox_friend_get_capabilities(const Tox *tox, uint32_t friend_number);
 
 /**
  * Return the length of the friend's name. If the friend number is invalid, the

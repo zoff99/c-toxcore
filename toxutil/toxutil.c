@@ -382,6 +382,16 @@ static bool tox_utils_friendnum_to_pubkey(Tox *tox, uint8_t *public_key, uint32_
 
 static bool tox_utils_get_capabilities(Tox *tox, uint32_t friendnumber)
 {
+
+    uint64_t capabilities = tox_friend_get_capabilities(tox, friendnumber);
+    if ((capabilities & TOX_CAPABILITY_MSGV2) == TOX_CAPABILITY_MSGV2)
+    {
+        // Messenger *m;
+        // m = *(Messenger **)tox;
+        // LOGGER_WARNING(m->log, "toxutil:get_capabilities(from online packet)");
+        return true;
+    }
+
     uint8_t *friend_pubkey = calloc(1, TOX_PUBLIC_KEY_SIZE);
 
     if (friend_pubkey) {

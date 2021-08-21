@@ -28,6 +28,11 @@
 extern "C" {
 #endif
 
+#define TOX_CAPABILITY_BASIC 0
+#define TOX_CAPABILITY_CAPABILITIES ((uint64_t)1) << 0
+#define TOX_CAPABILITY_MSGV2 ((uint64_t)1) << 1
+#define TOX_CAPABILITY_TOXAV_H264 ((uint64_t)1) << 2
+
 void tox_utils_callback_self_connection_status(Tox *tox, tox_self_connection_status_cb *callback);
 void tox_utils_self_connection_status_cb(Tox *tox,
         TOX_CONNECTION connection_status, void *user_data);
