@@ -140,7 +140,6 @@ typedef enum Connection_Status {
     CONNECTION_NONE,
     CONNECTION_TCP,
     CONNECTION_UDP,
-    CONNECTION_UNKNOWN,
 } Connection_Status;
 
 /* USERSTATUS -
@@ -394,7 +393,7 @@ int getfriendcon_id(const Messenger *m, int32_t friendnumber);
  */
 int m_delfriend(Messenger *m, int32_t friendnumber);
 
-/* Checks friend's connecting status.
+/* Checks friend's connection status.
  *
  *  return CONNECTION_UDP (2) if friend is directly connected to us (Online UDP).
  *  return CONNECTION_TCP (1) if friend is connected to us (Online TCP).
