@@ -15,6 +15,7 @@ some of the subjects we are teaching here are:<br><br>
 - [x] make Toxcore API thread safe (see: https://github.com/TokTok/c-toxcore/pull/1382)
 - [x] make ToxAV use only public Tox API functions (see: https://github.com/TokTok/c-toxcore/pull/1431)
 - [x] resumable Filetransfers, even across restarts (inside c-toxcore)
+- [x] Push Message Support (with TRIfA on Android and Antidote on iPhone)
 
 
 
