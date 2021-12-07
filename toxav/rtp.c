@@ -617,6 +617,7 @@ NEW_MULTIPARTED:
         /* Store message.
          */
         session->mp = new_message(tox, &header, header.data_length_lower, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE);
+
         if (session->mp != nullptr) {
             memmove(session->mp->data + header.offset_lower, session->mp->data, session->mp->len);
         } else {
