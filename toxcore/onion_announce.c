@@ -26,6 +26,11 @@
 #define DATA_REQUEST_MIN_SIZE ONION_DATA_REQUEST_MIN_SIZE
 #define DATA_REQUEST_MIN_SIZE_RECV (DATA_REQUEST_MIN_SIZE + ONION_RETURN_3)
 
+//!TOKSTYLE-
+static_assert(ONION_PING_ID_SIZE == CRYPTO_PUBLIC_KEY_SIZE,
+              "announce response packets assume that ONION_PING_ID_SIZE is equal to CRYPTO_PUBLIC_KEY_SIZE");
+//!TOKSTYLE+
+
 typedef struct Onion_Announce_Entry {
     uint8_t public_key[CRYPTO_PUBLIC_KEY_SIZE];
     IP_Port ret_ip_port;
@@ -35,6 +40,7 @@ typedef struct Onion_Announce_Entry {
 } Onion_Announce_Entry;
 
 struct Onion_Announce {
+    const Logger *log;
     Mono_Time *mono_time;
     DHT     *dht;
     Networking_Core *net;
@@ -485,7 +491,7 @@ static int handle_data_request(void *object, IP_Port source, const uint8_t *pack
     return 0;
 }
 
-Onion_Announce *new_onion_announce(Mono_Time *mono_time, DHT *dht)
+Onion_Announce *new_onion_announce(const Logger *log, Mono_Time *mono_time, DHT *dht)
 {
     if (dht == nullptr) {
         return nullptr;
@@ -497,6 +503,7 @@ Onion_Announce *new_onion_announce(Mono_Time *mono_time, DHT *dht)
         return nullptr;
     }
 
+    onion_a->log = log;
     onion_a->mono_time = mono_time;
     onion_a->dht = dht;
     onion_a->net = dht_get_net(dht);

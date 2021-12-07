@@ -9,6 +9,7 @@
 #ifndef C_TOXCORE_TOXCORE_ONION_ANNOUNCE_H
 #define C_TOXCORE_TOXCORE_ONION_ANNOUNCE_H
 
+#include "logger.h"
 #include "onion.h"
 
 #define ONION_ANNOUNCE_MAX_ENTRIES 160
@@ -23,10 +24,6 @@
 #define ONION_ANNOUNCE_RESPONSE_MAX_SIZE (ONION_ANNOUNCE_RESPONSE_MIN_SIZE + sizeof(Node_format)*MAX_SENT_NODES)
 
 #define ONION_DATA_RESPONSE_MIN_SIZE (1 + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_MAC_SIZE)
-
-#if ONION_PING_ID_SIZE != CRYPTO_PUBLIC_KEY_SIZE
-#error "announce response packets assume that ONION_PING_ID_SIZE is equal to CRYPTO_PUBLIC_KEY_SIZE"
-#endif
 
 #define ONION_DATA_REQUEST_MIN_SIZE (1 + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_MAC_SIZE)
 #define MAX_DATA_REQUEST_SIZE (ONION_MAX_DATA_SIZE - ONION_DATA_REQUEST_MIN_SIZE)
@@ -105,7 +102,7 @@ int send_data_request(Networking_Core *net, const Onion_Path *path, IP_Port dest
                       const uint8_t *encrypt_public_key, const uint8_t *nonce, const uint8_t *data, uint16_t length);
 
 
-Onion_Announce *new_onion_announce(Mono_Time *mono_time, DHT *dht);
+Onion_Announce *new_onion_announce(const Logger *log, Mono_Time *mono_time, DHT *dht);
 
 void kill_onion_announce(Onion_Announce *onion_a);
 

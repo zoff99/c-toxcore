@@ -24,6 +24,11 @@
 #include "state.h"
 #include "util.h"
 
+//!TOKSTYLE-
+static_assert(MAX_CONCURRENT_FILE_PIPES <= UINT8_MAX + 1,
+              "uint8_t cannot represent all file transfer numbers");
+//!TOKSTYLE+
+
 static int write_cryptpacket_id(const Messenger *m, int32_t friendnumber, uint8_t packet_id, const uint8_t *data,
                                 uint32_t length, uint8_t congestion_control);
 static void m_register_default_plugins(Messenger *m);
@@ -1893,8 +1898,8 @@ Messenger *new_messenger(Mono_Time *mono_time, Messenger_Options *options, unsig
         return nullptr;
     }
 
-    m->onion = new_onion(m->mono_time, m->dht);
-    m->onion_a = new_onion_announce(m->mono_time, m->dht);
+    m->onion = new_onion(m->log, m->mono_time, m->dht);
+    m->onion_a = new_onion_announce(m->log, m->mono_time, m->dht);
     m->onion_c =  new_onion_client(m->log, m->mono_time, m->net_crypto);
     m->fr_c = new_friend_connections(m->log, m->mono_time, m->onion_c, options->local_discovery_enabled);
 
