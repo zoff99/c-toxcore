@@ -27,7 +27,7 @@
 
 // TODO(zoff99): don't hardcode this, let the application choose it
 // VPX Info: Time to spend encoding, in microseconds (it's a *soft* deadline)
-#define WANTED_MAX_ENCODER_FPS (40)
+#define WANTED_MAX_ENCODER_FPS 40
 #define MAX_ENCODE_TIME_US (1000000 / WANTED_MAX_ENCODER_FPS) // to allow x fps
 
 #define VIDEO_SEND_X_KEYFRAMES_FIRST 7 // force the first n frames to be keyframes!
@@ -1394,7 +1394,7 @@ static bool call_prepare_transmission(ToxAVCall *call)
 
     ToxAV *av = call->av;
 
-    if (!av->acb && !av->vcb) {
+    if (av->acb == nullptr && av->vcb == nullptr) {
         /* It makes no sense to have CSession without callbacks */
         return false;
     }
@@ -1418,7 +1418,7 @@ static bool call_prepare_transmission(ToxAVCall *call)
     { /* Prepare audio */
         call->audio = ac_new(av->toxav_mono_time, av->tox, av, call->friend_number, av->acb, av->acb_user_data);
 
-        if (!call->audio) {
+        if (call->audio == nullptr) {
             LOGGER_API_ERROR(av->tox, "Failed to create audio codec session");
             goto FAILURE;
         }
@@ -1434,7 +1434,7 @@ static bool call_prepare_transmission(ToxAVCall *call)
     { /* Prepare video */
         call->video = vc_new(av->toxav_mono_time, av->tox, av, call->friend_number, av->vcb, av->vcb_user_data);
 
-        if (!call->video) {
+        if (call->video == nullptr) {
             LOGGER_API_ERROR(av->tox, "Failed to create video codec session");
             goto FAILURE;
         }
@@ -1442,7 +1442,7 @@ static bool call_prepare_transmission(ToxAVCall *call)
         call->video_rtp = rtp_new(RTP_TYPE_VIDEO, av->tox, av, call->friend_number, call->bwc,
                                   call->video, vc_queue_message);
 
-        if (!call->video_rtp) {
+        if (call->video_rtp == nullptr) {
             LOGGER_API_ERROR(av->tox, "Failed to create video rtp session");
             goto FAILURE;
         }

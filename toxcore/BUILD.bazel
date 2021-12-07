@@ -47,6 +47,16 @@ cc_library(
     deps = [":ccompat"],
 )
 
+cc_test(
+    name = "list_test",
+    size = "small",
+    srcs = ["list_test.cc"],
+    deps = [
+        ":list",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 cc_library(
     name = "logger",
     srcs = ["logger.c"],
@@ -150,6 +160,16 @@ cc_library(
         ":logger",
         ":ping_array",
         ":state",
+    ],
+)
+
+cc_test(
+    name = "DHT_test",
+    size = "small",
+    srcs = ["DHT_test.cc"],
+    deps = [
+        ":DHT",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
