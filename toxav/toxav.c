@@ -279,7 +279,11 @@ void toxav_kill(ToxAV *av)
     pthread_mutex_unlock(av->mutex);
     pthread_mutex_destroy(av->mutex);
 
+    // set ToxAV object to NULL in toxcore, to signal ToxAV has been shutdown
+    tox_set_av_object(av->tox, nullptr);
+
     free(av);
+    av = nullptr;
 }
 
 Tox *toxav_get_tox(const ToxAV *av)

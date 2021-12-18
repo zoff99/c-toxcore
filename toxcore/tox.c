@@ -647,7 +647,7 @@ void tox_kill(Tox *tox)
     }
 
     lock(tox);
-    // ToxAV // LOGGER_ASSERT(tox->m->log, tox->m->msi_packet == nullptr, "Attempted to kill tox while toxav is still alive");
+    LOGGER_ASSERT(tox->m->log, tox->toxav_object == nullptr, "Attempted to kill tox while toxav is still alive");
     kill_groupchats(tox->m->conferences_object);
     kill_messenger(tox->m);
     mono_time_free(tox->mono_time);
@@ -659,6 +659,7 @@ void tox_kill(Tox *tox)
     }
 
     free(tox);
+    tox = nullptr;
 }
 
 static uint32_t end_size(void)
