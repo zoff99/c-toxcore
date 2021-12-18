@@ -137,9 +137,8 @@ void ac_iterate(ACSession *ac)
     struct JitterBuffer *const j_buf = (struct JitterBuffer *)ac->j_buf;
 
     int rc = 0;
-    struct RTPMessage *msg = jbuf_read(j_buf, &rc);
 
-    for (; msg != nullptr || rc == 2; msg = jbuf_read(j_buf, &rc)) {
+    for (struct RTPMessage *msg = jbuf_read(j_buf, &rc); msg != nullptr || rc == 2; msg = jbuf_read(j_buf, &rc)) {
         pthread_mutex_unlock(ac->queue_mutex);
 
         if (rc == 2) {
