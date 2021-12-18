@@ -55,8 +55,9 @@ static_assert(TOX_MAX_STATUS_MESSAGE_LENGTH == MAX_STATUSMESSAGE_LENGTH,
 struct Tox {
     // XXX: Messenger *must* be the first member, because toxav casts its
     // `Tox *` to `Messenger **`.
+    // mono_time needs to be in 2nd position in this struct
     Messenger *m;
-    Mono_Time *mono_time; /* mono_time also needs to be at THIS position, if you put something before it things will crash!! */
+    Mono_Time *mono_time;
     pthread_mutex_t *mutex;
 
     tox_self_connection_status_cb *self_connection_status_callback;
