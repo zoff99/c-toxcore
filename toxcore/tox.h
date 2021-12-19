@@ -1150,6 +1150,11 @@ void tox_self_get_public_key(const Tox *tox, uint8_t *public_key);
  */
 void tox_self_get_secret_key(const Tox *tox, uint8_t *secret_key);
 
+/**
+ * Return the capabilities flags for this tox instance.
+ */
+uint64_t tox_self_get_capabilities();
+
 
 /*******************************************************************************
  *
