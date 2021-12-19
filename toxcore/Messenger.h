@@ -32,8 +32,9 @@
 #define FRIEND_ADDRESS_SIZE (CRYPTO_PUBLIC_KEY_SIZE + sizeof(uint32_t) + sizeof(uint16_t))
 
 typedef enum Message_Type {
-    MESSAGE_NORMAL,
-    MESSAGE_ACTION,
+    MESSAGE_NORMAL = 0,
+    MESSAGE_ACTION = 1,
+    MESSAGE_HIGH_LEVEL_ACK = 2,
 } Message_Type;
 
 typedef struct Messenger Messenger;
@@ -88,6 +89,7 @@ typedef struct Messenger_Options {
 #define TOX_CAPABILITY_CAPABILITIES ((uint64_t)1) << 0
 #define TOX_CAPABILITY_MSGV2 ((uint64_t)1) << 1
 #define TOX_CAPABILITY_TOXAV_H264 ((uint64_t)1) << 2
+#define TOX_CAPABILITY_MSGV3 ((uint64_t)1) << 3
 /* add new flags/bits here */
 /* if the TOX_CAPABILITY_NEXT_IMPLEMENTATION flag is set it means
  * we are using a different system for indicating capabilities now,
@@ -97,7 +99,7 @@ typedef struct Messenger_Options {
 #define TOX_CAPABILITY_NEXT_IMPLEMENTATION ((uint64_t)1) << 63
 /* hardcoded capabilities of this version/branch of toxcore */
 #ifdef TOX_CAPABILITIES_ACTIVE
-#define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_MSGV2 | TOX_CAPABILITY_TOXAV_H264)
+#define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_MSGV2 | TOX_CAPABILITY_TOXAV_H264 | TOX_CAPABILITY_MSGV3)
 #else
 #define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_TOXAV_H264)
 #endif
