@@ -360,17 +360,17 @@ static void msg_init(MSIMessage *dest, MSIRequest request)
     dest->request.value = request;
 }
 
-static bool check_size(const Logger *log, const uint8_t *bytes, int *constraint, uint8_t size)
+static bool check_size(const Tox *tox, const uint8_t *bytes, int *constraint, uint8_t size)
 {
     *constraint -= 2 + size;
 
     if (*constraint < 1) {
-        LOGGER_ERROR(log, "Read over length!");
+        LOGGER_API_ERROR(tox, "Read over length!");
         return false;
     }
 
     if (bytes[1] != size) {
-        LOGGER_ERROR(log, "Invalid data size!");
+        LOGGER_API_ERROR(tox, "Invalid data size!");
         return false;
     }
 
@@ -378,10 +378,10 @@ static bool check_size(const Logger *log, const uint8_t *bytes, int *constraint,
 }
 
 /* Assumes size == 1 */
-static bool check_enum_high(const Logger *log, const uint8_t *bytes, uint8_t enum_high)
+static bool check_enum_high(const Tox *tox, const uint8_t *bytes, uint8_t enum_high)
 {
     if (bytes[2] > enum_high) {
-        LOGGER_ERROR(log, "Failed enum high limit!");
+        LOGGER_API_ERROR(tox, "Failed enum high limit!");
         return false;
     }
 
@@ -406,8 +406,8 @@ static int msg_parse_in(Tox *tox, MSIMessage *dest, const uint8_t *data, uint16_
     while (*it) {/* until end byte is hit */
         switch (*it) {
             case ID_REQUEST: {
-                if (!check_size(log, it, &size_constraint, 1) ||
-                        !check_enum_high(log, it, REQU_POP)) {
+                if (!check_size(tox, it, &size_constraint, 1) ||
+                        !check_enum_high(tox, it, REQU_POP)) {
                     return -1;
                 }
 
@@ -418,8 +418,8 @@ static int msg_parse_in(Tox *tox, MSIMessage *dest, const uint8_t *data, uint16_
             }
 
             case ID_ERROR: {
-                if (!check_size(log, it, &size_constraint, 1) ||
-                        !check_enum_high(log, it, MSI_E_UNDISCLOSED)) {
+                if (!check_size(tox, it, &size_constraint, 1) ||
+                        !check_enum_high(tox, it, MSI_E_UNDISCLOSED)) {
                     return -1;
                 }
 
@@ -430,7 +430,7 @@ static int msg_parse_in(Tox *tox, MSIMessage *dest, const uint8_t *data, uint16_
             }
 
             case ID_CAPABILITIES: {
-                if (!check_size(log, it, &size_constraint, 1)) {
+                if (!check_size(tox, it, &size_constraint, 1)) {
                     return -1;
                 }
 
