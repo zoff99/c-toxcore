@@ -246,6 +246,7 @@ ToxAV *toxav_new(Tox *tox, Toxav_Err_New *error)
 
     init_decode_time_stats(&av->audio_stats);
     init_decode_time_stats(&av->video_stats);
+    av->interval = 200;
     av->msi->av = av;
 
     // save Tox object into toxcore
@@ -339,31 +340,6 @@ uint32_t toxav_iteration_interval(const ToxAV *av)
 }
 
 void toxav_iterate(ToxAV *av)
-/**
- * @brief calc_interval Calculates the needed iteration interval based on previous decode times
- * @param av ToxAV struct to work on
- * @param stats Statistics to update
- * @param frame_time the duration of the current frame in ms
- * @param start_time the timestamp when decoding of this frame started
- */
-static void calc_interval(ToxAV *av, DecodeTimeStats *stats, int32_t frame_time, uint64_t start_time)
-{
-    stats->interval = frame_time < stats->average ? 0 : (frame_time - stats->average);
-    stats->total += current_time_monotonic(av->m->mono_time) - start_time;
-
-    if (++stats->count == 3) {
-        stats->average = stats->total / 3 + 5; /* NOTE: Magic Offset for precision */
-        stats->count = 0;
-        stats->total = 0;
-    }
-}
-
-/**
- * @brief common iterator function for audio and video calls
- * @param av pointer to ToxAV structure of current instance
- * @param audio if true, iterate audio, video else
- */
-static void iterate_common(ToxAV *av, bool audio)
 {
     pthread_mutex_lock(av->mutex);
 
@@ -373,16 +349,14 @@ static void iterate_common(ToxAV *av, bool audio)
     }
 
     uint64_t start = current_time_monotonic(av->toxav_mono_time);
-    // time until the first audio or video frame is over
-    int32_t frame_time = IDLE_ITERATION_INTERVAL_MS;
+    int32_t rc = 500;
 
-    for (ToxAVCall *i = av->calls[av->calls_head]; i; i = i->next) {
-        if (!i->active) {
-            continue;
-        }
+    ToxAVCall *i = av->calls[av->calls_head];
 
-        pthread_mutex_lock(i->toxav_call_mutex);
-        pthread_mutex_unlock(av->mutex);
+    for (; i; i = i->next) {
+        if (i->active) {
+            pthread_mutex_lock(i->toxav_call_mutex);
+            pthread_mutex_unlock(av->mutex);
 
             uint32_t fid = i->friend_number;
             bool is_offline = check_peer_offline_status(av->tox, i->msi_call->session, fid);
@@ -393,55 +367,41 @@ static void iterate_common(ToxAV *av, bool audio)
                 break;
             }
 
-        if (audio) {
             ac_iterate(i->audio);
+            vc_iterate(i->video);
 
             if (i->msi_call->self_capabilities & MSI_CAP_R_AUDIO &&
                     i->msi_call->peer_capabilities & MSI_CAP_S_AUDIO) {
-                frame_time = min_s32(i->audio->lp_frame_duration, frame_time);
+                rc = min_s32(i->audio->lp_frame_duration, rc);
             }
-        } else {
-            vc_iterate(i->video);
 
             if (i->msi_call->self_capabilities & MSI_CAP_R_VIDEO &&
                     i->msi_call->peer_capabilities & MSI_CAP_S_VIDEO) {
                 pthread_mutex_lock(i->video->queue_mutex);
-                frame_time = min_u32(i->video->lcfd, frame_time);
+                rc = min_u32(i->video->lcfd, rc);
                 pthread_mutex_unlock(i->video->queue_mutex);
             }
-        }
 
             pthread_mutex_unlock(i->toxav_call_mutex);
             pthread_mutex_lock(av->mutex);
-        uint32_t fid = i->friend_number;
 
-        pthread_mutex_unlock(i->toxav_call_mutex);
-        pthread_mutex_lock(av->mutex);
-
-        /* In case this call is popped from container stop iteration */
-        if (call_get(av, fid) != i) {
-            break;
+            /* In case this call is popped from container stop iteration */
+            if (call_get(av, fid) != i) {
+                break;
+            }
         }
     }
 
-    DecodeTimeStats *stats = audio ? &av->audio_stats : &av->video_stats;
-    calc_interval(av, stats, frame_time, start);
+    av->interval = rc < av->dmssa ? 0 : (rc - av->dmssa);
+    av->dmsst += current_time_monotonic(av->toxav_mono_time) - start;
+
+    if (++av->dmssc == 3) {
+        av->dmssa = av->dmsst / 3 + 5; /* NOTE Magic Offset 5 for precision */
+        av->dmssc = 0;
+        av->dmsst = 0;
+    }
+
     pthread_mutex_unlock(av->mutex);
-}
-void toxav_audio_iterate(ToxAV *av)
-{
-    iterate_common(av, true);
-}
-
-void toxav_video_iterate(ToxAV *av)
-{
-    iterate_common(av, false);
-}
-
-void toxav_iterate(ToxAV *av)
-{
-    toxav_audio_iterate(av);
-    toxav_video_iterate(av);
 }
 
 bool toxav_call(ToxAV *av, uint32_t friend_number, uint32_t audio_bit_rate, uint32_t video_bit_rate,
