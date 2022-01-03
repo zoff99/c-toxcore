@@ -353,7 +353,7 @@ void toxav_iterate(ToxAV *av)
 
     ToxAVCall *i = av->calls[av->calls_head];
 
-    for (; i; i = i->next) {
+    for (i = av->calls[av->calls_head]; i; i = i->next) {
         if (i->active) {
             pthread_mutex_lock(i->toxav_call_mutex);
             pthread_mutex_unlock(av->mutex);
