@@ -8,10 +8,6 @@
  *
  * NOTE: This code has to be perfect. We don't mess around with encryption.
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include "net_crypto.h"
 
 #include <math.h>
@@ -532,8 +528,7 @@ static int handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t 
         return -1;
     }
 
-    if (crypto_memcmp(cookie_hash, plain + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE,
-                      CRYPTO_SHA512_SIZE) != 0) {
+    if (crypto_sha512_cmp(cookie_hash, plain + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE) != 0) {
         return -1;
     }
 
@@ -601,7 +596,7 @@ static int add_ip_port_connection(Net_Crypto *c, int crypt_connection_id, IP_Por
  */
 static IP_Port return_ip_port_connection(Net_Crypto *c, int crypt_connection_id)
 {
-    const IP_Port empty = {{{0}}};
+    const IP_Port empty = {0};
 
     Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
 
@@ -709,7 +704,7 @@ static int send_packet_to(Net_Crypto *c, int crypt_connection_id, const uint8_t 
     return -1;
 }
 
-/** START: Array Related functions */
+/*** START: Array Related functions */
 
 
 /* Return number of packets in array
@@ -2495,7 +2490,7 @@ static void send_crypto_packets(Net_Crypto *c)
                     long signed int total_resent = 0;
 
                     // TODO(irungentoo): use real delay
-                    unsigned int delay = (unsigned int)((conn->rtt_time / PACKET_COUNTER_AVERAGE_INTERVAL) + 0.5);
+                    unsigned int delay = (unsigned int)(((double)conn->rtt_time / PACKET_COUNTER_AVERAGE_INTERVAL) + 0.5);
                     unsigned int packets_set_rem_array = (CONGESTION_LAST_SENT_ARRAY_SIZE - CONGESTION_QUEUE_ARRAY_SIZE);
 
                     if (delay > packets_set_rem_array) {
@@ -2947,9 +2942,7 @@ void do_net_crypto(Net_Crypto *c, void *userdata)
 
 void kill_net_crypto(Net_Crypto *c)
 {
-    uint32_t i;
-
-    for (i = 0; i < c->crypto_connections_length; ++i) {
+    for (uint32_t i = 0; i < c->crypto_connections_length; ++i) {
         crypto_kill(c, i);
     }
 

@@ -8,6 +8,11 @@
 
 #if !defined(OS_WIN32) && (defined(_WIN32) || defined(__WIN32__) || defined(WIN32))
 #define OS_WIN32
+#endif
+
+#include "mono_time.h"
+
+#ifdef OS_WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
@@ -20,8 +25,6 @@
 #ifndef OS_WIN32
 #include <sys/time.h>
 #endif
-
-#include "mono_time.h"
 
 #include <pthread.h>
 #include <stdlib.h>
@@ -195,7 +198,10 @@ void mono_time_set_current_time_callback(Mono_Time *mono_time,
     }
 }
 
-/* return current monotonic time in milliseconds (ms). */
+/**
+ * Return current monotonic time in milliseconds (ms). The starting point is
+ * unspecified.
+ */
 uint64_t current_time_monotonic(Mono_Time *mono_time)
 {
     /* For WIN32 we don't want to change overflow state of mono_time here */

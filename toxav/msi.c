@@ -2,10 +2,6 @@
  * Copyright © 2016-2018 The TokTok team.
  * Copyright © 2013-2015 Tox project.
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif /* HAVE_CONFIG_H */
-
 #include "msi.h"
 #include "toxav_hacks.h"
 
@@ -85,9 +81,10 @@ static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *d
                               void *object);
 
 
-/**
+/*
  * Public functions
  */
+
 void msi_register_callback(MSISession *session, msi_action_cb *callback, MSICallbackID id)
 {
     if (!session) {
@@ -403,32 +400,45 @@ static int msg_parse_in(Tox *tox, MSIMessage *dest, const uint8_t *data, uint16_
 
     while (*it) {/* until end byte is hit */
         switch (*it) {
-            case ID_REQUEST:
-                CHECK_SIZE(it, size_constraint, 1);
-                CHECK_ENUM_HIGH(it, REQU_POP);
+            case ID_REQUEST: {
+                if (!check_size(log, it, &size_constraint, 1) ||
+                        !check_enum_high(log, it, REQU_POP)) {
+                    return -1;
+                }
+
                 dest->request.value = (MSIRequest)it[2];
                 dest->request.exists = true;
                 it += 3;
                 break;
+            }
 
-            case ID_ERROR:
-                CHECK_SIZE(it, size_constraint, 1);
-                CHECK_ENUM_HIGH(it, MSI_E_UNDISCLOSED);
+            case ID_ERROR: {
+                if (!check_size(log, it, &size_constraint, 1) ||
+                        !check_enum_high(log, it, MSI_E_UNDISCLOSED)) {
+                    return -1;
+                }
+
                 dest->error.value = (MSIError)it[2];
                 dest->error.exists = true;
                 it += 3;
                 break;
+            }
 
-            case ID_CAPABILITIES:
-                CHECK_SIZE(it, size_constraint, 1);
+            case ID_CAPABILITIES: {
+                if (!check_size(log, it, &size_constraint, 1)) {
+                    return -1;
+                }
+
                 dest->capabilities.value = it[2];
                 dest->capabilities.exists = true;
                 it += 3;
                 break;
+            }
 
             default:
                 LOGGER_API_ERROR(tox, "Invalid id byte");
                 return -1;
+            }
         }
     }
 
@@ -436,9 +446,6 @@ static int msg_parse_in(Tox *tox, MSIMessage *dest, const uint8_t *data, uint16_
         LOGGER_API_ERROR(tox, "Invalid request field!");
         return -1;
     }
-
-#undef CHECK_ENUM_HIGH
-#undef CHECK_SIZE
 
     return 0;
 }
@@ -637,9 +644,7 @@ static MSICall *new_call(MSISession *session, uint32_t friend_number)
         session->calls = tmp;
 
         /* Set fields in between to null */
-        uint32_t i = session->calls_tail + 1;
-
-        for (; i < friend_number; ++i) {
+        for (uint32_t i = session->calls_tail + 1; i < friend_number; ++i) {
             session->calls[i] = nullptr;
         }
 
@@ -721,8 +726,9 @@ static void handle_init(MSICall *call, const MSIMessage *msg)
             if (invoke_callback(call, MSI_ON_INVITE) == -1) {
                 goto FAILURE;
             }
+
+            break;
         }
-        break;
 
         case MSI_CALL_ACTIVE: {
             /* If peer sent init while the call is already
@@ -745,8 +751,8 @@ static void handle_init(MSICall *call, const MSIMessage *msg)
             /* If peer changed capabilities during re-call they will
              * be handled accordingly during the next step
              */
+            break;
         }
-        break;
 
         case MSI_CALL_REQUESTED: // fall-through
         case MSI_CALL_REQUESTING: {
@@ -777,7 +783,6 @@ static void handle_push(MSICall *call, const MSIMessage *msg)
 
     switch (call->state) {
         case MSI_CALL_ACTIVE: {
-            /* Only act if capabilities changed */
             if (call->peer_capabilities != msg->capabilities.value) {
                 LOGGER_API_INFO(call->session->tox, "Friend is changing capabilities to: %u", msg->capabilities.value);
 
@@ -787,8 +792,9 @@ static void handle_push(MSICall *call, const MSIMessage *msg)
                     goto FAILURE;
                 }
             }
+
+            break;
         }
-        break;
 
         case MSI_CALL_REQUESTING: {
             LOGGER_API_INFO(call->session->tox, "Friend answered our call");
@@ -800,15 +806,15 @@ static void handle_push(MSICall *call, const MSIMessage *msg)
             if (invoke_callback(call, MSI_ON_START) == -1) {
                 goto FAILURE;
             }
-        }
-        break;
 
-        /* Pushes during initialization state are ignored */
+            break;
+        }
+
         case MSI_CALL_INACTIVE: // fall-through
         case MSI_CALL_REQUESTED: {
             LOGGER_API_WARNING(call->session->tox, "Ignoring invalid push");
+            break;
         }
-        break;
     }
 
     return;
@@ -842,22 +848,22 @@ static void handle_pop(MSICall *call, const MSIMessage *msg)
                 /* Hangup */
                 LOGGER_API_INFO(call->session->tox, "Friend hung up on us");
                 invoke_callback(call, MSI_ON_END);
+                break;
             }
-            break;
 
             case MSI_CALL_REQUESTING: {
                 /* Reject */
                 LOGGER_API_INFO(call->session->tox, "Friend rejected our call");
                 invoke_callback(call, MSI_ON_END);
+                break;
             }
-            break;
 
             case MSI_CALL_REQUESTED: {
                 /* Cancel */
                 LOGGER_API_INFO(call->session->tox, "Friend canceled call invite");
                 invoke_callback(call, MSI_ON_END);
+                break;
             }
-            break;
         }
     }
 
@@ -922,17 +928,20 @@ static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *d
     }
 
     switch (msg.request.value) {
-        case REQU_INIT:
+        case REQU_INIT: {
             handle_init(call, &msg);
             break;
+        }
 
-        case REQU_PUSH:
+        case REQU_PUSH: {
             handle_push(call, &msg);
             break;
+        }
 
-        case REQU_POP:
+        case REQU_POP: {
             handle_pop(call, &msg); /* always kills the call */
             break;
+        }
     }
 
     pthread_mutex_unlock(session->mutex);

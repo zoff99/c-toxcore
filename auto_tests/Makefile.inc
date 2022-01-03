@@ -1,7 +1,6 @@
 if BUILD_TESTS
 
 TESTS = \
-	bootstrap_test \
 	conference_double_invite_test \
 	conference_invite_merge_test \
 	conference_peer_nick_test \
@@ -10,8 +9,6 @@ TESTS = \
 	conference_two_test \
 	crypto_test \
 	dht_test \
-	encryptsave_test \
-	file_saving_test \
 	file_transfer_test \
 	friend_connection_test \
 	friend_request_test \
@@ -34,13 +31,18 @@ TESTS = \
 	set_status_message_test \
 	skeleton_test \
 	TCP_test \
-	tcp_relay_test \
 	tox_many_tcp_test \
 	tox_many_test \
 	tox_one_test \
 	tox_strncasecmp_test \
 	typing_test \
 	version_test
+
+if !WITH_NACL
+TESTS += \
+	encryptsave_test \
+	file_saving_test
+endif
 
 AUTOTEST_CFLAGS = \
 	$(LIBSODIUM_CFLAGS) \
@@ -63,10 +65,6 @@ AUTOTEST_LDADD += libtoxav.la
 endif
 
 check_PROGRAMS = $(TESTS)
-
-bootstrap_test_SOURCES = ../auto_tests/bootstrap_test.c
-bootstrap_test_CFLAGS = $(AUTOTEST_CFLAGS)
-bootstrap_test_LDADD = $(AUTOTEST_LDADD)
 
 conference_double_invite_test_SOURCES = ../auto_tests/conference_double_invite_test.c
 conference_double_invite_test_CFLAGS = $(AUTOTEST_CFLAGS)
@@ -191,10 +189,6 @@ set_status_message_test_LDADD = $(AUTOTEST_LDADD)
 skeleton_test_SOURCES = ../auto_tests/skeleton_test.c
 skeleton_test_CFLAGS = $(AUTOTEST_CFLAGS)
 skeleton_test_LDADD = $(AUTOTEST_LDADD)
-
-tcp_relay_test_SOURCES = ../auto_tests/tcp_relay_test.c
-tcp_relay_test_CFLAGS = $(AUTOTEST_CFLAGS)
-tcp_relay_test_LDADD = $(AUTOTEST_LDADD)
 
 TCP_test_SOURCES = ../auto_tests/TCP_test.c
 TCP_test_CFLAGS = $(AUTOTEST_CFLAGS)

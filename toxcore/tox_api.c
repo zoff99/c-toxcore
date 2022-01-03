@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright © 2016-2021 The TokTok team.
+ */
 #include "tox.h"
 
 #include "ccompat.h"
@@ -5,7 +8,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define SET_ERROR_PARAMETER(param, x) do { if (param) { *param = x; } } while (0)
+#define SET_ERROR_PARAMETER(param, x) \
+    do {                              \
+        if (param) {                  \
+            *param = x;               \
+        }                             \
+    } while (0)
 
 //!TOKSTYLE-
 

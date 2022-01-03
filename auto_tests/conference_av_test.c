@@ -1,10 +1,6 @@
 /* Auto Tests: Conferences AV.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -468,6 +464,6 @@ int main(void)
 {
     setvbuf(stdout, nullptr, _IONBF, 0);
 
-    run_auto_test(NUM_AV_GROUP_TOX, test_groupav, true);
+    run_auto_test(nullptr, NUM_AV_GROUP_TOX, test_groupav, true);
     return 0;
 }

@@ -52,7 +52,6 @@ message("SOVERSION: ${SOVERSION}")
 #
 ################################################################################
 
-include(ApiDsl)
 include(CTest)
 include(ModulePackage)
 include(StrictAbi)
@@ -161,7 +160,6 @@ set(toxcore_PKGCONFIG_REQUIRES)
 
 # LAYER 1: Crypto core
 # --------------------
-apidsl(toxcore/crypto_core.api.h)
 set(toxcore_SOURCES ${toxcore_SOURCES}
   toxcore/ccompat.h
   toxcore/crypto_core.c
@@ -189,9 +187,6 @@ set(toxcore_SOURCES ${toxcore_SOURCES}
 
 # LAYER 3: Distributed Hash Table
 # -------------------------------
-apidsl(toxcore/LAN_discovery.api.h)
-apidsl(toxcore/ping.api.h)
-apidsl(toxcore/ping_array.api.h)
 set(toxcore_SOURCES ${toxcore_SOURCES}
   toxcore/DHT.c
   toxcore/DHT.h
@@ -244,7 +239,6 @@ set(toxcore_SOURCES ${toxcore_SOURCES}
 
 # LAYER 8: Public API
 # -------------------
-apidsl(toxcore/tox.api.h)
 set(toxcore_SOURCES ${toxcore_SOURCES}
   toxcore/tox_api.c
   toxcore/tox.c
@@ -259,7 +253,6 @@ set(toxcore_API_HEADERS ${toxcore_API_HEADERS} ${toxcore_SOURCE_DIR}/toxcore/tox
 ################################################################################
 
 if(BUILD_TOXAV)
-  apidsl(toxav/toxav.api.h)
   set(toxcore_SOURCES ${toxcore_SOURCES}
     toxav/audio.c
     toxav/audio.h
@@ -291,7 +284,6 @@ endif()
 #
 ################################################################################
 
-apidsl(toxencryptsave/toxencryptsave.api.h)
 set(toxcore_SOURCES ${toxcore_SOURCES}
   toxencryptsave/toxencryptsave.c
   toxencryptsave/toxencryptsave.h)
@@ -534,6 +526,15 @@ if (BUILD_MISC_TESTS)
   add_executable(save-generator
     other/fun/save-generator.c)
   target_link_modules(save-generator toxcore misc_tools)
+
+  add_executable(cracker
+    other/fun/cracker.c)
+  target_link_modules(cracker ${LIBSODIUM_LIBRARIES})
+  find_package(OpenMP)
+  if(OpenMP_C_FOUND)
+      target_link_libraries(cracker OpenMP::OpenMP_C)
+  endif()
+
   add_executable(afl_toxsave
     testing/afl_toxsave.c)
   target_link_modules(afl_toxsave toxcore)

@@ -1,7 +1,7 @@
 ---
-cirrus-ci_task:
+bazel-release_task:
   container:
-    image: toxchat/toktok-stack:0.0.23-third_party
+    image: toxchat/toktok-stack:0.0.31-release
     cpu: 2
     memory: 2G
   configure_script:
@@ -17,9 +17,27 @@ cirrus-ci_task:
         //c-toxcore/...
         -//c-toxcore/auto_tests:tcp_relay_test # TODO(robinlinden): Why does this pass locally but not in Cirrus?
 
+bazel-debug_task:
+  container:
+    image: toxchat/toktok-stack:0.0.31-debug
+    cpu: 2
+    memory: 2G
+  configure_script:
+    - /src/workspace/tools/inject-repo c-toxcore
+  test_all_script:
+    - cd /src/workspace && bazel test -k
+        --remote_http_cache=http://$CIRRUS_HTTP_CACHE_HOST
+        --build_tag_filters=-haskell
+        --test_tag_filters=-haskell
+        --remote_download_minimal
+        --config=debug
+        --
+        //c-toxcore/...
+        -//c-toxcore/auto_tests:tcp_relay_test # TODO(robinlinden): Why does this pass locally but not in Cirrus?
+
 cimple_task:
   container:
-    image: toxchat/toktok-stack:0.0.23-third_party
+    image: toxchat/toktok-stack:0.0.31-release
     cpu: 2
     memory: 4G
   configure_script:

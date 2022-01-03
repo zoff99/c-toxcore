@@ -1,10 +1,6 @@
 /* Tests that we can send lossless packets.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -61,6 +57,6 @@ int main(void)
 {
     setvbuf(stdout, nullptr, _IONBF, 0);
 
-    run_auto_test(2, test_lossless_packet, false);
+    run_auto_test(nullptr, 2, test_lossless_packet, false);
     return 0;
 }

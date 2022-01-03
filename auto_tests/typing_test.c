@@ -1,10 +1,6 @@
 /* Tests that our typing notifications work.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -59,6 +55,6 @@ static void test_typing(Tox **toxes, State *state)
 int main(void)
 {
     setvbuf(stdout, nullptr, _IONBF, 0);
-    run_auto_test(2, test_typing, false);
+    run_auto_test(nullptr, 2, test_typing, false);
     return 0;
 }

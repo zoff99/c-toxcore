@@ -3,7 +3,7 @@
  * Copyright © 2014 Tox project.
  */
 
-/**
+/*
  * The state module is responsible for parsing the Tox save data format and for
  * saving state in that format.
  *
@@ -52,7 +52,7 @@ typedef enum State_Load_Status {
 
 typedef State_Load_Status state_load_cb(void *outer, const uint8_t *data, uint32_t len, uint16_t type);
 
-// state load/save
+/** state load/save */
 int state_load(const Logger *log, state_load_cb *state_load_callback, void *outer,
                const uint8_t *data, uint32_t length, uint16_t cookie_inner);
 

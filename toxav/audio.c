@@ -2,10 +2,6 @@
  * Copyright © 2016-2018 The TokTok team.
  * Copyright © 2013-2015 Tox project.
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif /* HAVE_CONFIG_H */
-
 #include "audio.h"
 
 #include <stdlib.h>
@@ -297,11 +293,13 @@ static struct JitterBuffer *jbuf_new(uint32_t capacity)
 
 static void jbuf_clear(struct JitterBuffer *q)
 {
-    for (; q->bottom != q->top; ++q->bottom) {
+    while (q->bottom != q->top) {
         if (q->queue[q->bottom % q->size]) {
             free(q->queue[q->bottom % q->size]);
             q->queue[q->bottom % q->size] = nullptr;
         }
+
+        ++q->bottom;
     }
 }
 

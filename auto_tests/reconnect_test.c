@@ -5,10 +5,6 @@
  * re-established when the instance is resumed.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -101,6 +97,6 @@ int main(void)
 {
     setvbuf(stdout, nullptr, _IONBF, 0);
 
-    run_auto_test(TOX_COUNT, test_reconnect, false);
+    run_auto_test(nullptr, TOX_COUNT, test_reconnect, false);
     return 0;
 }

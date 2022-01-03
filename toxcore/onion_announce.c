@@ -6,10 +6,6 @@
 /*
  * Implementation of the announce part of docs/Prevent_Tracking.txt
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include "onion_announce.h"
 
 #include <stdlib.h>
@@ -26,10 +22,8 @@
 #define DATA_REQUEST_MIN_SIZE ONION_DATA_REQUEST_MIN_SIZE
 #define DATA_REQUEST_MIN_SIZE_RECV (DATA_REQUEST_MIN_SIZE + ONION_RETURN_3)
 
-//!TOKSTYLE-
 static_assert(ONION_PING_ID_SIZE == CRYPTO_PUBLIC_KEY_SIZE,
               "announce response packets assume that ONION_PING_ID_SIZE is equal to CRYPTO_PUBLIC_KEY_SIZE");
-//!TOKSTYLE+
 
 typedef struct Onion_Announce_Entry {
     uint8_t public_key[CRYPTO_PUBLIC_KEY_SIZE];
@@ -51,6 +45,11 @@ struct Onion_Announce {
     Shared_Keys shared_keys_recv;
 };
 
+static bool onion_ping_id_eq(const uint8_t *a, const uint8_t *b)
+{
+    return public_key_cmp(a, b) == 0;
+}
+
 uint8_t *onion_announce_entry_public_key(Onion_Announce *onion_a, uint32_t entry)
 {
     return onion_a->entries[entry].public_key;
@@ -61,7 +60,7 @@ void onion_announce_entry_set_time(Onion_Announce *onion_a, uint32_t entry, uint
     onion_a->entries[entry].time = time;
 }
 
-/* Create an onion announce request packet in packet of max_packet_length (recommended size ONION_ANNOUNCE_REQUEST_SIZE).
+/** Create an onion announce request packet in packet of max_packet_length (recommended size ONION_ANNOUNCE_REQUEST_SIZE).
  *
  * dest_client_id is the public key of the node the packet will be sent to.
  * public_key and secret_key is the kepair which will be used to encrypt the request.
@@ -105,7 +104,7 @@ int create_announce_request(uint8_t *packet, uint16_t max_packet_length, const u
     return ONION_ANNOUNCE_REQUEST_SIZE;
 }
 
-/* Create an onion data request packet in packet of max_packet_length (recommended size ONION_MAX_PACKET_SIZE).
+/** Create an onion data request packet in packet of max_packet_length (recommended size ONION_MAX_PACKET_SIZE).
  *
  * public_key is the real public key of the node which we want to send the data of length length to.
  * encrypt_public_key is the public key used to encrypt the data packet.
@@ -147,7 +146,7 @@ int create_data_request(uint8_t *packet, uint16_t max_packet_length, const uint8
     return DATA_REQUEST_MIN_SIZE + length;
 }
 
-/* Create and send an onion announce request packet.
+/** Create and send an onion announce request packet.
  *
  * path is the path the request will take before it is sent to dest.
  *
@@ -187,7 +186,7 @@ int send_announce_request(Networking_Core *net, const Onion_Path *path, Node_for
     return 0;
 }
 
-/* Create and send an onion data request packet.
+/** Create and send an onion data request packet.
  *
  * path is the path the request will take before it is sent to dest.
  * (if dest knows the person with the public_key they should
@@ -197,6 +196,8 @@ int send_announce_request(Networking_Core *net, const Onion_Path *path, Node_for
  * encrypt_public_key is the public key used to encrypt the data packet.
  *
  * nonce is the nonce to encrypt this packet with
+ *
+ * The maximum length of data is MAX_DATA_REQUEST_SIZE.
  *
  * return -1 on failure.
  * return 0 on success.
@@ -225,7 +226,7 @@ int send_data_request(Networking_Core *net, const Onion_Path *path, IP_Port dest
     return 0;
 }
 
-/* Generate a ping_id and put it in ping_id */
+/** Generate a ping_id and put it in ping_id */
 static void generate_ping_id(const Onion_Announce *onion_a, uint64_t time, const uint8_t *public_key,
                              IP_Port ret_ip_port, uint8_t *ping_id)
 {
@@ -238,16 +239,14 @@ static void generate_ping_id(const Onion_Announce *onion_a, uint64_t time, const
     crypto_sha256(ping_id, data, sizeof(data));
 }
 
-/* check if public key is in entries list
+/** check if public key is in entries list
  *
  * return -1 if no
  * return position in list if yes
  */
 static int in_entries(const Onion_Announce *onion_a, const uint8_t *public_key)
 {
-    unsigned int i;
-
-    for (i = 0; i < ONION_ANNOUNCE_MAX_ENTRIES; ++i) {
+    for (unsigned int i = 0; i < ONION_ANNOUNCE_MAX_ENTRIES; ++i) {
         if (!mono_time_is_timeout(onion_a->mono_time, onion_a->entries[i].time, ONION_ANNOUNCE_TIMEOUT)
                 && public_key_cmp(onion_a->entries[i].public_key, public_key) == 0) {
             return i;
@@ -321,7 +320,7 @@ static void sort_onion_announce_list(Onion_Announce_Entry *list, unsigned int le
     }
 }
 
-/* add entry to entries list
+/** add entry to entries list
  *
  * return -1 if failure
  * return position if added
@@ -394,8 +393,8 @@ static int handle_announce_request(void *object, IP_Port source, const uint8_t *
 
     uint8_t *data_public_key = plain + ONION_PING_ID_SIZE + CRYPTO_PUBLIC_KEY_SIZE;
 
-    if (crypto_memcmp(ping_id1, plain, ONION_PING_ID_SIZE) == 0
-            || crypto_memcmp(ping_id2, plain, ONION_PING_ID_SIZE) == 0) {
+    if (onion_ping_id_eq(ping_id1, plain)
+            || onion_ping_id_eq(ping_id2, plain)) {
         index = add_to_entries(onion_a, source, packet_public_key, data_public_key,
                                packet + (ANNOUNCE_REQUEST_SIZE_RECV - ONION_RETURN_3));
     } else {
@@ -405,7 +404,7 @@ static int handle_announce_request(void *object, IP_Port source, const uint8_t *
     /*Respond with a announce response packet*/
     Node_format nodes_list[MAX_SENT_NODES];
     unsigned int num_nodes =
-        get_close_nodes(onion_a->dht, plain + ONION_PING_ID_SIZE, nodes_list, net_family_unspec, ip_is_lan(source.ip), 1);
+        get_close_nodes(onion_a->dht, plain + ONION_PING_ID_SIZE, nodes_list, net_family_unspec, ip_is_lan(source.ip));
     uint8_t nonce[CRYPTO_NONCE_SIZE];
     random_nonce(nonce);
 

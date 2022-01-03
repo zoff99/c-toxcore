@@ -6,10 +6,6 @@
 /*
  * Implementation of the onion part of docs/Prevent_Tracking.txt
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include "onion.h"
 
 #include <stdlib.h>
@@ -27,8 +23,8 @@
 #define SEND_2 ONION_SEND_2
 #define SEND_1 ONION_SEND_1
 
-/* Change symmetric keys every 2 hours to make paths expire eventually. */
 #define KEY_REFRESH_INTERVAL (2 * 60 * 60)
+/** Change symmetric keys every 2 hours to make paths expire eventually. */
 static void change_symmetric_key(Onion *onion)
 {
     if (mono_time_is_timeout(onion->mono_time, onion->timestamp, KEY_REFRESH_INTERVAL)) {
@@ -37,7 +33,7 @@ static void change_symmetric_key(Onion *onion)
     }
 }
 
-/* packing and unpacking functions */
+/** packing and unpacking functions */
 static void ip_pack(uint8_t *data, IP source)
 {
     data[0] = source.family.value;
@@ -50,7 +46,7 @@ static void ip_pack(uint8_t *data, IP source)
     }
 }
 
-/* return 0 on success, -1 on failure. */
+/** return 0 on success, -1 on failure. */
 static int ip_unpack(IP *target, const uint8_t *data, unsigned int data_size, bool disable_family_check)
 {
     if (data_size < (1 + SIZE_IP6)) {
@@ -79,7 +75,7 @@ static void ipport_pack(uint8_t *data, const IP_Port *source)
     memcpy(data + SIZE_IP, &source->port, SIZE_PORT);
 }
 
-/* return 0 on success, -1 on failure. */
+/** return 0 on success, -1 on failure. */
 static int ipport_unpack(IP_Port *target, const uint8_t *data, unsigned int data_size, bool disable_family_check)
 {
     if (data_size < (SIZE_IP + SIZE_PORT)) {
@@ -95,7 +91,7 @@ static int ipport_unpack(IP_Port *target, const uint8_t *data, unsigned int data
 }
 
 
-/* Create a new onion path.
+/** Create a new onion path.
  *
  * Create a new onion path out of nodes (nodes is a list of ONION_PATH_LENGTH nodes)
  *
@@ -124,6 +120,8 @@ int create_onion_path(const DHT *dht, Onion_Path *new_path, const Node_format *n
     encrypt_precompute(nodes[2].public_key, random_secret_key, new_path->shared_key3);
     memcpy(new_path->public_key3, random_public_key, CRYPTO_PUBLIC_KEY_SIZE);
 
+    crypto_memzero(random_secret_key, sizeof(random_secret_key));
+
     new_path->ip_port1 = nodes[0].ip_port;
     new_path->ip_port2 = nodes[1].ip_port;
     new_path->ip_port3 = nodes[2].ip_port;
@@ -135,7 +133,7 @@ int create_onion_path(const DHT *dht, Onion_Path *new_path, const Node_format *n
     return 0;
 }
 
-/* Dump nodes in onion path to nodes of length num_nodes.
+/** Dump nodes in onion path to nodes of length num_nodes.
  *
  * return -1 on failure.
  * return 0 on success.
@@ -156,7 +154,7 @@ int onion_path_to_nodes(Node_format *nodes, unsigned int num_nodes, const Onion_
     return 0;
 }
 
-/* Create a onion packet.
+/** Create a onion packet.
  *
  * Use Onion_Path path to create packet for data of length to dest.
  * Maximum length of data is ONION_MAX_DATA_SIZE.
@@ -215,7 +213,7 @@ int create_onion_packet(uint8_t *packet, uint16_t max_packet_length, const Onion
     return 1 + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE + len;
 }
 
-/* Create a onion packet to be sent over tcp.
+/** Create a onion packet to be sent over tcp.
  *
  * Use Onion_Path path to create packet for data of length to dest.
  * Maximum length of data is ONION_MAX_DATA_SIZE.
@@ -264,7 +262,7 @@ int create_onion_packet_tcp(uint8_t *packet, uint16_t max_packet_length, const O
     return CRYPTO_NONCE_SIZE + SIZE_IPPORT + CRYPTO_PUBLIC_KEY_SIZE + len;
 }
 
-/* Create and send a onion packet.
+/** Create and send a onion packet.
  *
  * Use Onion_Path path to send data of length to dest.
  * Maximum length of data is ONION_MAX_DATA_SIZE.
@@ -288,7 +286,7 @@ int send_onion_packet(Networking_Core *net, const Onion_Path *path, IP_Port dest
     return 0;
 }
 
-/* Create and send a onion response sent initially to dest with.
+/** Create and send a onion response sent initially to dest with.
  * Maximum length of data is ONION_RESPONSE_MAX_DATA_SIZE.
  *
  * return -1 on failure.
@@ -468,8 +466,9 @@ static int handle_send_2(void *object, IP_Port source, const uint8_t *packet, ui
         return 1;
     }
 
-    if (plain[SIZE_IPPORT] != NET_PACKET_ANNOUNCE_REQUEST &&
-            plain[SIZE_IPPORT] != NET_PACKET_ONION_DATA_REQUEST) {
+    const uint8_t packet_id = plain[SIZE_IPPORT];
+
+    if (packet_id != NET_PACKET_ANNOUNCE_REQUEST && packet_id != NET_PACKET_ONION_DATA_REQUEST) {
         return 1;
     }
 
@@ -516,8 +515,9 @@ static int handle_recv_3(void *object, IP_Port source, const uint8_t *packet, ui
         return 1;
     }
 
-    if (packet[1 + RETURN_3] != NET_PACKET_ANNOUNCE_RESPONSE &&
-            packet[1 + RETURN_3] != NET_PACKET_ONION_DATA_RESPONSE) {
+    const uint8_t packet_id = packet[1 + RETURN_3];
+
+    if (packet_id != NET_PACKET_ANNOUNCE_RESPONSE && packet_id != NET_PACKET_ONION_DATA_RESPONSE) {
         return 1;
     }
 
@@ -562,8 +562,9 @@ static int handle_recv_2(void *object, IP_Port source, const uint8_t *packet, ui
         return 1;
     }
 
-    if (packet[1 + RETURN_2] != NET_PACKET_ANNOUNCE_RESPONSE &&
-            packet[1 + RETURN_2] != NET_PACKET_ONION_DATA_RESPONSE) {
+    const uint8_t packet_id = packet[1 + RETURN_2];
+
+    if (packet_id != NET_PACKET_ANNOUNCE_RESPONSE && packet_id != NET_PACKET_ONION_DATA_RESPONSE) {
         return 1;
     }
 
@@ -608,8 +609,9 @@ static int handle_recv_1(void *object, IP_Port source, const uint8_t *packet, ui
         return 1;
     }
 
-    if (packet[1 + RETURN_1] != NET_PACKET_ANNOUNCE_RESPONSE &&
-            packet[1 + RETURN_1] != NET_PACKET_ONION_DATA_RESPONSE) {
+    const uint8_t packet_id = packet[1 + RETURN_1];
+
+    if (packet_id != NET_PACKET_ANNOUNCE_RESPONSE && packet_id != NET_PACKET_ONION_DATA_RESPONSE) {
         return 1;
     }
 
@@ -693,6 +695,8 @@ void kill_onion(Onion *onion)
     networking_registerhandler(onion->net, NET_PACKET_ONION_RECV_3, nullptr, nullptr);
     networking_registerhandler(onion->net, NET_PACKET_ONION_RECV_2, nullptr, nullptr);
     networking_registerhandler(onion->net, NET_PACKET_ONION_RECV_1, nullptr, nullptr);
+
+    crypto_memzero(onion->secret_symmetric_key, sizeof(onion->secret_symmetric_key));
 
     free(onion);
 }

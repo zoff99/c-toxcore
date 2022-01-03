@@ -116,6 +116,16 @@ cc_library(
 )
 
 cc_test(
+    name = "network_test",
+    size = "small",
+    srcs = ["network_test.cc"],
+    deps = [
+        ":network",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "util_test",
     size = "small",
     srcs = ["util_test.cc"],
@@ -224,6 +234,16 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "TCP_connection_test",
+    size = "small",
+    srcs = ["TCP_connection_test.cc"],
+    deps = [
+        ":TCP_connection",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 cc_library(
     name = "net_crypto",
     srcs = ["net_crypto.c"],
@@ -259,6 +279,16 @@ cc_library(
         ":DHT",
         ":net_crypto",
         ":onion_client",
+    ],
+)
+
+cc_test(
+    name = "friend_connection_test",
+    size = "small",
+    srcs = ["friend_connection_test.cc"],
+    deps = [
+        ":friend_connection",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -303,19 +333,11 @@ cc_library(
     ],
 )
 
-CIMPLE_SRCS = glob(
-    [
+sh_library(
+    name = "cimple_files",
+    srcs = glob([
         "*.c",
         "*.h",
-    ],
-    exclude = ["*.api.h"],
-)
-
-sh_test(
-    name = "cimple_test",
-    size = "small",
-    srcs = ["//hs-tokstyle/tools:check-cimple"],
-    args = ["$(location %s)" % f for f in CIMPLE_SRCS],
-    data = CIMPLE_SRCS,
-    tags = ["haskell"],
+    ]),
+    visibility = ["//c-toxcore/testing:__pkg__"],
 )

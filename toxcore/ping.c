@@ -7,10 +7,6 @@
 /*
  * Buffered pinging using cyclic arrays.
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include "ping.h"
 
 #include <stdlib.h>
@@ -45,14 +41,14 @@ struct Ping {
 #define DHT_PING_SIZE (1 + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + PING_PLAIN_SIZE + CRYPTO_MAC_SIZE)
 #define PING_DATA_SIZE (CRYPTO_PUBLIC_KEY_SIZE + sizeof(IP_Port))
 
-int32_t ping_send_request(Ping *ping, IP_Port ipp, const uint8_t *public_key)
+void ping_send_request(Ping *ping, IP_Port ipp, const uint8_t *public_key)
 {
     uint8_t   pk[DHT_PING_SIZE];
     int       rc;
     uint64_t  ping_id;
 
     if (id_equal(public_key, dht_get_self_public_key(ping->dht))) {
-        return 1;
+        return;
     }
 
     uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE];
@@ -66,7 +62,8 @@ int32_t ping_send_request(Ping *ping, IP_Port ipp, const uint8_t *public_key)
     ping_id = ping_array_add(ping->ping_array, ping->mono_time, data, sizeof(data));
 
     if (ping_id == 0) {
-        return 1;
+        crypto_memzero(shared_key, sizeof(shared_key));
+        return;
     }
 
     uint8_t ping_plain[PING_PLAIN_SIZE];
@@ -83,11 +80,14 @@ int32_t ping_send_request(Ping *ping, IP_Port ipp, const uint8_t *public_key)
                                 ping_plain, sizeof(ping_plain),
                                 pk + 1 + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE);
 
+    crypto_memzero(shared_key, sizeof(shared_key));
+
     if (rc != PING_PLAIN_SIZE + CRYPTO_MAC_SIZE) {
-        return 1;
+        return;
     }
 
-    return sendpacket(dht_get_net(ping->dht), ipp, pk, sizeof(pk));
+    // We never check this return value and failures in sendpacket are already logged
+    sendpacket(dht_get_net(ping->dht), ipp, pk, sizeof(pk));
 }
 
 static int ping_send_response(Ping *ping, IP_Port ipp, const uint8_t *public_key, uint64_t ping_id,
@@ -148,10 +148,12 @@ static int handle_ping_request(void *object, IP_Port source, const uint8_t *pack
                                 ping_plain);
 
     if (rc != sizeof(ping_plain)) {
+        crypto_memzero(shared_key, sizeof(shared_key));
         return 1;
     }
 
     if (ping_plain[0] != NET_PACKET_PING_REQUEST) {
+        crypto_memzero(shared_key, sizeof(shared_key));
         return 1;
     }
 
@@ -160,6 +162,8 @@ static int handle_ping_request(void *object, IP_Port source, const uint8_t *pack
     // Send response
     ping_send_response(ping, source, packet + 1, ping_id, shared_key);
     ping_add(ping, packet + 1, source);
+
+    crypto_memzero(shared_key, sizeof(shared_key));
 
     return 0;
 }
@@ -192,6 +196,8 @@ static int handle_ping_response(void *object, IP_Port source, const uint8_t *pac
                                 PING_PLAIN_SIZE + CRYPTO_MAC_SIZE,
                                 ping_plain);
 
+    crypto_memzero(shared_key, sizeof(shared_key));
+
     if (rc != sizeof(ping_plain)) {
         return 1;
     }
@@ -223,7 +229,7 @@ static int handle_ping_response(void *object, IP_Port source, const uint8_t *pac
     return 0;
 }
 
-/* Check if public_key with ip_port is in the list.
+/** Check if public_key with ip_port is in the list.
  *
  * return 1 if it is.
  * return 0 if it isn't.
@@ -231,9 +237,7 @@ static int handle_ping_response(void *object, IP_Port source, const uint8_t *pac
 static int in_list(const Client_data *list, uint16_t length, const Mono_Time *mono_time, const uint8_t *public_key,
                    IP_Port ip_port)
 {
-    unsigned int i;
-
-    for (i = 0; i < length; ++i) {
+    for (unsigned int i = 0; i < length; ++i) {
         if (id_equal(list[i].public_key, public_key)) {
             const IPPTsPng *ipptp;
 
@@ -252,7 +256,7 @@ static int in_list(const Client_data *list, uint16_t length, const Mono_Time *mo
     return 0;
 }
 
-/* Add nodes to the to_ping list.
+/** Add nodes to the to_ping list.
  * All nodes in this list are pinged every TIME_TO_PING seconds
  * and are then removed from the list.
  * If the list is full the nodes farthest from our public_key are replaced.
@@ -283,9 +287,7 @@ int32_t ping_add(Ping *ping, const uint8_t *public_key, IP_Port ip_port)
         return -1;
     }
 
-    unsigned int i;
-
-    for (i = 0; i < MAX_TO_PING; ++i) {
+    for (unsigned int i = 0; i < MAX_TO_PING; ++i) {
         if (!ip_isset(&ping->to_ping[i].ip_port.ip)) {
             memcpy(ping->to_ping[i].public_key, public_key, CRYPTO_PUBLIC_KEY_SIZE);
             ipport_copy(&ping->to_ping[i].ip_port, &ip_port);
@@ -305,7 +307,7 @@ int32_t ping_add(Ping *ping, const uint8_t *public_key, IP_Port ip_port)
 }
 
 
-/* Ping all the valid nodes in the to_ping list every TIME_TO_PING seconds.
+/** Ping all the valid nodes in the to_ping list every TIME_TO_PING seconds.
  * This function must be run at least once every TIME_TO_PING seconds.
  */
 void ping_iterate(Ping *ping)

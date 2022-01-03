@@ -2,10 +2,6 @@
  * Copyright © 2016-2018 The TokTok team.
  * Copyright © 2013-2015 Tox project.
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif /* HAVE_CONFIG_H */
-
 #include "rtp.h"
 #include "toxav_hacks.h"
 
@@ -775,8 +771,13 @@ void rtp_stop_receiving(Tox *tox)
 }
 
 /**
- * @param data is raw vpx data.
- * @param length is the length of the raw data.
+ * Send a frame of audio or video data, chunked in \ref RTPMessage instances.
+ *
+ * @param session The A/V session to send the data for.
+ * @param data A byte array of length \p length.
+ * @param length The number of bytes to send from @p data.
+ * @param is_keyframe Whether this video frame is a key frame. If it is an
+ *   audio frame, this parameter is ignored.
  */
 int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
                   bool is_keyframe)
@@ -834,7 +835,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
     rdata[0] = session->payload_type;  // packet id == payload_type
 
     if (MAX_CRYPTO_DATA_SIZE > (length + RTP_HEADER_SIZE + 1)) {
-        /**
+        /*
          * The length is lesser than the maximum allowed length (including header)
          * Send the packet in single piece.
          */
@@ -848,7 +849,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length,
             net_kill_strerror(netstrerror);
         }
     } else {
-        /**
+        /*
          * The length is greater than the maximum allowed length (including header)
          * Send the packet in multiple pieces.
          */

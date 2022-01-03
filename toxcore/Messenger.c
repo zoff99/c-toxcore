@@ -6,10 +6,6 @@
 /*
  * An implementation of a simple text chat only messenger on the tox network core.
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include "Messenger.h"
 
 #include <assert.h>
@@ -70,9 +66,7 @@ static int realloc_friendlist(Messenger *m, uint32_t num)
  */
 int32_t getfriend_id(const Messenger *m, const uint8_t *real_pk)
 {
-    uint32_t i;
-
-    for (i = 0; i < m->numfriends; ++i) {
+    for (uint32_t i = 0; i < m->numfriends; ++i) {
         if (m->friendlist[i].status > 0) {
             if (id_equal(real_pk, m->friendlist[i].real_pk)) {
                 return i;
@@ -118,9 +112,8 @@ static uint16_t address_checksum(const uint8_t *address, uint32_t len)
 {
     uint8_t checksum[2] = {0};
     uint16_t check;
-    uint32_t i;
 
-    for (i = 0; i < len; ++i) {
+    for (uint32_t i = 0; i < len; ++i) {
         checksum[i % 2] ^= address[i];
     }
 
@@ -185,9 +178,7 @@ static int32_t init_new_friend(Messenger *m, const uint8_t *real_pk, uint8_t sta
         return FAERR_NOMEM;
     }
 
-    uint32_t i;
-
-    for (i = 0; i <= m->numfriends; ++i) {
+    for (uint32_t i = 0; i <= m->numfriends; ++i) {
         if (m->friendlist[i].status == NOFRIEND) {
             m->friendlist[i].status = status;
             m->friendlist[i].friendcon_id = friendcon_id;
@@ -422,6 +413,7 @@ int m_delfriend(Messenger *m, int32_t friendnumber)
 
     kill_friend_connection(m->fr_c, m->friendlist[friendnumber].friendcon_id);
     memset(&m->friendlist[friendnumber], 0, sizeof(Friend));
+
     uint32_t i;
 
     for (i = m->numfriends; i != 0; --i) {
@@ -494,22 +486,22 @@ int m_send_message_generic(Messenger *m, int32_t friendnumber, uint8_t type, con
                            uint32_t *message_id)
 {
     if (type > MESSAGE_ACTION) {
-        LOGGER_ERROR(m->log, "Message type %d is invalid", type);
+        LOGGER_WARNING(m->log, "Message type %d is invalid", type);
         return -5;
     }
 
     if (!friend_is_valid(m, friendnumber)) {
-        LOGGER_ERROR(m->log, "Friend number %d is invalid", friendnumber);
+        LOGGER_WARNING(m->log, "Friend number %d is invalid", friendnumber);
         return -1;
     }
 
     if (length >= MAX_CRYPTO_DATA_SIZE) {
-        LOGGER_ERROR(m->log, "Message length %u is too large", length);
+        LOGGER_WARNING(m->log, "Message length %u is too large", length);
         return -2;
     }
 
     if (m->friendlist[friendnumber].status != FRIEND_ONLINE) {
-        LOGGER_ERROR(m->log, "Friend %d is not online", friendnumber);
+        LOGGER_WARNING(m->log, "Friend %d is not online", friendnumber);
         return -3;
     }
 
@@ -524,8 +516,8 @@ int m_send_message_generic(Messenger *m, int32_t friendnumber, uint8_t type, con
                                            m->friendlist[friendnumber].friendcon_id), packet, length + 1, 0);
 
     if (packet_num == -1) {
-        LOGGER_ERROR(m->log, "Failed to write crypto packet for message of length %d to friend %d",
-                     length, friendnumber);
+        LOGGER_WARNING(m->log, "Failed to write crypto packet for message of length %d to friend %d",
+                       length, friendnumber);
         return -4;
     }
 
@@ -595,9 +587,8 @@ int setname(Messenger *m, const uint8_t *name, uint16_t length)
     }
 
     m->name_length = length;
-    uint32_t i;
 
-    for (i = 0; i < m->numfriends; ++i) {
+    for (uint32_t i = 0; i < m->numfriends; ++i) {
         m->friendlist[i].name_sent = 0;
     }
 
@@ -666,9 +657,7 @@ int m_set_statusmessage(Messenger *m, const uint8_t *status, uint16_t length)
 
     m->statusmessage_length = length;
 
-    uint32_t i;
-
-    for (i = 0; i < m->numfriends; ++i) {
+    for (uint32_t i = 0; i < m->numfriends; ++i) {
         m->friendlist[i].statusmessage_sent = 0;
     }
 
@@ -686,9 +675,8 @@ int m_set_userstatus(Messenger *m, uint8_t status)
     }
 
     m->userstatus = (Userstatus)status;
-    uint32_t i;
 
-    for (i = 0; i < m->numfriends; ++i) {
+    for (uint32_t i = 0; i < m->numfriends; ++i) {
         m->friendlist[i].userstatus_sent = 0;
     }
 
@@ -963,7 +951,7 @@ static int write_cryptpacket_id(const Messenger *m, int32_t friendnumber, uint8_
                              m->friendlist[friendnumber].friendcon_id), packet, length + 1, congestion_control) != -1;
 }
 
-/** CONFERENCES */
+/*** CONFERENCES */
 
 
 /* Set the callback for conference invites.
@@ -984,7 +972,7 @@ int send_conference_invite_packet(const Messenger *m, int32_t friendnumber, cons
     return write_cryptpacket_id(m, friendnumber, PACKET_ID_INVITE_CONFERENCE, data, length, 0);
 }
 
-/** FILE SENDING */
+/*** FILE SENDING */
 
 
 /* Set the callback for file send requests.
@@ -1964,8 +1952,6 @@ void kill_messenger(Messenger *m)
         return;
     }
 
-    uint32_t i;
-
     if (m->tcp_server) {
         kill_TCP_server(m->tcp_server);
     }
@@ -1978,7 +1964,7 @@ void kill_messenger(Messenger *m)
     kill_dht(m->dht);
     kill_networking(m->net);
 
-    for (i = 0; i < m->numfriends; ++i) {
+    for (uint32_t i = 0; i < m->numfriends; ++i) {
         clear_receipts(m, i);
     }
 
@@ -2331,10 +2317,9 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
 
 static void do_friends(Messenger *m, void *userdata)
 {
-    uint32_t i;
     uint64_t temp_time = mono_time_get(m->mono_time);
 
-    for (i = 0; i < m->numfriends; ++i) {
+    for (uint32_t i = 0; i < m->numfriends; ++i) {
         if (m->friendlist[i].status == FRIEND_ADDED) {
             int fr = send_friend_request_packet(m->fr_c, m->friendlist[i].friendcon_id, m->friendlist[i].friendrequest_nospam,
                                                 m->friendlist[i].info,
@@ -2542,17 +2527,9 @@ void do_messenger(Messenger *m, void *userdata)
             LOGGER_TRACE(m->log, "Friend num in DHT %u != friend num in msger %u", dht_get_num_friends(m->dht), m->numfriends);
         }
 
-        Friend *msgfptr;
-        DHT_Friend *dhtfptr;
-
         for (uint32_t friend_idx = 0; friend_idx < num_dhtfriends; ++friend_idx) {
-            if (dht2m[friend_idx] >= 0) {
-                msgfptr = &m->friendlist[dht2m[friend_idx]];
-            } else {
-                msgfptr = nullptr;
-            }
-
-            dhtfptr = dht_get_friend(m->dht, friend_idx);
+            const Friend *const msgfptr = dht2m[friend_idx] >= 0 ?  &m->friendlist[dht2m[friend_idx]] : nullptr;
+            const DHT_Friend *const dhtfptr = dht_get_friend(m->dht, friend_idx);
 
             if (msgfptr) {
                 char id_str[IDSTRING_LEN];
@@ -2902,21 +2879,20 @@ static uint8_t *friends_list_save(const Messenger *m, uint8_t *data)
 
 static State_Load_Status friends_list_load(Messenger *m, const uint8_t *data, uint32_t length)
 {
-    if (length % friend_size() != 0) {
+    const uint32_t l_friend_size = friend_size();
+
+    if (length % l_friend_size != 0) {
         return STATE_LOAD_STATUS_ERROR; // TODO(endoffile78): error or continue?
     }
 
-    uint32_t num = length / friend_size();
-    uint32_t i;
+    uint32_t num = length / l_friend_size;
     const uint8_t *cur_data = data;
 
-    for (i = 0; i < num; ++i) {
+    for (uint32_t i = 0; i < num; ++i) {
         struct Saved_Friend temp = { 0 };
         const uint8_t *next_data = friend_load(&temp, cur_data);
-        assert(next_data - cur_data == friend_size());
-#ifdef __LP64__
-        assert(memcmp(&temp, cur_data, friend_size()) == 0);
-#endif
+        assert(next_data - cur_data == l_friend_size);
+
         cur_data = next_data;
 
         if (temp.status >= 3) {
@@ -3140,9 +3116,8 @@ bool messenger_load_state_section(Messenger *m, const uint8_t *data, uint32_t le
 uint32_t count_friendlist(const Messenger *m)
 {
     uint32_t ret = 0;
-    uint32_t i;
 
-    for (i = 0; i < m->numfriends; ++i) {
+    for (uint32_t i = 0; i < m->numfriends; ++i) {
         if (m->friendlist[i].status > 0) {
             ++ret;
         }
@@ -3166,10 +3141,9 @@ uint32_t copy_friendlist(Messenger const *m, uint32_t *out_list, uint32_t list_s
         return 0;
     }
 
-    uint32_t i;
     uint32_t ret = 0;
 
-    for (i = 0; i < m->numfriends; ++i) {
+    for (uint32_t i = 0; i < m->numfriends; ++i) {
         if (ret >= list_size) {
             break; /* Abandon ship */
         }

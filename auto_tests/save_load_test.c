@@ -1,10 +1,6 @@
 /* Tests that we can save and load Tox data.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -149,7 +145,7 @@ static void test_few_clients(void)
     uint8_t address[TOX_ADDRESS_SIZE];
     tox_self_get_address(tox2, address);
     uint32_t test = tox_friend_add(tox3, address, (const uint8_t *)"Gentoo", 7, nullptr);
-    ck_assert_msg(test == 0, "Failed to add friend error code: %i", test);
+    ck_assert_msg(test == 0, "Failed to add friend error code: %u", test);
 
     uint8_t off = 1;
 

@@ -2,10 +2,6 @@
  * Copyright © 2016-2018 The TokTok team.
  * Copyright © 2014 Tox project.
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif /* HAVE_CONFIG_H */
-
 #include "groupav.h"
 
 #include <stdlib.h>
@@ -61,11 +57,13 @@ static Group_JitterBuffer *create_queue(unsigned int capacity)
 
 static void clear_queue(Group_JitterBuffer *q)
 {
-    for (; q->bottom != q->top; ++q->bottom) {
+    while (q->bottom != q->top) {
         if (q->queue[q->bottom % q->size]) {
             free(q->queue[q->bottom % q->size]);
             q->queue[q->bottom % q->size] = nullptr;
         }
+
+        ++q->bottom;
     }
 }
 
@@ -445,7 +443,12 @@ int groupchat_enable_av(const Logger *log, Tox *tox, Group_Chats *g_c, uint32_t 
         return -1;
     }
 
-    int numpeers = group_number_peers(g_c, groupnumber, false);
+    const int numpeers = group_number_peers(g_c, groupnumber, false);
+
+    if (numpeers < 0) {
+        kill_group_av(group_av);
+        return -1;
+    }
 
     for (uint32_t i = 0; i < numpeers; ++i) {
         group_av_peer_new(group_av, groupnumber, i);
@@ -472,7 +475,12 @@ int groupchat_disable_av(Group_Chats *g_c, uint32_t groupnumber)
         return -1;
     }
 
-    int numpeers = group_number_peers(g_c, groupnumber, false);
+    const int numpeers = group_number_peers(g_c, groupnumber, false);
+
+    if (numpeers < 0) {
+        kill_group_av(group_av);
+        return -1;
+    }
 
     for (uint32_t i = 0; i < numpeers; ++i) {
         group_av_peer_delete(group_av, groupnumber, group_peer_get_object(g_c, groupnumber, i));

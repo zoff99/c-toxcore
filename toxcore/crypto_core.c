@@ -8,10 +8,6 @@
  *
  * NOTE: This code has to be perfect. We don't mess around with encryption.
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include "crypto_core.h"
 
 #include <stdlib.h>
@@ -20,7 +16,7 @@
 #include "ccompat.h"
 
 #ifndef VANILLA_NACL
-/* We use libsodium by default. */
+// We use libsodium by default.
 #include <sodium.h>
 #else
 #include <crypto_box.h>
@@ -33,7 +29,6 @@
 #define crypto_box_MACBYTES (crypto_box_ZEROBYTES - crypto_box_BOXZEROBYTES)
 #endif
 
-//!TOKSTYLE-
 static_assert(CRYPTO_PUBLIC_KEY_SIZE == crypto_box_PUBLICKEYBYTES,
               "CRYPTO_PUBLIC_KEY_SIZE should be equal to crypto_box_PUBLICKEYBYTES");
 static_assert(CRYPTO_SECRET_KEY_SIZE == crypto_box_SECRETKEYBYTES,
@@ -52,7 +47,6 @@ static_assert(CRYPTO_SHA512_SIZE == crypto_hash_sha512_BYTES,
               "CRYPTO_SHA512_SIZE should be equal to crypto_hash_sha512_BYTES");
 static_assert(CRYPTO_PUBLIC_KEY_SIZE == 32,
               "CRYPTO_PUBLIC_KEY_SIZE is required to be 32 bytes for public_key_cmp to work");
-//!TOKSTYLE+
 
 static uint8_t *crypto_malloc(size_t bytes)
 {
@@ -71,6 +65,15 @@ static void crypto_free(uint8_t *ptr, size_t bytes)
 int32_t public_key_cmp(const uint8_t *pk1, const uint8_t *pk2)
 {
     return crypto_verify_32(pk1, pk2);
+}
+
+int32_t crypto_sha512_cmp(const uint8_t *cksum1, const uint8_t *cksum2)
+{
+#ifndef VANILLA_NACL
+    return crypto_verify_64(cksum1, cksum2);
+#else
+    return crypto_verify_32(cksum1, cksum2) && crypto_verify_32(cksum1 + 8, cksum2 + 8);
+#endif
 }
 
 uint8_t random_u08(void)
@@ -110,10 +113,10 @@ bool public_key_valid(const uint8_t *public_key)
     return 1;
 }
 
-/* Precomputes the shared key from their public_key and our secret_key.
- * This way we can avoid an expensive elliptic curve scalar multiply for each
- * encrypt/decrypt operation.
- * shared_key has to be crypto_box_BEFORENMBYTES bytes long.
+/**
+ * Fast encrypt/decrypt operations. Use if this is not a one-time communication.
+ * encrypt_precompute does the shared-key generation once so it does not have
+ * to be performed on every encrypt/decrypt.
  */
 int32_t encrypt_precompute(const uint8_t *public_key, const uint8_t *secret_key,
                            uint8_t *shared_key)
@@ -225,7 +228,10 @@ int32_t decrypt_data(const uint8_t *public_key, const uint8_t *secret_key, const
     return ret;
 }
 
-/* Increment the given nonce by 1. */
+/**
+ * Increment the given nonce by 1 in big endian (rightmost byte incremented
+ * first).
+ */
 void increment_nonce(uint8_t *nonce)
 {
     /* TODO(irungentoo): use `increment_nonce_number(nonce, 1)` or
@@ -236,17 +242,19 @@ void increment_nonce(uint8_t *nonce)
      * that loop bounds and their potential underflow or overflow
      * are independent of user-controlled input (you may have heard of the Heartbleed bug).
      */
-    uint32_t i = crypto_box_NONCEBYTES;
     uint_fast16_t carry = 1U;
 
-    for (; i != 0; --i) {
+    for (uint32_t i = crypto_box_NONCEBYTES; i != 0; --i) {
         carry += (uint_fast16_t)nonce[i - 1];
         nonce[i - 1] = (uint8_t)carry;
         carry >>= 8;
     }
 }
 
-/* increment the given nonce by num */
+/**
+ * Increment the given nonce by a given number. The number should be in host
+ * byte order.
+ */
 void increment_nonce_number(uint8_t *nonce, uint32_t increment)
 {
     /* NOTE don't use breaks inside this loop
@@ -260,23 +268,26 @@ void increment_nonce_number(uint8_t *nonce, uint32_t increment)
     num_as_nonce[crypto_box_NONCEBYTES - 2] = increment >> 8;
     num_as_nonce[crypto_box_NONCEBYTES - 1] = increment;
 
-    uint32_t i = crypto_box_NONCEBYTES;
     uint_fast16_t carry = 0U;
 
-    for (; i != 0; --i) {
+    for (uint32_t i = crypto_box_NONCEBYTES; i != 0; --i) {
         carry += (uint_fast16_t)nonce[i - 1] + (uint_fast16_t)num_as_nonce[i - 1];
         nonce[i - 1] = (uint8_t)carry;
         carry >>= 8;
     }
 }
 
-/* Fill the given nonce with random bytes. */
+/**
+ * Fill the given nonce with random bytes.
+ */
 void random_nonce(uint8_t *nonce)
 {
     random_bytes(nonce, crypto_box_NONCEBYTES);
 }
 
-/* Fill a key CRYPTO_SYMMETRIC_KEY_SIZE big with random bytes */
+/**
+ * Fill a key CRYPTO_SYMMETRIC_KEY_SIZE big with random bytes.
+ */
 void new_symmetric_key(uint8_t *key)
 {
     random_bytes(key, CRYPTO_SYMMETRIC_KEY_SIZE);

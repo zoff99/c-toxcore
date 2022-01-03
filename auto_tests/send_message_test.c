@@ -1,10 +1,6 @@
 /* Tests that we can send messages to friends.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -61,6 +57,6 @@ int main(void)
 {
     setvbuf(stdout, nullptr, _IONBF, 0);
 
-    run_auto_test(2, send_message_test, false);
+    run_auto_test(nullptr, 2, send_message_test, false);
     return 0;
 }
