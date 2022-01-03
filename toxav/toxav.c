@@ -8,6 +8,7 @@
 
 #include "msi.h"
 #include "rtp.h"
+#include "toxav_hacks.h"
 
 #include "../toxcore/logger.h"
 #include "../toxcore/mono_time.h"
@@ -71,8 +72,6 @@ struct ToxAVCall {
     ToxAVCall *prev;
     ToxAVCall *next;
 };
-
-#include "toxav_hacks.h"
 
 
 /** Decode time statistics */

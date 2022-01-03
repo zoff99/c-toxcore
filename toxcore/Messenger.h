@@ -630,7 +630,7 @@ int file_seek(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uin
 int file_data(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uint64_t position, const uint8_t *data,
               uint16_t length);
 
-/** CUSTOM PACKETS */
+/* CUSTOM PACKETS */
 
 /* Set handlers for custom lossy packets.
  *

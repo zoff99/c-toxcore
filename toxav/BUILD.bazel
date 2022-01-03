@@ -58,7 +58,6 @@ cc_library(
         "groupav.h",
         "msi.h",
         "rtp.h",
-        "toxav.api.h",
         "toxav.h",
         "toxav_hacks.h",
         "video.h",
