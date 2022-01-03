@@ -438,7 +438,6 @@ static int msg_parse_in(Tox *tox, MSIMessage *dest, const uint8_t *data, uint16_
             default:
                 LOGGER_API_ERROR(tox, "Invalid id byte");
                 return -1;
-            }
         }
     }
 
