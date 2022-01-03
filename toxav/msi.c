@@ -360,32 +360,37 @@ static void msg_init(MSIMessage *dest, MSIRequest request)
     dest->request.value = request;
 }
 
+static bool check_size(const Logger *log, const uint8_t *bytes, int *constraint, uint8_t size)
+{
+    *constraint -= 2 + size;
+
+    if (*constraint < 1) {
+        LOGGER_ERROR(log, "Read over length!");
+        return false;
+    }
+
+    if (bytes[1] != size) {
+        LOGGER_ERROR(log, "Invalid data size!");
+        return false;
+    }
+
+    return true;
+}
+
+/* Assumes size == 1 */
+static bool check_enum_high(const Logger *log, const uint8_t *bytes, uint8_t enum_high)
+{
+    if (bytes[2] > enum_high) {
+        LOGGER_ERROR(log, "Failed enum high limit!");
+        return false;
+    }
+
+    return true;
+}
+
 static int msg_parse_in(Tox *tox, MSIMessage *dest, const uint8_t *data, uint16_t length)
 {
     /* Parse raw data received from socket into MSIMessage struct */
-
-#define CHECK_SIZE(bytes, constraint, size)          \
-    do {                                             \
-        constraint -= 2 + size;                      \
-        if (constraint < 1) {                        \
-            LOGGER_API_ERROR(tox, "Read over length!");  \
-            return -1;                               \
-        }                                            \
-        if (bytes[1] != size) {                      \
-            LOGGER_API_ERROR(tox, "Invalid data size!"); \
-            return -1;                               \
-        }                                            \
-    } while (0)
-
-    /* Assumes size == 1 */
-#define CHECK_ENUM_HIGH(bytes, enum_high)                 \
-    do {                                                  \
-        if (bytes[2] > enum_high) {                       \
-            LOGGER_API_ERROR(tox, "Failed enum high limit!"); \
-            return -1;                                    \
-        }                                                 \
-    } while (0)
-
     assert(dest);
 
     if (length == 0 || data[length - 1]) { /* End byte must have value 0 */
@@ -435,9 +440,10 @@ static int msg_parse_in(Tox *tox, MSIMessage *dest, const uint8_t *data, uint16_
                 break;
             }
 
-            default:
+            default: {
                 LOGGER_API_ERROR(tox, "Invalid id byte");
                 return -1;
+            }
         }
     }
 
