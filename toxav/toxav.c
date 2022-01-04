@@ -338,6 +338,46 @@ uint32_t toxav_iteration_interval(const ToxAV *av)
                    toxav_video_iteration_interval(av));
 }
 
+/**
+ * @brief calc_interval Calculates the needed iteration interval based on previous decode times
+ * @param av ToxAV struct to work on
+ * @param stats Statistics to update
+ * @param frame_time the duration of the current frame in ms
+ * @param start_time the timestamp when decoding of this frame started
+ */
+static void calc_interval(ToxAV *av, DecodeTimeStats *stats, int32_t frame_time, uint64_t start_time)
+{
+    stats->interval = frame_time < stats->average ? 0 : (frame_time - stats->average);
+    stats->total += current_time_monotonic(av->toxav_mono_time) - start_time;
+
+    if (++stats->count == 3) {
+        stats->average = stats->total / 3 + 5; /* NOTE: Magic Offset for precision */
+        stats->count = 0;
+        stats->total = 0;
+    }
+}
+
+/**
+ * @brief common iterator function for audio and video calls
+ * @param av pointer to ToxAV structure of current instance
+ * @param audio if true, iterate audio, video else
+ */
+static void iterate_common(ToxAV *av, bool audio)
+{
+    DecodeTimeStats *stats = &av->video_stats;
+    calc_interval(av, stats, 0, 0);
+}
+
+void toxav_audio_iterate(ToxAV *av)
+{
+    iterate_common(av, true);
+}
+
+void toxav_video_iterate(ToxAV *av)
+{
+    iterate_common(av, false);
+}
+
 void toxav_iterate(ToxAV *av)
 {
     pthread_mutex_lock(av->mutex);
