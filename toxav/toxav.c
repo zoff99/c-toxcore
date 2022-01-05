@@ -116,13 +116,6 @@ struct ToxAV {
     toxav_video_bit_rate_cb *vbcb;
     void *vbcb_user_data;
 
-    /** Decode time measures */
-    int32_t dmssc; /** Measure count */
-    int32_t dmsst; /** Last cycle total */
-    int32_t dmssa; /** Average decoding time in ms */
-
-    uint32_t interval; /** Calculated interval */
-
     /* keep track of decode times for audio and video */
     DecodeTimeStats audio_stats;
     DecodeTimeStats video_stats;
@@ -245,7 +238,6 @@ ToxAV *toxav_new(Tox *tox, Toxav_Err_New *error)
 
     init_decode_time_stats(&av->audio_stats);
     init_decode_time_stats(&av->video_stats);
-    av->interval = 200;
     av->msi->av = av;
 
     // save Tox object into toxcore
@@ -351,7 +343,8 @@ static void calc_interval(ToxAV *av, DecodeTimeStats *stats, int32_t frame_time,
     stats->total += current_time_monotonic(av->toxav_mono_time) - start_time;
 
     if (++stats->count == 3) {
-        stats->average = stats->total / 3 + 5; /* NOTE: Magic Offset for precision */
+        /* NOTE: Magic Offset for precision */
+        stats->average = stats->total / 3 + 5;
         stats->count = 0;
         stats->total = 0;
     }
@@ -364,8 +357,66 @@ static void calc_interval(ToxAV *av, DecodeTimeStats *stats, int32_t frame_time,
  */
 static void iterate_common(ToxAV *av, bool audio)
 {
-    DecodeTimeStats *stats = &av->video_stats;
-    calc_interval(av, stats, 0, 0);
+    pthread_mutex_lock(av->mutex);
+
+    if (av->calls == nullptr) {
+        pthread_mutex_unlock(av->mutex);
+        return;
+    }
+
+    uint64_t start = current_time_monotonic(av->toxav_mono_time);
+    int32_t frame_time = IDLE_ITERATION_INTERVAL_MS;
+
+    ToxAVCall *i = av->calls[av->calls_head];
+
+    for (i = av->calls[av->calls_head]; i; i = i->next) {
+        if (!i->active) {
+            continue;
+        }
+
+        pthread_mutex_lock(i->toxav_call_mutex);
+        pthread_mutex_unlock(av->mutex);
+
+        uint32_t fid = i->friend_number;
+        bool is_offline = check_peer_offline_status(av->tox, i->msi_call->session, fid);
+
+        if (is_offline) {
+            pthread_mutex_unlock(i->toxav_call_mutex);
+            pthread_mutex_lock(av->mutex);
+            break;
+        }
+
+        if (audio) {
+            ac_iterate(i->audio);
+
+            if (i->msi_call->self_capabilities & MSI_CAP_R_AUDIO &&
+                    i->msi_call->peer_capabilities & MSI_CAP_S_AUDIO) {
+                frame_time = min_s32(i->audio->lp_frame_duration, frame_time);
+            }
+        } else {
+            vc_iterate(i->video);
+
+            if (i->msi_call->self_capabilities & MSI_CAP_R_VIDEO &&
+                    i->msi_call->peer_capabilities & MSI_CAP_S_VIDEO) {
+                pthread_mutex_lock(i->video->queue_mutex);
+                frame_time = min_u32(i->video->lcfd, frame_time);
+                pthread_mutex_unlock(i->video->queue_mutex);
+            }
+        }
+
+        pthread_mutex_unlock(i->toxav_call_mutex);
+        pthread_mutex_lock(av->mutex);
+
+        /* In case this call is popped from container stop iteration */
+        if (call_get(av, fid) != i) {
+            break;
+        }
+    }
+
+    DecodeTimeStats *stats = audio ? &av->audio_stats : &av->video_stats;
+    calc_interval(av, stats, frame_time, start);
+
+    pthread_mutex_unlock(av->mutex);
 }
 
 void toxav_audio_iterate(ToxAV *av)
@@ -380,67 +431,8 @@ void toxav_video_iterate(ToxAV *av)
 
 void toxav_iterate(ToxAV *av)
 {
-    pthread_mutex_lock(av->mutex);
-
-    if (av->calls == nullptr) {
-        pthread_mutex_unlock(av->mutex);
-        return;
-    }
-
-    uint64_t start = current_time_monotonic(av->toxav_mono_time);
-    int32_t rc = 500;
-
-    ToxAVCall *i = av->calls[av->calls_head];
-
-    for (i = av->calls[av->calls_head]; i; i = i->next) {
-        if (i->active) {
-            pthread_mutex_lock(i->toxav_call_mutex);
-            pthread_mutex_unlock(av->mutex);
-
-            uint32_t fid = i->friend_number;
-            bool is_offline = check_peer_offline_status(av->tox, i->msi_call->session, fid);
-
-            if (is_offline) {
-                pthread_mutex_unlock(i->toxav_call_mutex);
-                pthread_mutex_lock(av->mutex);
-                break;
-            }
-
-            ac_iterate(i->audio);
-            vc_iterate(i->video);
-
-            if (i->msi_call->self_capabilities & MSI_CAP_R_AUDIO &&
-                    i->msi_call->peer_capabilities & MSI_CAP_S_AUDIO) {
-                rc = min_s32(i->audio->lp_frame_duration, rc);
-            }
-
-            if (i->msi_call->self_capabilities & MSI_CAP_R_VIDEO &&
-                    i->msi_call->peer_capabilities & MSI_CAP_S_VIDEO) {
-                pthread_mutex_lock(i->video->queue_mutex);
-                rc = min_u32(i->video->lcfd, rc);
-                pthread_mutex_unlock(i->video->queue_mutex);
-            }
-
-            pthread_mutex_unlock(i->toxav_call_mutex);
-            pthread_mutex_lock(av->mutex);
-
-            /* In case this call is popped from container stop iteration */
-            if (call_get(av, fid) != i) {
-                break;
-            }
-        }
-    }
-
-    av->interval = rc < av->dmssa ? 0 : (rc - av->dmssa);
-    av->dmsst += current_time_monotonic(av->toxav_mono_time) - start;
-
-    if (++av->dmssc == 3) {
-        av->dmssa = av->dmsst / 3 + 5; /* NOTE Magic Offset 5 for precision */
-        av->dmssc = 0;
-        av->dmsst = 0;
-    }
-
-    pthread_mutex_unlock(av->mutex);
+    toxav_audio_iterate(av);
+    toxav_video_iterate(av);
 }
 
 bool toxav_call(ToxAV *av, uint32_t friend_number, uint32_t audio_bit_rate, uint32_t video_bit_rate,
