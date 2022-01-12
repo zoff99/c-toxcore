@@ -31,22 +31,6 @@
 #include <stdio.h>
 
 
-#undef LOGGER_DEBUG
-#define LOGGER_DEBUG(log, ...) printf("")
-#undef LOGGER_ERROR
-#define LOGGER_ERROR(log, ...) printf("")
-#undef LOGGER_WARNING
-#define LOGGER_WARNING(log, ...) printf("")
-#undef LOGGER_INFO
-#define LOGGER_INFO(log, ...) printf("")
-
-
-
-/*
- * Zoff: disable logging in ToxAV for now
- */
-
-
 Mono_Time *toxav_get_av_mono_time(ToxAV *toxav);
 int rtp_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length);
 int rtp_send_custom_lossless_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length);
@@ -58,9 +42,6 @@ int rtp_send_custom_lossless_packet(Tox *tox, int32_t friendnumber, const uint8_
 
 
 #define DISABLE_H264_ENCODER_FEATURE    0
-
-int TOXAV_SEND_VIDEO_LOSSLESS_PACKETS = 0;
-
 
 /*
  * return -1 on failure, 0 on success
@@ -226,7 +207,6 @@ static int8_t get_slot(Tox *tox, struct RTPWorkBufferList *wkbl, bool is_keyfram
 static struct RTPMessage *process_frame(Tox *tox, struct RTPWorkBufferList *wkbl, uint8_t slot_id)
 {
     assert(wkbl->next_free_entry >= 0);
-
     LOGGER_API_DEBUG(tox, "process_frame:slot_id=%d", (int)slot_id);
 
     if (wkbl->next_free_entry == 0) {
@@ -241,40 +221,25 @@ static struct RTPMessage *process_frame(Tox *tox, struct RTPWorkBufferList *wkbl
 
     // Move ownership of the frame out of the slot into m_new.
     struct RTPMessage *const m_new = slot->buf;
-    LOGGER_API_DEBUG(tox, "process_frame:1:m_new=%p", (void *)m_new);
-
-    if (m_new) {
-        LOGGER_API_DEBUG(tox, "process_frame:1:m_new seq#=%d", (int)m_new->header.sequnum);
-    }
 
     slot->buf = nullptr;
-
     assert(wkbl->next_free_entry >= 1);
 
     if (slot_id != wkbl->next_free_entry - 1) {
         // The slot is not the last slot, so we created a gap. We move all the
         // entries after it one step up.
-        LOGGER_API_DEBUG(tox, "process_frame:We move all entries after it one step up");
-
         for (uint8_t i = slot_id; i < wkbl->next_free_entry - 1; ++i) {
             // Move entry (i+1) into entry (i).
-            LOGGER_API_DEBUG(tox, "process_frame:move %d -> %d", (int)(i + 1), (int)i);
             wkbl->work_buffer[i] = wkbl->work_buffer[i + 1];
         }
     }
 
     // We now have a free entry at the end of the array.
-    LOGGER_API_DEBUG(tox, "process_frame:cur next_free_entry=%d", (int)wkbl->next_free_entry);
     --wkbl->next_free_entry;
-    LOGGER_API_DEBUG(tox, "process_frame:new next_free_entry=%d", (int)wkbl->next_free_entry);
 
     // Clear the newly freed entry.
     const struct RTPWorkBuffer empty = {0};
     wkbl->work_buffer[wkbl->next_free_entry] = empty;
-
-    if (m_new) {
-        LOGGER_API_DEBUG(tox, "process_frame:2:m_new seq#=%d", (int)m_new->header.sequnum);
-    }
 
     // Move ownership of the frame to the caller.
     return m_new;
@@ -298,7 +263,6 @@ static bool fill_data_into_slot(Tox *tox, struct RTPWorkBufferList *wkbl, const 
     struct RTPWorkBuffer *const slot = &wkbl->work_buffer[slot_id];
 
     assert(header != nullptr);
-    // ** // assert(is_keyframe == (bool)(header->flags & RTP_KEY_FRAME));
 
     if (slot->received_len == 0) {
         assert(slot->buf == nullptr);
@@ -328,14 +292,6 @@ static bool fill_data_into_slot(Tox *tox, struct RTPWorkBufferList *wkbl, const 
         assert(wkbl->next_free_entry < USED_RTP_WORKBUFFER_COUNT);
         ++wkbl->next_free_entry;
     }
-
-    // We already checked this when we received the packet, but we rely on it
-    // here, so assert again.
-    if (header->offset_full >= header->data_length_full) {
-        LOGGER_API_DEBUG(tox, "offset_full:%d < data_length_full:%d\n", (int)header->offset_full, (int)header->data_length_full);
-    }
-
-    // ***** // assert(header->offset_full < header->data_length_full);
 
     // Copy the incoming chunk of data into the correct position in the full
     // frame data array.
@@ -405,56 +361,31 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
 
     // sanity checks ---------------
     if (full_frame_length == 0) {
-        LOGGER_API_DEBUG(session->tox, "EE:1:VSEQ:%d", (int)header->sequnum);
         return -1;
     }
 
     if (offset == full_frame_length) {
-        LOGGER_API_DEBUG(session->tox, "EE:2:VSEQ:%d", (int)header->sequnum);
         return -1;
     }
 
     if (offset > full_frame_length) {
-        LOGGER_API_DEBUG(session->tox, "EE:3:VSEQ:%d", (int)header->sequnum);
         return -1;
     }
-
-    LOGGER_API_DEBUG(session->tox, "II:4:VSEQ:%d", (int)header->sequnum);
-
-    LOGGER_API_DEBUG(session->tox, "FPATH:%d", (int)header->sequnum);
-
     // sanity checks ---------------
 
-    // The sender tells us whether this is a key frame.
-    const bool is_keyframe = 0; // (header->flags & RTP_KEY_FRAME) != 0;
-
-    LOGGER_API_DEBUG(session->tox, "-- handle_video_packet -- full lens=%u len=%u offset=%u is_keyframe=%s",
-                 (unsigned)incoming_data_length, (unsigned)full_frame_length, (unsigned)offset, is_keyframe ? "K" : ".");
-    LOGGER_API_DEBUG(session->tox, "wkbl->next_free_entry:003=%d", session->work_buffer_list->next_free_entry);
-
+    const bool is_keyframe = 0;
     const bool is_multipart = (full_frame_length != incoming_data_length);
 
     /* The message was sent in single part */
     int8_t slot_id = get_slot(session->tox, session->work_buffer_list, is_keyframe, header, is_multipart);
-    LOGGER_API_DEBUG(session->tox, "II:5:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
-
-    LOGGER_API_DEBUG(session->tox, "FPATH:%d slot=%d", (int)header->sequnum, slot_id);
-
 
     // get_slot told us to drop the packet, so we ignore it.
     if (slot_id == GET_SLOT_RESULT_DROP_INCOMING) {
-        LOGGER_API_DEBUG(session->tox, "FPATH:%d slot=%d", (int)header->sequnum, slot_id);
-        LOGGER_API_DEBUG(session->tox, "EE:6:VSEQ:%d", (int)header->sequnum);
         return -1;
     }
 
     // get_slot said there is no free slot.
     if (slot_id == GET_SLOT_RESULT_DROP_OLDEST_SLOT) {
-        LOGGER_API_DEBUG(session->tox, "there was no free slot, so we process the oldest frame");
-        LOGGER_API_DEBUG(session->tox, "II:7:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
-
-        LOGGER_API_DEBUG(session->tox, "FPATH:%d slot=%d", (int)header->sequnum, slot_id);
-
         // We now own the frame.
         struct RTPMessage *m_new = process_frame(session->tox, session->work_buffer_list, 0);
 
@@ -463,10 +394,6 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
         // get_slot just told us it's full, so process_frame must return non-null.
         assert(m_new != nullptr);
 
-        LOGGER_API_DEBUG(session->tox, "FPATH:slot=%d VSEQ:%d:m_new=%p", slot_id, (int)m_new->header.sequnum, (void *)m_new);
-
-
-        // LOGGER_API_DEBUG(session->tox, "-- handle_video_packet -- CALLBACK-001a b0=%d b1=%d", (int)m_new->data[0], (int)m_new->data[1]);
         // Pass ownership of m_new to the callback.
         session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, m_new);
         // Now we no longer own m_new.
@@ -476,19 +403,14 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
         // or get told to drop the incoming packet if it's too old.
         slot_id = get_slot(session->tox, session->work_buffer_list, is_keyframe, header, /* is_multipart */false);
 
-        LOGGER_API_DEBUG(session->tox, "FPATH:9.0:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
-
         if (slot_id == GET_SLOT_RESULT_DROP_INCOMING) {
             // The incoming frame is too old, so we drop it.
-            LOGGER_API_DEBUG(session->tox, "FPATH:9:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
             return -1;
         }
     }
 
     // We must have a valid slot here.
     assert(slot_id >= 0);
-
-    LOGGER_API_DEBUG(session->tox, "fill_data_into_slot.");
 
     // fill in this part into the slot buffer at the correct offset
     if (!fill_data_into_slot(
@@ -500,12 +422,7 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
                 incoming_data,
                 incoming_data_length)) {
 
-        LOGGER_API_DEBUG(session->tox, "FPATH:10:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
-
         return -1;
-    } else {
-        LOGGER_API_DEBUG(session->tox, "FPATH:10c:slot num=%d:VSEQ:%d *message_complete*",
-                     slot_id, (int)header->sequnum);
     }
 
     if (slot_id > 0) {
@@ -518,12 +435,10 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
 
         if ((m_new0) && (m_new2)) {
             if ((m_new0->header.sequnum + 2) < m_new2->header.sequnum) {
-                LOGGER_API_DEBUG(session->tox, "kick out:m_new0 seq#=%d", (int)m_new0->header.sequnum);
                 // change slot_id to "0" to process oldest frame in buffer instead of current one
                 struct RTPMessage *m_new = process_frame(session->tox, session->work_buffer_list, slot_id);
 
                 if (m_new) {
-                    LOGGER_API_DEBUG(session->tox, "FPATH:11x:slot num=%d:VSEQ:%d", slot_id, (int)m_new->header.sequnum);
                     session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, m_new);
                     m_new = NULL;
                 }
@@ -536,16 +451,9 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
     struct RTPMessage *m_new = process_frame(session->tox, session->work_buffer_list, slot_id);
 
     if (m_new) {
-
-        LOGGER_API_DEBUG(session->tox, "FPATH:11:slot num=%d:VSEQ:%d", slot_id, (int)m_new->header.sequnum);
-
-        // LOGGER_API_DEBUG(session->tox, "-- handle_video_packet -- CALLBACK-003a b0=%d b1=%d", (int)m_new->data[0], (int)m_new->data[1]);
         session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, m_new);
-
         m_new = nullptr;
     }
-
-    LOGGER_API_DEBUG(session->tox, "FPATH:12:slot num=%d:VSEQ:%d", slot_id, (int)header->sequnum);
 
     return 0;
 }
@@ -565,14 +473,8 @@ RTPSession *rtp_session_get(void *call, int payload_type);
  *   </code>
  *
  */
-void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_t length2, void *dummy)
+void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_t length, void *dummy)
 {
-    // TODO(Zoff): is this ok?
-    uint16_t length = (uint16_t)length2;
-
-    LOGGER_API_DEBUG(tox, "******handle_rtp_packet******handle_rtp_packet****** = fn=%d, %d %d %d\n", friendnumber, (uint8_t)data[0],
-                     (int)length2, length);
-
     if (!data) {
         return;
     }
@@ -585,10 +487,10 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     uint8_t packet_type = data[0];
 
     // only check data length on audio or video pakets
-    // PACKET_TOXAV_COMM_CHANNEL pakets are do not have an RTP header
+    // PACKET_TOXAV_COMM_CHANNEL pakets do not have an RTP header
     if (packet_type != PACKET_TOXAV_COMM_CHANNEL) {
         if (length < RTP_HEADER_SIZE + 1) {
-            LOGGER_API_DEBUG(tox, "Invalid length of received buffer! length=%d RTP_HEADER_SIZE=%d", length, RTP_HEADER_SIZE);
+            LOGGER_API_DEBUG(tox, "Invalid length of received buffer! length=%d RTP_HEADER_SIZE=%d", (int)length, RTP_HEADER_SIZE);
             return;
         }
     }
@@ -630,9 +532,6 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
     // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
     if (packet_type == PACKET_TOXAV_COMM_CHANNEL) {
-        LOGGER_API_DEBUG(tox, "RECVD:PACKET_TOXAV_COMM_CHANNEL:length=%d", (int)length);
-
-        LOGGER_API_DEBUG(tox, "******handle_rtp_packet******COMM****** = %d\n", (uint8_t)data[0]);
 
         if (length >= 2) {
             if (data[1] == PACKET_TOXAV_COMM_CHANNEL_REQUEST_KEYFRAME) {
@@ -640,26 +539,12 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                     ((VCSession *)(session->cs))->send_keyframe_request_received = 1;
                 }
             } else if (data[1] == PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO) {
-                LOGGER_API_DEBUG(tox, "RECVD:PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO");
-
                 if (session->cs) {
                     if (DISABLE_H264_ENCODER_FEATURE == 0) {
                         ((VCSession *)(session->cs))->h264_video_capabilities_received = 1;
                     }
                 }
-            } else if (data[1] == PACKET_TOXAV_COMM_CHANNEL_LESS_VIDEO_FPS) {
-                if (session->cs) {
-                    if ((data[2] > 1) && (data[2] < 10)) {
-                        ((VCSession *)(session->cs))->skip_fps = data[2];
-                        LOGGER_API_DEBUG(tox, "RECVD:PACKET_TOXAV_COMM_CHANNEL_LESS_VIDEO_FPS skip=%d",
-                                         (int)(((VCSession *)(session->cs))->skip_fps));
-                    }
-
-                    ((VCSession *)(session->cs))->skip_fps_duration_until_ts = current_time_monotonic(rtp_get_mono_time_from_rtpsession(
-                                session)) +
-                            TOXAV_SKIP_FPS_RELEASE_AFTER_MS;
-                }
-            } else if (data[1] == PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_REQUEST) {
+            } else if ((data[1] == PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_REQUEST) && (length == 6)) {
 
                 uint32_t pkg_buf_len = (sizeof(uint32_t) * 3) + 2;
                 uint8_t pkg_buf[pkg_buf_len];
@@ -681,17 +566,9 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                 pkg_buf[12] = tmp >> 8  & 0xFF;
                 pkg_buf[13] = tmp       & 0xFF;
 
-                LOGGER_API_DEBUG(tox, "RECVD:PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_REQUEST: %d %d %d %d",
-                                 pkg_buf[6], pkg_buf[7], pkg_buf[8], pkg_buf[9]);
-
                 int result = rtp_send_custom_lossless_packet(tox, friendnumber, pkg_buf, pkg_buf_len);
 
-
-            } else if (data[1] == PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_ANSWER) {
-
-                LOGGER_API_DEBUG(tox, "RECVD:PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_ANSWER: %d %d %d %d",
-                                 data[6], data[7], data[8], data[9]);
-
+            } else if ((data[1] == PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_ANSWER) && (length == 14)) {
 
                 ((VCSession *)(session->cs))->dummy_ntp_local_start =
                     ((uint32_t)(data[2]) << 24)
@@ -735,22 +612,9 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                                           ((VCSession *)(session->cs))->dummy_ntp_local_start,
                                           ((VCSession *)(session->cs))->dummy_ntp_local_end);
 
-
-                    LOGGER_API_DEBUG(tox, "DNTP:took_too_long:%d : %d %d %d %d",
-                                     roundtrip_too_long,
-                                     ((VCSession *)(session->cs))->dummy_ntp_local_start,
-                                     ((VCSession *)(session->cs))->dummy_ntp_remote_start,
-                                     ((VCSession *)(session->cs))->dummy_ntp_remote_end,
-                                     ((VCSession *)(session->cs))->dummy_ntp_local_end);
                 }
                 else
                 {
-                    LOGGER_API_DEBUG(tox, "DNTP:OK:%d %d %d %d",
-                                     ((VCSession *)(session->cs))->dummy_ntp_local_start,
-                                     ((VCSession *)(session->cs))->dummy_ntp_remote_start,
-                                     ((VCSession *)(session->cs))->dummy_ntp_remote_end,
-                                     ((VCSession *)(session->cs))->dummy_ntp_local_end);
-
                     int64_t offset_ = dntp_calc_offset(((VCSession *)(session->cs))->dummy_ntp_remote_start,
                                                        ((VCSession *)(session->cs))->dummy_ntp_remote_end,
                                                        ((VCSession *)(session->cs))->dummy_ntp_local_start,
@@ -780,19 +644,8 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                     }
 
                     ((VCSession *)(session->cs))->has_rountrip_time_ms = 1;
-
-                    LOGGER_API_DEBUG(tox, "DNTP:offset=%ld roundtrip=%u roundtrip_old=%u", (long)offset_, roundtrip_, ((VCSession *)(session->cs))->rountrip_time_ms);
-                    // LOGGER_WARNING(m->log, "DNTP:A:offset new=%lld", ((VCSession *)(session->cs))->timestamp_difference_to_sender);
-
-                    LOGGER_API_DEBUG(tox, "DNTP:*B*:offset_old=%d",
-                                     (int)((VCSession *)(session->cs))->timestamp_difference_to_sender__for_video);
-
                     int64_t *ptmp = &(((VCSession *)(session->cs))->timestamp_difference_to_sender__for_video);
-
                     bool res4 = dntp_drift(ptmp, offset_, (int64_t)NETWORK_NTP_JUMP_MS, (int)NETWORK_ROUND_TRIP_CHANGE_THRESHOLD_MS);
-
-                    LOGGER_API_DEBUG(tox, "DNTP:*B*:offset_new=%d",
-                                     (int)((VCSession *)(session->cs))->timestamp_difference_to_sender__for_video);
                 }
             }
         }
@@ -803,34 +656,12 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
     // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
 
-
-    if (data[0] == PACKET_LOSSLESS_VIDEO) {
-        packet_type = RTP_TYPE_VIDEO;
-    }
-
     ++data;
     --length;
 
     // Unpack the header.
     struct RTPHeader header;
     rtp_header_unpack(data, &header);
-
-
-#if 0
-    if (DISABLE_H264_DECODER_FEATURE != 1) {
-        if (header.sequnum < 30) {
-            // HINT: tell friend that we have H264 decoder capabilities -------
-            uint32_t pkg_buf_len = 2;
-            uint8_t pkg_buf[pkg_buf_len];
-            pkg_buf[0] = PACKET_TOXAV_COMM_CHANNEL;
-            pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO;
-
-            int result = rtp_send_custom_lossless_packet(tox, friendnumber, pkg_buf, pkg_buf_len);
-            LOGGER_API_DEBUG(tox, "PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO[rtp]=%d\n", (int)result);
-            // HINT: tell friend that we have H264 decoder capabilities -------
-        }
-    }
-#endif
 
     if (header.pt != packet_type % 128) {
         LOGGER_API_WARNING(tox, "RTPHeader packet type and Tox protocol packet type did not agree: %d != %d",
@@ -859,33 +690,22 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         }
     }
 
-
     LOGGER_API_DEBUG(tox, "header.pt %d, video %d", (uint8_t)header.pt, (RTP_TYPE_VIDEO % 128));
-
     LOGGER_API_DEBUG(tox, "rtp packet record time: %lu", (unsigned long)header.frame_record_timestamp);
-
     LOGGER_API_DEBUG(tox, "RTP_ENCODER_HAS_RECORD_TIMESTAMP:fl=%d %d", (int)header.flags, (int)RTP_ENCODER_HAS_RECORD_TIMESTAMP);
 
     // check flag indicating that we have real record-timestamps for frames ---
     if (!(header.flags & RTP_ENCODER_HAS_RECORD_TIMESTAMP)) {
         if (header.pt == (RTP_TYPE_VIDEO % 128)) {
-            LOGGER_API_DEBUG(tox, "RTP_ENCODER_HAS_RECORD_TIMESTAMP:VV");
             ((VCSession *)(session->cs))->encoder_frame_has_record_timestamp = 0;
         } else if (header.pt == (RTP_TYPE_AUDIO % 128)) {
-            LOGGER_API_DEBUG(tox, "RTP_ENCODER_HAS_RECORD_TIMESTAMP:AA");
             ((ACSession *)(session->cs))->encoder_frame_has_record_timestamp = 0;
         }
     }
 
     if (header.pt == (RTP_TYPE_VIDEO % 128)) {
         ((VCSession *)(session->cs))->remote_client_video_capture_delay_ms = header.client_video_capture_delay_ms;
-
-        LOGGER_API_DEBUG(tox, "RTP_pkt_num:V:%d:%d", header.rtp_packet_number, header.sequnum);
-    } else {
-        LOGGER_API_DEBUG(tox, "RTP_pkt_num:AA:%d:%d", header.rtp_packet_number, header.sequnum);
     }
-
-    // set flag indicating that we have real record-timestamps for frames ---
 
 
     // HINT: ask sender for dummy ntp values -------------
@@ -908,13 +728,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
         int result = rtp_send_custom_lossless_packet(tox, friendnumber, pkg_buf, pkg_buf_len);
     }
-
     // HINT: ask sender for dummy ntp values -------------
-
-
-
-
-
 
 
     // The sender uses the new large-frame capable protocol and is sending a
@@ -941,32 +755,15 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
         for (int ii = 0; ii < INCOMING_PACKETS_TS_ENTRIES; ii++) {
             incoming_rtp_packets_delta_average = incoming_rtp_packets_delta_average + session->incoming_packets_ts[ii];
-            // LOGGER_WARNING(m->log, "%d=%d", ii, (int)session->incoming_packets_ts[ii]);
         }
 
         incoming_rtp_packets_delta_average = incoming_rtp_packets_delta_average / INCOMING_PACKETS_TS_ENTRIES;
-
-        if ((incoming_rtp_packets_delta_average > (2 * session->incoming_packets_ts_average))
-                && (incoming_rtp_packets_delta_average > 15)) {
-            // LOGGER_WARNING(m->log, "rtp_video_delta=%d", (int)incoming_rtp_packets_delta_average);
-        }
-
         session->incoming_packets_ts_average = incoming_rtp_packets_delta_average;
-
-        LOGGER_API_DEBUG(tox, "rtp_video_delta=%d", (int)incoming_rtp_packets_delta_average);
-
         handle_video_packet(session, &header, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE, nullptr);
         return;
     }
 
     // everything below here is for the old 16 bit protocol ------------------
-
-
-
-    if (header.pt == (RTP_TYPE_AUDIO % 128)) {
-        // HINT: we have an audio packet
-        // LOGGER_ERROR(m->log, "AADEBUG:**** incoming audio packet ****");
-    }
 
 
     /*
@@ -984,11 +781,6 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         session->rsequnum = header.sequnum;
         session->rtimestamp = header.timestamp;
 
-        LOGGER_DEBUG(m->log, "RTP: rtp_message:1=%p (%d)", (void *)session->mp, length);
-        LOGGER_DEBUG(m->log, "RTP: AUDIO singlepart message: len=%d seqnum=%d",
-                     length, header.sequnum);
-
-
         /* Invoke processing of active multiparted message */
         if (session->mp) {
             session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, session->mp);
@@ -999,9 +791,6 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
          */
 
         session->mp = new_message(tox, &header, length - RTP_HEADER_SIZE, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE);
-
-        LOGGER_DEBUG(m->log, "RTP: rtp_message:2=%p (%d)", (void *)session->mp, length);
-
         session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, session->mp);
         session->mp = nullptr;
         return;
@@ -1010,9 +799,6 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     /*
      * just process any incoming audio packets ----
      */
-
-
-    LOGGER_DEBUG(m->log, "RTP: AUDIO multipart message");
 
     /* The message is sent in multiple parts */
 
@@ -1029,7 +815,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
             /* First case */
 
             /* Make sure we have enough allocated memory */
-            if (session->mp->header.data_length_lower - session->mp->len < length - RTP_HEADER_SIZE ||
+            if (session->mp->header.data_length_lower - session->mp->len < (int)(length - RTP_HEADER_SIZE) ||
                     session->mp->header.data_length_lower <= header.offset_lower) {
                 /* There happened to be some corruption on the stream;
                  * continue wihtout this part
@@ -1076,9 +862,6 @@ NEW_MULTIPARTED:
         /* Store message.
          */
         session->mp = new_message(tox, &header, header.data_length_lower, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE);
-
-        LOGGER_DEBUG(m->log, "RTP: rtp_message:3=%p (%d)", (void *)session->mp, length);
-
         memmove(session->mp->data + header.offset_lower, session->mp->data, session->mp->len);
     }
 
@@ -1274,7 +1057,7 @@ void rtp_stop_receiving(Tox *tox)
 }
 
 /**
- * @param input is raw vpx data.
+ * @param input is raw vpx data (or H264 data).
  * @param length is the length of the raw data.
  */
 int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, bool is_keyframe,
@@ -1295,31 +1078,18 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
     }
 
     struct RTPHeader header = {0};
-
     header.ve = 2;  // this is unused in toxav
-
     header.pe = 0;
-
     header.xe = 0;
-
     header.cc = 0;
-
     header.ma = 0;
-
     header.pt = session->payload_type % 128;
-
     header.sequnum = session->sequnum;
-
     header.timestamp = frame_record_timestamp; // current_time_monotonic(session->m->mono_time);
-
     header.ssrc = session->ssrc;
-
     header.offset_lower = 0;
-
     header.data_length_lower = length;
-
     header.flags = 0; // just to be safe, initialize the flags to zero
-
     header.flags = RTP_LARGE_FRAME | RTP_ENCODER_HAS_RECORD_TIMESTAMP;
 
     if ((codec_used == TOXAV_ENCODER_CODEC_USED_H264) &&
@@ -1336,19 +1106,13 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
         header.flags = header.flags | RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT1;
     }
 
-    LOGGER_DEBUG(session->m->log, "FRAMEFLAGS:%d angle=%d", (int)header.flags, video_frame_orientation_angle);
-
+    LOGGER_API_DEBUG(session->tox, "FRAMEFLAGS:%d angle=%d", (int)header.flags, video_frame_orientation_angle);
 
     header.frame_record_timestamp = frame_record_timestamp;
-
     header.fragment_num = fragment_num;
-
     header.real_frame_num = 0; // not yet used
-
     header.encoder_bit_rate_used = bit_rate_used;
-
     header.client_video_capture_delay_ms = client_capture_delay_ms;
-
     uint16_t length_safe = (uint16_t)length;
 
     if (length > UINT16_MAX) {
@@ -1368,13 +1132,6 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
     memset(rdata, 0, SIZEOF_VLA(rdata));
     rdata[0] = session->payload_type;  // packet id == payload_type
 
-    if (session->payload_type == RTP_TYPE_VIDEO) {
-        if (TOXAV_SEND_VIDEO_LOSSLESS_PACKETS == 1) {
-            // video payload
-            rdata[0] = PACKET_LOSSLESS_VIDEO; // rewrite to lossless!
-        }
-    }
-
     if (MAX_CRYPTO_DATA_SIZE > (length + RTP_HEADER_SIZE + 1)) {
         /**
          * The length is less than the maximum allowed length (including header)
@@ -1385,15 +1142,8 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
         rtp_header_pack(rdata + 1, &header);
         memcpy(rdata + 1 + RTP_HEADER_SIZE, data, length);
 
-
-        if ((session->payload_type == RTP_TYPE_VIDEO) && (TOXAV_SEND_VIDEO_LOSSLESS_PACKETS == 1)) {
-            if (-1 == rtp_send_custom_lossless_packet(session->tox, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
-                LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %zu)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
-            }
-        } else {
-            if (-1 == rtp_send_custom_lossy_packet(session->tox, session->friend_number, rdata, SIZEOF_VLA(rdata))) {
-                LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %zu)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
-            }
+        if (rtp_send_custom_lossy_packet(session->tox, session->friend_number, rdata, SIZEOF_VLA(rdata)) == -1) {
+            LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %zu)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
         }
     } else {
         /**
@@ -1409,22 +1159,11 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
             rtp_header_pack(rdata + 1, &header);
             memcpy(rdata + 1 + RTP_HEADER_SIZE, data + sent, piece);
 
-            if ((session->payload_type == RTP_TYPE_VIDEO) && (TOXAV_SEND_VIDEO_LOSSLESS_PACKETS == 1)) {
-                if (-1 == rtp_send_custom_lossless_packet(session->tox, session->friend_number,
-                        rdata, piece + RTP_HEADER_SIZE + 1)) {
-                    LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %d)! std error: %s",
-                                       piece + RTP_HEADER_SIZE + 1, strerror(errno));
-                }
-            } else {
-                if (-1 == rtp_send_custom_lossy_packet(session->tox, session->friend_number,
-                                                       rdata, piece + RTP_HEADER_SIZE + 1)) {
-                    LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %d)! std error: %s",
-                                       piece + RTP_HEADER_SIZE + 1, strerror(errno));
-                } else {
-                    LOGGER_API_DEBUG(session->tox, "RTP send:A:rtp_pkg_num:%d:%d", header.rtp_packet_number, header.sequnum);
-                }
+            if (rtp_send_custom_lossy_packet(session->tox, session->friend_number,
+                                                   rdata, piece + RTP_HEADER_SIZE + 1) == -1) {
+                LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %d)! std error: %s",
+                                   piece + RTP_HEADER_SIZE + 1, strerror(errno));
             }
-
             sent += piece;
             header.offset_lower = sent;
             header.offset_full = sent; // raw data offset, without any header
@@ -1439,20 +1178,10 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
             rtp_header_pack(rdata + 1, &header);
             memcpy(rdata + 1 + RTP_HEADER_SIZE, data + sent, piece);
 
-            if ((session->payload_type == RTP_TYPE_VIDEO) && (TOXAV_SEND_VIDEO_LOSSLESS_PACKETS == 1)) {
-                if (-1 == rtp_send_custom_lossless_packet(session->tox, session->friend_number, rdata,
-                        piece + RTP_HEADER_SIZE + 1)) {
-                    LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %d)! std error: %s",
+            if (rtp_send_custom_lossy_packet(session->tox, session->friend_number, rdata,
+                                                   piece + RTP_HEADER_SIZE + 1) == -1) {
+                LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %d)! std error: %s",
                                    piece + RTP_HEADER_SIZE + 1, strerror(errno));
-                }
-            } else {
-                if (-1 == rtp_send_custom_lossy_packet(session->tox, session->friend_number, rdata,
-                                                       piece + RTP_HEADER_SIZE + 1)) {
-                    LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %d)! std error: %s",
-                                       piece + RTP_HEADER_SIZE + 1, strerror(errno));
-                } else {
-                    LOGGER_API_DEBUG(session->tox, "RTP send:B:rtp_pkg_num:%d:%d", header.rtp_packet_number, header.sequnum);
-                }
             }
         }
     }

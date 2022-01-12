@@ -56,7 +56,6 @@ typedef struct Messenger_State_Plugin {
 } Messenger_State_Plugin;
 
 /* video via lossless packets */
-#define PACKET_LOSSLESS_VIDEO 171
 #define PACKET_TOXAV_COMM_CHANNEL 172
 
 typedef struct Messenger_Options {

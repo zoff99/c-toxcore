@@ -31,7 +31,6 @@ extern "C" {
  */
 #define RTP_PADDING_FIELDS 4
 
-#define PACKET_LOSSLESS_VIDEO 171 // DO NOT USE THIS! only for debugging!
 #define PACKET_TOXAV_COMM_CHANNEL 172
 
 /**

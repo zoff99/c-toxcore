@@ -68,7 +68,6 @@
 #define PACKET_ID_LOSSY_CONFERENCE 199
 
 /* video via lossless packets */
-#define PACKET_LOSSLESS_VIDEO 171
 #define PACKET_TOXAV_COMM_CHANNEL 172
 
 /* Maximum size of receiving and sending packet buffers. */
