@@ -25,15 +25,7 @@ libtoxav_la_SOURCES = ../toxav/rtp.h \
                     ../toxav/dummy_ntp.c \
                     ../toxav/codecs/vpx/codec.c
 
-if ON_RASPI
-
-libtoxav_la_SOURCES += ../toxav/codecs/h264_omx_raspi/codec.c
-
-else
-
 libtoxav_la_SOURCES += ../toxav/codecs/h264/codec.c
-
-endif
 
 libtoxav_la_CFLAGS = -I../toxcore \
                     -I../toxav \
