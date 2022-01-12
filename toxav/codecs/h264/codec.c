@@ -869,12 +869,15 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         LOGGER_API_WARNING(av->tox, "extra_buffers, extra_decoder_buffers");
 #endif
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         vc->h264_decoder->refcounted_frames = 0;
         /*   When AVCodecContext.refcounted_frames is set to 0, the returned
         *             reference belongs to the decoder and is valid only until the
         *             next call to this function or until closing or flushing the
         *             decoder. The caller may not write to it.
         */
+#pragma GCC diagnostic pop
 
         vc->h264_decoder->delay = 0;
         av_opt_set_int(vc->h264_decoder->priv_data, "delay", 0, AV_OPT_SEARCH_CHILDREN);
@@ -962,7 +965,10 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
             assert(!"could not open codec H264 on decoder");
         }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         vc->h264_decoder->refcounted_frames = 0;
+#pragma GCC diagnostic pop
         /*   When AVCodecContext.refcounted_frames is set to 0, the returned
         *             reference belongs to the decoder and is valid only until the
         *             next call to this function or until closing or flushing the
@@ -1622,17 +1628,10 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
 
                 */
 
-#if 0
-                global_decoder_delay_counter++;
-
-                if (global_decoder_delay_counter > 60) {
-                    global_decoder_delay_counter = 0;
-                    LOGGER_API_DEBUG(vc->av->tox, "dec:delay=%ld",
-                                 (long int)(h_frame_record_timestamp - frame->pkt_pts)
-                                );
-                }
-#endif
                 // give back h264 decoder delay value to vc_iterate()
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
                 int32_t delta_value = (int32_t)(h_frame_record_timestamp - frame->pkt_pts);
 
                 LOGGER_API_DEBUG(vc->av->tox, "dec:XX:03:%d %d %d %d %d",
@@ -1641,6 +1640,7 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                         (int)frame->pkt_pts,
                         (int)frame->pkt_dts,
                         (int)frame->pts);
+#pragma GCC diagnostic pop
 
                 if ((delta_value >= 0) && (delta_value <= 1000))
                 {
@@ -1696,11 +1696,14 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                 if (vc->vcb_pts)
                 {
                     uint64_t pts_for_client = h_frame_record_timestamp;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
                     int32_t delta_check = (int32_t)(h_frame_record_timestamp - frame->pkt_pts);
                     if ((delta_check >= 0) && (delta_check <= 100))
                     {
                         pts_for_client = frame->pkt_pts;
                     }
+#pragma GCC diagnostic pop
 
                     vc->vcb_pts(vc->av, vc->friend_number, frame->width, frame->height,
                             (const uint8_t *)frame->data[0],

@@ -29,8 +29,6 @@
 #include <libavutil/common.h>
 // for H264 ----------
 
-#define USE_TS_BUFFER_FOR_VIDEO   1
-
 // TODO: don't hardcode this, let the application choose it
 // VPX Info: Time to spend encoding, in microseconds (it's a *soft* deadline)
 #define WANTED_MAX_ENCODER_FPS (40)
@@ -165,18 +163,10 @@ typedef struct VCSession_s {
     char *encoder_codec_used_name;
     int x264_software_encoder_used;
 
-#ifdef RASPBERRY_PI_OMX
-    struct OMXContext *omx_ctx;
-#endif
-
     /* decoding */
     vpx_codec_ctx_t decoder[1];
     AVCodecContext *h264_decoder;
-#ifdef USE_TS_BUFFER_FOR_VIDEO
     struct TSBuffer *vbuf_raw; /* Un-decoded data */
-#else
-    struct RingBuffer *vbuf_raw; /* Un-decoded data */
-#endif
 
     uint32_t tsb_range_ms;
     uint64_t linfts; /* Last received frame time stamp */

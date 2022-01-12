@@ -1619,11 +1619,6 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
                 // LOGGER_ERROR(av->m->log, "I_FRAME_FLAG:%d only-i-frame mode", call->video_rtp->ssrc);
             }
 
-#ifdef RASPBERRY_PI_OMX
-            LOGGER_ERROR(av->m->log, "H264: force i-frame");
-            h264_omx_raspi_force_i_frame(av->m->log, call->video);
-#endif
-
             call->video_rtp->ssrc++;
         } else if (call->video_rtp->ssrc == (uint32_t)(VIDEO_SEND_X_KEYFRAMES_FIRST * h264_iframe_factor)) {
             if (call->video->video_encoder_coded_used != TOXAV_ENCODER_CODEC_USED_VP9) {
@@ -1762,21 +1757,12 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
             LOGGER_DEBUG(av->m->log, "**##** encoding H264 frame **##**");
 
             // HINT: H264
-#ifdef RASPBERRY_PI_OMX
-            uint32_t result = encode_frame_h264_omx_raspi(av, friend_number, width, height,
-                              y, u, v, call,
-                              &video_frame_record_timestamp,
-                              vpx_encode_flags,
-                              &nal,
-                              &i_frame_size);
-#else
             uint32_t result = encode_frame_h264(av, friend_number, width, height,
                                                 y, u, v, call,
                                                 &video_frame_record_timestamp,
                                                 vpx_encode_flags,
                                                 &nal,
                                                 &i_frame_size);
-#endif
 
             if (result != 0) {
                 pthread_mutex_unlock(call->mutex_video);
@@ -1813,16 +1799,6 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
 
         } else {
             // HINT: H264
-#ifdef RASPBERRY_PI_OMX
-            uint32_t result = send_frames_h264_omx_raspi(av, friend_number, width, height,
-                              y, u, v, call,
-                              &video_frame_record_timestamp,
-                              vpx_encode_flags,
-                              &nal,
-                              &i_frame_size,
-                              &rc);
-
-#else
             uint32_t result = send_frames_h264(av, friend_number, width, height,
                                                y, u, v, call,
                                                &video_frame_record_timestamp,
@@ -1830,7 +1806,6 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
                                                &nal,
                                                &i_frame_size,
                                                &rc);
-#endif
 
             if (result != 0) {
                 pthread_mutex_unlock(call->mutex_video);

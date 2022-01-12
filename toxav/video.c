@@ -17,7 +17,6 @@
 #include "../toxcore/network.h"
 #include "../toxcore/mono_time.h"
 
-
 #include "tox_generic.h"
 
 #include "codecs/toxav_codecs.h"
@@ -25,29 +24,6 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
-
-/* activate only for debugging!! */
-// #define DEBUG_SHOW_H264_DECODING_TIME 1
-/* activate only for debugging!! */
-
-/*
- * Zoff: disable logging in ToxAV for now
- */
-#include <stdio.h>
-
-
-#undef LOGGER_DEBUG
-#define LOGGER_DEBUG(log, ...) printf("")
-#undef LOGGER_ERROR
-#define LOGGER_ERROR(log, ...) printf("")
-#undef LOGGER_WARNING
-#define LOGGER_WARNING(log, ...) printf("")
-#undef LOGGER_INFO
-#define LOGGER_INFO(log, ...) printf("")
-
-/*
- * Zoff: disable logging in ToxAV for now
- */
 
 /*
  * return -1 on failure, 0 on success
@@ -86,7 +62,7 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
         return NULL;
     }
 
-    LOGGER_API_WARNING(av->tox, "vc_new ...");
+    LOGGER_API_DEBUG(av->tox, "vc_new ...");
 
     // options ---
     vc->video_encoder_cpu_used = VP8E_SET_CPUUSED_VALUE;
@@ -100,11 +76,7 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     vc->video_encoder_coded_used = TOXAV_ENCODER_CODEC_USED_VP8; // DEFAULT: VP8 !!
     vc->video_encoder_frame_orientation_angle = TOXAV_CLIENT_INPUT_VIDEO_ORIENTATION_0;
     vc->video_encoder_coded_used_prev = vc->video_encoder_coded_used;
-#ifdef RASPBERRY_PI_OMX
-    vc->video_encoder_coded_used_hw_accel = TOXAV_ENCODER_CODEC_HW_ACCEL_OMX_PI;
-#else
     vc->video_encoder_coded_used_hw_accel = TOXAV_ENCODER_CODEC_HW_ACCEL_NONE;
-#endif
     vc->video_keyframe_method = TOXAV_ENCODER_KF_METHOD_NORMAL;
     vc->video_keyframe_method_prev = vc->video_keyframe_method;
     vc->video_decoder_error_concealment = VIDEO__VP8_DECODER_ERROR_CONCEALMENT;
@@ -189,25 +161,13 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
         vc->incoming_video_frames_gap_ms[i] = 0;
     }
 
-#ifdef USE_TS_BUFFER_FOR_VIDEO
-
     if (!(vc->vbuf_raw = tsb_new(VIDEO_RINGBUFFER_BUFFER_ELEMENTS))) {
         LOGGER_WARNING(log, "vc_new:rb_new FAILED");
         vc->vbuf_raw = NULL;
         goto BASE_CLEANUP;
     }
 
-#else
-
-    if (!(vc->vbuf_raw = rb_new(VIDEO_RINGBUFFER_BUFFER_ELEMENTS))) {
-        LOGGER_WARNING(log, "vc_new:rb_new FAILED");
-        vc->vbuf_raw = NULL;
-        goto BASE_CLEANUP;
-    }
-
-#endif
-
-    LOGGER_API_WARNING(av->tox, "vc_new:rb_new OK");
+    LOGGER_API_DEBUG(av->tox, "vc_new:rb_new OK");
 
     // HINT: tell client what encoder and decoder are in use now -----------
     if (av->call_comm_cb) {
@@ -216,12 +176,10 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
         cmi = TOXAV_CALL_COMM_DECODER_IN_USE_VP8;
 
         if (vc->video_decoder_codec_used == TOXAV_ENCODER_CODEC_USED_H264) {
-            // don't the the friend if we have HW accel, since it would reveal HW and platform info
             cmi = TOXAV_CALL_COMM_DECODER_IN_USE_H264;
         }
 
         av->call_comm_cb(av, friend_number, cmi, 0, av->call_comm_cb_user_data);
-
 
         cmi = TOXAV_CALL_COMM_ENCODER_IN_USE_VP8;
 
@@ -235,31 +193,23 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
 
         av->call_comm_cb(av, friend_number, cmi, 0, av->call_comm_cb_user_data);
     }
-
     // HINT: tell client what encoder and decoder are in use now -----------
 
     // HINT: initialize the H264 encoder
-
-    vc = vc_new_h264(log, av, friend_number, cb, cb_data, vc);
+    vc = vc_new_h264((Logger *)log, av, friend_number, cb, cb_data, vc);
 
     // HINT: initialize VP8 encoder
-    return vc_new_vpx(log, av, friend_number, cb, cb_data, vc);
+    return vc_new_vpx((Logger *)log, av, friend_number, cb, cb_data, vc);
 
 BASE_CLEANUP:
     pthread_mutex_destroy(vc->queue_mutex);
 
-#ifdef USE_TS_BUFFER_FOR_VIDEO
     tsb_drain((TSBuffer *)vc->vbuf_raw);
     tsb_kill((TSBuffer *)vc->vbuf_raw);
-#else
-    rb_kill((RingBuffer *)vc->vbuf_raw);
-#endif
     vc->vbuf_raw = NULL;
     free(vc);
     return NULL;
 }
-
-
 
 void vc_kill(VCSession *vc)
 {
@@ -267,11 +217,7 @@ void vc_kill(VCSession *vc)
         return;
     }
 
-#ifdef RASPBERRY_PI_OMX
-    vc_kill_h264_omx_raspi(vc);
-#else
     vc_kill_h264(vc);
-#endif
     vc_kill_vpx(vc);
 
     if (vc->encoder_codec_used_name)
@@ -283,18 +229,8 @@ void vc_kill(VCSession *vc)
     void *p;
     uint64_t dummy;
 
-#ifdef USE_TS_BUFFER_FOR_VIDEO
     tsb_drain((TSBuffer *)vc->vbuf_raw);
     tsb_kill((TSBuffer *)vc->vbuf_raw);
-#else
-
-    while (rb_read((RingBuffer *)vc->vbuf_raw, &p, &dummy)) {
-        free(p);
-    }
-
-    rb_kill((RingBuffer *)vc->vbuf_raw);
-#endif
-
     vc->vbuf_raw = NULL;
 
     pthread_mutex_destroy(vc->queue_mutex);
@@ -312,9 +248,8 @@ void video_switch_decoder(VCSession *vc, TOXAV_ENCODER_CODEC_USED_VALUE decoder_
                 || (decoder_to_use == TOXAV_ENCODER_CODEC_USED_H264)) {
 
             vc->video_decoder_codec_used = decoder_to_use;
-            LOGGER_ERROR(vc->log, "**switching DECODER to **:%d",
+            LOGGER_DEBUG(vc->log, "**switching DECODER to **:%d",
                          (int)vc->video_decoder_codec_used);
-
 
             if (vc->av) {
                 if (vc->av->call_comm_cb) {
@@ -328,7 +263,6 @@ void video_switch_decoder(VCSession *vc, TOXAV_ENCODER_CODEC_USED_VALUE decoder_
 
                     vc->av->call_comm_cb(vc->av, vc->friend_number,
                                          cmi, 0, vc->av->call_comm_cb_user_data);
-
                 }
             }
 
@@ -336,9 +270,6 @@ void video_switch_decoder(VCSession *vc, TOXAV_ENCODER_CODEC_USED_VALUE decoder_
         }
     }
 }
-
-// static int global_last_viterate_ts = 0;
-// static int global___ts1 = 0;
 
 /* --- VIDEO DECODING happens here --- */
 /* --- VIDEO DECODING happens here --- */
@@ -357,7 +288,6 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     uint8_t ret_value = 0;
     struct RTPMessage *p;
     bool have_requested_index_frame = false;
-
     vpx_codec_err_t rc = 0;
 
     LOGGER_API_DEBUG(tox, "vc_iterate:enter:fnum=%d", vc->friend_number);
@@ -369,12 +299,10 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     }
     LOGGER_API_DEBUG(tox, "got_lock");
 
-    uint64_t frame_flags;
-    uint8_t data_type;
+    uint64_t frame_flags = 0;
+    uint8_t data_type = 0;
     uint8_t h264_encoded_video_frame = 0;
-
-    uint32_t full_data_len;
-
+    uint32_t full_data_len = 0;
     uint32_t timestamp_out_ = 0;
     uint32_t timestamp_min = 0;
     uint32_t timestamp_max = 0;
@@ -382,7 +310,6 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     *timestamp_difference_to_sender_ = vc->timestamp_difference_to_sender__for_video;
 
     tsb_get_range_in_buffer(tox, (TSBuffer *)vc->vbuf_raw, &timestamp_min, &timestamp_max);
-
 
     /**
      * this is the magic value that drifts with network delay changes:
@@ -399,10 +326,6 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
             (int)vc->timestamp_difference_adjustment,
             (int)vc->video_decoder_buffer_ms
             );
-    /**
-     *
-     */
-
 
     LOGGER_API_DEBUG(tox, "VC_TS_CALC:01:%d %d %d %d",
                      (int)want_remote_video_ts,
@@ -420,7 +343,6 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         timestamp_want_get = UINT32_MAX;
         vc->startup_video_timespan = 0;
     }
-
     // HINT: compensate for older clients ----------------
 
     LOGGER_API_DEBUG(tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d roundtrip=%d",
@@ -444,13 +366,11 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                 VIDEO_BUF_MS_ENTRIES;
 
         int32_t mean_value = 0;
-
         for (int k = 0; k < VIDEO_BUF_MS_ENTRIES; k++) {
             mean_value = mean_value + vc->video_buf_ms_array[k];
         }
 
-        if (mean_value == 0) {
-        } else {
+        if (mean_value != 0) {
             vc->video_buf_ms_mean_value = (mean_value / VIDEO_BUF_MS_ENTRIES) - 1000;
         }
     }
@@ -470,8 +390,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
             mean_value = mean_value + vc->video_buf_ms_array_long[k];
         }
 
-        if (mean_value == 0) {
-        } else {
+        if (mean_value != 0) {
             vc->video_buf_ms_mean_value_long = (mean_value / VIDEO_BUF_MS_ENTRIES_LONG) - 4000;
         }
     }
@@ -515,7 +434,6 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         }
     }
 
-
     uint16_t removed_entries;
     uint16_t is_skipping = 0;
 
@@ -524,6 +442,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     LOGGER_API_DEBUG(tox,"timestamp_want_get_used:001=%d", (int)timestamp_want_get_used);
 
     int use_range_all = 0;
+
     if (
         (global_do_not_sync_av) ||
         (vc->video_received_first_frame == 0) ||
@@ -555,41 +474,19 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         LOGGER_API_DEBUG(tox, "video frames are delayed[a] for more than 1000ms (%d ms), turn down bandwidth fast", (int)video_frame_diff);
         bwc_add_lost_v3(bwc, 199999, true);
     }
-#if 1
     else if ((video_frame_diff > 800) && (video_frame_diff < 10000))
     {
         LOGGER_API_DEBUG(tox, "video frames are delayed[b] for more than 800ms (%d ms), turn down bandwidth", (int)video_frame_diff);
         bwc_add_lost_v3(bwc, 60, true);
     }
-#endif
-#if 1
     else if ((vc->has_rountrip_time_ms == 1) && (video_frame_diff > 1) && (video_frame_diff > (((int32_t)vc->rountrip_time_ms) + 100)) && (video_frame_diff < 10000))
     {
-        //if ((uint32_t)tsb_size((TSBuffer *)vc->vbuf_raw) > 0)
+        if ((vc->rountrip_time_ms > 300) && (vc->rountrip_time_ms < 1000))
         {
-            if ((vc->rountrip_time_ms > 300) && (vc->rountrip_time_ms < 1000))
-            {
-                LOGGER_API_DEBUG(tox, "video frames are delayed[c] (%d ms, RTT=%d ms), turn down bandwidth", (int)video_frame_diff, (int)vc->rountrip_time_ms);
-                bwc_add_lost_v3(bwc, 3, true);
-            }
+            LOGGER_API_DEBUG(tox, "video frames are delayed[c] (%d ms, RTT=%d ms), turn down bandwidth", (int)video_frame_diff, (int)vc->rountrip_time_ms);
+            bwc_add_lost_v3(bwc, 3, true);
         }
     }
-#endif
-#if 0
-    else if ((vc->has_rountrip_time_ms == 1) && (vc->video_buf_ms_mean_value < 0) && (vc->video_buf_ms_mean_value > -200))
-    {
-        if ((vc->rountrip_time_ms > 300) && (vc->rountrip_time_ms < 800))
-        {
-            if ((vc->video_decoder_buffer_ms > 0) && (vc->video_decoder_buffer_ms < 298))
-            {
-                // TODO: the problem is this buffer increase will never be turned back.
-                //       let's not do this for now.
-                vc->video_decoder_buffer_ms++;
-                LOGGER_API_DEBUG(tox, "video frames are delayed[d] (%d ms, RTT=%d ms dbuf=%d ms), add more buffering", (int)vc->video_buf_ms_mean_value, (int)vc->rountrip_time_ms, (int)vc->video_decoder_buffer_ms);
-            }
-        }
-    }
-#endif
 
     if ((video_frame_diff > ((int)vc->video_buf_ms_mean_value_long + 300)) && (video_frame_diff < 100000))
     {
@@ -624,7 +521,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
             vc->video_received_first_frame = 1;
         }
 
-        const struct RTPHeader *header_v3_0 = (void *) & (p->header);
+        const struct RTPHeader *header_v3_0 = (void *) &(p->header);
 
         LOGGER_API_DEBUG(tox, "XLS01:%d,%d, diff_got=%d",
                          (int)(timestamp_want_get - current_time_monotonic(vc->av->toxav_mono_time)),
@@ -662,7 +559,6 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         uint16_t buf_size = tsb_size((TSBuffer *)vc->vbuf_raw);
         int32_t diff_want_to_got = (int)timestamp_want_get - (int)timestamp_out_;
 
-
         LOGGER_API_DEBUG(tox, "values:diff_to_sender=%d adj=%d tsb_range=%d bufsize=%d",
                          (int)vc->timestamp_difference_to_sender__for_video, (int)vc->timestamp_difference_adjustment,
                          (int)vc->tsb_range_ms,
@@ -673,19 +569,12 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
             vc->startup_video_timespan = 0;
         }
 
-
-
         // TODO: calculate the delay for the audio stream, and pass it back
         // bad hack -> make better!
         // ----------------------------------------
         // ----------------------------------------
         // ----------------------------------------
         int32_t delay_audio_stream_relative_to_video_stream = (vc->video_decoder_buffer_ms + vc->video_decoder_add_delay_ms);
-        //if ((vc->video_decoder_add_delay_ms < 0) && ((-(vc->video_decoder_add_delay_ms)) > vc->video_decoder_buffer_ms))
-        //{
-        //    delay_audio_stream_relative_to_video_stream = 0;
-        //}
-
         uint32_t video_decoder_caused_delay_ms_mean_value_used = vc->video_decoder_caused_delay_ms_mean_value;
         if (video_decoder_caused_delay_ms_mean_value_used > 300)
         {
@@ -712,9 +601,6 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
         uint8_t video_orientation_bit0 = (uint8_t)((frame_flags & RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT0) != 0);
         uint8_t video_orientation_bit1 = (uint8_t)((frame_flags & RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT1) != 0);
-
-        // LOGGER_WARNING(vc->log, "FRAMEFLAGS:%d", (int)frame_flags);
-
         if ((video_orientation_bit0 == 0) && (video_orientation_bit1 == 0)) {
             vc->video_incoming_frame_orientation = TOXAV_CLIENT_INPUT_VIDEO_ORIENTATION_0;
         } else if ((video_orientation_bit0 == 1) && (video_orientation_bit1 == 0)) {
@@ -779,12 +665,12 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                 //       which out client cant handle. so in the future signal sender to send less FPS!
 
 #ifndef RPIZEROW
-                LOGGER_API_ERROR(tox, "missing? sn=%d lastseen=%d",
+                LOGGER_API_WARNING(tox, "missing? sn=%d lastseen=%d",
                                (int)header_v3_0->sequnum,
                                (int)vc->last_seen_fragment_seqnum);
 
 
-                LOGGER_API_ERROR(tox, "missing %d video frames (m1)", (int)missing_frames_count);
+                LOGGER_API_WARNING(tox, "missing %d video frames (m1)", (int)missing_frames_count);
 #endif
 
                 if (vc->video_decoder_codec_used != TOXAV_ENCODER_CODEC_USED_H264) {
@@ -794,7 +680,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                 // HINT: give feedback that we lost some bytes (based on the size of this frame)
                 bwc_add_lost_v3(bwc, (uint32_t)(header_v3_0->data_length_full * missing_frames_count), true);
 #ifndef RPIZEROW
-                LOGGER_API_ERROR(tox, "BWC:lost:002:missing count=%d", (int)missing_frames_count);
+                LOGGER_API_WARNING(tox, "BWC:lost:002:missing count=%d", (int)missing_frames_count);
 #endif
             }
         }
@@ -812,29 +698,22 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
         if (header_v3->flags & RTP_LARGE_FRAME) {
             full_data_len = header_v3->data_length_full;
-            LOGGER_DEBUG(vc->log, "vc_iterate:001:full_data_len=%d", (int)full_data_len);
+            LOGGER_API_DEBUG(tox, "vc_iterate:001:full_data_len=%d", (int)full_data_len);
         } else {
             full_data_len = p->len;
-            LOGGER_DEBUG(vc->log, "vc_iterate:002");
+            LOGGER_API_DEBUG(tox, "vc_iterate:002");
         }
-
-        // LOGGER_DEBUG(vc->log, "vc_iterate: rb_read p->len=%d data_type=%d", (int)full_data_len, (int)data_type);
-        // LOGGER_DEBUG(vc->log, "vc_iterate: rb_read rb size=%d", (int)rb_size((RingBuffer *)vc->vbuf_raw));
-
-
 
         // HINT: give feedback that we lost some bytes
         if (header_v3->received_length_full < full_data_len) {
-
             bwc_add_lost_v3(bwc, (full_data_len - header_v3->received_length_full), false);
-
             float percent_lost = 0.0f;
 
             if (header_v3->received_length_full > 0) {
                 percent_lost = 100.0f * (1.0f - ((float)header_v3->received_length_full / (float)full_data_len));
             }
 
-            LOGGER_API_ERROR(tox, "BWC:lost:004:seq=%d,lost bytes=%d recevied=%d full=%d per=%.3f",
+            LOGGER_API_WARNING(tox, "BWC:lost:004:seq=%d,lost bytes=%d recevied=%d full=%d per=%.3f",
                          (int)header_v3->sequnum,
                          (int)(full_data_len - header_v3->received_length_full),
                          (int)header_v3->received_length_full,
@@ -844,36 +723,13 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
 
         if ((int)data_type == (int)video_frame_type_KEYFRAME) {
-
             int percent_recvd = 100;
 
             if (full_data_len > 0) {
                 percent_recvd = (int)(((float)header_v3->received_length_full / (float)full_data_len) * 100.0f);
             }
-
-#if 0
-
-            if (percent_recvd < 100) {
-                LOGGER_DEBUG(vc->log, "RTP_RECV:sn=%ld fn=%ld pct=%d%% *I* len=%ld recv_len=%ld",
-                             (long)header_v3->sequnum,
-                             (long)header_v3->fragment_num,
-                             percent_recvd,
-                             (long)full_data_len,
-                             (long)header_v3->received_length_full);
-            } else {
-                LOGGER_DEBUG(vc->log, "RTP_RECV:sn=%ld fn=%ld pct=%d%% *I* len=%ld recv_len=%ld",
-                             (long)header_v3->sequnum,
-                             (long)header_v3->fragment_num,
-                             percent_recvd,
-                             (long)full_data_len,
-                             (long)header_v3->received_length_full);
-            }
-
-#endif
-
-
         } else {
-            LOGGER_DEBUG(vc->log, "RTP_RECV:sn=%ld fn=%ld pct=%d%% len=%ld recv_len=%ld",
+            LOGGER_API_DEBUG(tox, "RTP_RECV:sn=%ld fn=%ld pct=%d%% len=%ld recv_len=%ld",
                          (long)header_v3->sequnum,
                          (long)header_v3->fragment_num,
                          (int)(((float)header_v3->received_length_full / (float)full_data_len) * 100.0f),
@@ -882,22 +738,17 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         }
 
 
-        // LOGGER_ERROR(vc->log, "h264_encoded_video_frame=%d vc->video_decoder_codec_used=%d",
-        //             (int)h264_encoded_video_frame,
-        //             (int)vc->video_decoder_codec_used);
-
         if (DISABLE_H264_DECODER_FEATURE == 0) {
 
             if ((vc->video_decoder_codec_used != TOXAV_ENCODER_CODEC_USED_H264)
                     && (h264_encoded_video_frame == 1)) {
-                LOGGER_ERROR(vc->log, "h264_encoded_video_frame:AA");
+                LOGGER_API_WARNING(tox, "h264_encoded_video_frame:AA");
                 video_switch_decoder(vc, TOXAV_ENCODER_CODEC_USED_H264);
 
             } else if ((vc->video_decoder_codec_used == TOXAV_ENCODER_CODEC_USED_H264)
                        && (h264_encoded_video_frame == 0)) {
-                LOGGER_ERROR(vc->log, "h264_encoded_video_frame:BB");
+                LOGGER_API_WARNING(tox, "h264_encoded_video_frame:BB");
                 // HINT: once we switched to H264 never switch back to VP8 until this call ends
-                // video_switch_decoder(vc, TOXAV_ENCODER_CODEC_USED_VP8);
             }
         }
 
@@ -915,14 +766,13 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                 pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO;
 
                 int result = video_send_custom_lossless_packet(tox, vc->friend_number, pkg_buf, pkg_buf_len);
-                LOGGER_ERROR(vc->log, "PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO=%d\n", (int)result);
+                LOGGER_API_WARNING(tox, "PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO=%d\n", (int)result);
                 // HINT: tell friend that we have H264 decoder capabilities -------
 
             }
         }
 
         if (vc->video_decoder_codec_used != TOXAV_ENCODER_CODEC_USED_H264) {
-            // LOGGER_ERROR(vc->log, "DEC:VP8------------");
             decode_frame_vpx(vc, tox, skip_video_flag, a_r_timestamp,
                              a_l_timestamp,
                              v_r_timestamp, v_l_timestamp,
@@ -930,30 +780,13 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                              rc, full_data_len,
                              &ret_value);
         } else {
-            // LOGGER_ERROR(vc->log, "DEC:H264------------");
-
-#ifdef DEBUG_SHOW_H264_DECODING_TIME
-            uint32_t start_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
-#endif
             decode_frame_h264(vc, tox, skip_video_flag, a_r_timestamp,
                               a_l_timestamp,
                               v_r_timestamp, v_l_timestamp,
                               header_v3, p,
                               rc, full_data_len,
                               &ret_value);
-
-#ifdef DEBUG_SHOW_H264_DECODING_TIME
-            uint32_t end_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
-
-            if ((int)(end_time_ms - start_time_ms) > 4) {
-                LOGGER_API_DEBUG(tox, "decode_frame_h264: %d ms", (int)(end_time_ms - start_time_ms));
-            }
-
-#endif
         }
-
-//        LOGGER_DEBUG(vc->log, "vciter__01:%d",
-//                            (int)current_time_monotonic(m->mono_time) - global___ts1);
 
         //* NEW UNLOCK *//
         // pthread_mutex_unlock(vc->queue_mutex);
@@ -961,20 +794,14 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         return ret_value;
     } else {
         // no frame data available
-        // LOGGER_WARNING(vc->log, "Error decoding video: rb_read");
         if (removed_entries > 0) {
-            LOGGER_API_ERROR(tox, "no frame read, but removed entries=%d", (int)removed_entries);
+            LOGGER_API_WARNING(tox, "no frame read, but removed entries=%d", (int)removed_entries);
         }
     }
 
     pthread_mutex_unlock(vc->queue_mutex);
-
-    // LOGGER_DEBUG(vc->log, "vciter__02:%d",
-    //                    (int)current_time_monotonic(m->mono_time) - global___ts1);
-
     return ret_value;
 }
-
 /* --- VIDEO DECODING happens here --- */
 /* --- VIDEO DECODING happens here --- */
 /* --- VIDEO DECODING happens here --- */
@@ -1001,13 +828,12 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
     const struct RTPHeader *header = &msg->header;
 
     if (msg->header.pt == (RTP_TYPE_VIDEO + 2) % 128) {
-        LOGGER_WARNING(vc->log, "Got dummy!");
         free(msg);
         return 0;
     }
 
     if (msg->header.pt != RTP_TYPE_VIDEO % 128) {
-        LOGGER_WARNING(vc->log, "Invalid payload type! pt=%d", (int)msg->header.pt);
+        LOGGER_API_WARNING(vc->av->tox, "Invalid payload type! pt=%d", (int)msg->header.pt);
         free(msg);
         return -1;
     }
@@ -1037,14 +863,6 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
         } else {
             vc->incoming_video_frames_gap_ms_mean_value = (mean_value * 10) / (VIDEO_INCOMING_FRAMES_GAP_MS_ENTRIES * 10);
         }
-
-#if 0
-        LOGGER_DEBUG(vc->log, "FPS:INCOMING=%d ms = %.1f fps mean=%d m=%d",
-                     (int)curent_gap,
-                     (float)(1000.0f / (curent_gap + 0.00001)),
-                     (int)vc->incoming_video_frames_gap_ms_mean_value,
-                     (int)mean_value);
-#endif
     }
 
     vc->incoming_video_frames_gap_last_ts = current_time_monotonic(mono_time);
@@ -1055,19 +873,15 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
     // older clients do not send the frame record timestamp
     // compensate by using the frame sennt timestamp
     if (msg->header.frame_record_timestamp == 0) {
-        LOGGER_DEBUG(vc->log, "old client:001");
+        LOGGER_API_DEBUG(vc->av->tox, "old client:001");
         msg->header.frame_record_timestamp = msg->header.timestamp;
     }
 
-
     if ((header->flags & RTP_LARGE_FRAME) && header->pt == RTP_TYPE_VIDEO % 128) {
-
 
         vc->last_incoming_frame_ts = header_v3->frame_record_timestamp;
 
-
         // give COMM data to client -------
-
         if ((vc->network_round_trip_time_last_cb_ts + 2000) < current_time_monotonic(mono_time)) {
             if (vc->av) {
                 if (vc->av->call_comm_cb) {
@@ -1123,12 +937,9 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
 
             vc->network_round_trip_time_last_cb_ts = current_time_monotonic(mono_time);
         }
-
         // give COMM data to client -------
 
-
         if (vc->show_own_video == 0) {
-
 
             if ((vc->incoming_video_bitrate_last_cb_ts + 2000) < current_time_monotonic(mono_time)) {
                 if (vc->incoming_video_bitrate_last_changed != header->encoder_bit_rate_used) {
@@ -1146,7 +957,6 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
 
                 vc->incoming_video_bitrate_last_cb_ts = current_time_monotonic(mono_time);
             }
-
 
             LOGGER_API_DEBUG(vc->av->tox, "vc_queue_msg:tsb_write : %d", (uint32_t)header->frame_record_timestamp);
 
@@ -1175,7 +985,6 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
     vc->lcfd = t_lcfd > 100 ? vc->lcfd : t_lcfd;
 
 #ifdef VIDEO_DECODER_SOFT_DEADLINE_AUTOTUNE
-
     // Autotune decoder softdeadline here ----------
     if (vc->last_decoded_frame_ts > 0) {
         long decode_time_auto_tune = (current_time_monotonic(mono_time) - vc->last_decoded_frame_ts) * 1000;
@@ -1186,12 +995,6 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
 
         vc->decoder_soft_deadline[vc->decoder_soft_deadline_index] = decode_time_auto_tune;
         vc->decoder_soft_deadline_index = (vc->decoder_soft_deadline_index + 1) % VIDEO_DECODER_SOFT_DEADLINE_AUTOTUNE_ENTRIES;
-
-#if 0
-        LOGGER_DEBUG(vc->log, "AUTOTUNE:INCOMING=%ld us = %.1f fps", (long)decode_time_auto_tune,
-                     (float)(1000000.0f / decode_time_auto_tune));
-#endif
-
     }
 
     vc->last_decoded_frame_ts = current_time_monotonic(mono_time);
@@ -1216,11 +1019,7 @@ int vc_reconfigure_encoder(Logger *log, VCSession *vc, uint32_t bit_rate, uint16
     if (vc->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8) {
         ret = vc_reconfigure_encoder_vpx(log, vc, bit_rate, width, height, kf_max_dist);
     } else {
-#ifdef RASPBERRY_PI_OMX
-        ret = vc_reconfigure_encoder_h264_omx_raspi(log, vc, bit_rate, width, height, kf_max_dist);
-#else
         ret = vc_reconfigure_encoder_h264(log, vc, bit_rate, width, height, kf_max_dist);
-#endif
     }
 
     vc->video_encoder_coded_used_prev = vc->video_encoder_coded_used;
