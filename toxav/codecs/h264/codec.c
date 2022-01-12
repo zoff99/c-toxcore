@@ -304,8 +304,6 @@ void my_log_callback(void *ptr, int level, const char *fmt, va_list vargs)
 {
     // !!WARNING!! ffmpeg somehow gives back bad strings, calling "strlen" will crash
     //             so no printf type of function will work!!
-    // my_printf(fmt, vargs);
-    // LOGGER_WARNING(global__log, fmt, vargs);
 }
 
 #ifdef X264_ENCODE_USED
@@ -884,9 +882,6 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         LOGGER_API_WARNING(av->tox, "setting up h264_mediacodec decoder ... DONE");
 
         av_log_set_level(AV_LOG_ERROR);
-        // av_log_set_level(AV_LOG_DEBUG);
-        global__log = log;
-        // av_log_set_callback(my_log_callback);
 
 #endif
 
