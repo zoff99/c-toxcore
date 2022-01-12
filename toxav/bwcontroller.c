@@ -36,28 +36,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-
-/*
- * Zoff: disable logging in ToxAV for now
- */
-#include <stdio.h>
-
-
-#undef LOGGER_DEBUG
-#define LOGGER_DEBUG(log, ...) printf("")
-#undef LOGGER_ERROR
-#define LOGGER_ERROR(log, ...) printf("")
-#undef LOGGER_WARNING
-#define LOGGER_WARNING(log, ...) printf("")
-#undef LOGGER_INFO
-#define LOGGER_INFO(log, ...) printf("")
-
-/*
- * Zoff: disable logging in ToxAV for now
- */
-
-
-
 #define BWC_PACKET_ID (196)
 #define BWC_SEND_INTERVAL_MS (200)     // in milliseconds
 
@@ -124,7 +102,6 @@ void bwc_kill(BWController *bwc)
     }
 
     bwc->bwc_receive_active = false;
-
     free(bwc);
     bwc = nullptr;
 }
@@ -134,8 +111,6 @@ void bwc_add_lost_v3(BWController *bwc, uint32_t bytes_lost, bool dummy)
     if (!bwc) {
         return;
     }
-
-    // LOGGER_DEBUG(bwc->m->log, "BWC lost(1): %d", (int)bytes_lost);
 
     bwc->cycle.lost = bwc->cycle.lost + bytes_lost;
     send_update(bwc, dummy);
@@ -161,7 +136,7 @@ void send_update(BWController *bwc, bool dummy)
 
         if ((bwc->cycle.recv + bwc->cycle.lost) > 0) {
             if (bwc->cycle.lost > 0) {
-                LOGGER_DEBUG(bwc->m->log, "%p Sent update rcv: %u lost: %u percent: %f %%",
+                LOGGER_API_DEBUG(bwc->tox, "%p Sent update rcv: %u lost: %u percent: %f %%",
                              (void *)bwc, bwc->cycle.recv, bwc->cycle.lost,
                              (float)(((float) bwc->cycle.lost / (bwc->cycle.recv + bwc->cycle.lost)) * 100.0f));
             }
@@ -175,7 +150,7 @@ void send_update(BWController *bwc, bool dummy)
         msg->recv = net_htonl(bwc->cycle.recv);
 
         if (-1 == bwc_send_custom_lossy_packet(bwc->tox, bwc->friend_number, bwc_packet, sizeof(bwc_packet))) {
-            LOGGER_WARNING(bwc->m->log, "BWC send failed (len: %zu)! std error: %s", sizeof(bwc_packet), strerror(errno));
+            LOGGER_API_WARNING(bwc->tox, "BWC send failed (len: %zu)! std error: %s", sizeof(bwc_packet), strerror(errno));
         } else {
             bwc->cycle.last_sent_timestamp = current_time_monotonic(bwc->bwc_mono_time);
 
@@ -187,27 +162,18 @@ void send_update(BWController *bwc, bool dummy)
 
 static int on_update(BWController *bwc, const struct BWCMessage *msg)
 {
-    //LOGGER_DEBUG(bwc->m->log, "%p Got update from peer", (void *)bwc);
-
     /* Peers sent update too soon */
     if ((bwc->cycle.last_recv_timestamp + (BWC_SEND_INTERVAL_MS / 2)) > current_time_monotonic(bwc->bwc_mono_time)) {
-        //LOGGER_DEBUG(bwc->m->log, "%p Rejecting extra update", (void *)bwc);
         return -1;
     }
 
     bwc->cycle.last_recv_timestamp = current_time_monotonic(bwc->bwc_mono_time);
-
     const uint32_t recv = msg->recv;
     const uint32_t lost = msg->lost;
-
-    //LOGGER_DEBUG(bwc->m->log, "recved: %u lost: %u", recv, lost);
 
     if (bwc->mcb) {
 
         if ((recv + lost) > 0) {
-            //LOGGER_DEBUG(bwc->m->log, "recved: %u lost: %u percentage: %f %%", recv, lost,
-            //             (float)(((float) lost / (recv + lost)) * 100.0f));
-
             bwc->mcb(bwc, bwc->friend_number,
                      ((float) lost / (recv + lost)),
                      bwc->mcb_user_data);
