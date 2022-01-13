@@ -19,24 +19,6 @@
 
 #define MSI_MAXMSG_SIZE 256
 
-/*
- * Zoff: disable logging in ToxAV for now
- */
-#include <stdio.h>
-
-#undef LOGGER_DEBUG
-#define LOGGER_DEBUG(log, ...) printf("")
-#undef LOGGER_ERROR
-#define LOGGER_ERROR(log, ...) printf("")
-#undef LOGGER_WARNING
-#define LOGGER_WARNING(log, ...) printf("")
-#undef LOGGER_INFO
-#define LOGGER_INFO(log, ...) printf("")
-/*
- * Zoff: disable logging in ToxAV for now
- */
-
-
 /**
  * Protocol:
  *
@@ -188,29 +170,22 @@ bool check_peer_offline_status(Tox *tox, MSISession *session, uint32_t friend_nu
     TOX_ERR_FRIEND_QUERY f_con_query_error;
     TOX_CONNECTION f_conn_status = tox_friend_get_connection_status(tox, friend_number, &f_con_query_error);
 
-    switch (f_conn_status) {
-        case 0: { /* Friend is now offline */
-            LOGGER_DEBUG(m->log, "Friend %d is now offline", friend_number);
+    if (f_conn_status == TOX_CONNECTION_NONE) {
+        /* Friend is now offline */
+        LOGGER_API_DEBUG(tox, "Friend %d is now offline", friend_number);
 
-            pthread_mutex_lock(session->mutex);
-            MSICall *call = get_call(session, friend_number);
+        pthread_mutex_lock(session->mutex);
+        MSICall *call = get_call(session, friend_number);
 
-            if (call == nullptr) {
-                pthread_mutex_unlock(session->mutex);
-                return true;
-            }
-
-            invoke_callback(call, MSI_ON_PEERTIMEOUT); /* Failure is ignored */
-            kill_call(call);
+        if (call == nullptr) {
             pthread_mutex_unlock(session->mutex);
+            return true;
         }
 
+        invoke_callback(call, MSI_ON_PEERTIMEOUT); /* Failure is ignored */
+        kill_call(call);
+        pthread_mutex_unlock(session->mutex);
         return true;
-
-        case TOX_CONNECTION_TCP:
-        case TOX_CONNECTION_UDP:
-        default:
-            break;
     }
 
     return false;
@@ -384,32 +359,37 @@ static void msg_init(MSIMessage *dest, MSIRequest request)
     dest->request.value = request;
 }
 
+static bool check_size(Tox *tox, const uint8_t *bytes, int *constraint, uint8_t size)
+{
+    *constraint -= 2 + size;
+
+    if (*constraint < 1) {
+        LOGGER_API_ERROR(tox, "Read over length!");
+        return false;
+    }
+
+    if (bytes[1] != size) {
+        LOGGER_API_ERROR(tox, "Invalid data size!");
+        return false;
+    }
+
+    return true;
+}
+
+/* Assumes size == 1 */
+static bool check_enum_high(Tox *tox, const uint8_t *bytes, uint8_t enum_high)
+{
+    if (bytes[2] > enum_high) {
+        LOGGER_API_ERROR(tox, "Failed enum high limit!");
+        return false;
+    }
+
+    return true;
+}
+
 static int msg_parse_in(Tox *tox, MSIMessage *dest, const uint8_t *data, uint16_t length)
 {
     /* Parse raw data received from socket into MSIMessage struct */
-
-#define CHECK_SIZE(bytes, constraint, size)          \
-    do {                                             \
-        constraint -= 2 + size;                      \
-        if (constraint < 1) {                        \
-            LOGGER_API_ERROR(tox, "Read over length!");  \
-            return -1;                               \
-        }                                            \
-        if (bytes[1] != size) {                      \
-            LOGGER_API_ERROR(tox, "Invalid data size!"); \
-            return -1;                               \
-        }                                            \
-    } while (0)
-
-    /* Assumes size == 1 */
-#define CHECK_ENUM_HIGH(bytes, enum_high)                 \
-    do {                                                  \
-        if (bytes[2] > enum_high) {                       \
-            LOGGER_API_ERROR(tox, "Failed enum high limit!"); \
-            return -1;                                    \
-        }                                                 \
-    } while (0)
-
     assert(dest);
 
     if (length == 0 || data[length - 1]) { /* End byte must have value 0 */
@@ -424,35 +404,48 @@ static int msg_parse_in(Tox *tox, MSIMessage *dest, const uint8_t *data, uint16_
 
     while (*it) {/* until end byte is hit */
         switch (*it) {
-            case ID_REQUEST:
+            case ID_REQUEST: {
                 LOGGER_API_INFO(tox, "got:ID_REQUEST");
-                CHECK_SIZE(it, size_constraint, 1);
-                CHECK_ENUM_HIGH(it, REQU_POP);
+                if (!check_size(tox, it, &size_constraint, 1) ||
+                        !check_enum_high(tox, it, REQU_POP)) {
+                    return -1;
+                }
+
                 dest->request.value = (MSIRequest)it[2];
                 dest->request.exists = true;
                 it += 3;
                 break;
+            }
 
-            case ID_ERROR:
+            case ID_ERROR: {
                 LOGGER_API_INFO(tox, "got:ID_ERROR");
-                CHECK_SIZE(it, size_constraint, 1);
-                CHECK_ENUM_HIGH(it, MSI_E_UNDISCLOSED);
+                if (!check_size(tox, it, &size_constraint, 1) ||
+                        !check_enum_high(tox, it, MSI_E_UNDISCLOSED)) {
+                    return -1;
+                }
+
                 dest->error.value = (MSIError)it[2];
                 dest->error.exists = true;
                 it += 3;
                 break;
+            }
 
-            case ID_CAPABILITIES:
+            case ID_CAPABILITIES: {
                 LOGGER_API_INFO(tox, "got:ID_CAPABILITIES");
-                CHECK_SIZE(it, size_constraint, 1);
+                if (!check_size(tox, it, &size_constraint, 1)) {
+                    return -1;
+                }
+
                 dest->capabilities.value = it[2];
                 dest->capabilities.exists = true;
                 it += 3;
                 break;
+            }
 
-            default:
+            default: {
                 LOGGER_API_ERROR(tox, "Invalid id byte");
                 return -1;
+            }
         }
     }
 
@@ -460,9 +453,6 @@ static int msg_parse_in(Tox *tox, MSIMessage *dest, const uint8_t *data, uint16_
         LOGGER_API_ERROR(tox, "Invalid request field!");
         return -1;
     }
-
-#undef CHECK_ENUM_HIGH
-#undef CHECK_SIZE
 
     return 0;
 }
@@ -495,8 +485,11 @@ static uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *
 static int m_msi_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint16_t length)
 {
     // TODO(Zoff): make this better later! -------------------
+    /* we need to prepend 1 byte (packet id) to data
+     * do this without calloc, memcpy and free in the future
+     */
     size_t length_new = length + 1;
-    uint8_t *data_new = calloc(1, length_new);
+    uint8_t *data_new = (uint8_t *)calloc(length_new, sizeof(uint8_t));
 
     if (!data_new) {
         return 0;
@@ -508,15 +501,11 @@ static int m_msi_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uin
         memcpy(data_new + 1, data, length);
     }
 
-    // TODO(Zoff): make this better later! -------------------
-
     TOX_ERR_FRIEND_CUSTOM_PACKET error;
     bool res1 = tox_friend_send_lossless_packet(tox, friendnumber, data_new, length_new, &error);
     LOGGER_API_INFO(tox, "tox_friend_send_lossless_packet:fnum=%d res1=%d error=%d", friendnumber, res1, error);
 
-    // TODO(Zoff): make this better later! -------------------
     free(data_new);
-    // TODO(Zoff): make this better later! -------------------
 
     if (error == TOX_ERR_FRIEND_CUSTOM_PACKET_OK) {
         return 1;
@@ -679,9 +668,7 @@ static MSICall *new_call(MSISession *session, uint32_t friend_number)
         session->calls = tmp;
 
         /* Set fields in between to null */
-        uint32_t i = session->calls_tail + 1;
-
-        for (; i < friend_number; ++i) {
+        for (uint32_t i = session->calls_tail + 1; i < friend_number; ++i) {
             session->calls[i] = nullptr;
         }
 
@@ -689,6 +676,7 @@ static MSICall *new_call(MSISession *session, uint32_t friend_number)
 
         rc->prev = session->calls[session->calls_tail];
         session->calls[session->calls_tail]->next = rc;
+
         session->calls_tail = friend_number;
 
         LOGGER_API_INFO(session->tox, "Appending:fnum=%d h=%d t=%d bytes=%d",
@@ -933,7 +921,7 @@ static void handle_push(MSICall *call, const MSIMessage *msg)
         break;
 
         case MSI_CALL_REQUESTED: {
-            LOGGER_API_WARNING(call->session->tox, "MSI_CALL_INACTIVE:Ignoring invalid push");
+            LOGGER_API_WARNING(call->session->tox, "MSI_CALL_REQUESTED:Ignoring invalid push");
         }
         break;
     }
