@@ -162,7 +162,7 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     }
 
     if (!(vc->vbuf_raw = tsb_new(VIDEO_RINGBUFFER_BUFFER_ELEMENTS))) {
-        LOGGER_WARNING(log, "vc_new:rb_new FAILED");
+        LOGGER_API_WARNING(av->tox, "vc_new:rb_new FAILED");
         vc->vbuf_raw = NULL;
         goto BASE_CLEANUP;
     }
@@ -196,10 +196,14 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     // HINT: tell client what encoder and decoder are in use now -----------
 
     // HINT: initialize the H264 encoder
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
     vc = vc_new_h264((Logger *)log, av, friend_number, cb, cb_data, vc);
 
     // HINT: initialize VP8 encoder
     return vc_new_vpx((Logger *)log, av, friend_number, cb, cb_data, vc);
+#pragma GCC diagnostic pop
 
 BASE_CLEANUP:
     pthread_mutex_destroy(vc->queue_mutex);
@@ -235,7 +239,7 @@ void vc_kill(VCSession *vc)
 
     pthread_mutex_destroy(vc->queue_mutex);
 
-    LOGGER_DEBUG(vc->log, "Terminated video handler: %p", (void *)vc);
+    LOGGER_API_DEBUG(vc->av->tox, "Terminated video handler: %p", (void *)vc);
     free(vc);
 }
 
@@ -248,7 +252,7 @@ void video_switch_decoder(VCSession *vc, TOXAV_ENCODER_CODEC_USED_VALUE decoder_
                 || (decoder_to_use == TOXAV_ENCODER_CODEC_USED_H264)) {
 
             vc->video_decoder_codec_used = decoder_to_use;
-            LOGGER_DEBUG(vc->log, "**switching DECODER to **:%d",
+            LOGGER_API_DEBUG(vc->av->tox, "**switching DECODER to **:%d",
                          (int)vc->video_decoder_codec_used);
 
             if (vc->av) {
