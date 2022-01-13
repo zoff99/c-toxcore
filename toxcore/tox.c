@@ -1188,7 +1188,7 @@ uint64_t tox_friend_get_capabilities(const Tox *tox, uint32_t friend_number)
     return capabilities;
 }
 
-uint64_t tox_self_get_capabilities()
+uint64_t tox_self_get_capabilities(void)
 {
     return (TOX_CAPABILITIES_CURRENT);
 }
