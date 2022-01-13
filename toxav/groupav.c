@@ -18,16 +18,6 @@
 #define GROUP_JBUF_SIZE 6
 #define GROUP_JBUF_DEAD_SECONDS 4
 
-/*
- * Zoff: disable logging in ToxAV for now
- */
-static void dummy()
-{
-}
-
-#undef LOGGER_ERROR
-#define LOGGER_ERROR(log, ...) dummy()
-
 typedef struct Group_Audio_Packet {
     uint16_t sequnum;
     uint16_t length;
@@ -208,7 +198,7 @@ static int recreate_encoder(Group_AV *group_av)
                               OPUS_APPLICATION_VOIP, &rc);
 
     if (rc != OPUS_OK) {
-        LOGGER_ERROR(group_av->log, "Error while starting audio encoder: %s", opus_strerror(rc));
+        // LOGGER_API_ERROR(group_av->tox->log, "Error while starting audio encoder: %s", opus_strerror(rc));
         group_av->audio_encoder = nullptr;
         return -1;
     }
@@ -216,7 +206,7 @@ static int recreate_encoder(Group_AV *group_av)
     rc = opus_encoder_ctl(group_av->audio_encoder, OPUS_SET_BITRATE(group_av->audio_bitrate));
 
     if (rc != OPUS_OK) {
-        LOGGER_ERROR(group_av->log, "Error while setting encoder ctl: %s", opus_strerror(rc));
+        // LOGGER_API_ERROR(group_av->tox->log, "Error while setting encoder ctl: %s", opus_strerror(rc));
         opus_encoder_destroy(group_av->audio_encoder);
         group_av->audio_encoder = nullptr;
         return -1;
@@ -227,7 +217,7 @@ static int recreate_encoder(Group_AV *group_av)
     rc = opus_encoder_ctl(group_av->audio_encoder, OPUS_SET_PACKET_LOSS_PERC(1));
 
     if (rc != OPUS_OK) {
-        LOGGER_ERROR(group_av->log, "Error while setting encoder ctl: %s", opus_strerror(status));
+        // LOGGER_API_ERROR(group_av->tox->log, "Error while setting encoder ctl: %s", opus_strerror(status));
         opus_encoder_destroy(group_av->audio_encoder);
         group_av->audio_encoder = nullptr;
         return -1;
@@ -240,7 +230,7 @@ static int recreate_encoder(Group_AV *group_av)
     rc = opus_encoder_ctl(group_av->audio_encoder, OPUS_SET_INBAND_FEC(1));
 
     if (rc != OPUS_OK) {
-        LOGGER_ERROR(group_av->log, "Error while setting encoder ctl: %s", opus_strerror(rc));
+        // LOGGER_API_ERROR(group_av->tox->log, "Error while setting encoder ctl: %s", opus_strerror(rc));
         opus_encoder_destroy(group_av->audio_encoder);
         group_av->audio_encoder = nullptr;
         return -1;
@@ -250,7 +240,7 @@ static int recreate_encoder(Group_AV *group_av)
     rc = opus_encoder_ctl(group_av->audio_encoder, OPUS_SET_COMPLEXITY(10));
 
     if (rc != OPUS_OK) {
-        LOGGER_ERROR(group_av->log, "Error while setting encoder ctl: %s", opus_strerror(rc));
+        // LOGGER_API_ERROR(group_av->tox->log, "Error while setting encoder ctl: %s", opus_strerror(rc));
         opus_encoder_destroy(group_av->audio_encoder);
         group_av->audio_encoder = nullptr;
         return -1;
@@ -342,7 +332,7 @@ static int decode_audio_packet(Group_AV *group_av, Group_Peer_AV *peer_av, uint3
 
     /* success is 0 when there is nothing to dequeue */
     if (success == 0) {
-        LOGGER_DEBUG(group_av->log, "cant dequeue audio pkt:success=0");
+        // LOGGER_API_DEBUG(group_av->tox->log, "cant dequeue audio pkt:success=0");
         return -1;
     }
 
@@ -375,7 +365,7 @@ static int decode_audio_packet(Group_AV *group_av, Group_Peer_AV *peer_av, uint3
             peer_av->audio_decoder = opus_decoder_create(sample_rate, channels, &rc);
 
             if (rc != OPUS_OK) {
-                LOGGER_ERROR(group_av->log, "Error while starting audio decoder: %s", opus_strerror(rc));
+                // LOGGER_API_ERROR(group_av->tox->log, "Error while starting audio decoder: %s", opus_strerror(rc));
                 free(pk);
                 return -1;
             }
@@ -404,7 +394,7 @@ static int decode_audio_packet(Group_AV *group_av, Group_Peer_AV *peer_av, uint3
     }
     else /* success is 2 when there's a lost packet */
     {
-        LOGGER_DEBUG(group_av->log, "decode lost audio pkt:success=2");
+        // LOGGER_API_DEBUG(group_av->tox->log, "decode lost audio pkt:success=2");
 
         if (!peer_av->audio_decoder) {
             return -1;
@@ -513,7 +503,7 @@ int groupchat_enable_av(const Logger *log, Tox *tox, Group_Chats *g_c, uint32_t 
     }
 
     global_lock(tox);
-    int numpeers = group_number_peers(g_c, groupnumber, false);
+    const int numpeers = group_number_peers(g_c, groupnumber, false);
     global_unlock(tox);
 
     for (uint32_t i = 0; i < numpeers; ++i) {
@@ -542,7 +532,7 @@ int groupchat_disable_av(Group_Chats *g_c, uint32_t groupnumber)
     }
 
     global_lock(group_av->tox);
-    int numpeers = group_number_peers(g_c, groupnumber, false);
+    const int numpeers = group_number_peers(g_c, groupnumber, false);
     global_unlock(group_av->tox);
 
     for (uint32_t i = 0; i < numpeers; ++i) {
