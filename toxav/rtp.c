@@ -24,13 +24,6 @@
 #include "../toxcore/util.h"
 #include "../toxcore/mono_time.h"
 
-
-/*
- * Zoff: disable logging in ToxAV for now
- */
-#include <stdio.h>
-
-
 Mono_Time *toxav_get_av_mono_time(ToxAV *toxav);
 int rtp_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length);
 int rtp_send_custom_lossless_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length);
@@ -1089,7 +1082,6 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
     header.ssrc = session->ssrc;
     header.offset_lower = 0;
     header.data_length_lower = length;
-    header.flags = 0; // just to be safe, initialize the flags to zero
     header.flags = RTP_LARGE_FRAME | RTP_ENCODER_HAS_RECORD_TIMESTAMP;
 
     if ((codec_used == TOXAV_ENCODER_CODEC_USED_H264) &&
