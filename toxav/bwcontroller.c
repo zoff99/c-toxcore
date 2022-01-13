@@ -143,11 +143,14 @@ void send_update(BWController *bwc, bool dummy)
         }
 
         uint8_t bwc_packet[sizeof(struct BWCMessage) + 1];
-        struct BWCMessage *msg = (struct BWCMessage *)(bwc_packet + 1);
+        size_t offset = 0;
 
-        bwc_packet[0] = BWC_PACKET_ID; // set packet ID
-        msg->lost = net_htonl(bwc->cycle.lost);
-        msg->recv = net_htonl(bwc->cycle.recv);
+        bwc_packet[offset] = BWC_PACKET_ID; // set packet ID
+        ++offset;
+
+        offset += net_pack_u32(bwc_packet + offset, bwc->cycle.lost);
+        offset += net_pack_u32(bwc_packet + offset, bwc->cycle.recv);
+        assert(offset == sizeof(bwc_packet));
 
         if (-1 == bwc_send_custom_lossy_packet(bwc->tox, bwc->friend_number, bwc_packet, sizeof(bwc_packet))) {
             LOGGER_API_WARNING(bwc->tox, "BWC send failed (len: %zu)! std error: %s", sizeof(bwc_packet), strerror(errno));
