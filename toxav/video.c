@@ -695,8 +695,8 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         vc->last_seen_fragment_seqnum = header_v3_0->sequnum;
 
         //* PREVIOUS UNLOCK *//
-        pthread_mutex_unlock(vc->queue_mutex);
-        LOGGER_API_DEBUG(tox, "un_lock");
+        // pthread_mutex_unlock(vc->queue_mutex);
+        // LOGGER_API_DEBUG(tox, "un_lock");
 
         const struct RTPHeader *header_v3 = (void *) & (p->header);
 
@@ -793,7 +793,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         }
 
         //* NEW UNLOCK *//
-        // pthread_mutex_unlock(vc->queue_mutex);
+        pthread_mutex_unlock(vc->queue_mutex);
 
         return ret_value;
     } else {
