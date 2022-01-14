@@ -776,6 +776,9 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
             }
         }
 
+        //* MID UNLOCK *//
+        // pthread_mutex_unlock(vc->queue_mutex);
+
         if (vc->video_decoder_codec_used != TOXAV_ENCODER_CODEC_USED_H264) {
             decode_frame_vpx(vc, tox, skip_video_flag, a_r_timestamp,
                              a_l_timestamp,

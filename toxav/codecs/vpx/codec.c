@@ -829,11 +829,15 @@ void decode_frame_vpx(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t
                              (void *)dest->planes[1],
                              (void *)dest->planes[2]);
 
+                //* CALLBACK UNLOCK *//
+                pthread_mutex_unlock(vc->queue_mutex);
                 vc->vcb(vc->av, vc->friend_number, dest->d_w, dest->d_h,
                         (const uint8_t *)dest->planes[0],
                         (const uint8_t *)dest->planes[1],
                         (const uint8_t *)dest->planes[2],
                         dest->stride[0], dest->stride[1], dest->stride[2], vc->vcb_user_data);
+                //* CALLBACK LOCK *//
+                pthread_mutex_lock(vc->queue_mutex);
             }
 
             vpx_img_free(dest); // is this needed? none of the VPx examples show that

@@ -1326,8 +1326,13 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
 
 
     if (vc->vcb_h264 != NULL) {
+        //* CALLBACK UNLOCK *//
+        pthread_mutex_unlock(vc->queue_mutex);
         // call callback function to give H264 buffer directly to the client
         vc->vcb_h264(vc->av, vc->friend_number, p->data, full_data_len, vc->vcb_h264_user_data);
+        //* CALLBACK LOCK *//
+        pthread_mutex_lock(vc->queue_mutex);
+
         free(p);
         p = NULL;
         return;
@@ -1558,6 +1563,8 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                     }
 #pragma GCC diagnostic pop
 
+                    //* CALLBACK UNLOCK *//
+                    pthread_mutex_unlock(vc->queue_mutex);
                     vc->vcb_pts(vc->av, vc->friend_number, frame->width, frame->height,
                             (const uint8_t *)frame->data[0],
                             (const uint8_t *)frame->data[1],
@@ -1565,15 +1572,21 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                             frame->linesize[0], frame->linesize[1],
                             frame->linesize[2], vc->vcb_pts_user_data,
                             pts_for_client);
+                    //* CALLBACK LOCK *//
+                    pthread_mutex_lock(vc->queue_mutex);
                 }
                 else
                 {
+                    //* CALLBACK UNLOCK *//
+                    pthread_mutex_unlock(vc->queue_mutex);
                     vc->vcb(vc->av, vc->friend_number, frame->width, frame->height,
                             (const uint8_t *)frame->data[0],
                             (const uint8_t *)frame->data[1],
                             (const uint8_t *)frame->data[2],
                             frame->linesize[0], frame->linesize[1],
                             frame->linesize[2], vc->vcb_user_data);
+                    //* CALLBACK LOCK *//
+                    pthread_mutex_lock(vc->queue_mutex);
                 }
             }
 
