@@ -305,8 +305,6 @@ void toxav_audio_iterate(ToxAV *av)
                     int64_t copy_of_value = i->call_timestamp_difference_to_sender;
                     int video_cap_copy = (int)(i->msi_call->self_capabilities & MSI_CAP_S_VIDEO);
 
-                    LOGGER_API_DEBUG(av->tox, "AAiterate:000:START:fnum=%d:h=%d t=%d", fid, av->calls_head, av->calls_tail);
-
                     uint8_t res_ac = ac_iterate(i->audio,
                                                 &(i->last_incoming_audio_frame_rtimestamp),
                                                 &(i->last_incoming_audio_frame_ltimestamp),
@@ -1476,41 +1474,6 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
         goto END;
     }
 
-    // LOGGER_ERROR(av->m->log, "VIDEO:Skipping:%d %d",
-    //            (int)call->video.second->skip_fps,
-    //            (int)call->video.second->skip_fps_counter);
-
-    if (call->video->skip_fps != 0) {
-        call->video->skip_fps_counter++;
-
-        if (call->video->skip_fps_duration_until_ts > current_time_monotonic(av->toxav_mono_time)) {
-            // HINT: ok stop skipping frames now, and reset the values
-            call->video->skip_fps = 0;
-            call->video->skip_fps_duration_until_ts = 0;
-        } else {
-
-            if (call->video->skip_fps_counter == call->video->skip_fps) {
-                LOGGER_DEBUG(av->m->log, "VIDEO:Skipping frame, because of too much FPS!!");
-                call->video->skip_fps_counter = 0;
-                // skip this video frame, receiver can't handle this many FPS
-                // rc = TOXAV_ERR_SEND_FRAME_INVALID; // should we tell the client? not sure about this
-                //                                     // client may try to resend the frame, which is not what we want
-                pthread_mutex_unlock(av->mutex);
-                goto END;
-            }
-        }
-    }
-
-    uint64_t ms_to_last_frame = 1;
-
-    if (call->video) {
-        ms_to_last_frame = current_time_monotonic(av->toxav_mono_time) - call->video->last_encoded_frame_ts;
-
-        if (call->video->last_encoded_frame_ts == 0) {
-            ms_to_last_frame = 1;
-        }
-    }
-
     if (call->video_bit_rate == 0 ||
             !(call->msi_call->self_capabilities & MSI_CAP_S_VIDEO) ||
             !(call->msi_call->peer_capabilities & MSI_CAP_R_VIDEO)) {
@@ -1528,6 +1491,15 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
         goto END;
     }
 
+    uint64_t ms_to_last_frame = 1;
+
+    if (call->video) {
+        ms_to_last_frame = current_time_monotonic(av->toxav_mono_time) - call->video->last_encoded_frame_ts;
+
+        if (call->video->last_encoded_frame_ts == 0) {
+            ms_to_last_frame = 1;
+        }
+    }
 
     // LOGGER_ERROR(av->m->log, "h264_video_capabilities_received=%d",
     //             (int)call->video->h264_video_capabilities_received);
