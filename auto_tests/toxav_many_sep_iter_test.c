@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -6,8 +8,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <sys/types.h>
+#include <sys/syscall.h>
 #include <time.h>
+#include <unistd.h>
 
 #if !defined(_WIN32) && !defined(__WIN32__) && !defined(WIN32)
 #include <pthread.h>
@@ -23,6 +28,9 @@
 #include "../toxcore/util.h"
 #include "check_compat.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-prototypes"
+
 typedef struct {
     bool incoming;
     uint32_t state;
@@ -35,6 +43,33 @@ typedef struct {
     CallControl *BobCC;
     uint32_t friend_number;
 } thread_data;
+
+
+static uint64_t current_time_actual(void)
+{
+    uint64_t time;
+    struct timeval a;
+    gettimeofday(&a, NULL);
+    time = 1000000ULL * a.tv_sec + a.tv_usec;
+    return time;
+}
+
+static int t1 = 1;
+static int t2 = 2;
+static int t3 = 2;
+static int t4 = 2;
+
+static uint64_t global_global_tt1 = 0;
+void __tt1(void)
+{
+    global_global_tt1 = current_time_actual();
+}
+
+void __tt2(void)
+{
+    uint64_t tt2 = current_time_actual();
+    printf("CLIENT:time:%d ms\n", (int)((tt2 - global_global_tt1) / 1000));
+}
 
 /**
  * Callbacks
@@ -57,6 +92,16 @@ static void t_toxav_receive_video_frame_cb(ToxAV *av, uint32_t friend_number,
         int32_t ystride, int32_t ustride, int32_t vstride,
         void *user_data)
 {
+    int *val = ((int *) user_data);
+    printf("CLIENT2:user_data=%p\n", (void *)val);
+    printf("CLIENT:before calling pthread_create getpid: %d getpthread_self: %lu tid:%lu\n", getpid(), pthread_self(), syscall(SYS_gettid));
+
+    if ((*val) == 1)
+    {
+        printf("CLIENT:process video frame**********:--START--\n");
+        c_sleep(100);
+        printf("CLIENT:process video frame**********:--END--\n");
+    }
 }
 
 static void t_toxav_receive_audio_frame_cb(ToxAV *av, uint32_t friend_number,
@@ -66,6 +111,14 @@ static void t_toxav_receive_audio_frame_cb(ToxAV *av, uint32_t friend_number,
         uint32_t sampling_rate,
         void *user_data)
 {
+    int *val = ((int *) user_data);
+    if ((*val) == 1)
+    {
+        __tt2();
+        printf("CLIENT:process AUDIO frame:--START--\n");
+        printf("CLIENT:process AUDIO frame:--END--\n");
+        __tt1();
+    }
 }
 
 static void t_accept_friend_request_cb(Tox *m, const uint8_t *public_key, const uint8_t *data, size_t length,
@@ -80,7 +133,7 @@ static void t_accept_friend_request_cb(Tox *m, const uint8_t *public_key, const 
 /**
  * Iterate helper
  */
-static ToxAV *setup_av_instance(Tox *tox, CallControl *CC)
+static ToxAV *setup_av_instance(Tox *tox, CallControl *CC, void *num)
 {
     Toxav_Err_New error;
 
@@ -89,8 +142,8 @@ static ToxAV *setup_av_instance(Tox *tox, CallControl *CC)
 
     toxav_callback_call(av, t_toxav_call_cb, CC);
     toxav_callback_call_state(av, t_toxav_call_state_cb, CC);
-    toxav_callback_video_receive_frame(av, t_toxav_receive_video_frame_cb, CC);
-    toxav_callback_audio_receive_frame(av, t_toxav_receive_audio_frame_cb, CC);
+    toxav_callback_video_receive_frame(av, t_toxav_receive_video_frame_cb, num);
+    toxav_callback_audio_receive_frame(av, t_toxav_receive_audio_frame_cb, num);
 
     return av;
 }
@@ -132,12 +185,11 @@ static void *call_thread(void *pd)
 
     do {
         toxav_iterate(AliceAV);
-        toxav_iterate(BobAV);
-
         toxav_audio_send_frame(AliceAV, friend_number, PCM, 960, 1, 48000, nullptr);
-        toxav_audio_send_frame(BobAV, 0, PCM, 960, 1, 48000, nullptr);
-
         toxav_video_send_frame(AliceAV, friend_number, 800, 600, video_y, video_u, video_v, nullptr);
+
+        toxav_iterate(BobAV);
+        toxav_audio_send_frame(BobAV, 0, PCM, 960, 1, 48000, nullptr);
         toxav_video_send_frame(BobAV, 0, 800, 600, video_y, video_u, video_v, nullptr);
 
         c_sleep(10);
@@ -165,6 +217,11 @@ static void test_av_three_calls(void)
     void *retval;
 
     CallControl AliceCC[3], BobsCC[3];
+
+    // no buffering for stdout
+    setbuf(stdout, NULL);
+
+    __tt1();
 
     {
         Tox_Err_New error;
@@ -236,13 +293,13 @@ static void test_av_three_calls(void)
             break;
         }
 
-        c_sleep(20);
+        c_sleep(5);
     }
 
-    AliceAV = setup_av_instance(Alice, AliceCC);
-    BobsAV[0] = setup_av_instance(Bobs[0], &BobsCC[0]);
-    BobsAV[1] = setup_av_instance(Bobs[1], &BobsCC[1]);
-    BobsAV[2] = setup_av_instance(Bobs[2], &BobsCC[2]);
+    AliceAV = setup_av_instance(Alice, AliceCC, (void *)&t1);
+    BobsAV[0] = setup_av_instance(Bobs[0], &BobsCC[0], (void *)&t2);
+    BobsAV[1] = setup_av_instance(Bobs[1], &BobsCC[1], (void *)&t3);
+    BobsAV[2] = setup_av_instance(Bobs[2], &BobsCC[2], (void *)&t4);
 
     printf("Created 4 instances of ToxAV\n");
     printf("All set after %lu seconds!\n", (unsigned long)(time(nullptr) - cur_time));
@@ -260,10 +317,10 @@ static void test_av_three_calls(void)
     }
 
     pthread_t tids[3];
-
-    for (size_t i = 0; i < 3; i++) {
-        (void) pthread_create(&tids[i], nullptr, call_thread, &tds[i]);
-    }
+    size_t i2 = 0;
+    //for (size_t i2 = 0; i2 < 3; i2++) {
+        (void) pthread_create(&tids[i2], nullptr, call_thread, &tds[i2]);
+    //}
 
     time_t start_time = time(nullptr);
 
@@ -273,7 +330,7 @@ static void test_av_three_calls(void)
         tox_iterate(Bobs[0], nullptr);
         tox_iterate(Bobs[1], nullptr);
         tox_iterate(Bobs[2], nullptr);
-        c_sleep(20);
+        c_sleep(5);
     } while (time(nullptr) - start_time < 1);
 
     /* Call */
@@ -310,7 +367,7 @@ static void test_av_three_calls(void)
             }
         }
 
-        c_sleep(20);
+        c_sleep(5);
     } while (time(nullptr) - start_time < 3);
 
     /* Hangup */
@@ -330,17 +387,17 @@ static void test_av_three_calls(void)
         tox_iterate(Bobs[1], nullptr);
         tox_iterate(Bobs[2], nullptr);
 
-        c_sleep(20);
+        c_sleep(5);
     } while (time(nullptr) - start_time < 5);
 
     ck_assert(pthread_join(tids[0], &retval) == 0);
     ck_assert(retval == nullptr);
 
-    ck_assert(pthread_join(tids[1], &retval) == 0);
-    ck_assert(retval == nullptr);
+    // ck_assert(pthread_join(tids[1], &retval) == 0);
+    // ck_assert(retval == nullptr);
 
-    ck_assert(pthread_join(tids[2], &retval) == 0);
-    ck_assert(retval == nullptr);
+    // ck_assert(pthread_join(tids[2], &retval) == 0);
+    // ck_assert(retval == nullptr);
 
     printf("Killing all instances\n");
     toxav_kill(BobsAV[2]);
@@ -363,3 +420,5 @@ int main(void)
     test_av_three_calls();
     return 0;
 }
+
+#pragma GCC diagnostic pop
