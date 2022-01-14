@@ -78,6 +78,7 @@ int toxav_friend_exists(const Tox *tox, int32_t friendnumber);
 Mono_Time *toxav_get_av_mono_time(ToxAV *toxav);
 ToxAVCall *call_get(ToxAV *av, uint32_t friend_number);
 RTPSession *rtp_session_get(void *call, int payload_type);
+pthread_mutex_t *call_mutex_get(void *call);
 BWController *bwc_controller_get(void *call);
 
 
@@ -117,6 +118,15 @@ RTPSession *rtp_session_get(void *call, int payload_type)
     }
 
     return nullptr;
+}
+
+pthread_mutex_t *call_mutex_get(void *call)
+{
+    if (((ToxAVCall *)call) == nullptr) {
+        return nullptr;
+    }
+
+    return ((ToxAVCall *)call)->toxav_call_mutex;
 }
 
 BWController *bwc_controller_get(void *call)
@@ -1524,6 +1534,7 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
 
     int16_t force_reinit_encoder = -1;
 
+    pthread_mutex_lock(call->toxav_call_mutex);
     // HINT: auto switch encoder, if we got capabilities packet from friend ------
     if ((call->video->h264_video_capabilities_received == 1)
             &&
@@ -1556,14 +1567,16 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
         call->video->h264_video_capabilities_received = 0;
 
     }
+    pthread_mutex_unlock(call->toxav_call_mutex);
 
+    pthread_mutex_lock(call->toxav_call_mutex);
     // HINT: auto switch encoder, if we got capabilities packet from friend ------
-
     if ((call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8)
             || (call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP9)) {
 
         if (vc_reconfigure_encoder(nullptr, call->video, call->video_bit_rate * 1000,
                                    width, height, -1) != 0) {
+            pthread_mutex_unlock(call->toxav_call_mutex);
             pthread_mutex_unlock(call->mutex_video);
             rc = TOXAV_ERR_SEND_FRAME_INVALID;
             goto END;
@@ -1572,6 +1585,7 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
         // HINT: H264
         if (vc_reconfigure_encoder(nullptr, call->video, call->video_bit_rate * 1000,
                                    width, height, force_reinit_encoder) != 0) {
+            pthread_mutex_unlock(call->toxav_call_mutex);
             pthread_mutex_unlock(call->mutex_video);
             rc = TOXAV_ERR_SEND_FRAME_INVALID;
             goto END;
@@ -1592,6 +1606,7 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
 
         call->video_bit_rate_last_last_changed_cb_ts = current_time_monotonic(av->toxav_mono_time);
     }
+    pthread_mutex_unlock(call->toxav_call_mutex);
 
     int vpx_encode_flags = 0;
     unsigned long max_encode_time_in_us = MAX_ENCODE_TIME_US;

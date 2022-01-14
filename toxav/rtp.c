@@ -454,6 +454,7 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
 /* !!hack!! TODO:fix me */
 void *call_get(void *av, uint32_t friend_number);
 RTPSession *rtp_session_get(void *call, int payload_type);
+pthread_mutex_t *call_mutex_get(void *call);
 /* !!hack!! TODO:fix me */
 
 /**
@@ -525,6 +526,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
     // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
     if (packet_type == PACKET_TOXAV_COMM_CHANNEL) {
+        pthread_mutex_lock(call_mutex_get(call));
 
         if (length >= 2) {
             if (data[1] == PACKET_TOXAV_COMM_CHANNEL_REQUEST_KEYFRAME) {
@@ -643,9 +645,9 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
             }
         }
 
+        pthread_mutex_unlock(call_mutex_get(call));
         return;
     }
-
     // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
     // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
 
@@ -690,14 +692,20 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     // check flag indicating that we have real record-timestamps for frames ---
     if (!(header.flags & RTP_ENCODER_HAS_RECORD_TIMESTAMP)) {
         if (header.pt == (RTP_TYPE_VIDEO % 128)) {
+            pthread_mutex_lock(call_mutex_get(call));
             ((VCSession *)(session->cs))->encoder_frame_has_record_timestamp = 0;
+            pthread_mutex_unlock(call_mutex_get(call));
         } else if (header.pt == (RTP_TYPE_AUDIO % 128)) {
+            pthread_mutex_lock(call_mutex_get(call));
             ((ACSession *)(session->cs))->encoder_frame_has_record_timestamp = 0;
+            pthread_mutex_unlock(call_mutex_get(call));
         }
     }
 
     if (header.pt == (RTP_TYPE_VIDEO % 128)) {
+        pthread_mutex_lock(call_mutex_get(call));
         ((VCSession *)(session->cs))->remote_client_video_capture_delay_ms = header.client_video_capture_delay_ms;
+        pthread_mutex_unlock(call_mutex_get(call));
     }
 
 
