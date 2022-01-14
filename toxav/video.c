@@ -85,9 +85,6 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
     vc->send_keyframe_request_received = 0;
     vc->h264_video_capabilities_received = 0; // WARNING: always set to zero (0) !!
     vc->show_own_video = 0; // WARNING: always set to zero (0) !!
-    vc->skip_fps = 0;
-    vc->skip_fps_counter = 0;
-    vc->skip_fps_release_counter = 0;
     vc->video_bitrate_autoset = 1;
 
     vc->dummy_ntp_local_start = 0;
