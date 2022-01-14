@@ -365,6 +365,7 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
                 LOGGER_API_WARNING(ac->tox, "Failed to reconfigure decoder!");
                 free(msg);
                 msg = NULL;
+                pthread_mutex_lock(ac->queue_mutex);
                 continue;
             }
 
