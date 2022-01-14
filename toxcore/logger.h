@@ -21,6 +21,9 @@
 /* #define LOG_ALL_MUTEX_LOCK_UNLOCK_CALLS 1 */
 
 #ifdef LOG_ALL_MUTEX_LOCK_UNLOCK_CALLS
+#ifndef USE_STDERR_LOGGER
+#define USE_STDERR_LOGGER 1
+#endif
 #define pthread_mutex_lock(MTX) my_pthread_mutex_lock(MTX, #MTX, __FILE__, __LINE__, __func__)
 #define pthread_mutex_unlock(MTX) my_pthread_mutex_unlock(MTX, #MTX, __FILE__, __LINE__, __func__)
 #endif
