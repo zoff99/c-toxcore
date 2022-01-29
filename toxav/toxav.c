@@ -1482,6 +1482,24 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
         goto END;
     }
 
+    if (call->video->video_encoder_coded_used != TOXAV_ENCODER_CODEC_USED_VP8)
+    {
+        // HINT: x264 encoder needs even width and height
+        if ((width % 2) != 0)
+        {
+            pthread_mutex_unlock(av->mutex);
+            rc = TOXAV_ERR_SEND_FRAME_INVALID;
+            goto END;
+        }
+
+        if ((height % 2) != 0)
+        {
+            pthread_mutex_unlock(av->mutex);
+            rc = TOXAV_ERR_SEND_FRAME_INVALID;
+            goto END;
+        }
+    }
+
     pthread_mutex_lock(call->mutex_video);
     pthread_mutex_unlock(av->mutex);
 
