@@ -1482,30 +1482,6 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
         goto END;
     }
 
-    LOGGER_API_WARNING(av->tox, "video_send_frame:START:1 w=%d, h=%d w2=%d h2=%d encoder=%d vp8enc=%d", width, height, (width % 2), (height % 2), (call->video->video_encoder_coded_used), TOXAV_ENCODER_CODEC_USED_VP8);
-
-    if (call->video->video_encoder_coded_used != TOXAV_ENCODER_CODEC_USED_VP8)
-    {
-        // HINT: x264 encoder needs even width and height
-        if ((width % 2) != 0)
-        {
-            pthread_mutex_unlock(av->mutex);
-            rc = TOXAV_ERR_SEND_FRAME_INVALID;
-            LOGGER_API_WARNING(av->tox, "video_send_frame:END:1");
-            goto END;
-        }
-
-        if ((height % 2) != 0)
-        {
-            pthread_mutex_unlock(av->mutex);
-            rc = TOXAV_ERR_SEND_FRAME_INVALID;
-            LOGGER_API_WARNING(av->tox, "video_send_frame:END:2");
-            goto END;
-        }
-    }
-
-    LOGGER_API_WARNING(av->tox, "video_send_frame:encoding");
-
     pthread_mutex_lock(call->mutex_video);
     pthread_mutex_unlock(av->mutex);
 
@@ -1562,6 +1538,29 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
         // reset flag again
         call->video->h264_video_capabilities_received = 0;
 
+    }
+    pthread_mutex_unlock(call->toxav_call_mutex);
+
+
+    pthread_mutex_lock(call->toxav_call_mutex);
+    if (call->video->video_encoder_coded_used != TOXAV_ENCODER_CODEC_USED_VP8)
+    {
+        // HINT: x264 encoder needs even width and height
+        if ((width % 2) != 0)
+        {
+            pthread_mutex_unlock(call->toxav_call_mutex);
+            pthread_mutex_unlock(call->mutex_video);
+            rc = TOXAV_ERR_SEND_FRAME_INVALID;
+            goto END;
+        }
+
+        if ((height % 2) != 0)
+        {
+            pthread_mutex_unlock(call->toxav_call_mutex);
+            pthread_mutex_unlock(call->mutex_video);
+            rc = TOXAV_ERR_SEND_FRAME_INVALID;
+            goto END;
+        }
     }
     pthread_mutex_unlock(call->toxav_call_mutex);
 
@@ -1747,7 +1746,7 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
         if ((call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8)
                 || (call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP9)) {
 
-            LOGGER_API_WARNING(av->tox, "++++++ encoding VP8 frame ++++++");
+            LOGGER_API_DEBUG(av->tox, "++++++ encoding VP8 frame ++++++");
 
             // HINT: vp8
             uint32_t result = encode_frame_vpx(av, friend_number, width, height,
@@ -1765,7 +1764,7 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
 
         } else {
 
-            LOGGER_API_WARNING(av->tox, "**##** encoding H264 frame **##**");
+            LOGGER_API_DEBUG(av->tox, "**##** encoding H264 frame **##**");
 
             // HINT: H264
             uint32_t result = encode_frame_h264(av, friend_number, width, height,
@@ -1786,8 +1785,8 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
 
     ++call->video->frame_counter;
 
-    LOGGER_API_WARNING(av->tox, "VPXENC:======================\n");
-    LOGGER_API_WARNING(av->tox, "VPXENC:frame num=%ld\n", (long)call->video->frame_counter);
+    LOGGER_API_DEBUG(av->tox, "VPXENC:======================\n");
+    LOGGER_API_DEBUG(av->tox, "VPXENC:frame num=%ld\n", (long)call->video->frame_counter);
 
 
     { /* Send frames */
@@ -1829,7 +1828,7 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
 
 END:
 
-    LOGGER_API_WARNING(av->tox, "--> END");
+    LOGGER_API_DEBUG(av->tox, "--> END");
 
     if (error) {
         *error = rc;
