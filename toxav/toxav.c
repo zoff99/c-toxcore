@@ -1482,7 +1482,7 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
         goto END;
     }
 
-    LOGGER_API_WARNING(av->tox, "video_send_frame:START:1 w=%d, h=%d w2=%d h2=%d", width, height, (width % 2), (height % 2));
+    LOGGER_API_WARNING(av->tox, "video_send_frame:START:1 w=%d, h=%d w2=%d h2=%d encoder=%d vp8enc=%d", width, height, (width % 2), (height % 2), (call->video->video_encoder_coded_used), TOXAV_ENCODER_CODEC_USED_VP8);
 
     if (call->video->video_encoder_coded_used != TOXAV_ENCODER_CODEC_USED_VP8)
     {
