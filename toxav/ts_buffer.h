@@ -20,8 +20,6 @@
 #ifndef TS_BUFFER_H
 #define TS_BUFFER_H
 
-#include "../toxcore/logger.h"
-
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -39,7 +37,7 @@ bool tsb_full(const TSBuffer *b);
 bool tsb_empty(const TSBuffer *b);
 void tsb_get_range_in_buffer(Tox *tox, TSBuffer *b, uint32_t *timestamp_min, uint32_t *timestamp_max);
 void *tsb_write(TSBuffer *b, void *p, const uint64_t data_type, const uint32_t timestamp);
-bool tsb_read(TSBuffer *b, Logger *log, void **p, uint64_t *data_type, uint32_t *timestamp_out,
+bool tsb_read(TSBuffer *b, void **p, uint64_t *data_type, uint32_t *timestamp_out,
               const uint32_t timestamp_in, const uint32_t timestamp_range,
               uint16_t *removed_entries_back, uint16_t *is_skipping);
 TSBuffer *tsb_new(const int size);

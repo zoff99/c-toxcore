@@ -236,7 +236,6 @@ void vc_kill(VCSession *vc)
 
     pthread_mutex_destroy(vc->queue_mutex);
 
-    LOGGER_API_DEBUG(vc->av->tox, "Terminated video handler: %p", (void *)vc);
     free(vc);
 }
 
@@ -511,7 +510,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
     // HINT: give me video frames that happend "now" minus some diff
     //       get a videoframe for timestamp [timestamp_want_get_used]
-    if (tsb_read((TSBuffer *)vc->vbuf_raw, vc->log, (void **)&p, &frame_flags,
+    if (tsb_read((TSBuffer *)vc->vbuf_raw, (void **)&p, &frame_flags,
                  &timestamp_out_,
                  timestamp_want_get_used,
                  tsb_range_ms_used,

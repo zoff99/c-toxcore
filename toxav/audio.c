@@ -212,7 +212,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
 
 
     uint16_t is_skipping;
-    bool res = tsb_read(q, log, &ret, &lost_frame,
+    bool res = tsb_read(q, &ret, &lost_frame,
                         &timestamp_out_,
                         timestamp_want_get_used,
                         tsb_range_ms_used,
