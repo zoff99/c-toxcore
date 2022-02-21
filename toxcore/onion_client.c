@@ -1838,7 +1838,6 @@ void do_onion_client(Onion_Client *onion_c)
 
     if (mono_time_is_timeout(onion_c->mono_time, onion_c->last_time_connected, ONION_CONNECTED_TIMEOUT)) {
         reset_friend_run_counts(onion_c);
-        printf("XXXXXX:reset_friend_run_counts\n");
     }
 
     if (onion_isconnected(onion_c)) {
