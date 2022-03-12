@@ -801,7 +801,9 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59, 0, 0)
         vc->h264_decoder->refcounted_frames = 0;
+#endif
         /*   When AVCodecContext.refcounted_frames is set to 0, the returned
         *             reference belongs to the decoder and is valid only until the
         *             next call to this function or until closing or flushing the
@@ -894,7 +896,9 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59, 0, 0)
         vc->h264_decoder->refcounted_frames = 0;
+#endif
 #pragma GCC diagnostic pop
         /*   When AVCodecContext.refcounted_frames is set to 0, the returned
         *             reference belongs to the decoder and is valid only until the
@@ -1489,12 +1493,22 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 0, 0)
+                int32_t delta_value = (int32_t)(h_frame_record_timestamp - frame->pts);
+#else
                 int32_t delta_value = (int32_t)(h_frame_record_timestamp - frame->pkt_pts);
+#endif
 
                 LOGGER_API_DEBUG(vc->av->tox, "dec:XX:03:%d %d %d %d %d",
                         delta_value,
                         (int)h_frame_record_timestamp,
+
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 0, 0)
+                        (int)frame->pts,
+#else
                         (int)frame->pkt_pts,
+#endif
+
                         (int)frame->pkt_dts,
                         (int)frame->pts);
 #pragma GCC diagnostic pop
@@ -1529,7 +1543,7 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                 } else {
                     vc->video_decoder_caused_delay_ms_mean_value = (mean_value * 10) / (VIDEO_DECODER_CAUSED_DELAY_MS_ENTRIES * 10);
                 }
-                
+
                 LOGGER_API_DEBUG(vc->av->tox, "dec:video_decoder_caused_delay_ms_mean_value=%d",
                         vc->video_decoder_caused_delay_ms_mean_value);
 
@@ -1552,10 +1566,22 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                     uint64_t pts_for_client = h_frame_record_timestamp;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 0, 0)
+                    int32_t delta_check = (int32_t)(h_frame_record_timestamp - frame->pts);
+#else
                     int32_t delta_check = (int32_t)(h_frame_record_timestamp - frame->pkt_pts);
+#endif
+
                     if ((delta_check >= 0) && (delta_check <= 100))
                     {
+
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 0, 0)
+                        pts_for_client = frame->pts;
+#else
                         pts_for_client = frame->pkt_pts;
+#endif
+
                     }
 #pragma GCC diagnostic pop
 
