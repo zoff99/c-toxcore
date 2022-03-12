@@ -2367,13 +2367,11 @@ static ToxAVCall *call_remove(ToxAVCall *call)
         call->msi_call->av_call = nullptr;
     }
 
-    pthread_mutex_destroy(call->toxav_call_mutex);
-
     LOGGER_API_WARNING(av->tox, "call:freeing ...");
+    pthread_mutex_destroy(call->toxav_call_mutex);
     free(call);
-    LOGGER_API_WARNING(av->tox, "call:freed");
     call = nullptr;
-    LOGGER_API_WARNING(av->tox, "call:NULL");
+    LOGGER_API_WARNING(av->tox, "call:freed");
 
     if (prev) {
         prev->next = next;
