@@ -1017,6 +1017,9 @@ void rtp_kill(Tox *tox, RTPSession *session)
     LOGGER_API_DEBUG(session->tox, "Terminated RTP session V3 work_buffer_list->next_free_entry: %d",
                      (int)session->work_buffer_list->next_free_entry);
 
+    for (int8_t i = 0; i < session->work_buffer_list->next_free_entry; ++i) {
+        free(session->work_buffer_list->work_buffer[i].buf);
+    }
     free(session->work_buffer_list);
     free(session);
 }
