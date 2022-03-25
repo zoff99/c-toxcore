@@ -223,6 +223,7 @@ void toxav_kill(ToxAV *av)
     pthread_mutex_destroy(av->mutex);
 
     free(av);
+    av = nullptr;
 }
 
 Tox *toxav_get_tox(const ToxAV *av)
@@ -572,6 +573,18 @@ void toxav_callback_call_state(ToxAV *av, toxav_call_state_cb *callback, void *u
 
 bool toxav_call_control(ToxAV *av, uint32_t friend_number, Toxav_Call_Control control, Toxav_Err_Call_Control *error)
 {
+    // HINT: avoid a crash
+    if (!av)
+    {
+        Toxav_Err_Call_Control rc2 = TOXAV_ERR_CALL_CONTROL_FRIEND_NOT_IN_CALL;
+        if (error) {
+            *error = rc2;
+        }
+
+        return rc2 == TOXAV_ERR_CALL_CONTROL_OK;
+    }
+    // HINT: avoid a crash
+
     pthread_mutex_lock(av->mutex);
     Toxav_Err_Call_Control rc = TOXAV_ERR_CALL_CONTROL_OK;
     ToxAVCall *call;
