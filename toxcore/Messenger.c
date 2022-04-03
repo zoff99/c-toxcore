@@ -1871,7 +1871,7 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
     //
     // TODO(zoff99): Fix this to exit the loop properly when we're done
     // requesting all chunks for all file transfers.
-    const uint32_t max_ft_loops = 16;
+    const uint32_t max_ft_loops = 32;
 
     while (((free_slots > 0) || loop_counter == 0) && any_active_fts && (loop_counter < max_ft_loops)) {
         any_active_fts = do_all_filetransfers(m, friendnumber, userdata, &free_slots);
