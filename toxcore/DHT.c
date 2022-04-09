@@ -38,7 +38,7 @@
 /* Time in seconds after which punching parameters will be reset */
 #define PUNCH_RESET_TIME 40
 
-#define MAX_NORMAL_PUNCHING_TRIES 5
+#define MAX_NORMAL_PUNCHING_TRIES 10
 
 #define NAT_PING_REQUEST    0
 #define NAT_PING_RESPONSE   1
@@ -2188,6 +2188,7 @@ static void punch_holes(DHT *dht, IP ip, uint16_t *port_list, uint16_t numports,
     }
 
     if (numports > MAX_FRIEND_CLIENTS || numports == 0) {
+        // LOGGER_ERROR(dht->log, "punch_holes:ret001:%d %d", numports, MAX_FRIEND_CLIENTS);
         return;
     }
 
@@ -2249,6 +2250,7 @@ static void do_NAT(DHT *dht)
 
         /* If already connected or friend is not online don't try to hole punch. */
         if (num < MAX_FRIEND_CLIENTS / 2) {
+            // LOGGER_ERROR(dht->log, "do_NAT:cont001:fn=%d %d %d", i, num, (MAX_FRIEND_CLIENTS / 2));
             continue;
         }
 
