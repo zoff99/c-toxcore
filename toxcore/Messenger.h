@@ -33,6 +33,7 @@
 typedef enum Message_Type {
     MESSAGE_NORMAL,
     MESSAGE_ACTION,
+    MESSAGE_HIGH_LEVEL_ACK = 2,
 } Message_Type;
 
 typedef struct Messenger Messenger;
@@ -94,7 +95,7 @@ typedef struct Messenger_Options {
 #define TOX_CAPABILITY_NEXT_IMPLEMENTATION ((uint64_t)1) << 63
 /* hardcoded capabilities of this version/branch of toxcore */
 #ifdef TOX_CAPABILITIES_ACTIVE
-#define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES)
+#define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_MSGV3)
 #else
 #define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES)
 #endif
