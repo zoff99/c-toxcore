@@ -11,16 +11,19 @@ genrule(
         "//c-toxcore/toxav:toxav.h",
         "//c-toxcore/toxcore:tox.h",
         "//c-toxcore/toxencryptsave:toxencryptsave.h",
+        "//c-toxcore/toxutil:toxutil.h",
     ],
     outs = [
         "tox/toxav.h",
         "tox/tox.h",
         "tox/toxencryptsave.h",
+        "tox/toxutil.h",
     ],
     cmd = """
         cp $(location //c-toxcore/toxav:toxav.h) $(GENDIR)/c-toxcore/tox/toxav.h
         cp $(location //c-toxcore/toxcore:tox.h) $(GENDIR)/c-toxcore/tox/tox.h
         cp $(location //c-toxcore/toxencryptsave:toxencryptsave.h) $(GENDIR)/c-toxcore/tox/toxencryptsave.h
+        cp $(location //c-toxcore/toxutil:toxutil.h) $(GENDIR)/c-toxcore/toxutil/toxutil.h
     """,
     visibility = ["//visibility:public"],
 )
@@ -34,5 +37,6 @@ cc_library(
         "//c-toxcore/toxav",
         "//c-toxcore/toxcore",
         "//c-toxcore/toxencryptsave",
+        "//c-toxcore/toxutil",
     ],
 )

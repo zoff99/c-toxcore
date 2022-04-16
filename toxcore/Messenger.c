@@ -21,6 +21,27 @@
 #include "state.h"
 #include "util.h"
 
+
+/**
+ * This is defined in tox.h and "copied" here.
+ * it's wanted not to include tox.h here.
+ * but this solution is BAD, "future me" please fix.
+ */
+#define HACK_TOX_FILE_KIND_MESSAGEV2_SEND 2
+#define HACK_TOX_FILE_KIND_MESSAGEV2_ANSWER 3
+#define HACK_TOX_FILE_KIND_MESSAGEV2_ALTER 4
+#define HACK_TOX_FILE_KIND_MESSAGEV2_SYNC 5
+
+#define HACK_TOX_MESSAGEV2_MAX_NON_SYNC_HEADER_SIZE  (32 + 4 + 2 + 1 + 32)
+#define HACK_TOX_MESSAGEV2_MAX_HEADER_SIZE  (32 + 4 + 2 + 32 + 4)
+#define HACK_TOX_MESSAGEV2_MAX_TEXT_LENGTH  4096
+#define HACK_TOX_MAX_FILETRANSFER_SIZE_MSGV2 (HACK_TOX_MESSAGEV2_MAX_TEXT_LENGTH + HACK_TOX_MESSAGEV2_MAX_HEADER_SIZE + HACK_TOX_MESSAGEV2_MAX_NON_SYNC_HEADER_SIZE)
+/**
+ * This is defined in tox.h and "copied" here.
+ * someone wanted not to include tox.h here
+ */
+
+
 static_assert(MAX_CONCURRENT_FILE_PIPES <= UINT8_MAX + 1,
               "uint8_t cannot represent all file transfer numbers");
 
@@ -1123,6 +1144,19 @@ long int new_filesender(const Messenger *m, int32_t friendnumber, uint32_t file_
         return -2;
     }
 
+    if ((file_type == HACK_TOX_FILE_KIND_MESSAGEV2_SEND)
+            ||
+            (file_type == HACK_TOX_FILE_KIND_MESSAGEV2_ANSWER)
+            ||
+            (file_type == HACK_TOX_FILE_KIND_MESSAGEV2_SYNC)
+            ||
+            (file_type == HACK_TOX_FILE_KIND_MESSAGEV2_ALTER)) {
+        if ((uint64_t)filesize > (uint64_t)HACK_TOX_MAX_FILETRANSFER_SIZE_MSGV2) {
+            // TODO(zoff): define a new error code for this
+            return -2;
+        }
+    }
+
     uint32_t i;
 
     for (i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
@@ -1141,7 +1175,17 @@ long int new_filesender(const Messenger *m, int32_t friendnumber, uint32_t file_
 
     struct File_Transfers *ft = &m->friendlist[friendnumber].file_sending[i];
 
-    ft->status = FILESTATUS_NOT_ACCEPTED;
+    if ((file_type == HACK_TOX_FILE_KIND_MESSAGEV2_SEND)
+            ||
+            (file_type == HACK_TOX_FILE_KIND_MESSAGEV2_ANSWER)
+            ||
+            (file_type == HACK_TOX_FILE_KIND_MESSAGEV2_SYNC)
+            ||
+            (file_type == HACK_TOX_FILE_KIND_MESSAGEV2_ALTER)) {
+        ft->status = FILESTATUS_TRANSFERRING;
+    } else {
+        ft->status = FILESTATUS_NOT_ACCEPTED;
+    }
 
     ft->size = filesize;
 
@@ -2070,7 +2114,23 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
                 break;
             }
 
-            ft->status = FILESTATUS_NOT_ACCEPTED;
+            if ((file_type == HACK_TOX_FILE_KIND_MESSAGEV2_SEND)
+                    ||
+                    (file_type == HACK_TOX_FILE_KIND_MESSAGEV2_ANSWER)
+                    ||
+                    (file_type == HACK_TOX_FILE_KIND_MESSAGEV2_SYNC)
+                    ||
+                    (file_type == HACK_TOX_FILE_KIND_MESSAGEV2_ALTER)) {
+                ft->status = FILESTATUS_TRANSFERRING;
+
+                if ((uint64_t)filesize > (uint64_t)HACK_TOX_MAX_FILETRANSFER_SIZE_MSGV2) {
+                    break;
+                }
+
+            } else {
+                ft->status = FILESTATUS_NOT_ACCEPTED;
+            }
+
             ft->size = filesize;
             ft->transferred = 0;
             ft->paused = FILE_PAUSE_NOT;
