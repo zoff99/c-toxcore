@@ -3482,6 +3482,22 @@ typedef Tox_Conference_Type TOX_CONFERENCE_TYPE;
 typedef enum Tox_File_Kind TOX_FILE_KIND;
 
 #endif
+
+/**
+ * Set the callback for the `friend_lossy_packet` event for a specific packet ID.
+ * to Pass NULL to unset.
+ * You need to set to NULL first, only then you are allowed to change it
+ *
+ */
+void tox_callback_friend_lossy_packet_per_pktid(Tox *tox, tox_friend_lossy_packet_cb *callback, uint8_t pktid);
+
+/**
+ * Set the callback for the `friend_lossless_packet` event for a specific packet ID.
+ * to Pass NULL to unset.
+ *
+ */
+void tox_callback_friend_lossless_packet_per_pktid(Tox *tox, tox_friend_lossless_packet_cb *callback, uint8_t pktid);
+
 //!TOKSTYLE+
 
 #endif // C_TOXCORE_TOXCORE_TOX_H
