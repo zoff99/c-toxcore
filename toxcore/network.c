@@ -1791,7 +1791,8 @@ Socket net_socket(const Network *ns, Family domain, int type, int protocol)
 uint16_t net_socket_data_recv_buffer(const Network *ns, Socket sock)
 {
     const int count = ns->funcs->recvbuf(ns->obj, sock.sock);
-    assert(count >= 0 && count <= UINT16_MAX);
+    // assert(count >= 0 && count <= UINT16_MAX);
+    // printf("net_socket_data_recv_buffer: %d %d\n", count, UINT16_MAX);
     return (uint16_t)count;
 }
 
