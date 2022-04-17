@@ -2,98 +2,115 @@
  * Copyright © 2016-2018 The TokTok team.
  * Copyright © 2013-2015 Tox project.
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif /* HAVE_CONFIG_H */
+
 #include "audio.h"
 
-#include <assert.h>
-#include <stdlib.h>
-#include <string.h>
-
+#include "ring_buffer.h"
+#include "ts_buffer.h"
 #include "rtp.h"
 
 #include "../toxcore/ccompat.h"
 #include "../toxcore/logger.h"
 #include "../toxcore/mono_time.h"
-#include "../toxcore/network.h"
 
-static struct JitterBuffer *jbuf_new(uint32_t capacity);
-static void jbuf_clear(struct JitterBuffer *q);
-static void jbuf_free(struct JitterBuffer *q);
-static int jbuf_write(const Logger *log, struct JitterBuffer *q, struct RTPMessage *m);
-static struct RTPMessage *jbuf_read(struct JitterBuffer *q, int32_t *success);
-static OpusEncoder *create_audio_encoder(const Logger *log, uint32_t bit_rate, uint32_t sampling_rate,
-        uint8_t channel_count);
-static bool reconfigure_audio_encoder(const Logger *log, OpusEncoder **e, uint32_t new_br, uint32_t new_sr,
-                                      uint8_t new_ch, uint32_t *old_br, uint32_t *old_sr, uint8_t *old_ch);
-static bool reconfigure_audio_decoder(ACSession *ac, uint32_t sampling_rate, uint8_t channels);
+
+static struct TSBuffer *jbuf_new(int size);
+static void jbuf_free(struct TSBuffer *q);
+static int jbuf_write(Logger *log, ACSession *ac, struct TSBuffer *q, struct RTPMessage *m);
+static OpusEncoder *create_audio_encoder(const Logger *log, int32_t bit_rate, int32_t sampling_rate,
+        int32_t channel_count);
+static bool reconfigure_audio_encoder(const Logger *log, OpusEncoder **e, int32_t new_br, int32_t new_sr,
+                                      uint8_t new_ch, int32_t *old_br, int32_t *old_sr, int32_t *old_ch);
+static bool reconfigure_audio_decoder(ACSession *ac, int32_t sampling_rate, int8_t channels);
 
 
 
-ACSession *ac_new(Mono_Time *mono_time, const Logger *log, Tox *tox, ToxAV *av, uint32_t friend_number,
-                  toxav_audio_receive_frame_cb *cb, void *cb_data)
+ACSession *ac_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, Tox *tox, uint32_t friend_number,
+                  toxav_audio_receive_frame_cb *cb, void *cb_data,
+                  toxav_audio_receive_frame_pts_cb *cb_pts, void *cb_pts_data)
 {
-    ACSession *ac = (ACSession *)calloc(1, sizeof(ACSession));
+    ACSession *ac = (ACSession *)calloc(sizeof(ACSession), 1);
 
-    if (ac == nullptr) {
-        LOGGER_WARNING(log, "Allocation failed! Application might misbehave!");
+    if (!ac) {
+        LOGGER_API_WARNING(tox, "Allocation failed! Application might misbehave!");
         return nullptr;
     }
 
     if (create_recursive_mutex(ac->queue_mutex) != 0) {
-        LOGGER_WARNING(log, "Failed to create recursive mutex!");
+        LOGGER_API_WARNING(tox, "Failed to create recursive mutex!");
         free(ac);
         return nullptr;
     }
 
     int status;
-    ac->decoder = opus_decoder_create(AUDIO_DECODER_START_SAMPLE_RATE, AUDIO_DECODER_START_CHANNEL_COUNT, &status);
+    ac->decoder = opus_decoder_create(AUDIO_DECODER__START_SAMPLING_RATE, AUDIO_DECODER__START_CHANNEL_COUNT, &status);
 
     if (status != OPUS_OK) {
-        LOGGER_ERROR(log, "Error while starting audio decoder: %s", opus_strerror(status));
+        LOGGER_API_ERROR(tox, "Error while starting audio decoder: %s", opus_strerror(status));
         goto BASE_CLEANUP;
     }
 
-    ac->j_buf = jbuf_new(AUDIO_JITTERBUFFER_COUNT);
-
-    if (ac->j_buf == nullptr) {
-        LOGGER_WARNING(log, "Jitter buffer creaton failed!");
+    if (!(ac->j_buf = jbuf_new(AUDIO_JITTERBUFFER_COUNT))) {
+        LOGGER_API_WARNING(tox, "Jitter buffer creaton failed!");
         opus_decoder_destroy(ac->decoder);
         goto BASE_CLEANUP;
     }
 
     ac->mono_time = mono_time;
-    ac->log = log;
 
     /* Initialize encoders with default values */
-    ac->encoder = create_audio_encoder(log, AUDIO_START_BITRATE, AUDIO_START_SAMPLE_RATE, AUDIO_START_CHANNEL_COUNT);
+    ac->encoder = create_audio_encoder(log, AUDIO_START_BITRATE_RATE, AUDIO_START_SAMPLING_RATE, AUDIO_START_CHANNEL_COUNT);
 
     if (ac->encoder == nullptr) {
         goto DECODER_CLEANUP;
+    } else {
+        LOGGER_API_INFO(tox, "audio encoder successfully created");
     }
 
-    ac->le_bit_rate = AUDIO_START_BITRATE;
-    ac->le_sample_rate = AUDIO_START_SAMPLE_RATE;
+    ac->le_bit_rate = AUDIO_START_BITRATE_RATE;
+    ac->le_sample_rate = AUDIO_START_SAMPLING_RATE;
     ac->le_channel_count = AUDIO_START_CHANNEL_COUNT;
 
-    ac->ld_channel_count = AUDIO_DECODER_START_CHANNEL_COUNT;
-    ac->ld_sample_rate = AUDIO_DECODER_START_SAMPLE_RATE;
+    ac->ld_channel_count = AUDIO_DECODER__START_SAMPLING_RATE;
+    ac->ld_sample_rate = AUDIO_DECODER__START_CHANNEL_COUNT;
     ac->ldrts = 0; /* Make it possible to reconfigure straight away */
+
+    ac->lp_seqnum_new = -1;
+
+    ac->last_incoming_frame_ts = 0;
+    ac->timestamp_difference_to_sender = 0; // no difference to sender as start value
 
     /* These need to be set in order to properly
      * do error correction with opus */
     ac->lp_frame_duration = AUDIO_MAX_FRAME_DURATION_MS;
-    ac->lp_sampling_rate = AUDIO_DECODER_START_SAMPLE_RATE;
-    ac->lp_channel_count = AUDIO_DECODER_START_CHANNEL_COUNT;
+    ac->lp_sampling_rate = AUDIO_DECODER__START_SAMPLING_RATE;
+    ac->lp_channel_count = AUDIO_DECODER__START_CHANNEL_COUNT;
+
+    ac->encoder_frame_has_record_timestamp = 1;
+    ac->audio_received_first_frame = 0;
 
     ac->av = av;
+    ac->tox = tox;
     ac->friend_number = friend_number;
+
+    // set callback
     ac->acb = cb;
     ac->acb_user_data = cb_data;
+
+    // set pts callback
+    ac->acb_pts = cb_pts;
+    ac->acb_pts_user_data = cb_pts_data;
 
     return ac;
 
 DECODER_CLEANUP:
     opus_decoder_destroy(ac->decoder);
-    jbuf_free((struct JitterBuffer *)ac->j_buf);
+
+    jbuf_free((struct TSBuffer *)ac->j_buf);
+
 BASE_CLEANUP:
     pthread_mutex_destroy(ac->queue_mutex);
     free(ac);
@@ -102,278 +119,439 @@ BASE_CLEANUP:
 
 void ac_kill(ACSession *ac)
 {
-    if (ac == nullptr) {
+    if (!ac) {
         return;
     }
 
     opus_encoder_destroy(ac->encoder);
     opus_decoder_destroy(ac->decoder);
-    jbuf_free((struct JitterBuffer *)ac->j_buf);
+
+    jbuf_free((struct TSBuffer *)ac->j_buf);
 
     pthread_mutex_destroy(ac->queue_mutex);
 
-    LOGGER_DEBUG(ac->log, "Terminated audio handler: %p", (void *)ac);
     free(ac);
 }
 
-void ac_iterate(ACSession *ac)
+// static int global_last_aiterate_ts = 0;
+
+static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int32_t *success,
+        int64_t timestamp_difference_adjustment_for_audio2,
+        int64_t timestamp_difference_to_sender_,
+        uint8_t encoder_frame_has_record_timestamp,
+        ACSession *ac,
+        int video_send_cap,
+        int32_t video_has_rountrip_time_ms)
 {
-    if (ac == nullptr) {
-        return;
+#define AUDIO_CURRENT_TS_SPAN_MS 65
+
+    void *ret = NULL;
+    uint64_t lost_frame = 0;
+    uint32_t timestamp_out_ = 0;
+
+
+    /**
+     * this is the magic value that gives the wanted timestamps:
+     */
+    int64_t want_remote_video_ts = (current_time_monotonic(ac->mono_time) +
+                                    timestamp_difference_to_sender_ +
+                                    timestamp_difference_adjustment_for_audio2);
+    LOGGER_API_DEBUG(ac->tox, "want_remote_video_ts:a:002=%d, %d %d %d",
+            (int)want_remote_video_ts,
+            (int)current_time_monotonic(ac->mono_time),
+            (int)timestamp_difference_to_sender_,
+            (int)timestamp_difference_adjustment_for_audio2
+            );
+    /**
+     *
+     */
+
+    *success = 0;
+    uint16_t removed_entries;
+
+    uint32_t tsb_range_ms = AUDIO_CURRENT_TS_SPAN_MS;
+
+    // HINT: compensate for older clients ----------------
+    //       or when only receiving audio (no incoming video)
+    if ((encoder_frame_has_record_timestamp == 0) || (video_send_cap == 0)) {
+        LOGGER_API_DEBUG(ac->tox, "old client:003");
+        tsb_range_ms = UINT32_MAX;
+        want_remote_video_ts = UINT32_MAX;
     }
 
-    /* TODO: fix this and jitter buffering */
+    // HINT: compensate for older clients ----------------
 
-    /* Enough space for the maximum frame size (120 ms 48 KHz stereo audio) */
-    int16_t *temp_audio_buffer = (int16_t *)malloc(AUDIO_MAX_BUFFER_SIZE_PCM16 * AUDIO_MAX_CHANNEL_COUNT * sizeof(int16_t));
 
-    if (temp_audio_buffer == nullptr) {
-        LOGGER_DEBUG(ac->log, "Failed to allocate memory for audio buffer");
-        return;
+#if 1
+
+    uint32_t timestamp_min = 0;
+    uint32_t timestamp_max = 0;
+    tsb_get_range_in_buffer(ac->tox, q, &timestamp_min, &timestamp_max);
+
+    if ((int)tsb_size(q) > 0) {
+        LOGGER_API_DEBUG(ac->tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d",
+                       (int)tsb_size(q),
+                       timestamp_min,
+                       timestamp_max,
+                       (int)want_remote_video_ts,
+                       (int)want_remote_video_ts - (int)timestamp_max,
+                       (int)timestamp_difference_adjustment_for_audio2);
     }
+
+#endif
+
+
+
+    uint32_t tsb_range_ms_used = tsb_range_ms;
+    uint32_t timestamp_want_get_used = want_remote_video_ts;
+
+    if ((ac->audio_received_first_frame) == 0 || (video_has_rountrip_time_ms == 0)) {
+        LOGGER_API_DEBUG(ac->tox, "AA:%d %d", (int)ac->audio_received_first_frame, (int)video_has_rountrip_time_ms);
+        tsb_range_ms_used = UINT32_MAX;
+        timestamp_want_get_used = UINT32_MAX;
+    }
+
+
+    uint16_t is_skipping;
+    bool res = tsb_read(q, &ret, &lost_frame,
+                        &timestamp_out_,
+                        timestamp_want_get_used,
+                        tsb_range_ms_used,
+                        &removed_entries,
+                        &is_skipping);
+
+    if (removed_entries > 0) {
+        LOGGER_API_DEBUG(ac->tox, "removed entries=%d", (int)removed_entries);
+    }
+
+    if (res == true) {
+        *success = 1;
+
+
+        if (ac->audio_received_first_frame == 0) {
+            ac->audio_received_first_frame = 1;
+        }
+
+        struct RTPMessage *m = (struct RTPMessage *)ret;
+        LOGGER_API_DEBUG(ac->tox, "AudioFramesIN: header sequnum=%d", (int)m->header.sequnum);
+
+        if (ac->lp_seqnum_new == -1) {
+            ac->lp_seqnum_new = m->header.sequnum;
+        } else {
+            if (
+                (
+                    ((m->header.sequnum > 5) && (ac->lp_seqnum_new < (UINT16_MAX - 5)))
+                ) &&
+                (m->header.sequnum <= ac->lp_seqnum_new)
+            ) {
+                LOGGER_API_DEBUG(ac->tox, "AudioFramesIN: drop pkt num: %d", (int)m->header.sequnum);
+
+                free(ret);
+                ret = NULL;
+            } else {
+
+                LOGGER_API_DEBUG(ac->tox, "AudioFramesIN: using sequnum=%d", (int)m->header.sequnum);
+
+                if (
+                    ((m->header.sequnum > 8) && (ac->lp_seqnum_new < (UINT16_MAX - 7)))
+                ) {
+                    LOGGER_API_DEBUG(ac->tox, "AudioFramesIN:2: %d %d", (int)ac->lp_seqnum_new, (int)m->header.sequnum);
+                    int64_t diff = (m->header.sequnum - ac->lp_seqnum_new);
+
+                    if (diff > 1) {
+                        LOGGER_API_DEBUG(ac->tox, "AudioFramesIN: missing %d audio frames sequnum missing=%d",
+                                     (int)(diff - 1),
+                                     (ac->lp_seqnum_new + 1));
+                        lost_frame = 1;
+                    }
+                }
+
+                ac->lp_seqnum_new = m->header.sequnum;
+            }
+        }
+    }
+
+    LOGGER_API_DEBUG(ac->tox, "jbuf_read:lost_frame=%d", (int)lost_frame);
+
+    if (lost_frame == 1) {
+        *success = AUDIO_LOST_FRAME_INDICATOR;
+    }
+
+    return (struct RTPMessage *)ret;
+}
+
+static inline bool jbuf_is_empty(struct TSBuffer *q)
+{
+    bool res = tsb_empty(q);
+    return res;
+}
+
+uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timestamp, uint64_t *v_r_timestamp,
+                   uint64_t *v_l_timestamp,
+                   int64_t *timestamp_difference_adjustment_for_audio,
+                   int64_t *timestamp_difference_to_sender_,
+                   int video_send_cap,
+                   int32_t *video_has_rountrip_time_ms)
+{
+    if (!ac) {
+        return 0;
+    }
+
+    uint8_t ret_value = 1;
+    uint64_t header_pts_saved = 0;
 
     pthread_mutex_lock(ac->queue_mutex);
-    struct JitterBuffer *const j_buf = (struct JitterBuffer *)ac->j_buf;
 
+    struct TSBuffer *jbuffer = (struct TSBuffer *)ac->j_buf;
+
+    if (jbuf_is_empty(jbuffer)) {
+        pthread_mutex_unlock(ac->queue_mutex);
+        return 0;
+    }
+
+    /* Enough space for the maximum frame size (120 ms 48 KHz stereo audio) */
+    //int16_t temp_audio_buffer[AUDIO_MAX_BUFFER_SIZE_PCM16_FOR_FRAME_PER_CHANNEL *
+    //                                                                            AUDIO_MAX_CHANNEL_COUNT];
+
+    struct RTPMessage *msg = NULL;
     int rc = 0;
 
-    for (struct RTPMessage *msg = jbuf_read(j_buf, &rc); msg != nullptr || rc == 2; msg = jbuf_read(j_buf, &rc)) {
+
+    while ((msg = jbuf_read(nullptr, jbuffer, &rc,
+                            *timestamp_difference_adjustment_for_audio,
+                            *timestamp_difference_to_sender_,
+                            ac->encoder_frame_has_record_timestamp, ac,
+                            video_send_cap,
+                            *video_has_rountrip_time_ms))
+            || rc == AUDIO_LOST_FRAME_INDICATOR) {
         pthread_mutex_unlock(ac->queue_mutex);
 
-        if (rc == 2) {
-            LOGGER_DEBUG(ac->log, "OPUS correction");
-            const int fs = (ac->lp_sampling_rate * ac->lp_frame_duration) / 1000;
-            rc = opus_decode(ac->decoder, nullptr, 0, temp_audio_buffer, fs, 1);
+
+        LOGGER_API_DEBUG(ac->tox, "TOXAV:A2V_DELAY:(pos==audio-before-video)%d", (int)(*a_r_timestamp - *v_r_timestamp));
+
+
+        if (rc == AUDIO_LOST_FRAME_INDICATOR) {
+            LOGGER_API_DEBUG(ac->tox, "OPUS correction for lost frame (3)");
+
+            if (ac->lp_sampling_rate > 0) {
+                int fs = (ac->lp_sampling_rate * ac->lp_frame_duration) / 1000;
+                rc = opus_decode(ac->decoder, NULL, 0, ac->temp_audio_buffer, fs, 1);
+            }
+
+            free(msg);
+            msg = NULL;
         } else {
-            assert(msg->len > 4);
+
+            int use_fec = 0;
+            /* TODO: check if we have the full data of this frame */
+
+            /* Get values from packet and decode. */
+            /* NOTE: This didn't work very well */
 
             /* Pick up sampling rate from packet */
-            memcpy(&ac->lp_sampling_rate, msg->data, 4);
-            ac->lp_sampling_rate = net_ntohl(ac->lp_sampling_rate);
+            if (msg) {
+                memcpy(&ac->lp_sampling_rate, msg->data, 4);
+                ac->lp_sampling_rate = net_ntohl(ac->lp_sampling_rate);
+                ac->lp_channel_count = opus_packet_get_nb_channels(msg->data + 4);
+                /* TODO: msg->data + 4
+                 * this should be defined, not hardcoded
+                 */
+            }
 
-            ac->lp_channel_count = opus_packet_get_nb_channels(msg->data + 4);
 
             /** NOTE: even though OPUS supports decoding mono frames with stereo decoder and vice versa,
               * it didn't work quite well.
               */
             if (!reconfigure_audio_decoder(ac, ac->lp_sampling_rate, ac->lp_channel_count)) {
-                LOGGER_WARNING(ac->log, "Failed to reconfigure decoder!");
+                LOGGER_API_WARNING(ac->tox, "Failed to reconfigure decoder!");
                 free(msg);
+                msg = NULL;
                 pthread_mutex_lock(ac->queue_mutex);
                 continue;
             }
 
             /*
-             * frame_size = opus_decode(dec, packet, len, decoded, max_size, 0);
-             *   where
-             * packet is the byte array containing the compressed data
-             * len is the exact number of bytes contained in the packet
-             * decoded is the decoded audio data in opus_int16 (or float for opus_decode_float())
-             * max_size is the max duration of the frame in samples (per channel) that can fit
-             * into the decoded_frame array
+            frame_size = opus_decode(dec, packet, len, decoded, max_size, decode_fec);
+              where
+            packet is the byte array containing the compressed data
+            len is the exact number of bytes contained in the packet
+            decoded is the decoded audio data in opus_int16 (or float for opus_decode_float())
+            max_size is the max duration of the frame in samples (per channel) that can fit
+            into the decoded_frame array
+            decode_fec: Flag (0 or 1) to request that any in-band forward error correction data be
+            decoded. If no such data is available, the frame is decoded as if it were lost.
              */
-            rc = opus_decode(ac->decoder, msg->data + 4, msg->len - 4, temp_audio_buffer, 5760, 0);
+            /* TODO: msg->data + 4, msg->len - 4
+             * this should be defined, not hardcoded
+             */
+
+            rc = opus_decode(ac->decoder, msg->data + 4, msg->len - 4, ac->temp_audio_buffer, 5760, use_fec);
+
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+#if 1
+
+            if (rc >= 0) {
+                // what is the audio to video latency?
+                const struct RTPHeader *header_v3 = (void *) & (msg->header);
+
+                if (header_v3->frame_record_timestamp > 0) {
+                    header_pts_saved = header_v3->frame_record_timestamp;
+                    if (*a_r_timestamp < header_v3->frame_record_timestamp) {
+                        *a_r_timestamp = header_v3->frame_record_timestamp;
+                        *a_l_timestamp = current_time_monotonic(ac->mono_time);
+                    } else {
+                        // TODO: this should not happen here!
+                        LOGGER_API_DEBUG(ac->tox, "AUDIO: remote timestamp older");
+                    }
+                }
+
+                // what is the audio to video latency?
+            }
+
+#endif
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+
             free(msg);
+            msg = NULL;
         }
 
         if (rc < 0) {
-            LOGGER_WARNING(ac->log, "Decoding error: %s", opus_strerror(rc));
-        } else if (ac->acb != nullptr) {
-            ac->lp_frame_duration = (rc * 1000) / ac->lp_sampling_rate;
-
-            ac->acb(ac->av, ac->friend_number, temp_audio_buffer, rc, ac->lp_channel_count,
-                    ac->lp_sampling_rate, ac->acb_user_data);
+            LOGGER_API_WARNING(ac->tox, "Decoding error: %s", opus_strerror(rc));
+        } else {
+            if (ac->acb_pts) {
+                ac->lp_frame_duration = (rc * 1000) / ac->lp_sampling_rate;
+                ac->acb_pts(ac->av, ac->friend_number, ac->temp_audio_buffer, rc, ac->lp_channel_count,
+                        ac->lp_sampling_rate, ac->acb_pts_user_data, header_pts_saved);
+                return ret_value;
+            } else if (ac->acb) {
+                ac->lp_frame_duration = (rc * 1000) / ac->lp_sampling_rate;
+                ac->acb(ac->av, ac->friend_number, ac->temp_audio_buffer, rc, ac->lp_channel_count,
+                        ac->lp_sampling_rate, ac->acb_user_data);
+                return ret_value;
+            }
         }
 
-        free(temp_audio_buffer);
-
-        return;
+        return ret_value;
     }
 
     pthread_mutex_unlock(ac->queue_mutex);
 
-    free(temp_audio_buffer);
+    return ret_value;
 }
 
 int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
 {
-    if (acp == nullptr || msg == nullptr) {
-        free(msg);
+    if (!acp || !msg) {
+        if (msg) {
+            free(msg);
+        }
+
         return -1;
     }
 
     ACSession *ac = (ACSession *)acp;
 
     if ((msg->header.pt & 0x7f) == (RTP_TYPE_AUDIO + 2) % 128) {
-        LOGGER_WARNING(ac->log, "Got dummy!");
+        LOGGER_API_WARNING(ac->tox, "Got dummy!");
         free(msg);
         return 0;
     }
 
     if ((msg->header.pt & 0x7f) != RTP_TYPE_AUDIO % 128) {
-        LOGGER_WARNING(ac->log, "Invalid payload type!");
+        LOGGER_API_WARNING(ac->tox, "Invalid payload type!");
         free(msg);
         return -1;
     }
 
     pthread_mutex_lock(ac->queue_mutex);
-    const int rc = jbuf_write(ac->log, (struct JitterBuffer *)ac->j_buf, msg);
+
+    const struct RTPHeader *header_v3 = (void *) & (msg->header);
+
+    // older clients do not send the frame record timestamp
+    // compensate by using the frame sennt timestamp
+    if (msg->header.frame_record_timestamp == 0) {
+        msg->header.frame_record_timestamp = msg->header.timestamp;
+    }
+
+    jbuf_write(nullptr, ac, (struct TSBuffer *)ac->j_buf, msg);
+
+    LOGGER_API_DEBUG(ac->tox, "AADEBUG:OK:seqnum=%d dt=%d ts:%d curts:%d", (int)header_v3->sequnum,
+                 (int)((uint64_t)header_v3->frame_record_timestamp - (uint64_t)ac->last_incoming_frame_ts),
+                 (int)header_v3->frame_record_timestamp,
+                 (int)current_time_monotonic(ac->mono_time));
+
+    ac->last_incoming_frame_ts = header_v3->frame_record_timestamp;
+
     pthread_mutex_unlock(ac->queue_mutex);
 
-    if (rc == -1) {
-        LOGGER_WARNING(ac->log, "Could not queue the message!");
-        free(msg);
+    return 0;
+}
+
+int ac_reconfigure_encoder(ACSession *ac, int32_t bit_rate, int32_t sampling_rate, uint8_t channels)
+{
+    if (!ac || !reconfigure_audio_encoder(nullptr, &ac->encoder, bit_rate,
+                                          sampling_rate, channels,
+                                          &ac->le_bit_rate,
+                                          &ac->le_sample_rate,
+                                          &ac->le_channel_count)) {
         return -1;
     }
 
     return 0;
 }
 
-int ac_reconfigure_encoder(ACSession *ac, uint32_t bit_rate, uint32_t sampling_rate, uint8_t channels)
+static struct TSBuffer *jbuf_new(int size)
 {
-    if (ac == nullptr || !reconfigure_audio_encoder(
-                ac->log, &ac->encoder, bit_rate,
-                sampling_rate, channels,
-                &ac->le_bit_rate,
-                &ac->le_sample_rate,
-                &ac->le_channel_count)) {
+    TSBuffer *res = tsb_new(size);
+    return res;
+}
+
+static void jbuf_free(struct TSBuffer *q)
+{
+    tsb_drain(q);
+    tsb_kill(q);
+}
+
+static int jbuf_write(Logger *log, ACSession *ac, struct TSBuffer *q, struct RTPMessage *m)
+{
+    void *tmp_buf2 = tsb_write(q, (void *)m, 0, (uint32_t)m->header.frame_record_timestamp);
+
+    if (tmp_buf2 != NULL) {
+        LOGGER_API_DEBUG(ac->tox, "AADEBUG:rb_write: error in rb_write:rb_size=%d", (int)tsb_size(q));
+        free(tmp_buf2);
         return -1;
     }
 
     return 0;
 }
 
-
-
-struct JitterBuffer {
-    struct RTPMessage **queue;
-    uint32_t size;
-    uint32_t capacity;
-    uint16_t bottom;
-    uint16_t top;
-};
-
-static struct JitterBuffer *jbuf_new(uint32_t capacity)
-{
-    unsigned int size = 1;
-
-    while (size <= (capacity * 4)) {
-        size *= 2;
-    }
-
-    struct JitterBuffer *q = (struct JitterBuffer *)calloc(1, sizeof(struct JitterBuffer));
-
-    if (q == nullptr) {
-        return nullptr;
-    }
-
-    q->queue = (struct RTPMessage **)calloc(size, sizeof(struct RTPMessage *));
-
-    if (q->queue == nullptr) {
-        free(q);
-        return nullptr;
-    }
-
-    q->size = size;
-    q->capacity = capacity;
-    return q;
-}
-
-static void jbuf_clear(struct JitterBuffer *q)
-{
-    while (q->bottom != q->top) {
-        free(q->queue[q->bottom % q->size]);
-        q->queue[q->bottom % q->size] = nullptr;
-        ++q->bottom;
-    }
-}
-
-static void jbuf_free(struct JitterBuffer *q)
-{
-    if (q == nullptr) {
-        return;
-    }
-
-    jbuf_clear(q);
-    free(q->queue);
-    free(q);
-}
-
-/*
- * if -1 is returned the RTPMessage m needs to be free'd by the caller
- * if  0 is returned the RTPMessage m is stored in the ringbuffer and must NOT be freed by the caller
- */
-static int jbuf_write(const Logger *log, struct JitterBuffer *q, struct RTPMessage *m)
-{
-    const uint16_t sequnum = m->header.sequnum;
-
-    const unsigned int num = sequnum % q->size;
-
-    if ((uint32_t)(sequnum - q->bottom) > q->size) {
-        LOGGER_DEBUG(log, "Clearing filled jitter buffer: %p", (void *)q);
-
-        jbuf_clear(q);
-        q->bottom = sequnum - q->capacity;
-        q->queue[num] = m;
-        q->top = sequnum + 1;
-        return 0;
-    }
-
-    if (q->queue[num] != nullptr) {
-        return -1;
-    }
-
-    q->queue[num] = m;
-
-    if ((sequnum - q->bottom) >= (q->top - q->bottom)) {
-        q->top = sequnum + 1;
-    }
-
-    return 0;
-}
-
-static struct RTPMessage *jbuf_read(struct JitterBuffer *q, int32_t *success)
-{
-    if (q->top == q->bottom) {
-        *success = 0;
-        return nullptr;
-    }
-
-    const unsigned int num = q->bottom % q->size;
-
-    if (q->queue[num] != nullptr) {
-        struct RTPMessage *ret = q->queue[num];
-        q->queue[num] = nullptr;
-        ++q->bottom;
-        *success = 1;
-        return ret;
-    }
-
-    if ((uint32_t)(q->top - q->bottom) > q->capacity) {
-        ++q->bottom;
-        *success = 2;
-        return nullptr;
-    }
-
-    *success = 0;
-    return nullptr;
-}
-static OpusEncoder *create_audio_encoder(const Logger *log, uint32_t bit_rate, uint32_t sampling_rate,
-        uint8_t channel_count)
+static OpusEncoder *create_audio_encoder(const Logger *log, int32_t bit_rate, int32_t sampling_rate,
+        int32_t channel_count)
 {
     int status = OPUS_OK;
+
     /*
-     * OPUS_APPLICATION_VOIP Process signal for improved speech intelligibility
-     * OPUS_APPLICATION_AUDIO Favor faithfulness to the original input
-     * OPUS_APPLICATION_RESTRICTED_LOWDELAY Configure the minimum possible coding delay
-     */
+        OPUS_APPLICATION_VOIP Process signal for improved speech intelligibility
+        OPUS_APPLICATION_AUDIO Favor faithfulness to the original input
+        OPUS_APPLICATION_RESTRICTED_LOWDELAY Configure the minimum possible coding delay
+    */
+#ifdef RPIZEROW
+    // OpusEncoder *rc = opus_encoder_create(sampling_rate, channel_count, OPUS_APPLICATION_RESTRICTED_LOWDELAY, &status);
     OpusEncoder *rc = opus_encoder_create(sampling_rate, channel_count, OPUS_APPLICATION_VOIP, &status);
+#else
+    OpusEncoder *rc = opus_encoder_create(sampling_rate, channel_count, OPUS_APPLICATION_VOIP, &status);
+#endif
 
     if (status != OPUS_OK) {
-        LOGGER_ERROR(log, "Error while starting audio encoder: %s", opus_strerror(status));
+        // LOGGER_ERROR(log, "Error while starting audio encoder: %s", opus_strerror(status));
         return nullptr;
+    } else {
+        // LOGGER_INFO(log, "starting audio encoder OK: %s", opus_strerror(status));
     }
-
 
     /*
      * Rates from 500 to 512000 bits per second are meaningful as well as the special
@@ -387,7 +565,7 @@ static OpusEncoder *create_audio_encoder(const Logger *log, uint32_t bit_rate, u
     status = opus_encoder_ctl(rc, OPUS_SET_BITRATE(bit_rate));
 
     if (status != OPUS_OK) {
-        LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
+        // LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
         goto FAILURE;
     }
 
@@ -403,7 +581,7 @@ static OpusEncoder *create_audio_encoder(const Logger *log, uint32_t bit_rate, u
     status = opus_encoder_ctl(rc, OPUS_SET_INBAND_FEC(1));
 
     if (status != OPUS_OK) {
-        LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
+        // LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
         goto FAILURE;
     }
 
@@ -416,17 +594,26 @@ static OpusEncoder *create_audio_encoder(const Logger *log, uint32_t bit_rate, u
      * Parameters:
      *     `[in]`    `x`   `int`: Loss percentage in the range 0-100, inclusive.
      */
-    /* Make codec resistant to up to 10% packet loss
+    /* Make codec resistant to up to x% packet loss
      * NOTE This could also be adjusted on the fly, rather than hard-coded,
      *      with feedback from the receiving client.
      */
     status = opus_encoder_ctl(rc, OPUS_SET_PACKET_LOSS_PERC(AUDIO_OPUS_PACKET_LOSS_PERC));
 
     if (status != OPUS_OK) {
-        LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
+        // LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
         goto FAILURE;
     }
 
+#if 0
+    status = opus_encoder_ctl(rc, OPUS_SET_VBR(0));
+
+    if (status != OPUS_OK) {
+        // LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
+        goto FAILURE;
+    }
+
+#endif
 
     /*
      * Configures the encoder's computational complexity.
@@ -438,10 +625,11 @@ static OpusEncoder *create_audio_encoder(const Logger *log, uint32_t bit_rate, u
      *   `[in]`    `x`   `int`: 0-10, inclusive
      */
     /* Set algorithm to the highest complexity, maximizing compression */
+    // LOGGER_INFO(log, "starting audio encoder complexity: %d", (int)AUDIO_OPUS_COMPLEXITY);
     status = opus_encoder_ctl(rc, OPUS_SET_COMPLEXITY(AUDIO_OPUS_COMPLEXITY));
 
     if (status != OPUS_OK) {
-        LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
+        // LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
         goto FAILURE;
     }
 
@@ -452,8 +640,8 @@ FAILURE:
     return nullptr;
 }
 
-static bool reconfigure_audio_encoder(const Logger *log, OpusEncoder **e, uint32_t new_br, uint32_t new_sr,
-                                      uint8_t new_ch, uint32_t *old_br, uint32_t *old_sr, uint8_t *old_ch)
+static bool reconfigure_audio_encoder(const Logger *log, OpusEncoder **e, int32_t new_br, int32_t new_sr,
+                                      uint8_t new_ch, int32_t *old_br, int32_t *old_sr, int32_t *old_ch)
 {
     /* Values are checked in toxav.c */
     if (*old_sr != new_sr || *old_ch != new_ch) {
@@ -469,10 +657,10 @@ static bool reconfigure_audio_encoder(const Logger *log, OpusEncoder **e, uint32
         return true; /* Nothing changed */
     }
 
-    const int status = opus_encoder_ctl(*e, OPUS_SET_BITRATE(new_br));
+    int status = opus_encoder_ctl(*e, OPUS_SET_BITRATE(new_br));
 
     if (status != OPUS_OK) {
-        LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
+        // LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
         return false;
     }
 
@@ -480,12 +668,16 @@ static bool reconfigure_audio_encoder(const Logger *log, OpusEncoder **e, uint32
     *old_sr = new_sr;
     *old_ch = new_ch;
 
-    LOGGER_DEBUG(log, "Reconfigured audio encoder br: %d sr: %d cc:%d", new_br, new_sr, new_ch);
+    // LOGGER_DEBUG(log, "Reconfigured audio encoder br: %d sr: %d cc:%d", new_br, new_sr, new_ch);
     return true;
 }
 
-static bool reconfigure_audio_decoder(ACSession *ac, uint32_t sampling_rate, uint8_t channels)
+static bool reconfigure_audio_decoder(ACSession *ac, int32_t sampling_rate, int8_t channels)
 {
+    if (sampling_rate <= 0) {
+        return false;
+    }
+
     if (sampling_rate != ac->ld_sample_rate || channels != ac->ld_channel_count) {
         if (current_time_monotonic(ac->mono_time) - ac->ldrts < 500) {
             return false;
@@ -495,7 +687,7 @@ static bool reconfigure_audio_decoder(ACSession *ac, uint32_t sampling_rate, uin
         OpusDecoder *new_dec = opus_decoder_create(sampling_rate, channels, &status);
 
         if (status != OPUS_OK) {
-            LOGGER_ERROR(ac->log, "Error while starting audio decoder(%d %d): %s", sampling_rate, channels, opus_strerror(status));
+            LOGGER_API_ERROR(ac->tox, "Error while starting audio decoder(%d %d): %s", sampling_rate, channels, opus_strerror(status));
             return false;
         }
 
@@ -506,8 +698,9 @@ static bool reconfigure_audio_decoder(ACSession *ac, uint32_t sampling_rate, uin
         opus_decoder_destroy(ac->decoder);
         ac->decoder = new_dec;
 
-        LOGGER_DEBUG(ac->log, "Reconfigured audio decoder sr: %d cc: %d", sampling_rate, channels);
+        LOGGER_API_DEBUG(ac->tox, "Reconfigured audio decoder sr: %d cc: %d", sampling_rate, channels);
     }
 
     return true;
 }
+

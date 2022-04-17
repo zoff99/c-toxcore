@@ -21,7 +21,12 @@ libtoxav_la_SOURCES = ../toxav/rtp.h \
                     ../toxav/toxav.h \
                     ../toxav/toxav_hacks.h \
                     ../toxav/toxav.c \
-                    ../toxav/toxav_old.c
+                    ../toxav/toxav_old.c \
+                    ../toxav/ts_buffer.c \
+                    ../toxav/dummy_ntp.c \
+                    ../toxav/codecs/vpx/codec.c
+
+libtoxav_la_SOURCES += ../toxav/codecs/h264/codec.c
 
 libtoxav_la_CFLAGS = -I../toxcore \
                     -I../toxav \
