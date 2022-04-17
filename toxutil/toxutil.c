@@ -21,6 +21,13 @@
 #include "config.h"
 #endif
 
+//!TOKSTYLE-
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpragmas"
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wmissing-variable-declarations"
+
 #include <time.h>
 
 #include "../toxcore/Messenger.h"
@@ -1572,7 +1579,8 @@ int64_t tox_util_friend_send_message_v2(Tox *tox, uint32_t friend_number, TOX_ME
     }
 }
 
+#pragma GCC diagnostic pop
 
-
+//!TOKSTYLE+
 
 
