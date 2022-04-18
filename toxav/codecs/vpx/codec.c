@@ -17,6 +17,7 @@
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "../../../toxcore/ccompat.h"
 #include "../../audio.h"
 #include "../../video.h"
 #include "../../msi.h"

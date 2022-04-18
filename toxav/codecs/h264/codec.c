@@ -19,6 +19,7 @@
 
 #include <assert.h>
 
+#include "../../../toxcore/ccompat.h"
 #include "../../audio.h"
 #include "../../video.h"
 #include "../../msi.h"
