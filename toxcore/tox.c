@@ -3030,3 +3030,8 @@ void tox_set_do_not_sync_av(bool value)
     global_do_not_sync_av = value;
 }
 
+void tox_set_onion_active(bool value)
+{
+    global_onion_active = value;
+}
+

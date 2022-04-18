@@ -42,6 +42,7 @@
  */
 
 extern bool global_force_udp_only_mode;
+extern bool global_onion_active;
 
 static_assert(MAX_CONCURRENT_FILE_PIPES <= UINT8_MAX + 1,
               "uint8_t cannot represent all file transfer numbers");
@@ -2419,7 +2420,9 @@ void do_messenger(Messenger *m, void *userdata)
     }
 
     do_net_crypto(m->net_crypto, userdata);
-    do_onion_client(m->onion_c);
+    if (global_onion_active) {
+        do_onion_client(m->onion_c);
+    }
     do_friend_connections(m->fr_c, userdata);
     do_friends(m, userdata);
     m_connection_status_callback(m, userdata);
