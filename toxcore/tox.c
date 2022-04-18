@@ -3025,3 +3025,8 @@ void tox_set_force_udp_only_mode(bool value)
     global_force_udp_only_mode = value;
 }
 
+void tox_set_do_not_sync_av(bool value)
+{
+    global_do_not_sync_av = value;
+}
+
