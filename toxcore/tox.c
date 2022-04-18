@@ -3019,3 +3019,9 @@ bool tox_messagev2_get_message_text(const uint8_t *raw_message, uint32_t raw_mes
 
     return true;
 }
+
+void tox_set_force_udp_only_mode(bool value)
+{
+    global_force_udp_only_mode = value;
+}
+

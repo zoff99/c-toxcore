@@ -41,6 +41,7 @@
  * someone wanted not to include tox.h here
  */
 
+extern bool global_force_udp_only_mode;
 
 static_assert(MAX_CONCURRENT_FILE_PIPES <= UINT8_MAX + 1,
               "uint8_t cannot represent all file transfer numbers");
@@ -3017,18 +3018,19 @@ static uint8_t *save_tcp_relays(const Messenger *m, uint8_t *data)
 non_null()
 static State_Load_Status load_tcp_relays(Messenger *m, const uint8_t *data, uint32_t length)
 {
-    if (length > 0) {
-        const int num = unpack_nodes(m->loaded_relays, NUM_SAVED_TCP_RELAYS, nullptr, data, length, true);
+    if (!global_force_udp_only_mode) {
+        if (length > 0) {
+            const int num = unpack_nodes(m->loaded_relays, NUM_SAVED_TCP_RELAYS, nullptr, data, length, true);
 
-        if (num == -1) {
-            m->num_loaded_relays = 0;
-            return STATE_LOAD_STATUS_CONTINUE;
+            if (num == -1) {
+                m->num_loaded_relays = 0;
+                return STATE_LOAD_STATUS_CONTINUE;
+            }
+
+            m->num_loaded_relays = num;
+            m->has_added_relays = false;
         }
-
-        m->num_loaded_relays = num;
-        m->has_added_relays = false;
     }
-
     return STATE_LOAD_STATUS_CONTINUE;
 }
 
