@@ -40,6 +40,11 @@ jobs:
             llvm-dev
             ninja-build
             pkg-config
+            libavutil-dev
+            libavcodec-dev
+            libavformat-dev
+            libavfilter-dev
+            libx264-dev
       - checkout
       - run: git submodule update --init --recursive
       - run: CC=clang .circleci/cmake-asan
@@ -97,6 +102,7 @@ jobs:
           toxav/*.c
           toxcore/*.c
           toxcore/*/*.c
+          toxutil/*.c
           toxencryptsave/*.c
           third_party/cmp/*.c
           -lpthread
