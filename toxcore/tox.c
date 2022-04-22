@@ -4940,3 +4940,8 @@ void tox_logmsg(const Tox *tox, Logger_Level level, const char *file, int line, 
     va_end(args);
     tox_unlock(tox);
 }
+
+void tox_set_force_udp_only_mode(bool value)
+{
+    global_force_udp_only_mode = value;
+}
