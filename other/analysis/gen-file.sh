@@ -11,6 +11,7 @@ CPPFLAGS+=("-Itesting")
 CPPFLAGS+=("-Itesting/fuzzing")
 CPPFLAGS+=("-Itoxcore")
 CPPFLAGS+=("-Itoxcore/events")
+CPPFLAGS+=("-Itoxutil")
 CPPFLAGS+=("-Itoxav")
 CPPFLAGS+=("-Itoxencryptsave")
 CPPFLAGS+=("-Ithird_party/cmp")
@@ -61,6 +62,7 @@ FIND_QUERY="$FIND_QUERY -and -not -name '*_fuzz_test.cc'"
 FIND_QUERY="$FIND_QUERY -and -not -wholename './testing/fuzzing/*'"
 FIND_QUERY="$FIND_QUERY -and -not -wholename './third_party/cmp/examples/*'"
 FIND_QUERY="$FIND_QUERY -and -not -wholename './third_party/cmp/test/*'"
+FIND_QUERY="$FIND_QUERY -and -not -wholename './toxutil/*'"
 
 if [ "$SKIP_GTEST" == 1 ]; then
   FIND_QUERY="$FIND_QUERY -and -not -name '*_test.cc'"

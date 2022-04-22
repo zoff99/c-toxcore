@@ -32,6 +32,7 @@ set_source_files_properties(
   toxcore/network.c
   toxcore/tox.c
   toxcore/util.c
+  toxutil/toxutil.c
   PROPERTIES SKIP_UNITY_BUILD_INCLUSION TRUE)
 
 ################################################################################
@@ -308,11 +309,14 @@ set(toxcore_SOURCES
   toxcore/tox_unpack.c
   toxcore/tox_unpack.h
   toxcore/util.c
-  toxcore/util.h)
+  toxcore/util.h
+  toxutil/toxutil.c
+  toxutil/toxutil.h)
 set(toxcore_LINK_MODULES ${toxcore_LINK_MODULES} ${LIBSODIUM_LIBRARIES})
 set(toxcore_PKGCONFIG_REQUIRES ${toxcore_PKGCONFIG_REQUIRES} libsodium)
 set(toxcore_API_HEADERS
   ${toxcore_SOURCE_DIR}/toxcore/tox.h^tox
+  ${toxcore_SOURCE_DIR}/toxutil/toxutil.h^tox
   ${toxcore_SOURCE_DIR}/toxcore/tox_events.h^tox
   ${toxcore_SOURCE_DIR}/toxcore/tox_dispatch.h^tox)
 
