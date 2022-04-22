@@ -30,6 +30,11 @@
 
 #include "../toxencryptsave/defines.h"
 
+bool global_filetransfer_is_resumable = false;
+bool global_force_udp_only_mode = false;
+bool global_do_not_sync_av = false;
+bool global_onion_active = true;
+
 #define SET_ERROR_PARAMETER(param, x) \
     do {                              \
         if (param != nullptr) {       \
