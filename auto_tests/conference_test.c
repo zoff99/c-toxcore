@@ -89,8 +89,11 @@ static uint32_t num_recv;
 
 static void handle_conference_message(
     Tox *tox, uint32_t groupnumber, uint32_t peernumber, Tox_Message_Type type,
-    const uint8_t *message, size_t length, void *user_data)
+    const uint8_t *message2, size_t length2, void *user_data)
 {
+    const uint8_t *message = message2 + 9;
+    size_t length = length2 - 9;
+    printf("groupmessage:%s %s %lu %zu %zu\n", message, GROUP_MESSAGE, (sizeof(GROUP_MESSAGE) - 1), length, length2);
     if (length == (sizeof(GROUP_MESSAGE) - 1) && memcmp(message, GROUP_MESSAGE, sizeof(GROUP_MESSAGE) - 1) == 0) {
         ++num_recv;
     }
@@ -304,6 +307,7 @@ static void run_conference_tests(AutoTox *autotoxes)
         iterate_all_wait(autotoxes, NUM_GROUP_TOX, ITERATION_INTERVAL);
     }
 
+    printf("num_recv == NUM_GROUP_TOX : %d == %d\n", num_recv, NUM_GROUP_TOX);
     ck_assert_msg(num_recv == NUM_GROUP_TOX, "failed to recv group messages");
 
     if (check_name_change_propagation) {
