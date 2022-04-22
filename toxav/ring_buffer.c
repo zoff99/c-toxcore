@@ -3,17 +3,17 @@
  * Copyright © 2013 Tox project.
  * Copyright © 2013 plutooo
  */
+#include "../toxcore/ccompat.h"
 #include "ring_buffer.h"
 
 #include <stdlib.h>
 
-#include "../toxcore/ccompat.h"
-
 struct RingBuffer {
-    uint16_t size; /* Max size */
-    uint16_t start;
-    uint16_t end;
-    void   **data;
+    uint16_t  size; /* Max size */
+    uint16_t  start;
+    uint16_t  end;
+    uint64_t  *type;
+    void    **data;
 };
 
 bool rb_full(const RingBuffer *b)
@@ -26,16 +26,12 @@ bool rb_empty(const RingBuffer *b)
     return b->end == b->start;
 }
 
-/**
- * @retval NULL on success
- * @return input value "p" on failure, so caller can free on failed rb_write
+/*
+ * returns: NULL on success
+ *          oldest element on FAILURE -> caller must free it on failed rb_write
  */
-void *rb_write(RingBuffer *b, void *p)
+void *rb_write(RingBuffer *b, void *p, uint64_t data_type_)
 {
-    if (b == nullptr) {
-        return p;
-    }
-
     void *rc = nullptr;
 
     if ((b->end + 1) % b->size == b->start) { /* full */
@@ -43,6 +39,7 @@ void *rb_write(RingBuffer *b, void *p)
     }
 
     b->data[b->end] = p;
+    b->type[b->end] = data_type_;
     b->end = (b->end + 1) % b->size;
 
     if (b->end == b->start) {
@@ -52,7 +49,7 @@ void *rb_write(RingBuffer *b, void *p)
     return rc;
 }
 
-bool rb_read(RingBuffer *b, void **p)
+bool rb_read(RingBuffer *b, void **p, uint64_t *data_type_)
 {
     if (b->end == b->start) { /* Empty */
         *p = nullptr;
@@ -60,22 +57,30 @@ bool rb_read(RingBuffer *b, void **p)
     }
 
     *p = b->data[b->start];
+    *data_type_ = b->type[b->start];
+
     b->start = (b->start + 1) % b->size;
     return true;
 }
 
 RingBuffer *rb_new(int size)
 {
-    RingBuffer *buf = (RingBuffer *)calloc(1, sizeof(RingBuffer));
+    RingBuffer *buf = (RingBuffer *)calloc(sizeof(RingBuffer), 1);
 
-    if (buf == nullptr) {
+    if (!buf) {
         return nullptr;
     }
 
     buf->size = size + 1; /* include empty elem */
     buf->data = (void **)calloc(buf->size, sizeof(void *));
 
-    if (buf->data == nullptr) {
+    if (!buf->data) {
+        free(buf);
+        return nullptr;
+    }
+
+    if (!(buf->type = (uint64_t *)calloc(buf->size, sizeof(uint64_t)))) {
+        free(buf->data);
         free(buf);
         return nullptr;
     }
@@ -85,8 +90,9 @@ RingBuffer *rb_new(int size)
 
 void rb_kill(RingBuffer *b)
 {
-    if (b != nullptr) {
+    if (b) {
         free(b->data);
+        free(b->type);
         free(b);
     }
 }
@@ -105,9 +111,9 @@ uint16_t rb_size(const RingBuffer *b)
 
 uint16_t rb_data(const RingBuffer *b, void **dest)
 {
-    uint16_t i;
+    uint16_t i = 0;
 
-    for (i = 0; i < rb_size(b); ++i) {
+    for (; i < rb_size(b); ++i) {
         dest[i] = b->data[(b->start + i) % b->size];
     }
 
