@@ -4920,3 +4920,18 @@ bool tox_messagev2_get_message_text(const uint8_t *raw_message, uint32_t raw_mes
     return true;
 }
 
+void tox_logmsg(const Tox *tox, Logger_Level level, const char *file, int line, const char *func, const char *fmt, ...)
+{
+    if (!tox) {
+        return;
+    }
+
+    tox_lock(tox);
+    va_list args;
+    va_start(args, fmt);
+
+    logger_api_write(tox->m->log, level, file, line, func, fmt, args);
+
+    va_end(args);
+    tox_unlock(tox);
+}
