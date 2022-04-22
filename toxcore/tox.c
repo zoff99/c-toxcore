@@ -1261,6 +1261,17 @@ bool tox_self_set_name(Tox *tox, const uint8_t *name, size_t length, Tox_Err_Set
     return false;
 }
 
+bool tox_messagev3_get_new_message_id(uint8_t *msg_id)
+{
+    if (msg_id == nullptr) {
+        return false;
+    }
+
+    /* Tox keys are 32 bytes like TOX_MSGV3_MSGID_LENGTH. */
+    new_symmetric_key_implicit_random(msg_id);
+    return true;
+}
+
 size_t tox_self_get_name_size(const Tox *tox)
 {
     assert(tox != nullptr);
