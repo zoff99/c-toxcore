@@ -8056,6 +8056,32 @@ uint32_t gc_count_groups(const GC_Session *c)
     return count;
 }
 
+uint32_t copy_grouplist(const GC_Session *c, uint32_t *out_list, uint32_t list_size)
+{
+    if (out_list == nullptr) {
+        return 0;
+    }
+
+    if (c->chats_index == 0) {
+        return 0;
+    }
+
+    uint32_t ret = 0;
+
+    for (uint32_t i = 0; i < c->chats_index; ++i) {
+        if (ret >= list_size) {
+            break;  /* Abandon ship */
+        }
+
+        if (c->chats[i].connection_state != CS_NONE) {
+            out_list[ret] = i;
+            ++ret;
+        }
+    }
+
+    return ret;
+}
+
 GC_Chat *gc_get_group(const GC_Session *c, int group_number)
 {
     if (!group_number_valid(c, group_number)) {

@@ -3792,6 +3792,15 @@ uint32_t tox_group_get_number_groups(const Tox *tox)
     return ret;
 }
 
+void tox_group_get_grouplist(const Tox *tox, uint32_t *grouplist)
+{
+    assert(tox != nullptr);
+    tox_lock(tox);
+    const uint32_t list_size = gc_count_groups(tox->m->group_handler);
+    copy_grouplist(tox->m->group_handler, grouplist, list_size);
+    tox_unlock(tox);
+}
+
 Tox_Group_Privacy_State tox_group_get_privacy_state(const Tox *tox, uint32_t group_number,
         Tox_Err_Group_State_Queries *error)
 {
