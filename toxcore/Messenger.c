@@ -2571,7 +2571,7 @@ static void do_gc_onion_friends(const Messenger *m)
 }
 #endif  // VANILLA_NACL
 
-#define DEBUG_DO_MESSENGER 1
+// #define DEBUG_DO_MESSENGER 1
 
 /** @brief The main loop that needs to be run at least 20 times per second. */
 void do_messenger(Messenger *m, void *userdata)
