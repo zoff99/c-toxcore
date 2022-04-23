@@ -2571,9 +2571,22 @@ static void do_gc_onion_friends(const Messenger *m)
 }
 #endif  // VANILLA_NACL
 
+#define DEBUG_DO_MESSENGER 1
+
 /** @brief The main loop that needs to be run at least 20 times per second. */
 void do_messenger(Messenger *m, void *userdata)
 {
+#ifdef DEBUG_DO_MESSENGER
+    uint64_t ttt1;
+    uint64_t ttt12;
+    uint64_t xttt1;
+    uint64_t xttt12;
+#endif
+
+#ifdef DEBUG_DO_MESSENGER
+    xttt1 = current_time_monotonic(m->mono_time);
+#endif
+
     // Add the TCP relays, but only if this is the first time calling do_messenger
     if (!m->has_added_relays) {
         m->has_added_relays = true;
@@ -2603,16 +2616,75 @@ void do_messenger(Messenger *m, void *userdata)
         do_TCP_server(m->tcp_server, m->mono_time);
     }
 
+#ifdef DEBUG_DO_MESSENGER
+    ttt1 = current_time_monotonic(m->mono_time);
+#endif
+
     do_net_crypto(m->net_crypto, userdata);
+
+#ifdef DEBUG_DO_MESSENGER
+    ttt12 = current_time_monotonic(m->mono_time);
+    if ((ttt12 - ttt1) > 10)
+    {
+        LOGGER_WARNING(m->log, "do_messenger:3:do_net_crypto:rt %d ms", (int)(ttt12 - ttt1));
+    }
+#endif
+
     if (global_onion_active) {
+
+#ifdef DEBUG_DO_MESSENGER
+        ttt1 = current_time_monotonic(m->mono_time);
+#endif
         do_onion_client(m->onion_c);
+
+#ifdef DEBUG_DO_MESSENGER
+        ttt12 = current_time_monotonic(m->mono_time);
+        if ((ttt12 - ttt1) > 10)
+        {
+            LOGGER_WARNING(m->log, "do_messenger:4:do_onion_client:rt %d ms", (int)(ttt12 - ttt1));
+        }
+#endif
     }
     do_friend_connections(m->fr_c, userdata);
     do_friends(m, userdata);
 #ifndef VANILLA_NACL
+
+#ifdef DEBUG_DO_MESSENGER
+        ttt1 = current_time_monotonic(m->mono_time);
+#endif
     do_gc(m->group_handler, userdata);
+#ifdef DEBUG_DO_MESSENGER
+        ttt12 = current_time_monotonic(m->mono_time);
+        if ((ttt12 - ttt1) > 10)
+        {
+            LOGGER_WARNING(m->log, "do_messenger:5:do_gc:rt %d ms", (int)(ttt12 - ttt1));
+        }
+#endif
+
+#ifdef DEBUG_DO_MESSENGER
+        ttt1 = current_time_monotonic(m->mono_time);
+#endif
     do_gca(m->mono_time, m->group_announce);
+#ifdef DEBUG_DO_MESSENGER
+        ttt12 = current_time_monotonic(m->mono_time);
+        if ((ttt12 - ttt1) > 10)
+        {
+            LOGGER_WARNING(m->log, "do_messenger:6:do_gca:rt %d ms", (int)(ttt12 - ttt1));
+        }
+#endif
+
+#ifdef DEBUG_DO_MESSENGER
+        ttt1 = current_time_monotonic(m->mono_time);
+#endif
     do_gc_onion_friends(m);
+#ifdef DEBUG_DO_MESSENGER
+        ttt12 = current_time_monotonic(m->mono_time);
+        if ((ttt12 - ttt1) > 10)
+        {
+            LOGGER_WARNING(m->log, "do_messenger:7:do_gc_onion_friends:rt %d ms", (int)(ttt12 - ttt1));
+        }
+#endif
+
 #endif
     m_connection_status_callback(m, userdata);
 
@@ -2718,6 +2790,14 @@ void do_messenger(Messenger *m, void *userdata)
             }
         }
     }
+
+#ifdef DEBUG_DO_MESSENGER
+        xttt12 = current_time_monotonic(m->mono_time);
+        if ((xttt12 - xttt1) > 10)
+        {
+            LOGGER_WARNING(m->log, "do_messenger:999:full_time:rt %d ms", (int)(xttt12 - xttt1));
+        }
+#endif
 }
 
 /** new messenger format for load/save, more robust and forward compatible */
