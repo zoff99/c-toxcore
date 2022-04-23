@@ -4353,6 +4353,8 @@ uint32_t tox_group_get_number_groups(const Tox *tox);
  */
 void tox_group_get_grouplist(const Tox *tox, uint32_t *grouplist);
 
+uint32_t tox_group_by_chat_id(const Tox *tox, const uint8_t *chat_id, Tox_Err_Group_State_Queries *error);
+
 /**
  * Return the privacy state of the group designated by the given group number. If group number
  * is invalid, the return value is unspecified.

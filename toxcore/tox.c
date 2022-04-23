@@ -3801,6 +3801,38 @@ void tox_group_get_grouplist(const Tox *tox, uint32_t *grouplist)
     tox_unlock(tox);
 }
 
+uint32_t tox_group_by_chat_id(const Tox *tox, const uint8_t *chat_id, Tox_Err_Group_State_Queries *error)
+{
+    assert(tox != nullptr);
+
+    if (chat_id == nullptr) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_STATE_QUERIES_GROUP_NOT_FOUND);
+        return UINT32_MAX;
+    }
+
+    tox_lock(tox);
+    const GC_Chat *chat = gc_get_group_by_public_key(tox->m->group_handler, chat_id);
+
+    if (chat == nullptr)
+    {
+        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_STATE_QUERIES_GROUP_NOT_FOUND);
+        return UINT32_MAX;
+        tox_unlock(tox);
+    }
+
+    uint32_t ret = chat->group_number;
+    tox_unlock(tox);
+
+    if (ret == -1) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_STATE_QUERIES_GROUP_NOT_FOUND);
+        return UINT32_MAX;
+    }
+
+    SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_STATE_QUERIES_OK);
+    assert(ret >= 0);
+    return ret;
+}
+
 Tox_Group_Privacy_State tox_group_get_privacy_state(const Tox *tox, uint32_t group_number,
         Tox_Err_Group_State_Queries *error)
 {
