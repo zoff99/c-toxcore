@@ -8082,6 +8082,25 @@ uint32_t copy_grouplist(const GC_Session *c, uint32_t *out_list, uint32_t list_s
     return ret;
 }
 
+void copy_peerlist(const GC_Chat *chat, uint32_t *out_list)
+{
+    if (out_list == nullptr) {
+        return;
+    }
+
+    if (chat == nullptr) {
+        return;
+    }
+
+    if (chat->numpeers == 0) {
+        return;
+    }
+
+    for (uint32_t i = 0; i < chat->numpeers; ++i) {
+        out_list[i] = chat->group[i].peer_id;
+    }
+}
+
 GC_Chat *gc_get_group(const GC_Session *c, int group_number)
 {
     if (!group_number_valid(c, group_number)) {
