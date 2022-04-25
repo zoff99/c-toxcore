@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 CPPFLAGS="-DMIN_LOGGER_LEVEL=LOGGER_LEVEL_TRACE"
 CPPFLAGS+=("-DCMP_NO_FLOAT=1")
@@ -26,16 +26,16 @@ LDFLAGS+=("-Wl,-z,now")
 
 put() {
   if [ "$SKIP_LINES" = "" ]; then
-    echo "#line 1 \"$1\"" >> amalgamation.cc
+    echo "#line 1 \"$1\"" >>amalgamation.cc
   fi
-  cat $1 >> amalgamation.cc
+  cat "$1" >>amalgamation.cc
 }
 
 putmain() {
   NS=$(echo "${1//[^a-zA-Z0-9_]/_}" | sed -e 's/^__*//')
   echo "namespace $NS {" >>amalgamation.cc
   if [ "$SKIP_LINES" = "" ]; then
-    echo "#line 1 \"$1\"" >> amalgamation.cc
+    echo "#line 1 \"$1\"" >>amalgamation.cc
   fi
   sed -e 's/^int main(/static &/' "$1" >>amalgamation.cc
   echo "} //  namespace $NS" >>amalgamation.cc
@@ -46,7 +46,7 @@ callmain() {
   echo "  call($NS::main, argc, argv);" >>amalgamation.cc
 }
 
-:> amalgamation.cc
+: >amalgamation.cc
 
 # Include all C and C++ code
 FIND_QUERY="find . '-(' -name '*.c' -or -name '*.cc' '-)'"
@@ -84,9 +84,9 @@ for i in "${FILES[@]}"; do
   fi
 done
 
-for i in $(eval $FIND_QUERY); do
-  if grep -q '^int main(' $i; then
-    putmain $i
+for i in "${FILES[@]}"; do
+  if grep -q '^int main(' "$i"; then
+    putmain "$i"
   fi
 done
 
@@ -95,11 +95,11 @@ echo "static void call(int m(int, char **), int argc, char **argv) { m(argc, arg
 echo "static void call(int m(int, const char *const *), int argc, char **argv) { m(argc, argv); }" >>amalgamation.cc
 echo '}  // namespace' >>amalgamation.cc
 
-echo "int main(int argc, char **argv) {" >> amalgamation.cc
-for i in $(eval $FIND_QUERY); do
-  if grep -q '^int main(' $i; then
-    callmain $i
+echo "int main(int argc, char **argv) {" >>amalgamation.cc
+for i in "${FILES[@]}"; do
+  if grep -q '^int main(' "$i"; then
+    callmain "$i"
   fi
 done
-echo "  return 0;" >> amalgamation.cc
-echo "}" >> amalgamation.cc
+echo "  return 0;" >>amalgamation.cc
+echo "}" >>amalgamation.cc

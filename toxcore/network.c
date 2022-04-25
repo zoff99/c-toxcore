@@ -7,8 +7,6 @@
  * Functions for the core networking.
  */
 
-#define BYTES_SOCKET_SEND_AND_RECEIVE_BUFFERS 1024*1024*2 // 2 Mbytes
-
 #ifdef __APPLE__
 #define _DARWIN_C_SOURCE
 #endif

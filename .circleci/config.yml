@@ -18,12 +18,10 @@ workflows:
       - static-analysis
 
 jobs:
-  build:
+  asan:
     working_directory: ~/work
-    #machine:
-    #  image: circleci/classic:latest
     docker:
-      - image: ubuntu:bionic
+      - image: ubuntu
 
     steps:
       - run: &apt_install
@@ -36,6 +34,9 @@ jobs:
             git
             libconfig-dev
             libgtest-dev
+            libopus-dev
+            libsodium-dev
+            libvpx-dev
             llvm-dev
             ninja-build
             pkg-config

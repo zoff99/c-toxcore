@@ -15,7 +15,6 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include <string.h>
 
 #include "Messenger.h"
@@ -1034,6 +1033,8 @@ size_t tox_get_savedata_size(const Tox *tox)
 
 void tox_get_savedata(const Tox *tox, uint8_t *savedata)
 {
+    assert(tox != nullptr);
+
     if (savedata == nullptr) {
         return;
     }
@@ -1193,6 +1194,7 @@ Tox_Connection tox_self_get_connection_status(const Tox *tox)
 
 void tox_callback_self_connection_status(Tox *tox, tox_self_connection_status_cb *callback)
 {
+    assert(tox != nullptr);
     tox->self_connection_status_callback = callback;
 }
 
@@ -1218,11 +1220,7 @@ void tox_iterate(Tox *tox, void *user_data)
     mono_time_update(tox->mono_time);
 
     struct Tox_Userdata tox_data = { tox, user_data };
-    do_messenger(tox->m, tox->mutex, &tox_data);
-
-    unlock(tox);
-    lock(tox);
-
+    do_messenger(tox->m, &tox_data);
     do_groupchats(tox->m->conferences_object, &tox_data);
 
     tox_unlock(tox);
@@ -1310,17 +1308,6 @@ bool tox_messagev3_get_new_message_id(uint8_t *msg_id)
 
     /* Tox keys are 32 bytes like TOX_MSGV3_MSGID_LENGTH. */
     new_symmetric_key_implicit_random(msg_id);
-    return true;
-}
-
-bool tox_messagev3_get_new_message_id(uint8_t *msg_id)
-{
-    if (msg_id == nullptr) {
-        return false;
-    }
-
-    /* Tox keys are 32 bytes like TOX_MSGV3_MSGID_LENGTH. */
-    new_symmetric_key(msg_id);
     return true;
 }
 
@@ -1659,6 +1646,7 @@ bool tox_friend_get_name(const Tox *tox, uint32_t friend_number, uint8_t *name, 
 
 void tox_callback_friend_name(Tox *tox, tox_friend_name_cb *callback)
 {
+    assert(tox != nullptr);
     tox->friend_name_callback = callback;
 }
 
@@ -1707,6 +1695,7 @@ bool tox_friend_get_status_message(const Tox *tox, uint32_t friend_number, uint8
 
 void tox_callback_friend_status_message(Tox *tox, tox_friend_status_message_cb *callback)
 {
+    assert(tox != nullptr);
     tox->friend_status_message_callback = callback;
 }
 
@@ -1728,6 +1717,7 @@ Tox_User_Status tox_friend_get_status(const Tox *tox, uint32_t friend_number, To
 
 void tox_callback_friend_status(Tox *tox, tox_friend_status_cb *callback)
 {
+    assert(tox != nullptr);
     tox->friend_status_callback = callback;
 }
 
@@ -1749,6 +1739,7 @@ Tox_Connection tox_friend_get_connection_status(const Tox *tox, uint32_t friend_
 
 void tox_callback_friend_connection_status(Tox *tox, tox_friend_connection_status_cb *callback)
 {
+    assert(tox != nullptr);
     tox->friend_connection_status_callback = callback;
 }
 
@@ -1770,6 +1761,7 @@ bool tox_friend_get_typing(const Tox *tox, uint32_t friend_number, Tox_Err_Frien
 
 void tox_callback_friend_typing(Tox *tox, tox_friend_typing_cb *callback)
 {
+    assert(tox != nullptr);
     tox->friend_typing_callback = callback;
 }
 
@@ -1856,16 +1848,19 @@ uint32_t tox_friend_send_message(Tox *tox, uint32_t friend_number, Tox_Message_T
 
 void tox_callback_friend_read_receipt(Tox *tox, tox_friend_read_receipt_cb *callback)
 {
+    assert(tox != nullptr);
     tox->friend_read_receipt_callback = callback;
 }
 
 void tox_callback_friend_request(Tox *tox, tox_friend_request_cb *callback)
 {
+    assert(tox != nullptr);
     tox->friend_request_callback = callback;
 }
 
 void tox_callback_friend_message(Tox *tox, tox_friend_message_cb *callback)
 {
+    assert(tox != nullptr);
     tox->friend_message_callback = callback;
 }
 
@@ -1995,6 +1990,7 @@ bool tox_file_seek(Tox *tox, uint32_t friend_number, uint32_t file_number, uint6
 
 void tox_callback_file_recv_control(Tox *tox, tox_file_recv_control_cb *callback)
 {
+    assert(tox != nullptr);
     tox->file_recv_control_callback = callback;
 }
 
@@ -2024,22 +2020,6 @@ bool tox_file_get_file_id(const Tox *tox, uint32_t friend_number, uint32_t file_
     }
 
     return false;
-}
-
-uint32_t tox_file_sending_active(Tox *tox, uint32_t friend_number)
-{
-    lock(tox);
-    uint32_t file_num = file_sending_active(tox->m, friend_number);
-    unlock(tox);
-    return file_num;
-}
-
-uint32_t tox_file_receiving_active(Tox *tox, uint32_t friend_number)
-{
-    lock(tox);
-    uint32_t file_num = file_receiving_active(tox->m, friend_number);
-    unlock(tox);
-    return file_num;
 }
 
 uint32_t tox_file_send(Tox *tox, uint32_t friend_number, uint32_t kind, uint64_t file_size, const uint8_t *file_id,
@@ -2155,46 +2135,55 @@ bool tox_file_send_chunk(Tox *tox, uint32_t friend_number, uint32_t file_number,
 
 void tox_callback_file_chunk_request(Tox *tox, tox_file_chunk_request_cb *callback)
 {
+    assert(tox != nullptr);
     tox->file_chunk_request_callback = callback;
 }
 
 void tox_callback_file_recv(Tox *tox, tox_file_recv_cb *callback)
 {
+    assert(tox != nullptr);
     tox->file_recv_callback = callback;
 }
 
 void tox_callback_file_recv_chunk(Tox *tox, tox_file_recv_chunk_cb *callback)
 {
+    assert(tox != nullptr);
     tox->file_recv_chunk_callback = callback;
 }
 
 void tox_callback_conference_invite(Tox *tox, tox_conference_invite_cb *callback)
 {
+    assert(tox != nullptr);
     tox->conference_invite_callback = callback;
 }
 
 void tox_callback_conference_connected(Tox *tox, tox_conference_connected_cb *callback)
 {
+    assert(tox != nullptr);
     tox->conference_connected_callback = callback;
 }
 
 void tox_callback_conference_message(Tox *tox, tox_conference_message_cb *callback)
 {
+    assert(tox != nullptr);
     tox->conference_message_callback = callback;
 }
 
 void tox_callback_conference_title(Tox *tox, tox_conference_title_cb *callback)
 {
+    assert(tox != nullptr);
     tox->conference_title_callback = callback;
 }
 
 void tox_callback_conference_peer_name(Tox *tox, tox_conference_peer_name_cb *callback)
 {
+    assert(tox != nullptr);
     tox->conference_peer_name_callback = callback;
 }
 
 void tox_callback_conference_peer_list_changed(Tox *tox, tox_conference_peer_list_changed_cb *callback)
 {
+    assert(tox != nullptr);
     tox->conference_peer_list_changed_callback = callback;
 }
 
@@ -2443,6 +2432,7 @@ uint64_t tox_conference_offline_peer_get_last_active(const Tox *tox, uint32_t co
         uint32_t offline_peer_number,
         Tox_Err_Conference_Peer_Query *error)
 {
+    assert(tox != nullptr);
     uint64_t last_active = UINT64_MAX;
     tox_lock(tox);
     const int ret = group_frozen_last_active(tox->m->conferences_object, conference_number, offline_peer_number,
@@ -2720,6 +2710,7 @@ bool tox_conference_get_id(const Tox *tox, uint32_t conference_number, uint8_t *
 // TODO(iphydf): Delete in 0.3.0.
 bool tox_conference_get_uid(const Tox *tox, uint32_t conference_number, uint8_t *uid)
 {
+    assert(tox != nullptr);
     return tox_conference_get_id(tox, conference_number, uid);
 }
 
@@ -2749,10 +2740,9 @@ uint32_t tox_conference_by_id(const Tox *tox, const uint8_t *id, Tox_Err_Confere
 // TODO(iphydf): Delete in 0.3.0.
 uint32_t tox_conference_by_uid(const Tox *tox, const uint8_t *uid, Tox_Err_Conference_By_Uid *error)
 {
+    assert(tox != nullptr);
     Tox_Err_Conference_By_Id id_error;
-    lock(tox);
     const uint32_t res = tox_conference_by_id(tox, uid, &id_error);
-    unlock(tox);
 
     switch (id_error) {
         case TOX_ERR_CONFERENCE_BY_ID_OK: {
@@ -2841,6 +2831,8 @@ bool tox_friend_send_lossy_packet(Tox *tox, uint32_t friend_number, const uint8_
 
 void tox_callback_friend_lossy_packet(Tox *tox, tox_friend_lossy_packet_cb *callback)
 {
+    assert(tox != nullptr);
+
     /* start at PACKET_ID_RANGE_LOSSY_CUSTOM_START so ToxAV Packets are excluded */
     for (uint8_t i = PACKET_ID_RANGE_LOSSY_CUSTOM_START; i <= PACKET_ID_RANGE_LOSSY_END; ++i) {
         tox->friend_lossy_packet_callback_per_pktid[i] = callback;
@@ -2873,6 +2865,8 @@ bool tox_friend_send_lossless_packet(Tox *tox, uint32_t friend_number, const uin
 
 void tox_callback_friend_lossless_packet(Tox *tox, tox_friend_lossless_packet_cb *callback)
 {
+    assert(tox != nullptr);
+
     for (uint8_t i = PACKET_ID_RANGE_LOSSLESS_CUSTOM_START; i <= PACKET_ID_RANGE_LOSSLESS_CUSTOM_END; ++i) {
         tox->friend_lossless_packet_callback_per_pktid[i] = callback;
     }
@@ -5066,404 +5060,6 @@ void tox_logmsg(const Tox *tox, Logger_Level level, const char *file, int line, 
 
     va_end(args);
     tox_unlock(tox);
-}
-
-void tox_set_force_udp_only_mode(bool value)
-{
-    global_force_udp_only_mode = value;
-}
-
-void tox_set_do_not_sync_av(bool value)
-{
-    global_do_not_sync_av = value;
-}
-
-void tox_set_onion_active(bool value)
-{
-    global_onion_active = value;
-}
-
-void tox_set_av_object(Tox *tox, void *object)
-{
-    lock(tox);
-    tox->toxav_object = object;
-    unlock(tox);
-}
-
-void tox_get_av_object(const Tox *tox, void **object)
-{
-    lock(tox);
-    *object = tox->toxav_object;
-    unlock(tox);
-}
-
-void tox_logmsg(const Tox *tox, Logger_Level level, const char *file, int line, const char *func, const char *fmt, ...)
-{
-    if (!tox) {
-        return;
-    }
-
-    lock(tox);
-    va_list args;
-    va_start(args, fmt);
-
-    logger_api_write(tox->m->log, level, file, line, func, fmt, args);
-
-    va_end(args);
-    unlock(tox);
-}
-
-
-/* * * * * * * * * * * * * * *
- *
- * MessageV2 functions
- *
- * * * * * * * * * * * * * * */
-
-/*
- * sending
- */
-uint32_t tox_messagev2_size(uint32_t text_length, uint32_t type, uint32_t alter_type)
-{
-    if (type == TOX_FILE_KIND_MESSAGEV2_SEND) {
-        return (TOX_PUBLIC_KEY_SIZE + 4 + 2 + text_length);
-    } else if (type == TOX_FILE_KIND_MESSAGEV2_SYNC) {
-        return (TOX_PUBLIC_KEY_SIZE + 4 + 2 + TOX_PUBLIC_KEY_SIZE + 4 + text_length);
-    } else if (type == TOX_FILE_KIND_MESSAGEV2_ANSWER) {
-        return (TOX_PUBLIC_KEY_SIZE + 4 + 2);
-    } else { // TOX_FILE_KIND_MESSAGEV2_ALTER
-        if (alter_type == TOX_MESSAGEV2_ALTER_TYPE_CORRECT) {
-            return (TOX_PUBLIC_KEY_SIZE + 32 + 4 + 2 + 1 + text_length);
-        } else { // TOX_MESSAGEV2_ALTER_TYPE_DELETE
-            return (TOX_PUBLIC_KEY_SIZE + 32 + 4 + 2 + 1);
-        }
-
-    }
-}
-
-
-bool tox_messagev2_sync_wrap(uint32_t data_length, const uint8_t *original_sender_pubkey_bin,
-                             uint32_t data_msg_type,
-                             const uint8_t *raw_data, uint32_t ts_sec,
-                             uint16_t ts_ms, uint8_t *raw_message,
-                             uint8_t *msgid)
-{
-
-    if (raw_message == NULL) {
-        return false;
-    }
-
-    if (msgid == NULL) {
-        return false;
-    }
-
-    if (original_sender_pubkey_bin == NULL) {
-        return false;
-    }
-
-    if (raw_data == NULL) {
-        return false;
-    }
-
-    if (data_length == 0) {
-        return false;
-    }
-
-    // uint8_t nonce[CRYPTO_NONCE_SIZE];
-    // random_nonce(nonce);
-
-    uint8_t *raw_message_cpy = raw_message;
-
-    /* Tox keys are 32 bytes, so we use this directly as new "message id" */
-    new_symmetric_key(msgid);
-
-    memcpy(raw_message_cpy, msgid, TOX_PUBLIC_KEY_SIZE);
-    raw_message_cpy += TOX_PUBLIC_KEY_SIZE;
-
-    memcpy(raw_message_cpy, &ts_sec, 4);
-    raw_message_cpy += 4;
-
-    memcpy(raw_message_cpy, &ts_ms, 2);
-    raw_message_cpy += 2;
-
-    memcpy(raw_message_cpy, original_sender_pubkey_bin, TOX_PUBLIC_KEY_SIZE);
-    raw_message_cpy += TOX_PUBLIC_KEY_SIZE;
-
-    memcpy(raw_message_cpy, &data_msg_type, 4);
-    raw_message_cpy += 4;
-
-    memcpy(raw_message_cpy, raw_data, data_length);
-    raw_message_cpy += data_length;
-
-    return true;
-}
-
-bool tox_messagev2_wrap(uint32_t text_length, uint32_t type,
-                        uint32_t alter_type,
-                        const uint8_t *message_text, uint32_t ts_sec,
-                        uint16_t ts_ms, uint8_t *raw_message,
-                        uint8_t *msgid)
-{
-
-    bool result_code = false;
-
-    if (type == TOX_FILE_KIND_MESSAGEV2_SYNC) {
-        return false;
-    }
-
-    if (raw_message == NULL) {
-        return false;
-    }
-
-    if (msgid == NULL) {
-        return false;
-    }
-
-    if ((message_text == NULL) && (type == TOX_FILE_KIND_MESSAGEV2_SEND)) {
-        return false;
-    }
-
-    if ((text_length == 0) && (type == TOX_FILE_KIND_MESSAGEV2_SEND)) {
-        return false;
-    }
-
-    if ((message_text == NULL) && (type == TOX_FILE_KIND_MESSAGEV2_ALTER) &&
-            (alter_type == TOX_MESSAGEV2_ALTER_TYPE_CORRECT)) {
-        return false;
-    }
-
-    if ((text_length == 0) && (type == TOX_FILE_KIND_MESSAGEV2_ALTER) &&
-            (alter_type == TOX_MESSAGEV2_ALTER_TYPE_CORRECT)) {
-        return false;
-    }
-
-    // uint8_t nonce[CRYPTO_NONCE_SIZE];
-    // random_nonce(nonce);
-
-
-    if (type == TOX_FILE_KIND_MESSAGEV2_SEND) {
-
-        uint8_t *raw_message_cpy = raw_message;
-
-        /* Tox keys are 32 bytes, so we use this directly as new "message id" */
-        new_symmetric_key(msgid);
-
-        memcpy(raw_message_cpy, msgid, TOX_PUBLIC_KEY_SIZE);
-        raw_message_cpy += TOX_PUBLIC_KEY_SIZE;
-
-        memcpy(raw_message_cpy, &ts_sec, 4);
-        raw_message_cpy += 4;
-
-        memcpy(raw_message_cpy, &ts_ms, 2);
-        raw_message_cpy += 2;
-
-        memcpy(raw_message_cpy, message_text, text_length);
-        raw_message_cpy += text_length;
-
-        result_code = true;
-
-    } else if (type == TOX_FILE_KIND_MESSAGEV2_ANSWER) {
-
-        uint8_t *raw_message_cpy = raw_message;
-
-        memcpy(raw_message_cpy, msgid, TOX_PUBLIC_KEY_SIZE);
-        raw_message_cpy += TOX_PUBLIC_KEY_SIZE;
-
-        memcpy(raw_message_cpy, &ts_sec, 4);
-        raw_message_cpy += 4;
-
-        memcpy(raw_message_cpy, &ts_ms, 2);
-        raw_message_cpy += 2;
-
-        result_code = true;
-
-    } else { // TOX_FILE_KIND_MESSAGEV2_ALTER
-        if (alter_type == TOX_MESSAGEV2_ALTER_TYPE_CORRECT) {
-            // TODO: * write me *
-            // TODO: * write me *
-        } else { // TOX_MESSAGEV2_ALTER_TYPE_DELETE
-            // TODO: * write me *
-            // TODO: * write me *
-        }
-    }
-
-    return result_code;
-}
-
-/*
- * receiving
- */
-bool tox_messagev2_get_message_id(const uint8_t *raw_message, uint8_t *msg_id)
-{
-    if (raw_message == NULL) {
-        return false;
-    }
-
-    if (msg_id == NULL) {
-        return false;
-    }
-
-    memcpy(msg_id, raw_message, TOX_PUBLIC_KEY_SIZE);
-
-    return true;
-}
-
-bool tox_messagev2_get_message_alter_id(uint8_t *raw_message, uint8_t *alter_id)
-{
-    if (raw_message == NULL) {
-        return false;
-    }
-
-    if (alter_id == NULL) {
-        return false;
-    }
-
-    memcpy(alter_id, raw_message + TOX_PUBLIC_KEY_SIZE + 4 + 2 + 1, TOX_PUBLIC_KEY_SIZE);
-
-    return true;
-}
-
-bool tox_messagev2_get_sync_message_pubkey(const uint8_t *raw_message, uint8_t *pubkey)
-{
-    if (raw_message == NULL) {
-        return false;
-    }
-
-    if (pubkey == NULL) {
-        return false;
-    }
-
-    memcpy(pubkey, (raw_message + TOX_PUBLIC_KEY_SIZE + 4 + 2), TOX_PUBLIC_KEY_SIZE);
-
-    return true;
-}
-
-uint32_t tox_messagev2_get_sync_message_type(const uint8_t *raw_message)
-{
-    if (raw_message == NULL) {
-        return UINT32_MAX;
-    }
-
-    uint32_t sync_msg_type;
-    memcpy(&sync_msg_type, (raw_message + TOX_PUBLIC_KEY_SIZE + 4 + 2 + TOX_PUBLIC_KEY_SIZE), 4);
-
-    return sync_msg_type;
-}
-
-
-uint8_t tox_messagev2_get_alter_type(uint8_t *raw_message)
-{
-    if (raw_message == NULL) {
-        return false;
-    }
-
-    uint8_t return_value;
-    memcpy(&return_value, raw_message + TOX_PUBLIC_KEY_SIZE + 4 + 2, sizeof(return_value));
-
-    // HINT: crude check, that type will be a valid value
-    if (return_value != TOX_MESSAGEV2_ALTER_TYPE_DELETE) {
-        return_value = TOX_MESSAGEV2_ALTER_TYPE_CORRECT;
-    }
-
-    return return_value;
-}
-
-uint32_t tox_messagev2_get_ts_sec(const uint8_t *raw_message)
-{
-    if (raw_message == NULL) {
-        return false;
-    }
-
-    uint32_t return_value;
-    memcpy(&return_value, raw_message + TOX_PUBLIC_KEY_SIZE, sizeof(return_value));
-
-    return return_value;
-}
-
-uint16_t tox_messagev2_get_ts_ms(const uint8_t *raw_message)
-{
-    if (raw_message == NULL) {
-        return false;
-    }
-
-    uint16_t return_value;
-    memcpy(&return_value, raw_message + TOX_PUBLIC_KEY_SIZE + 4, sizeof(return_value));
-
-    return return_value;
-}
-
-bool tox_messagev2_get_sync_message_data(const uint8_t *raw_message, uint32_t raw_message_len,
-        uint8_t *message_text, uint32_t *text_length)
-{
-    bool result = false;
-
-    if (raw_message == NULL) {
-        return false;
-    }
-
-    if (message_text == NULL) {
-        return false;
-    }
-
-    if (text_length == NULL) {
-        return false;
-    }
-
-    // HINT: we want at least 1 byte of real message text
-    if (raw_message_len < (TOX_PUBLIC_KEY_SIZE + 4 + 2 + TOX_PUBLIC_KEY_SIZE + 4 + 1)) {
-        return false;
-    }
-
-    *text_length = (raw_message_len - (TOX_PUBLIC_KEY_SIZE + 4 + 2 + TOX_PUBLIC_KEY_SIZE + 4));
-    memcpy(message_text, raw_message + TOX_PUBLIC_KEY_SIZE + 4 + 2 + TOX_PUBLIC_KEY_SIZE + 4, *text_length);
-
-    return result;
-
-}
-
-bool tox_messagev2_get_message_text(const uint8_t *raw_message, uint32_t raw_message_len,
-                                    bool is_alter_msg,
-                                    uint32_t alter_type, uint8_t *message_text,
-                                    uint32_t *text_length)
-{
-    if (raw_message == NULL) {
-        return false;
-    }
-
-    if (message_text == NULL) {
-        return false;
-    }
-
-    if (text_length == NULL) {
-        return false;
-    }
-
-    if (is_alter_msg == true) {
-        if (alter_type == TOX_MESSAGEV2_ALTER_TYPE_DELETE) {
-            // TODO: * write me *
-            *text_length = 0;
-            return false;
-        } else { // TOX_MESSAGEV2_ALTER_TYPE_CORRECT
-            // TODO: * write me *
-            *text_length = 0;
-            return false;
-        }
-    } else { // TOX_FILE_KIND_MESSAGEV2_SEND
-        // HINT: we want at least 1 byte of real message text
-        if (raw_message_len < (TOX_PUBLIC_KEY_SIZE + 4 + 2 + 1)) {
-            return false;
-        }
-
-        *text_length = (raw_message_len - (TOX_PUBLIC_KEY_SIZE + 4 + 2));
-        memcpy(message_text, raw_message + TOX_PUBLIC_KEY_SIZE + 4 + 2, *text_length);
-    }
-
-    return true;
-}
-
-void tox_set_filetransfer_resumable(bool value)
-{
-    global_filetransfer_is_resumable = value;
 }
 
 void tox_set_force_udp_only_mode(bool value)

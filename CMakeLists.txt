@@ -178,18 +178,6 @@ if(BUILD_TOXAV)
     message(${NO_TOXAV_ERROR_TYPE} "Option BUILD_TOXAV is enabled but required library VPX was not found.")
     set(BUILD_TOXAV OFF)
   endif()
-  if(NOT X264_FOUND)
-    message(${NO_TOXAV_ERROR_TYPE} "Option BUILD_TOXAV is enabled but required library X264 was not found.")
-    set(BUILD_TOXAV OFF)
-  endif()
-  if(NOT LIBAVCODEC_FOUND)
-    message(${NO_TOXAV_ERROR_TYPE} "Option BUILD_TOXAV is enabled but required library LIBAVCODEC was not found.")
-    set(BUILD_TOXAV OFF)
-  endif()
-  if(NOT LIBAVUTIL_FOUND)
-    message(${NO_TOXAV_ERROR_TYPE} "Option BUILD_TOXAV is enabled but required library LIBAVUTIL was not found.")
-    set(BUILD_TOXAV OFF)
-  endif()
 endif()
 
 # Disable float/double packing in CMP (C MessagePack library).
@@ -338,20 +326,12 @@ set(toxcore_API_HEADERS
 #
 ################################################################################
 
-set(toxcore_SOURCES ${toxcore_SOURCES}
-  toxutil/toxutil.c)
-set(toxcore_API_HEADERS ${toxcore_API_HEADERS} ${toxcore_SOURCE_DIR}/toxutil/toxutil.h^tox)
-
 if(BUILD_TOXAV)
   set(toxcore_SOURCES ${toxcore_SOURCES}
-    toxav/codecs/h264/codec.c
-    toxav/codecs/vpx/codec.c
     toxav/audio.c
     toxav/audio.h
     toxav/bwcontroller.c
     toxav/bwcontroller.h
-    toxav/dummy_ntp.c
-    toxav/dummy_ntp.h
     toxav/groupav.c
     toxav/groupav.h
     toxav/msi.c
@@ -364,8 +344,6 @@ if(BUILD_TOXAV)
     toxav/toxav.h
     toxav/toxav_hacks.h
     toxav/toxav_old.c
-    toxav/ts_buffer.c
-    toxav/ts_buffer.h
     toxav/video.c
     toxav/video.h)
   set(toxcore_API_HEADERS ${toxcore_API_HEADERS}

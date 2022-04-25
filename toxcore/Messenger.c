@@ -23,13 +23,6 @@
 #include "network.h"
 #include "state.h"
 #include "util.h"
-#include "tox.h"
-
-// #define FT_RECV_SEND_DEBUG 1
-
-extern bool global_filetransfer_is_resumable;
-extern bool global_force_udp_only_mode;
-extern bool global_onion_active;
 
 
 /**
@@ -58,49 +51,6 @@ static_assert(MAX_CONCURRENT_FILE_PIPES <= UINT8_MAX + 1,
               "uint8_t cannot represent all file transfer numbers");
 
 static const Friend empty_friend = {{0}};
-
-static void lock_friendlist(const Messenger *m)
-{
-    if (m->friendlist_mutex != nullptr) {
-        pthread_mutex_lock(m->friendlist_mutex);
-    }
-}
-
-static void unlock_friendlist(const Messenger *m)
-{
-    if (m->friendlist_mutex != nullptr) {
-        pthread_mutex_unlock(m->friendlist_mutex);
-    }
-}
-
-// friend_not_valid determines if the friendnumber passed is valid in the Messenger object
-static uint8_t friend_not_valid(const Messenger *m, int32_t friendnumber)
-{
-    lock_friendlist(m);
-    if ((unsigned int)friendnumber < m->numfriends) {
-        if (m->friendlist[friendnumber].status != 0) {
-            unlock_friendlist(m);
-            return 0;
-        }
-    }
-    unlock_friendlist(m);
-
-    return 1;
-}
-
-static uint8_t friend_not_valid_fast(const Messenger *m, int32_t friendnumber)
-{
-    lock_friendlist(m);
-    if ((unsigned int)friendnumber < m->numfriends) {
-        if (m->friendlist[friendnumber].status != 0) {
-            unlock_friendlist(m);
-            return 0;
-        }
-    }
-    unlock_friendlist(m);
-
-    return 1;
-}
 
 /**
  * Determines if the friendnumber passed is valid in the Messenger object.
@@ -204,18 +154,6 @@ static bool send_online_packet(Messenger *m, int friendcon_id)
         return -1;
     }
 
-    uint8_t buf[TOX_CAPABILITIES_SIZE + 1];
-    buf[0] = PACKET_ID_ONLINE;
-    net_pack_u64(buf + 1, TOX_CAPABILITIES_CURRENT);
-
-    if (write_cryptpacket(m->net_crypto, friend_connection_crypt_connection_id(m->fr_c,
-                          m->friendlist[friendnumber].friendcon_id), buf, TOX_CAPABILITIES_SIZE + 1, 0) == -1) {
-        return -1;
-    }
-
-    LOGGER_DEBUG(m->log, "send capabilties: %llu for friendnum: %d", (long long unsigned int)TOX_CAPABILITIES_CURRENT,
-                 (int)friendnumber);
-
     uint8_t packet = PACKET_ID_ONLINE;
     return write_cryptpacket(m->net_crypto, friend_connection_crypt_connection_id(m->fr_c, friendcon_id), &packet,
                              sizeof(packet), false) != -1;
@@ -240,19 +178,14 @@ static int m_handle_lossy_packet(void *object, int friend_num, const uint8_t *pa
 non_null()
 static int32_t init_new_friend(Messenger *m, const uint8_t *real_pk, uint8_t status)
 {
-    /* here we always increase the list (+1) */
-    lock_friendlist(m);
-
     if (m->numfriends == UINT32_MAX) {
         LOGGER_ERROR(m->log, "Friend list full: we have more than 4 billion friends");
         /* This is technically incorrect, but close enough. */
-        unlock_friendlist(m);
         return FAERR_NOMEM;
     }
 
     /* Resize the friend list if necessary. */
     if (realloc_friendlist(m, m->numfriends + 1) != 0) {
-        unlock_friendlist(m);
         return FAERR_NOMEM;
     }
 
@@ -266,6 +199,7 @@ static int32_t init_new_friend(Messenger *m, const uint8_t *real_pk, uint8_t sta
 
     for (uint32_t i = 0; i <= m->numfriends; ++i) {
         if (m->friendlist[i].status == NOFRIEND) {
+            m->friendlist[i].status = status;
             m->friendlist[i].friendcon_id = friendcon_id;
             m->friendlist[i].friendrequest_lastsent = 0;
             pk_copy(m->friendlist[i].real_pk, real_pk);
@@ -581,11 +515,9 @@ int m_delfriend(Messenger *m, int32_t friendnumber)
     m->numfriends = i;
 
     if (realloc_friendlist(m, m->numfriends) != 0) {
-        unlock_friendlist(m);
         return FAERR_NOMEM;
     }
 
-    unlock_friendlist(m);
     return 0;
 }
 
@@ -1113,13 +1045,9 @@ static void check_friend_connectionstatus(Messenger *m, int32_t friendnumber, ui
     const bool was_online = m->friendlist[friendnumber].status == FRIEND_ONLINE;
     const bool is_online = status == FRIEND_ONLINE;
 
-    /* if change from ONLINE to OFF-LINE or the reverse */
     if (is_online != was_online) {
-        /* if change from ONLINE to OFF-LINE */
         if (was_online) {
-            /* kill all FTs */
             break_files(m, friendnumber);
-            /* remove all text message receipts */
             clear_receipts(m, friendnumber);
         } else {
             m->friendlist[friendnumber].name_sent = false;
@@ -1351,12 +1279,8 @@ long int new_filesender(const Messenger *m, int32_t friendnumber, uint32_t file_
     ft->size = filesize;
 
     ft->transferred = 0;
-    ft->transferred_prev = 0;
-
-    ft->needs_resend = 0;
 
     ft->requested = 0;
-    ft->requested_prev = 0;
 
     ft->paused = FILE_PAUSE_NOT;
 
@@ -1427,9 +1351,6 @@ int file_control(const Messenger *m, int32_t friendnumber, uint32_t filenumber, 
     }
 
     file_number = temp_filenum;
-
-    LOGGER_DEBUG(m->log, "filenum %d to friend %d: num_sending_files=%d",
-                         filenumber, friendnumber, m->friendlist[friendnumber].num_sending_files);
 
     struct File_Transfers *ft;
 
@@ -1513,7 +1434,7 @@ int file_control(const Messenger *m, int32_t friendnumber, uint32_t filenumber, 
  * @retval -6 if position bad.
  * @retval -8 if packet failed to send.
  */
-int file_seek(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uint64_t position, const bool resume_ft)
+int file_seek(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uint64_t position)
 {
     if (!m_friend_exists(m, friendnumber)) {
         return -1;
@@ -1537,10 +1458,6 @@ int file_seek(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uin
     assert(temp_filenum <= UINT8_MAX);
     const uint8_t file_number = temp_filenum;
 
-    LOGGER_DEBUG(m->log, "filenum %d to friend %d: num_sending_files=%d",
-                         filenumber, friendnumber, m->friendlist[friendnumber].num_sending_files);
-
-
     // We're always receiving at this point.
     struct File_Transfers *ft = &m->friendlist[friendnumber].file_receiving[file_number];
 
@@ -1548,62 +1465,8 @@ int file_seek(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uin
         return -3;
     }
 
-    if (!resume_ft) {
-        if (ft->status != FILESTATUS_NOT_ACCEPTED) {
-            return -5;
-        }
-    }
-
-    if (position >= ft->size) {
-        return -6;
-    }
-
-    uint64_t sending_pos = position;
-    host_to_net((uint8_t *)&sending_pos, sizeof(sending_pos));
-
-    if (send_file_control_packet(m, friendnumber, 1, file_number, FILECONTROL_SEEK, (uint8_t *)&sending_pos,
-                                 sizeof(sending_pos))) {
-        ft->transferred = position;
-    } else {
-        return -8;
-    }
-
-    return 0;
-}
-
-int file_seek_for_resume(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uint64_t position,
-                         const bool resume_ft)
-{
-    if (friend_not_valid(m, friendnumber)) {
-        return -1;
-    }
-
-    if (m->friendlist[friendnumber].status != FRIEND_ONLINE) {
-        return -2;
-    }
-
-    if (filenumber >= MAX_CONCURRENT_FILE_PIPES) {
-        return -3;
-    }
-
-    assert(filenumber <= UINT8_MAX);
-    uint8_t file_number = filenumber;
-
-    LOGGER_DEBUG(m->log, "filenum %d to friend %d: num_sending_files=%d",
-                         filenumber, friendnumber, m->friendlist[friendnumber].num_sending_files);
-
-
-    // We're always receiving at this point.
-    struct File_Transfers *ft = &m->friendlist[friendnumber].file_receiving[file_number];
-
-    if (ft->status == FILESTATUS_NONE) {
-        return -3;
-    }
-
-    if (!resume_ft) {
-        if (ft->status != FILESTATUS_NOT_ACCEPTED) {
-            return -5;
-        }
+    if (ft->status != FILESTATUS_NOT_ACCEPTED) {
+        return -5;
     }
 
     if (position >= ft->size) {
@@ -1671,9 +1534,6 @@ int send_file_data(const Messenger *m, int32_t friendnumber, uint32_t filenumber
     }
 
     if (m->friendlist[friendnumber].status != FRIEND_ONLINE) {
-#ifdef FT_RECV_SEND_DEBUG
-        LOGGER_WARNING(m->log, "SEND:pos=%u [before] FRIEND OFFLINE", position);
-#endif
         return -2;
     }
 
@@ -1712,11 +1572,13 @@ int send_file_data(const Messenger *m, int32_t friendnumber, uint32_t filenumber
 
     const int64_t ret = send_file_data_packet(m, friendnumber, filenumber, data, length);
 
+    if (ret != -1) {
+        // TODO(irungentoo): record packet ids to check if other received complete file.
         ft->transferred += length;
 
         if (length != MAX_FILE_DATA_SIZE || ft->size == ft->transferred) {
             ft->status = FILESTATUS_FINISHED;
-            ft->last_packet_number = packet_number;
+            ft->last_packet_number = ret;
         }
 
         return 0;
@@ -1725,41 +1587,9 @@ int send_file_data(const Messenger *m, int32_t friendnumber, uint32_t filenumber
     return -6;
 }
 
-/* Give the number of bytes left to be sent/received.
- *
- *  send_receive is 0 if we want the sending files, 1 if we want the receiving.
- *
- *  return number of bytes remaining to be sent/received on success
- *  return 0 on failure
- */
-uint64_t file_dataremaining(const Messenger *m, int32_t friendnumber, uint8_t filenumber, uint8_t send_receive)
-{
-    if (friend_not_valid(m, friendnumber)) {
-        return 0;
-    }
-
-    const struct File_Transfers *const sending = &m->friendlist[friendnumber].file_sending[filenumber];
-
-    if (send_receive == 0) {
-        if (sending->status == FILESTATUS_NONE) {
-            return 0;
-        }
-
-        return sending->size - sending->transferred;
-    }
-
-    const struct File_Transfers *const receiving = &m->friendlist[friendnumber].file_receiving[filenumber];
-
-    if (receiving->status == FILESTATUS_NONE) {
-        return 0;
-    }
-
-    return receiving->size - receiving->transferred;
-}
-
 /**
- * Iterate over all file transfers (only file sending!! not receving) and
- * request chunks (from the client) for each of them.
+ * Iterate over all file transfers and request chunks (from the client) for each
+ * of them.
  *
  * The free_slots parameter is updated by this function.
  *
@@ -1831,8 +1661,6 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
                 m->file_reqchunk(m, friendnumber, i, position, length, userdata);
             }
 
-            // send chunck to friend -------------------
-
             // The allocated slot is no longer free.
             --*free_slots;
         }
@@ -1844,58 +1672,6 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
 non_null(1) nullable(3)
 static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdata)
 {
-
-//#ifdef FT_RECV_SEND_DEBUG
-//    LOGGER_DEBUG(m->log, "do_reqchunk_filecb:enter");
-//#endif
-
-    // check if we need to send SEEK for any incoming but resumed FTs
-    if (global_filetransfer_is_resumable) {
-
-//#ifdef FT_RECV_SEND_DEBUG
-//        LOGGER_DEBUG(m->log, "global_filetransfer_is_resumable");
-//#endif
-
-        for (uint32_t i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
-
-            if (m->friendlist[friendnumber].file_receiving[i].status != FILESTATUS_NONE) {
-
-#ifdef FT_RECV_SEND_DEBUG
-                LOGGER_DEBUG(m->log, "global_filetransfer_is_resumable:status=%d",
-                             m->friendlist[friendnumber].file_receiving[i].status);
-#endif
-
-                /* only reset avatar and msgV2 FTs, but NOT normal data FTs */
-                if (m->friendlist[friendnumber].file_receiving[i].file_type != TOX_FILE_KIND_DATA) {
-                } else {
-
-#ifdef FT_RECV_SEND_DEBUG
-                    LOGGER_DEBUG(m->log, "global_filetransfer_is_resumable:file_type=%d",
-                                 m->friendlist[friendnumber].file_receiving[i].file_type);
-#endif
-
-#ifdef FT_RECV_SEND_DEBUG
-                    LOGGER_DEBUG(m->log, "global_filetransfer_is_resumable:needs_resend=%d",
-                                 m->friendlist[friendnumber].file_receiving[i].needs_resend);
-#endif
-
-                    if (m->friendlist[friendnumber].file_receiving[i].needs_resend == 1) {
-                        // send seek to correct position
-#ifdef FT_RECV_SEND_DEBUG
-                        LOGGER_DEBUG(m->log, "file_seek_for_resume:%d", m->friendlist[friendnumber].file_receiving[i].transferred);
-#endif
-                        int res = file_seek_for_resume(m, friendnumber, i,
-                                                       m->friendlist[friendnumber].file_receiving[i].transferred, true);
-
-                        if (res == 0) {
-                            m->friendlist[friendnumber].file_receiving[i].needs_resend = 0;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     // We're not currently doing any file transfers.
     if (m->friendlist[friendnumber].num_sending_files == 0) {
         return;
@@ -1980,10 +1756,6 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, bool outbound,
     uint32_t real_filenumber;
     struct File_Transfers *ft = get_file_transfer(outbound, filenumber, &real_filenumber, &m->friendlist[friendnumber]);
 
-    LOGGER_DEBUG(m->log, "filenum %d to friend %d: num_sending_files=%d control_type=%d",
-                         filenumber, friendnumber, m->friendlist[friendnumber].num_sending_files, control_type);
-
-
     if (ft == nullptr) {
         LOGGER_DEBUG(m->log, "file control (friend %d, file %d): file transfer does not exist; telling the other to kill it",
                      friendnumber, filenumber);
@@ -2036,8 +1808,6 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, bool outbound,
 
             if (outbound && (ft->status == FILESTATUS_TRANSFERRING || ft->status == FILESTATUS_FINISHED)) {
                 --m->friendlist[friendnumber].num_sending_files;
-                LOGGER_DEBUG(m->log, "file control (friend %d, file %d): 2num_sending_files=%d FILECONTROL_KILL",
-                                friendnumber, filenumber, m->friendlist[friendnumber].num_sending_files);
             }
 
             ft->status = FILESTATUS_NONE;
@@ -2064,25 +1834,11 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, bool outbound,
 
             net_unpack_u64(data, &position);
 
-#ifdef FT_RECV_SEND_DEBUG
-            LOGGER_WARNING(m->log, "file control (friend %d, file %d): received SEEK %u",
-                           friendnumber, filenumber, position);
-#endif
-
             if (position >= ft->size) {
                 LOGGER_DEBUG(m->log,
                              "file control (friend %d, file %d): seek position %ld exceeds file size %ld",
                              friendnumber, filenumber, (unsigned long)position, (unsigned long)ft->size);
                 return -1;
-            }
-
-            if ((ft->needs_resend == 1) && (receive_send)) {
-                // after seek position is set, reset resend flag
-                ft->needs_resend = 0;
-#ifdef FT_RECV_SEND_DEBUG
-                LOGGER_WARNING(m->log, "file control (friend %d, file %d): received SEEK OK %u",
-                               friendnumber, filenumber, position);
-#endif
             }
 
             ft->requested = position;
@@ -2401,8 +2157,6 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
         }
 
         case PACKET_ID_INVITE_CONFERENCE: {
-            LOGGER_DEBUG(m->log, "RECV:PACKET_ID_INVITE_CONFERENCE:data_length=%d", data_length);
-
             if (data_length == 0) {
                 break;
             }
@@ -2414,7 +2168,6 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
             break;
         }
 
-        // handle receiving files ----
         case PACKET_ID_FILE_SENDREQUEST: {
             const unsigned int head_length = 1 + sizeof(uint32_t) + sizeof(uint64_t) + FILE_ID_LENGTH;
 
@@ -2447,16 +2200,6 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
             struct File_Transfers *ft = &m->friendlist[i].file_receiving[filenumber];
 
             if (ft->status != FILESTATUS_NONE) {
-                if (ft->status == FILESTATUS_TRANSFERRING) {
-
-                    // TODO: we are receiving a filetransfer that we don't know about
-                    //       should we send FILECONTROL_KILL back to friend, to let him know?
-                    //
-                    // well, yes
-                    uint8_t send_receive = 1; // 0 -> send, 1 -> receive
-                    send_file_control_packet(m, i, send_receive, filenumber, FILECONTROL_KILL, nullptr, 0);
-                }
-
                 break;
             }
 
@@ -2533,27 +2276,12 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
             break;
         }
 
-        // handle receiving file data ----
         case PACKET_ID_FILE_DATA: {
-
-#ifdef FT_RECV_SEND_DEBUG
-            LOGGER_WARNING(m->log, "RECV:PACKET_ID_FILE_DATA:000");
-#endif
-
             if (data_length < 1) {
                 break;
             }
 
-#ifdef FT_RECV_SEND_DEBUG
-            LOGGER_WARNING(m->log, "RECV:PACKET_ID_FILE_DATA:data_length=%d", (int)data_length);
-#endif
-
             uint8_t filenumber = data[0];
-
-#ifdef FT_RECV_SEND_DEBUG
-            LOGGER_WARNING(m->log, "RECV:PACKET_ID_FILE_DATA:filenumber=%d", (int)filenumber);
-#endif
-
 
 #if UINT8_MAX >= MAX_CONCURRENT_FILE_PIPES
 
@@ -2565,28 +2293,9 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
 
             struct File_Transfers *ft = &m->friendlist[i].file_receiving[filenumber];
 
-#ifdef FT_RECV_SEND_DEBUG
-            LOGGER_WARNING(m->log, "RECV:PACKET_ID_FILE_DATA:ft=%p", (void *)&m->friendlist[i].file_receiving[filenumber]);
-#endif
-
-#ifdef FT_RECV_SEND_DEBUG
-            LOGGER_WARNING(m->log, "RECV:PACKET_ID_FILE_DATA:ft->status=%d", ft->status);
-#endif
-
             if (ft->status != FILESTATUS_TRANSFERRING) {
-                // TODO: should we send something back to friend
-                // well, yes
-                //
-                // Zoff: deactivating this again, not sure if FT packets can arrive out of order?
-                //       and don't want to make FTs unstable again
-                // uint8_t send_receive = 1; // 0 -> send, 1 -> receive
-                // send_file_control_packet(m, i, send_receive, filenumber, FILECONTROL_KILL, nullptr, 0);
                 break;
             }
-
-#ifdef FT_RECV_SEND_DEBUG
-            LOGGER_WARNING(m->log, "RECV:ft->transferred=%u [before]", ft->transferred);
-#endif
 
             uint64_t position = ft->transferred;
             uint32_t real_filenumber = filenumber;
@@ -3363,173 +3072,6 @@ static State_Load_Status m_dht_load(Messenger *m, const uint8_t *data, uint32_t 
     return STATE_LOAD_STATUS_CONTINUE;
 }
 
-// friendft state plugin
-static bool need_save_fts_for_friend(const Messenger *m, Friend *fr)
-{
-    // check if there are any resumable FTs in progress
-    bool ret = false;
-
-    for (uint32_t ff = 0; ff < MAX_CONCURRENT_FILE_PIPES; ++ff) {
-
-        if (fr->file_sending[ff].status != FILESTATUS_NONE) {
-            /* dont count avatar and msgV2 FTs*/
-            if (fr->file_sending[ff].file_type == TOX_FILE_KIND_DATA) {
-                ret = true;
-            }
-        }
-
-        if (fr->file_receiving[ff].status != FILESTATUS_NONE) {
-            /* dont count avatar and msgV2 FTs*/
-            if (fr->file_receiving[ff].file_type == TOX_FILE_KIND_DATA) {
-                ret = true;
-            }
-        }
-    }
-
-    return ret;
-}
-
-static uint32_t saved_friendsft_size(const Messenger *m)
-{
-    uint32_t num_friends_with_active_fts = 0;
-
-    for (uint32_t i = 0; i < m->numfriends; ++i) {
-        bool res = need_save_fts_for_friend(m, &(m->friendlist[i]));
-
-        if (res) {
-            num_friends_with_active_fts++;
-        }
-    }
-
-    uint32_t save_bytes = sizeof(uint32_t) +
-                          num_friends_with_active_fts * (
-                              sizeof(uint8_t) * CRYPTO_PUBLIC_KEY_SIZE
-                              + sizeof(uint32_t)
-                              + (sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES * 2)
-                          );
-
-    LOGGER_DEBUG(m->log, "save_bytes=%d", (int)save_bytes);
-
-    return save_bytes;
-}
-
-static uint8_t *friendsft_save(const Messenger *m, uint8_t *data)
-{
-    uint32_t len;
-    uint32_t nf;
-    void *buf;
-
-    const uint32_t len1 = m_plugin_size(m, STATE_TYPE_FRIENDSFILETRANSFERS);
-    data = state_write_section_header(data, STATE_COOKIE_TYPE, len1, STATE_TYPE_FRIENDSFILETRANSFERS);
-
-
-    uint32_t num_friends_with_active_fts = 0;
-
-    for (uint32_t i = 0; i < m->numfriends; ++i) {
-        bool res = need_save_fts_for_friend(m, &(m->friendlist[i]));
-
-        if (res) {
-            num_friends_with_active_fts++;
-        }
-    }
-
-    len = sizeof(uint32_t);
-    nf = num_friends_with_active_fts;
-    memcpy(data, &nf, len);
-    data += len;
-
-    for (uint32_t i = 0; i < m->numfriends; ++i) {
-
-        bool res = need_save_fts_for_friend(m, &(m->friendlist[i]));
-
-        if (res) {
-            len = sizeof(uint8_t) * CRYPTO_PUBLIC_KEY_SIZE;
-            buf = m->friendlist[i].real_pk;
-            memcpy(data, buf, len);
-            data += len;
-
-            len = sizeof(uint32_t);
-            buf = &(m->friendlist[i].num_sending_files);
-            memcpy(data, buf, len);
-            data += len;
-
-            len = sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES;
-            buf = m->friendlist[i].file_sending;
-            memcpy(data, buf, len);
-            data += len;
-
-            len = sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES;
-            buf = m->friendlist[i].file_receiving;
-            memcpy(data, buf, len);
-            data += len;
-        }
-    }
-
-    return data;
-}
-
-static State_Load_Status friendsft_load(Messenger *m, const uint8_t *data2, uint32_t length)
-{
-    if (length > sizeof(uint32_t)) {
-
-        uint8_t *data = data2;
-        uint32_t length_should_be = sizeof(uint32_t) +
-                                    m->numfriends * (
-                                        sizeof(uint8_t) * CRYPTO_PUBLIC_KEY_SIZE
-                                        + sizeof(uint32_t)
-                                        + (sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES * 2)
-                                    );
-
-        if (length != length_should_be) {
-            // wrong length, there is a problem!
-            LOGGER_DEBUG(m->log, "friendsft_load:001");
-        } else {
-
-            LOGGER_DEBUG(m->log, "friendsft_load:002");
-
-            uint32_t saved_friendsft_num = (uint32_t) * data;
-            int32_t found_friendnum = -1;
-            uint32_t len = 0;
-            data = data + sizeof(uint32_t);
-
-            for (uint32_t i = 0; i < saved_friendsft_num; ++i) {
-
-                // find friendnum by pubkey
-                len = sizeof(uint8_t) * CRYPTO_PUBLIC_KEY_SIZE;
-                found_friendnum = getfriend_id(m, (uint8_t *)data);
-                data = data + len;
-
-                if (found_friendnum > -1) {
-
-                    // now load FTs of this friend
-                    len = sizeof(uint32_t);
-                    m->friendlist[found_friendnum].num_sending_files = (uint32_t) * data;
-                    data = data + len;
-
-                    len = sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES;
-                    memcpy(m->friendlist[found_friendnum].file_sending, data, len);
-                    data += len;
-
-                    len = sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES;
-                    memcpy(m->friendlist[found_friendnum].file_receiving, data, len);
-                    data += len;
-
-                    // reset any FTs that are not normal DATA FTs (like Avatar or MsgV2 FTs)
-                    break_files(m, found_friendnum);
-
-                } else {
-                    // skip this friends data
-                    data = data
-                           + sizeof(uint32_t)
-                           + sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES * 2;
-                }
-            }
-        }
-    }
-
-    return STATE_LOAD_STATUS_CONTINUE;
-}
-
 // friendlist state plugin
 non_null()
 static uint32_t saved_friendslist_size(const Messenger *m)
@@ -3919,7 +3461,6 @@ static void m_register_default_plugins(Messenger *m)
 #endif
     m_register_state_plugin(m, STATE_TYPE_TCP_RELAY, tcp_relay_size, load_tcp_relays, save_tcp_relays);
     m_register_state_plugin(m, STATE_TYPE_PATH_NODE, path_node_size, load_path_nodes, save_path_nodes);
-    m_register_state_plugin(m, STATE_TYPE_FRIENDSFILETRANSFERS, saved_friendsft_size, friendsft_load, friendsft_save);
 }
 
 bool messenger_load_state_section(Messenger *m, const uint8_t *data, uint32_t length, uint16_t type,

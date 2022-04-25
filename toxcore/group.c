@@ -12,7 +12,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
 #include "ccompat.h"
 #include "mono_time.h"
@@ -267,20 +266,6 @@ static void setup_conference(Group_c *g)
 {
     *g = empty_group_c;
     g->maxfrozen = MAX_FROZEN_DEFAULT;
-
-    // DEBUG: ---------------------------------
-    // DEBUG: ---------------------------------
-    // DEBUG: this is for testing rollover of group message number ONLY
-    // DEBUG: ---------------------------------
-    // DEBUG: ---------------------------------
-    //
-    // g->message_number = (uint32_t)((uint64_t)UINT32_MAX - 5);
-    //
-    // DEBUG: ---------------------------------
-    // DEBUG: ---------------------------------
-    // DEBUG: this is for testing rollover of group message number ONLY
-    // DEBUG: ---------------------------------
-    // DEBUG: ---------------------------------
 }
 
 /** @brief Create a new empty groupchat connection.
@@ -872,11 +857,6 @@ static int addpeer(Group_Chats *g_c, uint32_t groupnumber, const uint8_t *real_p
 
     if (g->peer_on_join != nullptr) {
         g->peer_on_join(g->object, groupnumber, new_index);
-        if (g->type == GROUPCHAT_TYPE_AV)
-        {
-            // Zoff
-            // lock()
-        }
     }
 
     return new_index;

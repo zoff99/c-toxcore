@@ -540,6 +540,7 @@
 
 ### Merged PRs:
 
+- [#1405](https://github.com/TokTok/c-toxcore/pull/1405) Release 0.2.11
 - [#1403](https://github.com/TokTok/c-toxcore/pull/1403) Install libsodium from apt instead of from source.
 - [#1402](https://github.com/TokTok/c-toxcore/pull/1402) Remove bazel build from Travis.
 - [#1400](https://github.com/TokTok/c-toxcore/pull/1400) Disable bazel remote cache on CI.
@@ -646,7 +647,7 @@
 - [#1242](https://github.com/TokTok/c-toxcore/pull/1242) Fix critical stack overflow arising from VLA usage
 - [#1239](https://github.com/TokTok/c-toxcore/pull/1239) Add some hopefully helpful documentation to the functions in mono_time.h
 - [#1235](https://github.com/TokTok/c-toxcore/pull/1235) Change method of PK production for FAKE friend in DHT
-- [#1234](https://github.com/TokTok/c-toxcore/pull/1234)  Increase NOFILE limit for tox-bootstrapd
+- [#1234](https://github.com/TokTok/c-toxcore/pull/1234) Increase NOFILE limit for tox-bootstrapd
 - [#1231](https://github.com/TokTok/c-toxcore/pull/1231) Use `bool` for IPv6 flag in test programs and `DHT_bootstrap`.
 - [#1230](https://github.com/TokTok/c-toxcore/pull/1230) Add `LOGGER_ASSERT` for checking fatal error conditions.
 - [#1229](https://github.com/TokTok/c-toxcore/pull/1229) Include `CTest` in CMakeLists.txt to get valgrind support.
@@ -897,7 +898,7 @@
 - [#975](https://github.com/TokTok/c-toxcore/pull/975) Factor out the actual test code from conference_test.
 - [#972](https://github.com/TokTok/c-toxcore/pull/972) Add a test that reproduces the NULL peer nick bug.
 - [#968](https://github.com/TokTok/c-toxcore/pull/968) Make tox.c unambiguously parseable.
-- [#967](https://github.com/TokTok/c-toxcore/pull/967)  lan_discovery_test and version_test cleanup
+- [#967](https://github.com/TokTok/c-toxcore/pull/967) lan_discovery_test and version_test cleanup
 - [#966](https://github.com/TokTok/c-toxcore/pull/966) Use run_auto_test.h test fixture for some auto-tests.
 - [#965](https://github.com/TokTok/c-toxcore/pull/965) Add `#include <cstdio>` for `std::printf`.
 - [#964](https://github.com/TokTok/c-toxcore/pull/964) Add some tests for our ring_buffer implementation.

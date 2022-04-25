@@ -2367,7 +2367,6 @@ static int handle_NATping(void *object, const IP_Port *source, const uint8_t *so
     if (packet[0] == NAT_PING_REQUEST) {
         /* 1 is reply */
         send_NATping(dht, source_pubkey, ping_id, NAT_PING_RESPONSE);
-        LOGGER_DEBUG(dht->log, "NAT_PING_REQUEST:fn=%d", friendnumber);
         dht_friend->nat.recv_nat_ping_timestamp = mono_time_get(dht->mono_time);
         return 0;
     }
@@ -2440,14 +2439,11 @@ static uint16_t nat_getports(uint16_t *portlist, const IP_Port *ip_portlist, uin
 non_null()
 static void punch_holes(DHT *dht, const IP *ip, const uint16_t *port_list, uint16_t numports, uint16_t friend_num)
 {
-    LOGGER_DEBUG(dht->log, "punch_holes:enter:fnum=%d numports=%d MAX_FRIEND_CLIENTS=%d", friend_num, numports, MAX_FRIEND_CLIENTS);
-
     if (!dht->hole_punching_enabled) {
         return;
     }
 
     if (numports > MAX_FRIEND_CLIENTS || numports == 0) {
-        LOGGER_DEBUG(dht->log, "punch_holes:ret001:fnum=%d numports=%d MAX_FRIEND_CLIENTS=%d", friend_num, numports, MAX_FRIEND_CLIENTS);
         return;
     }
 
@@ -2499,7 +2495,6 @@ static void punch_holes(DHT *dht, const IP *ip, const uint16_t *port_list, uint1
     }
 
     ++dht->friends_list[friend_num].nat.tries;
-    LOGGER_DEBUG(dht->log, "punch_holes:fnum=%d nat.tries=%d", friend_num, dht->friends_list[friend_num].nat.tries);
 }
 
 non_null()
@@ -2507,22 +2502,16 @@ static void do_NAT(DHT *dht)
 {
     const uint64_t temp_time = mono_time_get(dht->mono_time);
 
-    LOGGER_DEBUG(dht->log, "do_NAT:start:dht->num_friends=%d", dht->num_friends);
-
     for (uint32_t i = 0; i < dht->num_friends; ++i) {
         IP_Port ip_list[MAX_FRIEND_CLIENTS];
         const int num = friend_iplist(dht, ip_list, i);
 
         /* If already connected or friend is not online don't try to hole punch. */
         if (num < MAX_FRIEND_CLIENTS / 2) {
-            LOGGER_DEBUG(dht->log, "do_NAT:cont001:fn=%d %d %d", i, num, (MAX_FRIEND_CLIENTS / 2));
             continue;
-        } else {
-            LOGGER_DEBUG(dht->log, "do_NAT:----002:fn=%d %d %d", i, num, (MAX_FRIEND_CLIENTS / 2));
         }
 
         if (dht->friends_list[i].nat.nat_ping_timestamp + PUNCH_INTERVAL < temp_time) {
-            LOGGER_DEBUG(dht->log, "do_NAT:send_NATping:fn=%d", i);
             send_NATping(dht, dht->friends_list[i].public_key, dht->friends_list[i].nat.nat_ping_id, NAT_PING_REQUEST);
             dht->friends_list[i].nat.nat_ping_timestamp = temp_time;
         }
@@ -2530,8 +2519,6 @@ static void do_NAT(DHT *dht)
         if (dht->friends_list[i].nat.hole_punching &&
                 dht->friends_list[i].nat.punching_timestamp + PUNCH_INTERVAL < temp_time &&
                 dht->friends_list[i].nat.recv_nat_ping_timestamp + PUNCH_INTERVAL * 2 >= temp_time) {
-
-            LOGGER_DEBUG(dht->log, "do_NAT:----004:fn=%d", i);
 
             const IP ip = nat_commonip(ip_list, num, MAX_FRIEND_CLIENTS / 2);
 

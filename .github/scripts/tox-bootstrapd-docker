@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -exu
 
@@ -58,20 +58,20 @@ fi
 # Wait a bit before testing if the container is still running
 sleep 30
 
-sudo docker ps -a
+docker ps -a
 
-if [ "`sudo docker inspect -f {{.State.Running}} tox-bootstrapd`" != "true" ]; then
+if [ "$(docker inspect -f {{.State.Running}} tox-bootstrapd)" != "true" ]; then
   echo "Error: Container is not running"
   exit 1
 fi
 
-cat /proc/$(pidof tox-bootstrapd)/limits
-if ! cat /proc/$(pidof tox-bootstrapd)/limits | grep -P '^Max open files(\s+)32768(\s+)32768(\s+)files'; then
+cat /proc/"$(pidof tox-bootstrapd)"/limits
+if ! grep -P '^Max open files(\s+)32768(\s+)32768(\s+)files' /proc/"$(pidof tox-bootstrapd)"/limits; then
   echo "Error: ulimit is not set to the expected value"
   exit 1
 fi
 
-if ! python3 ../fun/bootstrap_node_info.py ipv4 localhost 33445 ; then
+if ! other/fun/bootstrap_node_info.py ipv4 localhost 33445; then
   echo "Error: Unable to get bootstrap node info"
   exit 1
 fi

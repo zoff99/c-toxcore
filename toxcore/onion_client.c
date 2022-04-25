@@ -2008,17 +2008,6 @@ static void reset_friend_run_counts(Onion_Client *onion_c)
     }
 }
 
-static void reset_friend_run_counts(Onion_Client *onion_c)
-{
-    for (uint16_t i = 0; i < onion_c->num_friends; ++i) {
-        Onion_Friend *o_friend = &onion_c->friends_list[i];
-
-        if (o_friend->status != 0) {
-            o_friend->run_count = 0;
-        }
-    }
-}
-
 #define ONION_CONNECTION_SECONDS 3
 #define ONION_CONNECTED_TIMEOUT 10
 
@@ -2037,7 +2026,6 @@ Onion_Connection_Status onion_connection_status(const Onion_Client *onion_c)
 
 void do_onion_client(Onion_Client *onion_c)
 {
-    // run onion stuff every second
     if (onion_c->last_run == mono_time_get(onion_c->mono_time)) {
         return;
     }
@@ -2045,10 +2033,6 @@ void do_onion_client(Onion_Client *onion_c)
     if (mono_time_is_timeout(onion_c->mono_time, onion_c->first_run, ONION_CONNECTION_SECONDS)) {
         populate_path_nodes(onion_c);
         do_announce(onion_c);
-    }
-
-    if (mono_time_is_timeout(onion_c->mono_time, onion_c->last_time_connected, ONION_CONNECTED_TIMEOUT)) {
-        reset_friend_run_counts(onion_c);
     }
 
     if (onion_isconnected(onion_c)) {

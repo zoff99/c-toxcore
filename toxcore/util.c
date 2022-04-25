@@ -52,25 +52,6 @@ uint16_t data_checksum(const uint8_t *data, uint32_t length)
     return check;
 }
 
-void host_to_net(uint8_t *num, uint16_t numbytes)
-{
-#ifndef WORDS_BIGENDIAN
-    uint32_t i;
-    VLA(uint8_t, buff, numbytes);
-
-    for (i = 0; i < numbytes; ++i) {
-        buff[i] = num[numbytes - i - 1];
-    }
-
-    memcpy(num, buff, numbytes);
-#endif
-}
-
-void net_to_host(uint8_t *num, uint16_t numbytes)
-{
-    host_to_net(num, numbytes);
-}
-
 int create_recursive_mutex(pthread_mutex_t *mutex)
 {
     pthread_mutexattr_t attr;

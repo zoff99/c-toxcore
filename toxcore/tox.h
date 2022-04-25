@@ -321,34 +321,6 @@ uint32_t tox_max_message_length(void);
 
 uint32_t tox_max_custom_packet_size(void);
 
-
-
-/**
- * Maximum size of MessageV2 Messagetext
- */
-#define TOX_MESSAGEV2_MAX_TEXT_LENGTH  4096
-
-uint32_t tox_messagev2_max_text_length(void);
-
-/**
- * Maximum size of MessageV2 Header
- */
-#define TOX_MESSAGEV2_MAX_HEADER_SIZE  (TOX_PUBLIC_KEY_SIZE + 4 + 2 + TOX_PUBLIC_KEY_SIZE + 4)
-
-uint32_t tox_messagev2_max_header_size(void);
-
-/**
- * Maximum size of MessageV2 Header of non sync messages
- */
-#define TOX_MESSAGEV2_MAX_NON_SYNC_HEADER_SIZE  (TOX_PUBLIC_KEY_SIZE + 4 + 2 + 1 + TOX_PUBLIC_KEY_SIZE)
-
-/**
- * Maximum size of MessageV2 Filetransfers (overall size including any overhead)
- */
-#define TOX_MAX_FILETRANSFER_SIZE_MSGV2 (TOX_MESSAGEV2_MAX_TEXT_LENGTH + TOX_MESSAGEV2_MAX_HEADER_SIZE + TOX_MESSAGEV2_MAX_NON_SYNC_HEADER_SIZE)
-
-uint32_t tox_max_filetransfer_size_msgv2(void);
-
 /**
  * Maximum size of MessageV2 Messagetext
  */
@@ -454,18 +426,13 @@ typedef enum Tox_Message_Type {
     /**
      * Normal text message. Similar to PRIVMSG on IRC.
      */
-    TOX_MESSAGE_TYPE_NORMAL = 0,
+    TOX_MESSAGE_TYPE_NORMAL,
 
     /**
      * A message describing an user action. This is similar to /me (CTCP ACTION)
      * on IRC.
      */
-    TOX_MESSAGE_TYPE_ACTION = 1,
-
-    /**
-     * A high level ACK for MSG ID (MSG V3 functionality)
-     */
-    TOX_MESSAGE_TYPE_HIGH_LEVEL_ACK = 2,
+    TOX_MESSAGE_TYPE_ACTION,
 
     /**
      * A high level ACK for MSG ID (MSG V3 functionality)
@@ -2018,7 +1985,7 @@ enum Tox_File_Kind {
      * Arbitrary file data. Clients can choose to handle it based on the file name
      * or magic or any other way they choose.
      */
-    TOX_FILE_KIND_DATA = 0,
+    TOX_FILE_KIND_DATA,
 
     /**
      * Avatar file_id. This consists of tox_hash(image).
@@ -2040,30 +2007,7 @@ enum Tox_File_Kind {
      * When file_size is set to 0 in the transfer request it means that the client
      * has no avatar.
      */
-    TOX_FILE_KIND_AVATAR = 1,
-
-    /**
-     * MessageV2 Filetransfers
-     *
-     * filetransfers of this type are always autoaccepted
-     * and the overall size is limited to TOX_MAX_FILETRANSFER_SIZE_MSGV2
-     */
-    TOX_FILE_KIND_MESSAGEV2_SEND = 2,
-
-    /**
-     * TODO: Generate doc
-     */
-    TOX_FILE_KIND_MESSAGEV2_ANSWER = 3,
-
-    /**
-     * TODO: Generate doc
-     */
-    TOX_FILE_KIND_MESSAGEV2_ALTER = 4,
-
-    /**
-     * TODO: Generate doc
-     */
-    TOX_FILE_KIND_MESSAGEV2_SYNC = 5,
+    TOX_FILE_KIND_AVATAR,
 
     /**
      * MessageV2 Filetransfers
@@ -2177,8 +2121,6 @@ typedef enum Tox_Err_File_Control {
  */
 bool tox_file_control(Tox *tox, uint32_t friend_number, uint32_t file_number, Tox_File_Control control,
                       Tox_Err_File_Control *error);
-
-
 
 /**
  * @brief When receiving TOX_FILE_CONTROL_CANCEL, the client should release the
@@ -2337,21 +2279,6 @@ typedef enum Tox_Err_File_Send {
 
 } Tox_Err_File_Send;
 
-/**
- * Give the number of active sending filetransfers for friend.
- *
- * @param friend_number The friend number.
- * @return number of active sending filetransfers.
- */
-uint32_t tox_file_sending_active(Tox *tox, uint32_t friend_number);
-
-/**
- * Give the number of active receiving filetransfers for friend.
- *
- * @param friend_number The friend number.
- * @return number of active receiving filetransfers.
- */
-uint32_t tox_file_receiving_active(Tox *tox, uint32_t friend_number);
 
 /**
  * @brief Send a file transmission request.
@@ -3321,7 +3248,7 @@ typedef enum Tox_Err_Friend_Custom_Packet {
 /**
  * @brief Send a custom lossy packet to a friend.
  *
- * The first byte of data must be in the range 200-254. Maximum length of a
+ * The first byte of data must be in the range 192-254. Maximum length of a
  * custom packet is TOX_MAX_CUSTOM_PACKET_SIZE.
  *
  * Lossy packets behave like UDP packets, meaning they might never reach the
@@ -5662,25 +5589,6 @@ void tox_callback_friend_lossy_packet_per_pktid(Tox *tox, tox_friend_lossy_packe
  */
 void tox_callback_friend_lossless_packet_per_pktid(Tox *tox, tox_friend_lossless_packet_cb *callback, uint8_t pktid);
 
-/**
- * Set the callback for the `friend_lossy_packet` event for a specific packet ID.
- * to Pass NULL to unset.
- * You need to set to NULL first, only then you are allowed to change it
- *
- */
-void tox_callback_friend_lossy_packet_per_pktid(Tox *tox, tox_friend_lossy_packet_cb *callback, uint8_t pktid);
-
-/**
- * Set the callback for the `friend_lossless_packet` event for a specific packet ID.
- * to Pass NULL to unset.
- *
- */
-void tox_callback_friend_lossless_packet_per_pktid(Tox *tox, tox_friend_lossless_packet_cb *callback, uint8_t pktid);
-
-void tox_set_av_object(Tox *tox, void *object);
-void tox_get_av_object(const Tox *tox, void **object);
-
-void global_lock(const Tox *tox);
-void global_unlock(const Tox *tox);
+//!TOKSTYLE+
 
 #endif // C_TOXCORE_TOXCORE_TOX_H

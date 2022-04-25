@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -eu
 
@@ -26,7 +26,7 @@ cmake -B_build -H. -GNinja \
 
 cd _build
 
-ninja install -j$(nproc)
+ninja install -j"$(nproc)"
 
 export TSAN_OPTIONS="color=always"
 export TSAN_OPTIONS="$TSAN_OPTIONS,halt_on_error=1"

@@ -127,6 +127,8 @@ ACCESSORS(bool,, dht_announcements_enabled)
 ACCESSORS(bool,, experimental_thread_safety)
 ACCESSORS(const Tox_System *,, operating_system)
 
+//!TOKSTYLE+
+
 const uint8_t *tox_options_get_savedata_data(const struct Tox_Options *options)
 {
     return options->savedata_data;

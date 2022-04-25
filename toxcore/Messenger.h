@@ -59,9 +59,6 @@ typedef struct Messenger_State_Plugin {
     m_state_load_cb *load;
 } Messenger_State_Plugin;
 
-/* video via lossless packets */
-#define PACKET_TOXAV_COMM_CHANNEL 172
-
 typedef struct Messenger_Options {
     bool ipv6enabled;
     bool udp_disabled;
@@ -118,7 +115,7 @@ struct Receipts {
 
 /** Status definitions. */
 typedef enum Friend_Status {
-    NOFRIEND = 0,
+    NOFRIEND,
     FRIEND_ADDED,
     FRIEND_REQUESTED,
     FRIEND_CONFIRMED,
@@ -164,16 +161,12 @@ typedef enum Userstatus {
 struct File_Transfers {
     uint64_t size;
     uint64_t transferred;
-    uint64_t transferred_prev;
-    uint8_t status; /* -> Filestatus */ /* 0 == no transfer, 1 = not accepted, 3 = transferring, 4 = broken, 5 = finished */
-    uint8_t paused; /* -> File_Pause */ /* 0: not paused, 1 = paused by us, 2 = paused by other, 3 = paused by both. */
+    uint8_t status; /* 0 == no transfer, 1 = not accepted, 3 = transferring, 4 = broken, 5 = finished */
+    uint8_t paused; /* 0: not paused, 1 = paused by us, 2 = paused by other, 3 = paused by both. */
     uint32_t last_packet_number; /* number of the last packet sent. */
     uint64_t requested; /* total data requested by the request chunk callback */
     uint8_t id[FILE_ID_LENGTH];
-    uint32_t file_type; /* TOX_FILE_KIND of this FT */
-    uint8_t needs_resend; /* resend last chunk (after restart of tox or going offline), ONLY valid for sending FTs */
 };
-
 typedef enum Filestatus {
     FILESTATUS_NONE,
     FILESTATUS_NOT_ACCEPTED,
@@ -233,10 +226,6 @@ typedef void m_conference_invite_cb(Messenger *m, uint32_t friend_number, const 
 typedef void m_group_invite_cb(const Messenger *m, uint32_t friendnumber, const uint8_t *data, size_t length,
                                const uint8_t *group_name, size_t group_name_length, void *userdata);
 typedef int m_lossy_rtp_packet_cb(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint16_t len, void *object);
-
-int file_seek_for_resume(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uint64_t position,
-                         const bool resume_ft);
-
 
 typedef struct RTP_Packet_Handler {
     m_lossy_rtp_packet_cb *function;
@@ -306,7 +295,6 @@ struct Messenger {
     Userstatus userstatus;
 
     Friend *friendlist;
-    pthread_mutex_t *friendlist_mutex;
     uint32_t numfriends;
 
     uint64_t lastdump;

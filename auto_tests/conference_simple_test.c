@@ -1,7 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <sodium.h>
 
 #include "../testing/misc_tools.h"
 #include "../toxcore/tox.h"
@@ -33,15 +31,10 @@ static void handle_self_connection_status(Tox *tox, Tox_Connection connection_st
 static void handle_friend_connection_status(Tox *tox, uint32_t friend_number, Tox_Connection connection_status,
         void *user_data)
 {
-    if (friend_number < 3) {
-        State *state = (State *)user_data;
+    State *state = (State *)user_data;
 
-        fprintf(stderr, "handle_friend_connection_status(#%u, %u, %d, _)\n", state->id, friend_number, connection_status);
-        state->friend_online = (connection_status != TOX_CONNECTION_NONE);
-        fprintf(stderr, "handle_friend_connection_status(friend online status=%d)\n", (int)state->friend_online);
-    } else {
-        fprintf(stderr, "handle_friend_connection_status(    %u, %d, _)\n", friend_number, connection_status);
-    }
+    fprintf(stderr, "handle_friend_connection_status(#%u, %u, %d, _)\n", state->id, friend_number, connection_status);
+    state->friend_online = connection_status != TOX_CONNECTION_NONE;
 }
 
 static void handle_conference_invite(Tox *tox, uint32_t friend_number, Tox_Conference_Type type, const uint8_t *cookie,
@@ -116,9 +109,6 @@ int main(void)
     State state2 = {2};
     State state3 = {3};
 
-    uint32_t res;
-    int iteration_sleep_ms = 2;
-
     // Create toxes.
     Tox *tox1 = tox_new_log(nullptr, nullptr, &state1.id);
     Tox *tox2 = tox_new_log(nullptr, nullptr, &state2.id);
@@ -126,68 +116,14 @@ int main(void)
 
     // tox1 <-> tox2, tox2 <-> tox3
     uint8_t key[TOX_PUBLIC_KEY_SIZE];
-    Tox_Err_Friend_Add error_add;
-
-
     tox_self_get_public_key(tox2, key);
-    res = tox_friend_add_norequest(tox1, key, nullptr);  // tox1 -> tox2
-    ck_assert_msg(res != UINT32_MAX, "failed to invite friend tox2");
+    tox_friend_add_norequest(tox1, key, nullptr);  // tox1 -> tox2
     tox_self_get_public_key(tox1, key);
     tox_friend_add_norequest(tox2, key, nullptr);  // tox2 -> tox1
     tox_self_get_public_key(tox3, key);
     tox_friend_add_norequest(tox2, key, nullptr);  // tox2 -> tox3
     tox_self_get_public_key(tox2, key);
     tox_friend_add_norequest(tox3, key, nullptr);  // tox3 -> tox2
-
-
-
-
-
-    for (int j = 1; j < 10; j++) {
-        randombytes_buf(key, TOX_PUBLIC_KEY_SIZE);
-        res = tox_friend_add_norequest(tox1, key, &error_add);  // tox1 -> random dummy
-
-        if (error_add != 6) {
-            // printf("add friend number: %d\n", j);
-            ck_assert_msg(res != UINT32_MAX, "failed to invite a random friend number: %d res=%d errnum=%d", j, res, error_add);
-            tox_iterate(tox1, &state1);
-        } else {
-            j--;
-        }
-    }
-
-
-    for (int j = 1; j < 10; j++) {
-        randombytes_buf(key, TOX_PUBLIC_KEY_SIZE);
-        res = tox_friend_add_norequest(tox2, key, &error_add);  // tox2 -> random dummy
-
-        if (error_add != 6) {
-            // printf("add friend number: %d\n", j);
-            ck_assert_msg(res != UINT32_MAX, "failed to invite a random friend number: %d res=%d errnum=%d", j, res, error_add);
-            tox_iterate(tox2, &state2);
-        } else {
-            j--;
-        }
-    }
-
-
-    for (int j = 1; j < 10; j++) {
-        randombytes_buf(key, TOX_PUBLIC_KEY_SIZE);
-        res = tox_friend_add_norequest(tox3, key, &error_add);  // tox3 -> random dummy
-
-        if (error_add != 6) {
-            // printf("add friend number: %d\n", j);
-            ck_assert_msg(res != UINT32_MAX, "failed to invite a random friend number: %d res=%d errnum=%d", j, res, error_add);
-            tox_iterate(tox3, &state3);
-        } else {
-            j--;
-        }
-    }
-
-
-
-
-
 
     printf("bootstrapping tox2 and tox3 off tox1\n");
     uint8_t dht_key[TOX_PUBLIC_KEY_SIZE];
@@ -231,7 +167,7 @@ int main(void)
         tox_iterate(tox2, &state2);
         tox_iterate(tox3, &state3);
 
-        c_sleep(iteration_sleep_ms);
+        c_sleep(100);
     } while (!state1.self_online || !state2.self_online || !state3.self_online);
 
     fprintf(stderr, "Toxes are online\n");
@@ -244,10 +180,7 @@ int main(void)
         tox_iterate(tox2, &state2);
         tox_iterate(tox3, &state3);
 
-        c_sleep(iteration_sleep_ms);
-
-        // fprintf(stderr, "%d %d %d\n", state1.friend_online, state2.friend_online, state3.friend_online);
-
+        c_sleep(100);
     } while (!state1.friend_online || !state2.friend_online || !state3.friend_online);
 
     fprintf(stderr, "Friends are connected\n");
@@ -277,7 +210,7 @@ int main(void)
         tox_iterate(tox2, &state2);
         tox_iterate(tox3, &state3);
 
-        c_sleep(iteration_sleep_ms);
+        c_sleep(100);
     } while (!state1.joined || !state2.joined || !state3.joined);
 
     fprintf(stderr, "Invitations accepted\n");
@@ -289,48 +222,32 @@ int main(void)
         tox_iterate(tox2, &state2);
         tox_iterate(tox3, &state3);
 
-        c_sleep(iteration_sleep_ms);
+        c_sleep(100);
     } while (state1.peers == 0 || state2.peers == 0 || state3.peers == 0);
 
     fprintf(stderr, "All peers are online\n");
 
-
-    uint32_t ii = 0;
-    char msg[100];
-    const int max_messages_to_send = 10;
-
-    for (ii = 0;ii<max_messages_to_send;ii++)
     {
-        {
-            sprintf(msg, "ping:%d", ii);
-            fprintf(stderr, "tox1 sends a message to the group: %s\n", msg);
-            Tox_Err_Conference_Send_Message err;
-            tox_conference_send_message(tox1, state1.conference, TOX_MESSAGE_TYPE_NORMAL,
-                                        (const uint8_t *)(msg), strlen(msg), &err);
+        fprintf(stderr, "tox1 sends a message to the group: \"hello!\"\n");
+        Tox_Err_Conference_Send_Message err;
+        tox_conference_send_message(tox1, state1.conference, TOX_MESSAGE_TYPE_NORMAL,
+                                    (const uint8_t *)"hello!", 7, &err);
 
-            if (err != TOX_ERR_CONFERENCE_SEND_MESSAGE_OK) {
-                fprintf(stderr, "ERROR: %d\n", err);
-                exit(EXIT_FAILURE);
-            }
+        if (err != TOX_ERR_CONFERENCE_SEND_MESSAGE_OK) {
+            fprintf(stderr, "ERROR: %d\n", err);
+            exit(EXIT_FAILURE);
         }
-
-        fprintf(stderr, "Waiting for messages to arrive\n");
-
-        do {
-            tox_iterate(tox1, &state1);
-            tox_iterate(tox2, &state2);
-            tox_iterate(tox3, &state3);
-
-            c_sleep(iteration_sleep_ms);
-        } while (!state2.received || !state3.received);
-
-
-        state1.received = false;
-        state2.received = false;
-        state3.received = false;
-        fprintf(stderr, "Messages received. #%d\n", ii);
-
     }
+
+    fprintf(stderr, "Waiting for messages to arrive\n");
+
+    do {
+        tox_iterate(tox1, &state1);
+        tox_iterate(tox2, &state2);
+        tox_iterate(tox3, &state3);
+
+        c_sleep(100);
+    } while (!state2.received || !state3.received);
 
     fprintf(stderr, "Messages received. Test complete.\n");
 

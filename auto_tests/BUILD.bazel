@@ -69,8 +69,4 @@ flaky_tests = {
         "@libsodium",
         "@libvpx",
     ],
-) for src in glob(
-    ["*_test.c"],
-    # TODO(iphydf): Fix this test and re-enable it.
-    exclude = ["tcp_relay_test.c"],
-)]
+) for src in glob(["*_test.c"])]

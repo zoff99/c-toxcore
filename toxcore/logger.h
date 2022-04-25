@@ -19,31 +19,8 @@
 extern "C" {
 #endif
 
-/*
- * hook mutex function so we can nicely log them (to the NULL logger!)
- */
-/* #define LOG_ALL_MUTEX_LOCK_UNLOCK_CALLS 1 */
-
-#ifdef LOG_ALL_MUTEX_LOCK_UNLOCK_CALLS
-#ifndef USE_STDERR_LOGGER
-#define USE_STDERR_LOGGER 1
-#endif
-#define pthread_mutex_lock(MTX) my_pthread_mutex_lock(MTX, #MTX, __FILE__, __LINE__, __func__)
-#define pthread_mutex_unlock(MTX) my_pthread_mutex_unlock(MTX, #MTX, __FILE__, __LINE__, __func__)
-#endif
-
-int my_pthread_mutex_lock(pthread_mutex_t *mutex, const char *mutex_name, const char *file, int line, const char *func);
-int my_pthread_mutex_unlock(pthread_mutex_t *mutex, const char *mutex_name, const char *file, int line,
-                            const char *func);
-
-
-
 #ifndef MIN_LOGGER_LEVEL
 #define MIN_LOGGER_LEVEL LOGGER_LEVEL_INFO
-#endif
-
-#ifndef LOGGER_MAX_MSG_LENGTH
-#define LOGGER_MAX_MSG_LENGTH (2048) // ORIG 1024
 #endif
 
 // NOTE: Don't forget to update build system files after modifying the enum.
@@ -155,16 +132,5 @@ void tox_logmsg(const Tox *tox, Logger_Level level, const char *file, int line, 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
-
-
-// Zoff: !!NEVER EVER EVER use this ever. you have been warned!!
-/*
-#define LOGGER_DO_STACKTRACE_DEBUG_STUFF 1 // Zoff: !!NEVER EVER EVER use this ever. you have been warned!!
-
-#ifdef LOGGER_DO_STACKTRACE_DEBUG_STUFF
-void print_stacktrace(void);
-#endif
-*/
-// Zoff: !!NEVER EVER EVER use this ever. you have been warned!!
 
 #endif // C_TOXCORE_TOXCORE_LOGGER_H
