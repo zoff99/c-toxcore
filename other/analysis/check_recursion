@@ -19,14 +19,15 @@ import re
 import sys
 import time
 
-def load_callgraph():
+
+def load_callgraph() -> Dict[str, List[str]]:
     """
     Parses the output from opt -print-callgraph from stdin or argv.
 
     Returns graph as dict[str, list[str]] containing nodes with their outgoing
     edges.
     """
-    graph = collections.defaultdict(set)
+    graph: Dict[str, Set[str]] = collections.defaultdict(set)
     cur = None
     for line in fileinput.input():
         found = re.search("Call graph node for function: '(.*)'", line)
@@ -39,7 +40,14 @@ def load_callgraph():
 
     return {k: sorted(v) for k, v in graph.items()}
 
-def walk(visited, callgraph, cycles, stack, cur):
+
+def walk(
+        visited: Set[str],
+        callgraph: Dict[str, List[str]],
+        cycles: Set[str],
+        stack: List[str],
+        cur: str,
+) -> None:
     """
     Detects cycles in the callgraph and adds them to the cycles parameter.
     """
@@ -60,7 +68,8 @@ def get_time():
     """
     return int(round(time.time() * 1000))
 
-def find_recursion(expected):
+
+def find_recursion(expected: Set[str]) -> None:
     """
     Main function: detects cycles and prints them.
 
@@ -75,8 +84,8 @@ def find_recursion(expected):
     print("[+%04d=%04d] Finding recursion" % (now - prev, now - start))
     prev = now
 
-    cycles = set()
-    visited = set()
+    cycles: Set[str] = set()
+    visited: Set[str] = set()
     for func in sorted(callgraph.keys()):
         walk(visited, callgraph, cycles, [], func)
 

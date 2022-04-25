@@ -1,13 +1,10 @@
 // Test that if UDP is enabled, and a proxy is provided that does not support
 // UDP proxying, we disable UDP.
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 
 #include "../testing/misc_tools.h"
+#include "auto_test_support.h"
 #include "check_compat.h"
 
 static uint8_t const key[] = {

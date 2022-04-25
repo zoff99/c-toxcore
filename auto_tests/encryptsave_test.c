@@ -1,23 +1,17 @@
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 
-#ifdef VANILLA_NACL
-#include "../toxencryptsave/crypto_pwhash_scryptsalsa208sha256/crypto_pwhash_scryptsalsa208sha256.h"
-#else
+#ifndef VANILLA_NACL
 #include <sodium.h>
-#endif
 
 #include "../testing/misc_tools.h"
 #include "../toxcore/ccompat.h"
 #include "../toxcore/crypto_core.h"
 #include "../toxcore/tox.h"
 #include "../toxencryptsave/toxencryptsave.h"
+#include "auto_test_support.h"
 #include "check_compat.h"
 
 static unsigned char test_salt[TOX_PASS_SALT_LENGTH] = {0xB1, 0xC2, 0x09, 0xEE, 0x50, 0x6C, 0xF0, 0x20, 0xC4, 0xD6, 0xEB, 0xC0, 0x44, 0x51, 0x3B, 0x60, 0x4B, 0x39, 0x4A, 0xCF, 0x09, 0x53, 0x4F, 0xEA, 0x08, 0x41, 0xFA, 0xCA, 0x66, 0xD2, 0x68, 0x7F};
@@ -66,10 +60,12 @@ static void test_save_friend(void)
     ck_assert_msg(test != UINT32_MAX, "Failed to add friend");
 
     size_t size = tox_get_savedata_size(tox1);
-    VLA(uint8_t, data, size);
+    uint8_t *data = (uint8_t *)malloc(size);
+    ck_assert(data != nullptr);
     tox_get_savedata(tox1, data);
     size_t size2 = size + TOX_PASS_ENCRYPTION_EXTRA_LENGTH;
-    VLA(uint8_t, enc_data, size2);
+    uint8_t *enc_data = (uint8_t *)malloc(size2);
+    ck_assert(enc_data != nullptr);
     Tox_Err_Encryption error1;
     bool ret = tox_pass_encrypt(data, size, (const uint8_t *)"correcthorsebatterystaple", 25, enc_data, &error1);
     ck_assert_msg(ret, "failed to encrypted save: %d", error1);
@@ -85,7 +81,8 @@ static void test_save_friend(void)
     ck_assert_msg(err2 == TOX_ERR_NEW_LOAD_ENCRYPTED, "wrong error! %d. should fail with %d", err2,
                   TOX_ERR_NEW_LOAD_ENCRYPTED);
     ck_assert_msg(tox3 == nullptr, "tox_new with error should return NULL");
-    VLA(uint8_t, dec_data, size);
+    uint8_t *dec_data = (uint8_t *)malloc(size);
+    ck_assert(dec_data != nullptr);
     Tox_Err_Decryption err3;
     ret = tox_pass_decrypt(enc_data, size2, (const uint8_t *)"correcthorsebatterystaple", 25, dec_data, &err3);
     ck_assert_msg(ret, "failed to decrypt save: %d", err3);
@@ -98,7 +95,8 @@ static void test_save_friend(void)
     ck_assert_msg(memcmp(address, address2, TOX_PUBLIC_KEY_SIZE) == 0, "addresses don't match!");
 
     size = tox_get_savedata_size(tox3);
-    VLA(uint8_t, data2, size);
+    uint8_t *data2 = (uint8_t *)malloc(size);
+    ck_assert(data2 != nullptr);
     tox_get_savedata(tox3, data2);
     Tox_Err_Key_Derivation keyerr;
     Tox_Pass_Key *key = tox_pass_key_derive((const uint8_t *)"123qweasdzxc", 12, &keyerr);
@@ -106,13 +104,16 @@ static void test_save_friend(void)
     memcpy((uint8_t *)key, test_salt, TOX_PASS_SALT_LENGTH);
     memcpy((uint8_t *)key + TOX_PASS_SALT_LENGTH, known_key2, TOX_PASS_KEY_LENGTH);
     size2 = size + TOX_PASS_ENCRYPTION_EXTRA_LENGTH;
-    VLA(uint8_t, encdata2, size2);
+    uint8_t *encdata2 = (uint8_t *)malloc(size2);
+    ck_assert(encdata2 != nullptr);
     ret = tox_pass_key_encrypt(key, data2, size, encdata2, &error1);
     ck_assert_msg(ret, "failed to key encrypt %d", error1);
     ck_assert_msg(tox_is_data_encrypted(encdata2), "magic number the second missing");
 
-    VLA(uint8_t, out1, size);
-    VLA(uint8_t, out2, size);
+    uint8_t *out1 = (uint8_t *)malloc(size);
+    ck_assert(out1 != nullptr);
+    uint8_t *out2 = (uint8_t *)malloc(size);
+    ck_assert(out2 != nullptr);
     ret = tox_pass_decrypt(encdata2, size2, (const uint8_t *)pw, pwlen, out1, &err3);
     ck_assert_msg(ret, "failed to pw decrypt %d", err3);
     ret = tox_pass_key_decrypt(key, encdata2, size2, out2, &err3);
@@ -136,6 +137,14 @@ static void test_save_friend(void)
     tox_kill(tox2);
     tox_kill(tox3);
     tox_kill(tox4);
+
+    free(out2);
+    free(out1);
+    free(encdata2);
+    free(data2);
+    free(dec_data);
+    free(enc_data);
+    free(data);
 }
 
 static void test_keys(void)
@@ -157,12 +166,18 @@ static void test_keys(void)
     int ciphertext_length2a = size_large + TOX_PASS_ENCRYPTION_EXTRA_LENGTH;
     int plaintext_length2a = size_large;
     uint8_t *encrypted2a = (uint8_t *)malloc(ciphertext_length2a);
+    ck_assert(encrypted2a != nullptr);
     uint8_t *in_plaintext2a = (uint8_t *)malloc(plaintext_length2a);
+    ck_assert(in_plaintext2a != nullptr);
+    const Random *rng = system_random();
+    ck_assert(rng != nullptr);
+    random_bytes(rng, in_plaintext2a, plaintext_length2a);
     ret = tox_pass_encrypt(in_plaintext2a, plaintext_length2a, key_char, 12, encrypted2a, &encerr);
     ck_assert_msg(ret, "tox_pass_encrypt failure 2a: %d", encerr);
 
     // Decryption of same message.
-    uint8_t *out_plaintext2a = (uint8_t *) malloc(plaintext_length2a);
+    uint8_t *out_plaintext2a = (uint8_t *)malloc(plaintext_length2a);
+    ck_assert(out_plaintext2a != nullptr);
     ret = tox_pass_decrypt(encrypted2a, ciphertext_length2a, key_char, 12, out_plaintext2a, &decerr);
     ck_assert_msg(ret, "tox_pass_decrypt failure 2a: %d", decerr);
     ck_assert_msg(memcmp(in_plaintext2a, out_plaintext2a, plaintext_length2a) == 0, "Large message decryption failed");
@@ -217,3 +232,9 @@ int main(void)
 
     return 0;
 }
+#else  // VANILLA_NACL
+int main(void)
+{
+    return 0;
+}
+#endif

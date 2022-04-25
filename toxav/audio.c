@@ -12,6 +12,7 @@
 #include "ts_buffer.h"
 #include "rtp.h"
 
+#include "../toxcore/ccompat.h"
 #include "../toxcore/logger.h"
 #include "../toxcore/mono_time.h"
 
@@ -466,6 +467,10 @@ int ac_queue_message(Mono_Time *mono_time, void *acp, struct RTPMessage *msg)
         return -1;
     }
 
+    if (!ac->queue_mutex)
+    {
+        return 0;
+    }
     pthread_mutex_lock(ac->queue_mutex);
 
     const struct RTPHeader *header_v3 = (void *) & (msg->header);

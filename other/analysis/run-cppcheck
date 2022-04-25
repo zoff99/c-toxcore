@@ -1,5 +1,42 @@
 #!/bin/bash
 
+SKIP_GTEST=1
+
 . other/analysis/gen-file.sh
 
-cppcheck amalgamation.cc "${CPPFLAGS[@]}"
+set -e
+
+CPPCHECK=("--enable=all")
+CPPCHECK+=("--inconclusive")
+CPPCHECK+=("--error-exitcode=1")
+# Used for VLA.
+CPPCHECK+=("--suppress=allocaCalled")
+# False positives on sanctions_copy in group_moderation.c
+CPPCHECK+=("--suppress=doubleFree")
+# False positives in switch statements.
+CPPCHECK+=("--suppress=knownConditionTrueFalse")
+# Cppcheck does not need standard library headers to get proper results.
+CPPCHECK+=("--suppress=missingIncludeSystem")
+# TODO(iphydf): Maybe fix?
+CPPCHECK+=("--suppress=signConversion")
+# TODO(iphydf): Fixed in the toxav refactor PR.
+CPPCHECK+=("--suppress=redundantAssignment")
+CPPCHECK+=("--suppress=doubleFree")
+# We're a library. This only works on whole programs.
+CPPCHECK_C=("--suppress=unusedFunction")
+
+# We actually write C code.
+CPPCHECK_CXX=("--suppress=cstyleCast")
+# False positive in cmp.c.
+CPPCHECK_CXX+=("--suppress=objectIndex")
+# False positive in auto_tests.
+CPPCHECK_CXX+=("--suppress=shadowArgument")
+CPPCHECK_CXX+=("--suppress=shadowFunction")
+
+run() {
+  echo "Running cppcheck in variant '$*'"
+  cppcheck "${CPPCHECK[@]}" "${CPPCHECK_C[@]}" tox*/*.[ch] tox*/*/*.[ch] "${CPPFLAGS[@]}" "$@"
+  cppcheck "${CPPCHECK[@]}" "${CPPCHECK_CXX[@]}" amalgamation.cc "${CPPFLAGS[@]}" "$@"
+}
+
+. other/analysis/variants.sh

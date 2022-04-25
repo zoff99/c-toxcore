@@ -16,17 +16,11 @@ find_library(SOCKET_LIBRARIES       socket       )
 pkg_use_module(LIBSODIUM            libsodium    )
 
 # For toxav.
-pkg_use_module(OPUS                 opus         )
-pkg_use_module(VPX                  vpx          )
-pkg_use_module(X264                 x264         )
-pkg_use_module(LIBAVCODEC           libavcodec   )
-pkg_use_module(LIBAVUTIL            libavutil    )
+pkg_use_module(OPUS                 "opus;Opus"  )
+pkg_use_module(VPX                  "vpx;libvpx" )
 
 # For tox-bootstrapd.
 pkg_use_module(LIBCONFIG            libconfig    )
-
-# For tox-spectest.
-pkg_use_module(MSGPACK              msgpack      )
 
 ###############################################################################
 #

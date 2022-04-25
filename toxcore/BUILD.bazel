@@ -1,27 +1,96 @@
 load("@rules_cc//cc:defs.bzl", "cc_test")
+load("@rules_fuzzing//fuzzing:cc_defs.bzl", "cc_fuzz_test")
 load("//tools:no_undefined.bzl", "cc_library")
 
-filegroup(
-    name = "public_headers",
+package(features = ["layering_check"])
+
+exports_files(
     srcs = ["tox.h"],
     visibility = ["//c-toxcore:__subpackages__"],
 )
 
 cc_library(
-    name = "ccompat",
-    hdrs = ["ccompat.h"],
+    name = "attributes",
+    hdrs = ["attributes.h"],
     visibility = ["//c-toxcore:__subpackages__"],
 )
 
 cc_library(
+    name = "ccompat",
+    srcs = ["ccompat.c"],
+    hdrs = ["ccompat.h"],
+    visibility = ["//c-toxcore:__subpackages__"],
+    deps = [":attributes"],
+)
+
+cc_library(
+    name = "util",
+    srcs = ["util.c"],
+    hdrs = ["util.h"],
+    visibility = [
+        "//c-toxcore/auto_tests:__pkg__",
+        "//c-toxcore/other:__pkg__",
+        "//c-toxcore/other/bootstrap_daemon:__pkg__",
+        "//c-toxcore/testing/fuzzing:__pkg__",
+        "//c-toxcore/toxav:__pkg__",
+    ],
+    deps = [
+        ":attributes",
+        ":ccompat",
+        "@pthread",
+    ],
+)
+
+cc_test(
+    name = "util_test",
+    size = "small",
+    srcs = ["util_test.cc"],
+    deps = [
+        ":crypto_core",
+        ":util",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "bin_pack",
+    srcs = ["bin_pack.c"],
+    hdrs = ["bin_pack.h"],
+    visibility = ["//c-toxcore:__subpackages__"],
+    deps = [
+        ":ccompat",
+        "//c-toxcore/third_party:cmp",
+    ],
+)
+
+cc_library(
+    name = "bin_unpack",
+    srcs = ["bin_unpack.c"],
+    hdrs = ["bin_unpack.h"],
+    visibility = ["//c-toxcore:__subpackages__"],
+    deps = [
+        ":ccompat",
+        "//c-toxcore/third_party:cmp",
+    ],
+)
+
+cc_test(
+    name = "bin_pack_test",
+    size = "small",
+    srcs = ["bin_pack_test.cc"],
+    deps = [
+        ":bin_pack",
+        ":bin_unpack",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
     name = "crypto_core",
-    srcs = [
-        "crypto_core.c",
-        "crypto_core_mem.c",
-    ],
-    hdrs = [
-        "crypto_core.h",
-    ],
+    srcs = ["crypto_core.c"],
+    hdrs = ["crypto_core.h"],
     visibility = ["//c-toxcore:__subpackages__"],
     deps = [
         ":ccompat",
@@ -35,6 +104,8 @@ cc_test(
     srcs = ["crypto_core_test.cc"],
     deps = [
         ":crypto_core",
+        ":util",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -46,10 +117,27 @@ cc_library(
     deps = [":ccompat"],
 )
 
+cc_test(
+    name = "list_test",
+    size = "small",
+    srcs = ["list_test.cc"],
+    deps = [
+        ":list",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 cc_library(
     name = "logger",
     srcs = ["logger.c"],
     hdrs = ["logger.h"],
+    visibility = [
+        "//c-toxcore/auto_tests:__pkg__",
+        "//c-toxcore/other:__pkg__",
+        "//c-toxcore/other/bootstrap_daemon:__pkg__",
+        "//c-toxcore/toxav:__pkg__",
+    ],
     deps = [":ccompat"],
 )
 
@@ -57,13 +145,23 @@ cc_library(
     name = "state",
     srcs = ["state.c"],
     hdrs = ["state.h"],
-    deps = [":logger"],
+    deps = [
+        ":ccompat",
+        ":logger",
+    ],
 )
 
 cc_library(
     name = "mono_time",
     srcs = ["mono_time.c"],
     hdrs = ["mono_time.h"],
+    visibility = [
+        "//c-toxcore/auto_tests:__pkg__",
+        "//c-toxcore/other:__pkg__",
+        "//c-toxcore/other/bootstrap_daemon:__pkg__",
+        "//c-toxcore/testing:__pkg__",
+        "//c-toxcore/toxav:__pkg__",
+    ],
     deps = [
         ":ccompat",
         "@pthread",
@@ -76,22 +174,20 @@ cc_test(
     srcs = ["mono_time_test.cc"],
     deps = [
         ":mono_time",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
 
 cc_library(
     name = "network",
-    srcs = [
-        "network.c",
-        "util.c",
-    ],
-    hdrs = [
-        "network.h",
-        "util.h",
-    ],
+    srcs = ["network.c"],
+    hdrs = ["network.h"],
     visibility = [
+        "//c-toxcore/auto_tests:__pkg__",
         "//c-toxcore/other:__pkg__",
+        "//c-toxcore/other/bootstrap_daemon:__pkg__",
+        "//c-toxcore/testing/fuzzing:__pkg__",
         "//c-toxcore/toxav:__pkg__",
     ],
     deps = [
@@ -99,18 +195,32 @@ cc_library(
         ":crypto_core",
         ":logger",
         ":mono_time",
+        ":util",
+        "@libsodium",
         "@psocket",
         "@pthread",
     ],
 )
 
 cc_test(
-    name = "util_test",
+    name = "network_test",
     size = "small",
-    srcs = ["util_test.cc"],
+    srcs = ["network_test.cc"],
     deps = [
         ":network",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "timed_auth",
+    srcs = ["timed_auth.c"],
+    hdrs = ["timed_auth.h"],
+    deps = [
+        ":ccompat",
+        ":crypto_core",
+        ":mono_time",
     ],
 )
 
@@ -118,7 +228,12 @@ cc_library(
     name = "ping_array",
     srcs = ["ping_array.c"],
     hdrs = ["ping_array.h"],
-    deps = [":network"],
+    deps = [
+        ":ccompat",
+        ":crypto_core",
+        ":mono_time",
+        ":util",
+    ],
 )
 
 cc_test(
@@ -126,8 +241,27 @@ cc_test(
     size = "small",
     srcs = ["ping_array_test.cc"],
     deps = [
+        ":mono_time",
         ":ping_array",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "LAN_discovery",
+    srcs = ["LAN_discovery.c"],
+    hdrs = ["LAN_discovery.h"],
+    visibility = [
+        "//c-toxcore/other:__pkg__",
+        "//c-toxcore/other/bootstrap_daemon:__pkg__",
+        "//c-toxcore/testing:__pkg__",
+    ],
+    deps = [
+        ":ccompat",
+        ":crypto_core",
+        ":network",
+        ":util",
     ],
 )
 
@@ -135,41 +269,49 @@ cc_library(
     name = "DHT",
     srcs = [
         "DHT.c",
-        "LAN_discovery.c",
         "ping.c",
     ],
     hdrs = [
         "DHT.h",
-        "LAN_discovery.h",
-        "ping.h",
-    ],
-    visibility = ["//c-toxcore/other/bootstrap_daemon:__pkg__"],
-    deps = [
-        ":crypto_core",
-        ":logger",
-        ":ping_array",
-        ":state",
-    ],
-)
-
-cc_library(
-    name = "DHT_srcs",
-    hdrs = [
-        "DHT.c",
-        "DHT.h",
-        "LAN_discovery.c",
-        "LAN_discovery.h",
-        "ping.c",
         "ping.h",
     ],
     visibility = [
-        "//c-toxcore/auto_tests:__pkg__",
+        "//c-toxcore/other:__pkg__",
         "//c-toxcore/other/bootstrap_daemon:__pkg__",
+        "//c-toxcore/testing:__pkg__",
     ],
     deps = [
+        ":LAN_discovery",
+        ":ccompat",
+        ":crypto_core",
         ":logger",
+        ":mono_time",
+        ":network",
         ":ping_array",
         ":state",
+        ":util",
+    ],
+)
+
+cc_test(
+    name = "DHT_test",
+    size = "small",
+    srcs = ["DHT_test.cc"],
+    deps = [
+        ":DHT",
+        ":crypto_core",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_fuzz_test(
+    name = "DHT_fuzz_test",
+    srcs = ["DHT_fuzz_test.cc"],
+    corpus = ["//tools/toktok-fuzzer/corpus:DHT_fuzz_test"],
+    deps = [
+        ":DHT",
+        "//c-toxcore/testing/fuzzing:fuzz_support",
     ],
 )
 
@@ -177,29 +319,133 @@ cc_library(
     name = "onion",
     srcs = ["onion.c"],
     hdrs = ["onion.h"],
-    deps = [":DHT"],
+    visibility = ["//c-toxcore/auto_tests:__pkg__"],
+    deps = [
+        ":DHT",
+        ":ccompat",
+        ":crypto_core",
+        ":mono_time",
+        ":util",
+    ],
 )
 
 cc_library(
-    name = "TCP_connection",
-    srcs = [
-        "TCP_client.c",
-        "TCP_connection.c",
-        "TCP_server.c",
+    name = "forwarding",
+    srcs = ["forwarding.c"],
+    hdrs = ["forwarding.h"],
+    visibility = ["//c-toxcore/auto_tests:__pkg__"],
+    deps = [
+        ":DHT",
+        ":ccompat",
+        ":network",
+        ":timed_auth",
     ],
-    hdrs = [
-        "TCP_client.h",
-        "TCP_connection.h",
-        "TCP_server.h",
+)
+
+cc_fuzz_test(
+    name = "forwarding_fuzz_test",
+    srcs = ["forwarding_fuzz_test.cc"],
+    #corpus = ["//tools/toktok-fuzzer/corpus:forwarding_fuzz_test"],
+    deps = [
+        ":forwarding",
+        "//c-toxcore/testing/fuzzing:fuzz_support",
+        "//c-toxcore/testing/fuzzing:fuzz_tox",
     ],
+)
+
+cc_library(
+    name = "announce",
+    srcs = ["announce.c"],
+    hdrs = ["announce.h"],
+    visibility = [
+        "//c-toxcore/auto_tests:__pkg__",
+        "//c-toxcore/other/bootstrap_daemon:__pkg__",
+    ],
+    deps = [
+        ":LAN_discovery",
+        ":ccompat",
+        ":forwarding",
+        ":timed_auth",
+        ":util",
+    ],
+)
+
+cc_library(
+    name = "TCP_common",
+    srcs = ["TCP_common.c"],
+    hdrs = ["TCP_common.h"],
+    visibility = ["//c-toxcore/auto_tests:__pkg__"],
+    deps = [
+        ":ccompat",
+        ":network",
+    ],
+)
+
+cc_library(
+    name = "TCP_server",
+    srcs = ["TCP_server.c"],
+    hdrs = ["TCP_server.h"],
     copts = select({
         "//tools/config:linux": ["-DTCP_SERVER_USE_EPOLL=1"],
         "//conditions:default": [],
     }),
+    visibility = [
+        "//c-toxcore/auto_tests:__pkg__",
+        "//c-toxcore/other:__pkg__",
+        "//c-toxcore/other/bootstrap_daemon:__pkg__",
+    ],
     deps = [
+        ":TCP_common",
+        ":ccompat",
+        ":crypto_core",
+        ":forwarding",
+        ":list",
+        ":mono_time",
+        ":onion",
+        ":util",
+    ],
+)
+
+cc_library(
+    name = "TCP_client",
+    srcs = ["TCP_client.c"],
+    hdrs = ["TCP_client.h"],
+    visibility = ["//c-toxcore/auto_tests:__pkg__"],
+    deps = [
+        ":TCP_common",
+        ":ccompat",
+        ":forwarding",
+        ":mono_time",
+        ":util",
+    ],
+)
+
+cc_library(
+    name = "TCP_connection",
+    srcs = ["TCP_connection.c"],
+    hdrs = ["TCP_connection.h"],
+    visibility = ["//c-toxcore/auto_tests:__pkg__"],
+    deps = [
+        ":DHT",
+        ":TCP_client",
+        ":TCP_common",
+        ":ccompat",
         ":crypto_core",
         ":list",
+        ":mono_time",
         ":onion",
+        ":util",
+    ],
+)
+
+cc_test(
+    name = "TCP_connection_test",
+    size = "small",
+    srcs = ["TCP_connection_test.cc"],
+    deps = [
+        ":TCP_connection",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -207,9 +453,17 @@ cc_library(
     name = "net_crypto",
     srcs = ["net_crypto.c"],
     hdrs = ["net_crypto.h"],
+    visibility = [
+        "//c-toxcore/auto_tests:__pkg__",
+        "//c-toxcore/toxav:__pkg__",
+    ],
     deps = [
         ":DHT",
         ":TCP_connection",
+        ":ccompat",
+        ":list",
+        ":mono_time",
+        ":util",
     ],
 )
 
@@ -217,16 +471,93 @@ cc_library(
     name = "onion_announce",
     srcs = ["onion_announce.c"],
     hdrs = ["onion_announce.h"],
-    deps = [":onion"],
+    visibility = [
+        "//c-toxcore/auto_tests:__pkg__",
+        "//c-toxcore/other:__pkg__",
+        "//c-toxcore/other/bootstrap_daemon:__pkg__",
+    ],
+    deps = [
+        ":DHT",
+        ":LAN_discovery",
+        ":ccompat",
+        ":mono_time",
+        ":onion",
+        ":timed_auth",
+        ":util",
+    ],
+)
+
+cc_library(
+    name = "group_announce",
+    srcs = ["group_announce.c"],
+    hdrs = ["group_announce.h"],
+    visibility = [
+        "//c-toxcore/auto_tests:__pkg__",
+        "//c-toxcore/other:__pkg__",
+        "//c-toxcore/other/bootstrap_daemon:__pkg__",
+    ],
+    deps = [
+        ":DHT",
+        ":LAN_discovery",
+        ":ccompat",
+        ":mono_time",
+        ":util",
+    ],
+)
+
+cc_test(
+    name = "group_announce_test",
+    size = "small",
+    srcs = ["group_announce_test.cc"],
+    deps = [
+        ":group_announce",
+        ":mono_time",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "group_onion_announce",
+    srcs = ["group_onion_announce.c"],
+    hdrs = ["group_onion_announce.h"],
+    visibility = [
+        "//c-toxcore/auto_tests:__pkg__",
+        "//c-toxcore/other:__pkg__",
+        "//c-toxcore/other/bootstrap_daemon:__pkg__",
+    ],
+    deps = [
+        ":ccompat",
+        ":group_announce",
+        ":onion_announce",
+    ],
+)
+
+cc_fuzz_test(
+    name = "group_announce_fuzz_test",
+    srcs = ["group_announce_fuzz_test.cc"],
+    #corpus = ["//tools/toktok-fuzzer/corpus:group_announce_fuzz_test"],
+    deps = [
+        ":group_announce",
+        "//c-toxcore/testing/fuzzing:fuzz_support",
+    ],
 )
 
 cc_library(
     name = "onion_client",
     srcs = ["onion_client.c"],
     hdrs = ["onion_client.h"],
+    visibility = ["//c-toxcore/auto_tests:__pkg__"],
     deps = [
+        ":DHT",
+        ":LAN_discovery",
+        ":ccompat",
+        ":group_onion_announce",
+        ":mono_time",
         ":net_crypto",
+        ":network",
         ":onion_announce",
+        ":util",
     ],
 )
 
@@ -234,10 +565,25 @@ cc_library(
     name = "friend_connection",
     srcs = ["friend_connection.c"],
     hdrs = ["friend_connection.h"],
+    visibility = ["//c-toxcore/auto_tests:__pkg__"],
     deps = [
         ":DHT",
+        ":ccompat",
+        ":mono_time",
         ":net_crypto",
         ":onion_client",
+        ":util",
+    ],
+)
+
+cc_test(
+    name = "friend_connection_test",
+    size = "small",
+    srcs = ["friend_connection_test.cc"],
+    deps = [
+        ":friend_connection",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -245,20 +591,103 @@ cc_library(
     name = "friend_requests",
     srcs = ["friend_requests.c"],
     hdrs = ["friend_requests.h"],
-    deps = [":friend_connection"],
+    visibility = [
+        "//c-toxcore/auto_tests:__pkg__",
+        "//c-toxcore/other:__pkg__",
+        "//c-toxcore/testing:__pkg__",
+    ],
+    deps = [
+        ":ccompat",
+        ":friend_connection",
+        ":network",
+        ":util",
+    ],
+)
+
+cc_library(
+    name = "group_moderation",
+    srcs = ["group_moderation.c"],
+    hdrs = ["group_moderation.h"],
+    deps = [
+        ":DHT",
+        ":ccompat",
+        ":crypto_core",
+        ":logger",
+        ":mono_time",
+        ":network",
+        ":util",
+        "@libsodium",
+    ],
+)
+
+cc_test(
+    name = "group_moderation_test",
+    size = "small",
+    srcs = ["group_moderation_test.cc"],
+    deps = [
+        ":crypto_core",
+        ":group_moderation",
+        ":logger",
+        ":util",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_fuzz_test(
+    name = "group_moderation_fuzz_test",
+    srcs = ["group_moderation_fuzz_test.cc"],
+    corpus = ["//tools/toktok-fuzzer/corpus:group_moderation_fuzz_test"],
+    deps = [
+        ":group_moderation",
+        "//c-toxcore/testing/fuzzing:fuzz_support",
+    ],
 )
 
 cc_library(
     name = "Messenger",
-    srcs = ["Messenger.c"],
+    srcs = [
+        "Messenger.c",
+        "group_chats.c",
+        "group_connection.c",
+        "group_pack.c",
+    ],
     hdrs = [
         "Messenger.h",
-        "tox.h",
+        "group_chats.h",
+        "group_common.h",
+        "group_connection.h",
+        "group_pack.h",
     ],
-    visibility = ["//c-toxcore:__subpackages__"],
+    visibility = [
+        "//c-toxcore/auto_tests:__pkg__",
+        "//c-toxcore/other:__pkg__",
+        "//c-toxcore/testing:__pkg__",
+        "//c-toxcore/toxav:__pkg__",
+    ],
     deps = [
+        ":DHT",
+        ":LAN_discovery",
+        ":TCP_connection",
+        ":TCP_server",
+        ":announce",
+        ":bin_pack",
+        ":bin_unpack",
+        ":ccompat",
+        ":crypto_core",
+        ":forwarding",
+        ":friend_connection",
         ":friend_requests",
+        ":group_moderation",
+        ":group_onion_announce",
+        ":logger",
+        ":mono_time",
+        ":net_crypto",
+        ":network",
+        ":onion_announce",
         ":state",
+        ":util",
+        "@libsodium",
     ],
 )
 
@@ -267,43 +696,125 @@ cc_library(
     srcs = ["group.c"],
     hdrs = ["group.h"],
     visibility = ["//c-toxcore/toxav:__pkg__"],
-    deps = [":Messenger"],
+    deps = [
+        ":Messenger",
+        ":ccompat",
+        ":mono_time",
+        ":state",
+        ":util",
+    ],
 )
 
 cc_library(
-    name = "toxcore",
+    name = "tox",
     srcs = [
         "tox.c",
-        "tox.h",
         "tox_api.c",
+        "tox_private.c",
+    ],
+    hdrs = [
+        "tox.h",
+        "tox_private.h",
+        "tox_struct.h",
     ],
     visibility = ["//c-toxcore:__subpackages__"],
     deps = [
+        ":Messenger",
+        ":ccompat",
         ":group",
+        ":group_moderation",
+        ":logger",
+        ":mono_time",
+        ":network",
         "//c-toxcore/toxencryptsave:defines",
     ],
 )
 
-CIMPLE_SRCS = glob(
-    [
-        "*.c",
-        "*.h",
-    ],
-    exclude = [
-        "*.api.h",
-        "ccompat.h",
-        "crypto_core_mem.c",
-        "ping_array.h",
-        "tox.h",
-        "tox_api.c",
+cc_test(
+    name = "tox_test",
+    size = "small",
+    srcs = ["tox_test.cc"],
+    deps = [
+        ":crypto_core",
+        ":tox",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
-sh_test(
-    name = "cimple_test",
+cc_library(
+    name = "tox_unpack",
+    srcs = ["tox_unpack.c"],
+    hdrs = ["tox_unpack.h"],
+    visibility = ["//c-toxcore:__subpackages__"],
+    deps = [
+        ":bin_unpack",
+        ":ccompat",
+        ":tox",
+    ],
+)
+
+cc_library(
+    name = "tox_events",
+    srcs = ["tox_events.c"] + glob([
+        "events/*.c",
+        "events/*.h",
+    ]),
+    hdrs = ["tox_events.h"],
+    visibility = ["//c-toxcore:__subpackages__"],
+    deps = [
+        ":bin_pack",
+        ":bin_unpack",
+        ":ccompat",
+        ":tox",
+        ":tox_unpack",
+        "//c-toxcore/third_party:cmp",
+    ],
+)
+
+cc_test(
+    name = "tox_events_test",
     size = "small",
-    srcs = ["//hs-tokstyle/tools:check-cimple"],
-    args = ["$(location %s)" % f for f in CIMPLE_SRCS],
-    data = CIMPLE_SRCS,
-    tags = ["manual"],
+    srcs = ["tox_events_test.cc"],
+    deps = [
+        ":crypto_core",
+        ":tox_events",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_fuzz_test(
+    name = "tox_events_fuzz_test",
+    srcs = ["tox_events_fuzz_test.cc"],
+    corpus = ["//tools/toktok-fuzzer/corpus:tox_events_fuzz_test"],
+    deps = [":tox_events"],
+)
+
+cc_library(
+    name = "tox_dispatch",
+    srcs = ["tox_dispatch.c"],
+    hdrs = ["tox_dispatch.h"],
+    visibility = ["//c-toxcore:__subpackages__"],
+    deps = [
+        ":ccompat",
+        ":tox_events",
+    ],
+)
+
+alias(
+    name = "toxcore",
+    actual = ":tox_dispatch",
+    visibility = ["//c-toxcore:__subpackages__"],
+)
+
+sh_library(
+    name = "cimple_files",
+    srcs = glob([
+        "events/*.c",
+        "events/*.h",
+        "*.c",
+        "*.h",
+    ]),
+    visibility = ["//c-toxcore/testing:__pkg__"],
 )

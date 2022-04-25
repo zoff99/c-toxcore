@@ -1,13 +1,10 @@
 // Test to make sure that when UDP is disabled, and we set an invalid proxy,
 // i.e. one that doesn't run a proxy server, then we don't get any connection.
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 
 #include "../testing/misc_tools.h"
+#include "auto_test_support.h"
 #include "check_compat.h"
 
 static uint8_t const key[] = {

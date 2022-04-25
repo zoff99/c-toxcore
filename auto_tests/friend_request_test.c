@@ -1,10 +1,6 @@
 /* Tests that we can add friends.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +10,7 @@
 #include "../toxcore/tox.h"
 #include "../toxcore/util.h"
 #include "../testing/misc_tools.h"
+#include "auto_test_support.h"
 #include "check_compat.h"
 
 #define FR_MESSAGE "Gentoo"

@@ -1,10 +1,6 @@
 /* Auto Tests: Save and load friends.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,31 +9,45 @@
 #include "../toxcore/ccompat.h"
 #include "../toxcore/crypto_core.h"
 #include "../toxcore/tox.h"
+#include "auto_test_support.h"
 #include "check_compat.h"
 
 struct test_data {
-    uint8_t name[TOX_MAX_NAME_LENGTH];
-    uint8_t status_message[TOX_MAX_STATUS_MESSAGE_LENGTH];
+    uint8_t *name;
+    uint8_t *status_message;
     bool received_name;
     bool received_status_message;
 };
 
-static void set_random(Tox *m, bool (*setter)(Tox *, const uint8_t *, size_t, Tox_Err_Set_Info *), size_t length)
+static void set_random(Tox *m, const Random *rng, bool (*setter)(Tox *, const uint8_t *, size_t, Tox_Err_Set_Info *), size_t length)
 {
     VLA(uint8_t, text, length);
     uint32_t i;
 
     for (i = 0; i < length; ++i) {
-        text[i] = random_u08();
+        text[i] = random_u08(rng);
     }
 
     setter(m, text, SIZEOF_VLA(text), nullptr);
 }
 
+static void alloc_string(uint8_t **to, size_t length)
+{
+    free(*to);
+    *to = (uint8_t *)malloc(length);
+    ck_assert(*to != nullptr);
+}
+
+static void set_string(uint8_t **to, const uint8_t *from, size_t length)
+{
+    alloc_string(to, length);
+    memcpy(*to, from, length);
+}
+
 static void namechange_callback(Tox *tox, uint32_t friend_number, const uint8_t *name, size_t length, void *user_data)
 {
     struct test_data *to_compare = (struct test_data *)user_data;
-    memcpy(to_compare->name, name, length);
+    set_string(&to_compare->name, name, length);
     to_compare->received_name = true;
 }
 
@@ -45,7 +55,7 @@ static void statuschange_callback(Tox *tox, uint32_t friend_number, const uint8_
                                   void *user_data)
 {
     struct test_data *to_compare = (struct test_data *)user_data;
-    memcpy(to_compare->status_message, message, length);
+    set_string(&to_compare->status_message, message, length);
     to_compare->received_status_message = true;
 }
 
@@ -63,7 +73,7 @@ int main(void)
 
     tox_bootstrap(tox2, "localhost", dht_port, dht_key, nullptr);
 
-    struct test_data to_compare = {{0}};
+    struct test_data to_compare = {nullptr};
 
     uint8_t public_key[TOX_PUBLIC_KEY_SIZE];
     tox_self_get_public_key(tox1, public_key);
@@ -71,13 +81,17 @@ int main(void)
     tox_self_get_public_key(tox2, public_key);
     tox_friend_add_norequest(tox1, public_key, nullptr);
 
-    uint8_t reference_name[TOX_MAX_NAME_LENGTH] = { 0 };
-    uint8_t reference_status[TOX_MAX_STATUS_MESSAGE_LENGTH] = { 0 };
+    uint8_t *reference_name = (uint8_t *)malloc(tox_max_name_length());
+    uint8_t *reference_status = (uint8_t *)malloc(tox_max_status_message_length());
+    ck_assert(reference_name != nullptr);
+    ck_assert(reference_status != nullptr);
 
-    set_random(tox1, tox_self_set_name, TOX_MAX_NAME_LENGTH);
-    set_random(tox2, tox_self_set_name, TOX_MAX_NAME_LENGTH);
-    set_random(tox1, tox_self_set_status_message, TOX_MAX_STATUS_MESSAGE_LENGTH);
-    set_random(tox2, tox_self_set_status_message, TOX_MAX_STATUS_MESSAGE_LENGTH);
+    const Random *rng = system_random();
+    ck_assert(rng != nullptr);
+    set_random(tox1, rng, tox_self_set_name, tox_max_name_length());
+    set_random(tox2, rng, tox_self_set_name, tox_max_name_length());
+    set_random(tox1, rng, tox_self_set_status_message, tox_max_status_message_length());
+    set_random(tox2, rng, tox_self_set_status_message, tox_max_status_message_length());
 
     tox_self_get_name(tox2, reference_name);
     tox_self_get_status_message(tox2, reference_status);
@@ -112,7 +126,7 @@ int main(void)
     }
 
     size_t save_size = tox_get_savedata_size(tox1);
-    VLA(uint8_t, savedata, save_size);
+    uint8_t *savedata = (uint8_t *)malloc(save_size);
     tox_get_savedata(tox1, savedata);
 
     struct Tox_Options *const options = tox_options_new(nullptr);
@@ -121,18 +135,25 @@ int main(void)
 
     Tox *const tox_to_compare = tox_new_log(options, nullptr, nullptr);
 
+    alloc_string(&to_compare.name, tox_friend_get_name_size(tox_to_compare, 0, nullptr));
     tox_friend_get_name(tox_to_compare, 0, to_compare.name, nullptr);
+    alloc_string(&to_compare.status_message, tox_friend_get_status_message_size(tox_to_compare, 0, nullptr));
     tox_friend_get_status_message(tox_to_compare, 0, to_compare.status_message, nullptr);
 
-    ck_assert_msg(memcmp(reference_name, to_compare.name, TOX_MAX_NAME_LENGTH) == 0,
+    ck_assert_msg(memcmp(reference_name, to_compare.name, tox_max_name_length()) == 0,
                   "incorrect name: should be all zeroes");
-    ck_assert_msg(memcmp(reference_status, to_compare.status_message, TOX_MAX_STATUS_MESSAGE_LENGTH) == 0,
+    ck_assert_msg(memcmp(reference_status, to_compare.status_message, tox_max_status_message_length()) == 0,
                   "incorrect status message: should be all zeroes");
 
     tox_options_free(options);
     tox_kill(tox1);
     tox_kill(tox2);
     tox_kill(tox_to_compare);
+    free(savedata);
+    free(to_compare.name);
+    free(to_compare.status_message);
+    free(reference_status);
+    free(reference_name);
 
     return 0;
 }

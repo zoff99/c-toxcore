@@ -1582,5 +1582,3 @@ int64_t tox_util_friend_send_message_v2(Tox *tox, uint32_t friend_number, TOX_ME
 #pragma GCC diagnostic pop
 
 //!TOKSTYLE+
-
-

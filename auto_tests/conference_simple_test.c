@@ -1,7 +1,3 @@
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,6 +5,7 @@
 
 #include "../testing/misc_tools.h"
 #include "../toxcore/tox.h"
+#include "auto_test_support.h"
 #include "check_compat.h"
 
 typedef struct State {

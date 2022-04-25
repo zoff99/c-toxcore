@@ -8,6 +8,8 @@
 
 #include "msi.h"
 
+#include "../toxcore/tox_private.h"
+#include "../toxcore/ccompat.h"
 #include "../toxcore/tox.h"
 #include "../toxcore/logger.h"
 #include "../toxcore/util.h"
@@ -997,10 +999,9 @@ static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *d
 
     LOGGER_API_INFO(tox, "Got msi message:fnum=%d", friend_number);
 
-    void *toxav = NULL;
-    tox_get_av_object(tox, (void **)(&toxav));
+    void *toxav = (void *)tox_get_av_object(tox);
 
-    if (!toxav) {
+    if (toxav == nullptr) {
         return;
     }
 

@@ -1,15 +1,18 @@
 load("@rules_cc//cc:defs.bzl", "cc_test")
 load("//tools:no_undefined.bzl", "cc_library")
 
-filegroup(
-    name = "public_headers",
+package(features = ["layering_check"])
+
+exports_files(
     srcs = ["toxav.h"],
     visibility = ["//c-toxcore:__pkg__"],
 )
 
+# Private library with the public API header in it because in toxav, lots of
+# things depend on the public API header.
 cc_library(
-    name = "public",
-    hdrs = [":public_headers"],
+    name = "public_api",
+    hdrs = ["toxav.h"],
 )
 
 cc_library(
@@ -90,41 +93,8 @@ cc_test(
     srcs = ["ring_buffer_test.cc"],
     deps = [
         ":ring_buffer",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
-    ],
-)
-
-cc_library(
-    name = "ring_buffer_srcs",
-    hdrs = [
-        "ring_buffer.c",
-        "ring_buffer.h",
-    ],
-    visibility = ["//c-toxcore/testing:__pkg__"],
-    deps = ["//c-toxcore/toxcore:ccompat"],
-)
-
-cc_library(
-    name = "bwcontroller",
-    srcs = ["bwcontroller.c"],
-    hdrs = ["bwcontroller.h"],
-    deps = [
-        ":ring_buffer",
-        "//c-toxcore/toxcore:Messenger",
-        "//c-toxcore/toxcore:toxcore",
-    ],
-)
-
-cc_library(
-    name = "rtp",
-    srcs = ["rtp.c"],
-    hdrs = ["rtp.h"],
-    deps = [
-        ":bwcontroller",
-        ":dummy_ntp",
-        "@libvpx",
-        "@opus",
-        "//c-toxcore/toxcore",
     ],
 )
 
@@ -133,97 +103,55 @@ cc_test(
     size = "small",
     srcs = ["rtp_test.cc"],
     deps = [
-        ":rtp",
+        ":toxav",
         "//c-toxcore/toxcore:crypto_core",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
-    ],
-)
-
-cc_library(
-    name = "audio",
-    srcs = ["audio.c"],
-    hdrs = ["audio.h"],
-    copts = ["-Wno-error"],
-    deps = [
-        ":public",
-        ":rtp",
-        ":ts_buffer",
-        "//c-toxcore/toxcore:network",
-        "@opus",
-    ],
-)
-
-cc_library(
-    name = "video",
-    srcs = [
-        "msi.c",
-        "video.c",
-    ],
-    hdrs = [
-        "codecs/toxav_codecs.h",
-        "msi.h",
-        "tox_generic.h",
-        "video.h",
-    ],
-    copts = ["-Wno-error"],
-    deps = [
-        ":audio",
-        ":h264_codec",
-        ":public",
-        ":vpx_codec",
-        "//c-toxcore/toxcore:network",
-        "@libvpx",
-    ],
-)
-
-cc_library(
-    name = "groupav",
-    srcs = ["groupav.c"],
-    hdrs = ["groupav.h"],
-    deps = [
-        "//c-toxcore/toxcore",
-        "@opus",
     ],
 )
 
 cc_library(
     name = "toxav",
     srcs = [
+        "audio.c",
+        "bwcontroller.c",
+        "groupav.c",
+        "msi.c",
+        "rtp.c",
         "toxav.c",
         "toxav_old.c",
+        "video.c",
     ],
     hdrs = [
-        "codecs/toxav_codecs.h",
-        "tox_generic.h",
-        "toxav.api.h",
+        "audio.h",
+        "bwcontroller.h",
+        "groupav.h",
+        "msi.h",
+        "rtp.h",
         "toxav.h",
+        "toxav_hacks.h",
+        "video.h",
     ],
-    copts = ["-Wno-error"],
     visibility = ["//c-toxcore:__subpackages__"],
     deps = [
-        ":groupav",
-        ":h264_codec",
-        ":video",
-        ":vpx_codec",
+        ":ring_buffer",
+        "//c-toxcore/toxcore:ccompat",
+        "//c-toxcore/toxcore:logger",
+        "//c-toxcore/toxcore:mono_time",
+        "//c-toxcore/toxcore:net_crypto",
+        "//c-toxcore/toxcore:network",
+        "//c-toxcore/toxcore:util",
+        "//c-toxcore/toxcore:tox",
+        "@libvpx",
+        "@opus",
     ],
 )
 
-CIMPLE_SRCS = glob(
-    [
+sh_library(
+    name = "cimple_files",
+    srcs = glob([
         "*.c",
         "*.h",
-    ],
-    exclude = [
-        "*.api.h",
-        "toxav.h",
-    ],
-)
-
-sh_test(
-    name = "cimple_test",
-    size = "small",
-    srcs = ["//hs-tokstyle/tools:check-cimple"],
-    args = ["$(location %s)" % f for f in CIMPLE_SRCS],
-    data = CIMPLE_SRCS,
-    tags = ["manual"],
+    ]),
+    visibility = ["//c-toxcore/testing:__pkg__"],
 )

@@ -8,6 +8,11 @@
 
 #if !defined(OS_WIN32) && (defined(_WIN32) || defined(__WIN32__) || defined(WIN32))
 #define OS_WIN32
+#endif
+
+#include "mono_time.h"
+
+#ifdef OS_WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
@@ -21,17 +26,16 @@
 #include <sys/time.h>
 #endif
 
-#include "mono_time.h"
-
+#include <assert.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <time.h>
 
 #include "ccompat.h"
 
-/* don't call into system billions of times for no reason */
+/** don't call into system billions of times for no reason */
 struct Mono_Time {
-    uint64_t time;
+    uint64_t cur_time;
     uint64_t base_time;
 #ifdef OS_WIN32
     /* protect `last_clock_update` and `last_clock_mono` from concurrent access */
@@ -40,27 +44,31 @@ struct Mono_Time {
     bool last_clock_update;
 #endif
 
+#ifndef ESP_PLATFORM
     /* protect `time` from concurrent access */
     pthread_rwlock_t *time_update_lock;
+#endif
 
     mono_time_current_time_cb *current_time_callback;
     void *user_data;
 };
 
-static uint64_t current_time_monotonic_default(Mono_Time *mono_time, void *user_data)
-{
-    uint64_t time = 0;
 #ifdef OS_WIN32
+non_null()
+static uint64_t current_time_monotonic_default(void *user_data)
+{
+    Mono_Time *const mono_time = (Mono_Time *)user_data;
+
     /* Must hold mono_time->last_clock_lock here */
 
     /* GetTickCount provides only a 32 bit counter, but we can't use
      * GetTickCount64 for backwards compatibility, so we handle wraparound
      * ourselves.
      */
-    uint32_t ticks = GetTickCount();
+    const uint32_t ticks = GetTickCount();
 
     /* the higher 32 bits count the number of wrap arounds */
-    uint64_t old_ovf = mono_time->time & ~((uint64_t)UINT32_MAX);
+    uint64_t old_ovf = mono_time->cur_time & ~((uint64_t)UINT32_MAX);
 
     /* Check if time has decreased because of 32 bit wrap from GetTickCount() */
     if (ticks < mono_time->last_clock_mono) {
@@ -74,10 +82,18 @@ static uint64_t current_time_monotonic_default(Mono_Time *mono_time, void *user_
     }
 
     /* splice the low and high bits back together */
-    time = old_ovf + ticks;
-#else
+    return old_ovf + ticks;
+}
+#else // !OS_WIN32
+static uint64_t timespec_to_u64(struct timespec clock_mono)
+{
+    return 1000ULL * clock_mono.tv_sec + (clock_mono.tv_nsec / 1000000ULL);
+}
+#ifdef __APPLE__
+non_null()
+static uint64_t current_time_monotonic_default(void *user_data)
+{
     struct timespec clock_mono;
-#if defined(__APPLE__)
     clock_serv_t muhclock;
     mach_timespec_t machtime;
 
@@ -87,23 +103,35 @@ static uint64_t current_time_monotonic_default(Mono_Time *mono_time, void *user_
 
     clock_mono.tv_sec = machtime.tv_sec;
     clock_mono.tv_nsec = machtime.tv_nsec;
-#else
-    clock_gettime(CLOCK_MONOTONIC, &clock_mono);
-#endif
-    time = 1000ULL * clock_mono.tv_sec + (clock_mono.tv_nsec / 1000000ULL);
-#endif
-    return time;
+    return timespec_to_u64(clock_mono);
 }
-
-Mono_Time *mono_time_new(void)
+#else // !__APPLE__
+non_null()
+static uint64_t current_time_monotonic_default(void *user_data)
 {
-    Mono_Time *mono_time = (Mono_Time *)malloc(sizeof(Mono_Time));
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    // This assert should always fail. If it does, the fuzzing harness didn't
+    // override the mono time callback.
+    assert(user_data == nullptr);
+#endif
+    struct timespec clock_mono;
+    clock_gettime(CLOCK_MONOTONIC, &clock_mono);
+    return timespec_to_u64(clock_mono);
+}
+#endif // !__APPLE__
+#endif // !OS_WIN32
+
+
+Mono_Time *mono_time_new(mono_time_current_time_cb *current_time_callback, void *user_data)
+{
+    Mono_Time *mono_time = (Mono_Time *)calloc(1, sizeof(Mono_Time));
 
     if (mono_time == nullptr) {
         return nullptr;
     }
 
-    mono_time->time_update_lock = (pthread_rwlock_t *)malloc(sizeof(pthread_rwlock_t));
+#ifndef ESP_PLATFORM
+    mono_time->time_update_lock = (pthread_rwlock_t *)calloc(1, sizeof(pthread_rwlock_t));
 
     if (mono_time->time_update_lock == nullptr) {
         free(mono_time);
@@ -115,9 +143,9 @@ Mono_Time *mono_time_new(void)
         free(mono_time);
         return nullptr;
     }
+#endif
 
-    mono_time->current_time_callback = current_time_monotonic_default;
-    mono_time->user_data = nullptr;
+    mono_time_set_current_time_callback(mono_time, current_time_callback, user_data);
 
 #ifdef OS_WIN32
 
@@ -132,8 +160,13 @@ Mono_Time *mono_time_new(void)
 
 #endif
 
-    mono_time->time = 0;
+    mono_time->cur_time = 0;
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    // Maximum reproducibility. Never return time = 0.
+    mono_time->base_time = 1;
+#else
     mono_time->base_time = (uint64_t)time(nullptr) - (current_time_monotonic(mono_time) / 1000ULL);
+#endif
 
     mono_time_update(mono_time);
 
@@ -142,40 +175,57 @@ Mono_Time *mono_time_new(void)
 
 void mono_time_free(Mono_Time *mono_time)
 {
+    if (mono_time == nullptr) {
+        return;
+    }
 #ifdef OS_WIN32
     pthread_mutex_destroy(&mono_time->last_clock_lock);
 #endif
+#ifndef ESP_PLATFORM
     pthread_rwlock_destroy(mono_time->time_update_lock);
     free(mono_time->time_update_lock);
+#endif
     free(mono_time);
 }
 
 void mono_time_update(Mono_Time *mono_time)
 {
-    uint64_t time = 0;
+    uint64_t cur_time = 0;
 #ifdef OS_WIN32
     /* we actually want to update the overflow state of mono_time here */
     pthread_mutex_lock(&mono_time->last_clock_lock);
     mono_time->last_clock_update = true;
 #endif
-    time = mono_time->current_time_callback(mono_time, mono_time->user_data) / 1000ULL;
-    time += mono_time->base_time;
+    cur_time = mono_time->current_time_callback(mono_time->user_data) / 1000ULL;
+    cur_time += mono_time->base_time;
 #ifdef OS_WIN32
     pthread_mutex_unlock(&mono_time->last_clock_lock);
 #endif
 
+#ifndef ESP_PLATFORM
     pthread_rwlock_wrlock(mono_time->time_update_lock);
-    mono_time->time = time;
+#endif
+    mono_time->cur_time = cur_time;
+#ifndef ESP_PLATFORM
     pthread_rwlock_unlock(mono_time->time_update_lock);
+#endif
 }
 
 uint64_t mono_time_get(const Mono_Time *mono_time)
 {
-    uint64_t time = 0;
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    // Fuzzing is only single thread for now, no locking needed */
+    return mono_time->cur_time;
+#else
+#ifndef ESP_PLATFORM
     pthread_rwlock_rdlock(mono_time->time_update_lock);
-    time = mono_time->time;
+#endif
+    const uint64_t cur_time = mono_time->cur_time;
+#ifndef ESP_PLATFORM
     pthread_rwlock_unlock(mono_time->time_update_lock);
-    return time;
+#endif
+    return cur_time;
+#endif
 }
 
 bool mono_time_is_timeout(const Mono_Time *mono_time, uint64_t timestamp, uint64_t timeout)
@@ -188,14 +238,17 @@ void mono_time_set_current_time_callback(Mono_Time *mono_time,
 {
     if (current_time_callback == nullptr) {
         mono_time->current_time_callback = current_time_monotonic_default;
-        mono_time->user_data = nullptr;
+        mono_time->user_data = mono_time;
     } else {
         mono_time->current_time_callback = current_time_callback;
         mono_time->user_data = user_data;
     }
 }
 
-/* return current monotonic time in milliseconds (ms). */
+/**
+ * Return current monotonic time in milliseconds (ms). The starting point is
+ * unspecified.
+ */
 uint64_t current_time_monotonic(Mono_Time *mono_time)
 {
     /* For WIN32 we don't want to change overflow state of mono_time here */
@@ -204,9 +257,9 @@ uint64_t current_time_monotonic(Mono_Time *mono_time)
      * but must protect against other threads */
     pthread_mutex_lock(&mono_time->last_clock_lock);
 #endif
-    uint64_t time = mono_time->current_time_callback(mono_time, mono_time->user_data);
+    const uint64_t cur_time = mono_time->current_time_callback(mono_time->user_data);
 #ifdef OS_WIN32
     pthread_mutex_unlock(&mono_time->last_clock_lock);
 #endif
-    return time;
+    return cur_time;
 }

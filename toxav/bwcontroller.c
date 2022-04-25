@@ -25,6 +25,8 @@
 
 #include "ring_buffer.h"
 
+#include "../toxcore/tox_private.h"
+#include "../toxcore/ccompat.h"
 #include "../toxcore/logger.h"
 #include "../toxcore/mono_time.h"
 #include "../toxcore/util.h"
@@ -203,10 +205,9 @@ void bwc_handle_data(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_
     }
 
     /* get BWController object from Tox and friend number */
-    void *toxav = NULL;
-    tox_get_av_object(tox, (void **)(&toxav));
+    void *toxav = (void *)tox_get_av_object(tox);
 
-    if (!toxav) {
+    if (toxav == nullptr) {
         return;
     }
 

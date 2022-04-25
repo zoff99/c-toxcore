@@ -41,13 +41,13 @@
 
 #include <sodium.h>
 
+#include "../../toxcore/ccompat.h"
+
 #define PRINT_TRIES_COUNT
 
 static void print_key(unsigned char *key)
 {
-    size_t i;
-
-    for (i = 0; i < crypto_box_PUBLICKEYBYTES; i++) {
+    for (size_t i = 0; i < crypto_box_PUBLICKEYBYTES; ++i) {
         if (key[i] < 16) {
             fprintf(stdout, "0");
         }
@@ -60,12 +60,18 @@ int main(int argc, char *argv[])
 {
     unsigned char public_key[crypto_box_PUBLICKEYBYTES]; // null terminator
     unsigned char secret_key[crypto_box_SECRETKEYBYTES];
-    int offset = 0;
+    long int offset = 0;
     size_t len;
     unsigned char desired_bin[crypto_box_PUBLICKEYBYTES]; // null terminator
 
     if (argc == 3) {
-        offset = atoi(argv[1]);
+        offset = strtol(argv[1], nullptr, 10);
+
+        if (offset <= 0) {
+            fprintf(stderr, "strtol() failed to convert \"%s\" into an integer\n", argv[1]);
+            exit(1);
+        }
+
         char *desired_hex = argv[2];
         len = strlen(desired_hex);
 
@@ -107,12 +113,11 @@ int main(int argc, char *argv[])
 
         do {
 #ifdef PRINT_TRIES_COUNT
-            tries ++;
+            ++tries;
 #endif
             crypto_box_keypair(public_key, secret_key);
-            int i;
 
-            for (i = 0; i <= crypto_box_PUBLICKEYBYTES - len; i ++) {
+            for (int i = 0; i <= crypto_box_PUBLICKEYBYTES - len; ++i) {
                 if (memcmp(public_key + i, desired_bin, len) == 0) {
                     found = 1;
                     break;
@@ -124,7 +129,7 @@ int main(int argc, char *argv[])
 
         do {
 #ifdef PRINT_TRIES_COUNT
-            tries ++;
+            ++tries;
 #endif
             crypto_box_keypair(public_key, secret_key);
         } while (memcmp(p, desired_bin, len) != 0);

@@ -3,54 +3,54 @@
  * Copyright © 2013 Tox project.
  */
 
-/*
+/**
  * LAN discovery implementation.
  */
 #ifndef C_TOXCORE_TOXCORE_LAN_DISCOVERY_H
 #define C_TOXCORE_TOXCORE_LAN_DISCOVERY_H
 
-#include "DHT.h"
-
-#ifndef DHT_DEFINED
-#define DHT_DEFINED
-typedef struct DHT DHT;
-#endif /* DHT_DEFINED */
-
-#ifndef IP_DEFINED
-#define IP_DEFINED
-typedef struct IP IP;
-#endif /* IP_DEFINED */
+#include "network.h"
 
 /**
  * Interval in seconds between LAN discovery packet sending.
  */
 #define LAN_DISCOVERY_INTERVAL         10
 
+typedef struct Broadcast_Info Broadcast_Info;
+
 /**
  * Send a LAN discovery pcaket to the broadcast address with port port.
+ *
+ * @return true on success, false on failure.
  */
-int32_t lan_discovery_send(uint16_t port, DHT *dht);
+non_null()
+bool lan_discovery_send(const Networking_Core *net, const Broadcast_Info *broadcast, const uint8_t *dht_pk,
+                        uint16_t port);
 
 /**
- * Sets up packet handlers.
+ * Discovers broadcast devices and IP addresses.
  */
-void lan_discovery_init(DHT *dht);
+non_null()
+Broadcast_Info *lan_discovery_init(const Network *ns);
 
 /**
- * Clear packet handlers.
+ * Free all resources associated with the broadcast info.
  */
-void lan_discovery_kill(DHT *dht);
+nullable(1)
+void lan_discovery_kill(Broadcast_Info *broadcast);
 
 /**
  * Is IP a local ip or not.
  */
-bool ip_is_local(IP ip);
+non_null()
+bool ip_is_local(const IP *ip);
 
 /**
  * Checks if a given IP isn't routable.
  *
  * @return true if ip is a LAN ip, false if it is not.
  */
-bool ip_is_lan(IP ip);
+non_null()
+bool ip_is_lan(const IP *ip);
 
 #endif // C_TOXCORE_TOXCORE_LAN_DISCOVERY_H

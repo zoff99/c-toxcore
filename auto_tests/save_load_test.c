@@ -1,10 +1,6 @@
 /* Tests that we can save and load Tox data.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,7 +9,9 @@
 #include "../testing/misc_tools.h"
 #include "../toxcore/ccompat.h"
 #include "../toxcore/tox.h"
+#include "../toxcore/tox_struct.h"
 #include "../toxcore/util.h"
+#include "auto_test_support.h"
 #include "check_compat.h"
 
 /* The Travis-CI container responds poorly to ::1 as a localhost address
@@ -30,7 +28,7 @@
 #ifdef TCP_RELAY_PORT
 #undef TCP_RELAY_PORT
 #endif
-#define TCP_RELAY_PORT 33430
+#define TCP_RELAY_PORT 33431
 
 static void accept_friend_request(Tox *m, const uint8_t *public_key, const uint8_t *data, size_t length, void *userdata)
 {
@@ -107,6 +105,33 @@ static void reload_tox(Tox **tox, struct Tox_Options *const in_opts, void *user_
     free(buffer);
 }
 
+typedef struct Time_Data {
+    pthread_mutex_t lock;
+    uint64_t clock;
+} Time_Data;
+
+static uint64_t get_state_clock_callback(void *user_data)
+{
+    Time_Data *time_data = (Time_Data *)user_data;
+    pthread_mutex_lock(&time_data->lock);
+    uint64_t clock = time_data->clock;
+    pthread_mutex_unlock(&time_data->lock);
+    return clock;
+}
+
+static void increment_clock(Time_Data *time_data, uint64_t count)
+{
+    pthread_mutex_lock(&time_data->lock);
+    time_data->clock += count;
+    pthread_mutex_unlock(&time_data->lock);
+}
+
+static void set_current_time_callback(Tox *tox, Time_Data *time_data)
+{
+    Mono_Time *mono_time = tox->mono_time;
+    mono_time_set_current_time_callback(mono_time, get_state_clock_callback, time_data);
+}
+
 static void test_few_clients(void)
 {
     uint32_t index[] = { 1, 2, 3 };
@@ -114,19 +139,31 @@ static void test_few_clients(void)
 
     struct Tox_Options *opts1 = tox_options_new(nullptr);
     tox_options_set_tcp_port(opts1, TCP_RELAY_PORT);
-    Tox *tox1 = tox_new_log(opts1, nullptr, &index[0]);
+    Tox_Err_New t_n_error;
+    Tox *tox1 = tox_new_log(opts1, &t_n_error, &index[0]);
+    ck_assert_msg(t_n_error == TOX_ERR_NEW_OK, "Failed to create tox instance: %d", t_n_error);
     tox_options_free(opts1);
 
     struct Tox_Options *opts2 = tox_options_new(nullptr);
     tox_options_set_udp_enabled(opts2, false);
     tox_options_set_local_discovery_enabled(opts2, false);
-    Tox *tox2 = tox_new_log(opts2, nullptr, &index[1]);
+    Tox *tox2 = tox_new_log(opts2, &t_n_error, &index[1]);
+    ck_assert_msg(t_n_error == TOX_ERR_NEW_OK, "Failed to create tox instance: %d", t_n_error);
 
     struct Tox_Options *opts3 = tox_options_new(nullptr);
     tox_options_set_local_discovery_enabled(opts3, false);
-    Tox *tox3 = tox_new_log(opts3, nullptr, &index[2]);
+    Tox *tox3 = tox_new_log(opts3, &t_n_error, &index[2]);
+    ck_assert_msg(t_n_error == TOX_ERR_NEW_OK, "Failed to create tox instance: %d", t_n_error);
 
     ck_assert_msg(tox1 && tox2 && tox3, "Failed to create 3 tox instances");
+
+
+    Time_Data time_data;
+    ck_assert_msg(pthread_mutex_init(&time_data.lock, nullptr) == 0, "Failed to init time_data mutex");
+    time_data.clock = current_time_monotonic(tox1->mono_time);
+    set_current_time_callback(tox1, &time_data);
+    set_current_time_callback(tox2, &time_data);
+    set_current_time_callback(tox3, &time_data);
 
     uint8_t dht_key[TOX_PUBLIC_KEY_SIZE];
     tox_self_get_dht_id(tox1, dht_key);
@@ -145,7 +182,7 @@ static void test_few_clients(void)
     uint8_t address[TOX_ADDRESS_SIZE];
     tox_self_get_address(tox2, address);
     uint32_t test = tox_friend_add(tox3, address, (const uint8_t *)"Gentoo", 7, nullptr);
-    ck_assert_msg(test == 0, "Failed to add friend error code: %i", test);
+    ck_assert_msg(test == 0, "Failed to add friend error code: %u", test);
 
     uint8_t off = 1;
 
@@ -168,11 +205,16 @@ static void test_few_clients(void)
             }
         }
 
-        c_sleep(ITERATION_INTERVAL);
+        increment_clock(&time_data, 200);
+        c_sleep(5);
     }
 
     ck_assert_msg(connected_t1, "Tox1 isn't connected. %u", connected_t1);
     printf("tox clients connected took %lu seconds\n", (unsigned long)(time(nullptr) - con_time));
+
+    // We're done with this callback, so unset it to ensure we don't fail the
+    // test if tox1 goes offline while tox2 and 3 are reloaded.
+    tox_callback_self_connection_status(tox1, nullptr);
 
     reload_tox(&tox2, opts2, &index[1]);
 
@@ -201,7 +243,8 @@ static void test_few_clients(void)
             }
         }
 
-        c_sleep(ITERATION_INTERVAL);
+        increment_clock(&time_data, 100);
+        c_sleep(5);
     }
 
     printf("tox clients connected took %lu seconds\n", (unsigned long)(time(nullptr) - con_time));

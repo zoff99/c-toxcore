@@ -8,13 +8,16 @@
  *
  * A simple DHT boostrap node for tox.
  */
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "../toxcore/DHT.h"
 #include "../toxcore/LAN_discovery.h"
+#include "../toxcore/ccompat.h"
 #include "../toxcore/friend_requests.h"
+#include "../toxcore/group_onion_announce.h"
 #include "../toxcore/logger.h"
 #include "../toxcore/mono_time.h"
 #include "../toxcore/tox.h"
@@ -43,7 +46,7 @@ static void manage_keys(DHT *dht)
     enum { KEYS_SIZE = CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_SECRET_KEY_SIZE };
     uint8_t keys[KEYS_SIZE];
 
-    FILE *keys_file = fopen("key", "r");
+    FILE *keys_file = fopen("key", "rb");
 
     if (keys_file != nullptr) {
         /* If file was opened successfully -- load keys,
@@ -61,7 +64,7 @@ static void manage_keys(DHT *dht)
     } else {
         memcpy(keys, dht_get_self_public_key(dht), CRYPTO_PUBLIC_KEY_SIZE);
         memcpy(keys + CRYPTO_PUBLIC_KEY_SIZE, dht_get_self_secret_key(dht), CRYPTO_SECRET_KEY_SIZE);
-        keys_file = fopen("key", "w");
+        keys_file = fopen("key", "wb");
 
         if (keys_file == nullptr) {
             printf("Error opening key file in write mode.\nKeys will not be saved.\n");
@@ -140,30 +143,37 @@ int main(int argc, char *argv[])
         logger_callback_log(logger, print_log, nullptr, nullptr);
     }
 
-    Mono_Time *mono_time = mono_time_new();
-    DHT *dht = new_dht(logger, mono_time, new_networking(logger, ip, PORT), true);
-    Onion *onion = new_onion(mono_time, dht);
-    Onion_Announce *onion_a = new_onion_announce(mono_time, dht);
+    const Random *rng = system_random();
+    Mono_Time *mono_time = mono_time_new(nullptr, nullptr);
+    const uint16_t start_port = PORT;
+    const uint16_t end_port = start_port + (TOX_PORTRANGE_TO - TOX_PORTRANGE_FROM);
+    const Network *ns = system_network();
+    DHT *dht = new_dht(logger, rng, ns, mono_time, new_networking_ex(logger, ns, &ip, start_port, end_port, nullptr), true, true);
+    Onion *onion = new_onion(logger, mono_time, rng, dht);
+    Forwarding *forwarding = new_forwarding(logger, rng, mono_time, dht);
+    GC_Announces_List *gc_announces_list = new_gca_list();
+    Onion_Announce *onion_a = new_onion_announce(logger, rng, mono_time, dht);
 
 #ifdef DHT_NODE_EXTRA_PACKETS
     bootstrap_set_callbacks(dht_get_net(dht), DHT_VERSION_NUMBER, DHT_MOTD, sizeof(DHT_MOTD));
 #endif
 
-    if (!(onion && onion_a)) {
+    if (!(onion && forwarding && onion_a)) {
         printf("Something failed to initialize.\n");
         exit(1);
     }
+
+    gca_onion_init(gc_announces_list, onion_a);
 
     perror("Initialization");
 
     manage_keys(dht);
     printf("Public key: ");
-    uint32_t i;
 
 #ifdef TCP_RELAY_ENABLED
 #define NUM_PORTS 3
     uint16_t ports[NUM_PORTS] = {443, 3389, PORT};
-    TCP_Server *tcp_s = new_TCP_server(logger, ipv6enabled, NUM_PORTS, ports, dht_get_self_secret_key(dht), onion);
+    TCP_Server *tcp_s = new_TCP_server(logger, rng, ns, ipv6enabled, NUM_PORTS, ports, dht_get_self_secret_key(dht), onion, forwarding);
 
     if (tcp_s == nullptr) {
         printf("TCP server failed to initialize.\n");
@@ -180,7 +190,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    for (i = 0; i < 32; i++) {
+    for (uint32_t i = 0; i < 32; ++i) {
         const uint8_t *const self_public_key = dht_get_self_public_key(dht);
         printf("%02X", self_public_key[i]);
         fprintf(file, "%02X", self_public_key[i]);
@@ -193,7 +203,16 @@ int main(int argc, char *argv[])
 
     if (argc > argvoffset + 3) {
         printf("Trying to bootstrap into the network...\n");
-        uint16_t port = net_htons(atoi(argv[argvoffset + 2]));
+
+        const long int port_conv = strtol(argv[argvoffset + 2], nullptr, 10);
+
+        if (port_conv <= 0 || port_conv > UINT16_MAX) {
+            printf("Failed to convert \"%s\" into a valid port. Exiting...\n", argv[argvoffset + 2]);
+            exit(1);
+        }
+
+        const uint16_t port = net_htons((uint16_t)port_conv);
+
         uint8_t *bootstrap_key = hex_string_to_bin(argv[argvoffset + 3]);
         int res = dht_bootstrap_from_address(dht, argv[argvoffset + 1],
                                              ipv6enabled, port, bootstrap_key);
@@ -208,7 +227,7 @@ int main(int argc, char *argv[])
     int is_waiting_for_dht_connection = 1;
 
     uint64_t last_LANdiscovery = 0;
-    lan_discovery_init(dht);
+    const Broadcast_Info *broadcast = lan_discovery_init(ns);
 
     while (1) {
         mono_time_update(mono_time);
@@ -221,7 +240,7 @@ int main(int argc, char *argv[])
         do_dht(dht);
 
         if (mono_time_is_timeout(mono_time, last_LANdiscovery, is_waiting_for_dht_connection ? 5 : LAN_DISCOVERY_INTERVAL)) {
-            lan_discovery_send(net_htons(PORT), dht);
+            lan_discovery_send(dht_get_net(dht), broadcast, dht_get_self_public_key(dht), net_htons(PORT));
             last_LANdiscovery = mono_time_get(mono_time);
         }
 

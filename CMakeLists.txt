@@ -20,6 +20,21 @@ project(toxcore)
 
 list(APPEND CMAKE_MODULE_PATH ${toxcore_SOURCE_DIR}/cmake)
 
+option(FLAT_OUTPUT_STRUCTURE "Whether to produce output artifacts in ${CMAKE_BINARY_DIR}/{bin,lib}" OFF)
+if(FLAT_OUTPUT_STRUCTURE)
+  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+endif()
+
+set_source_files_properties(
+  toxcore/mono_time.c
+  toxcore/network.c
+  toxcore/tox.c
+  toxcore/util.c
+  toxutil/toxutil.c
+  PROPERTIES SKIP_UNITY_BUILD_INCLUSION TRUE)
+
 ################################################################################
 #
 # :: Version management
@@ -30,7 +45,7 @@ list(APPEND CMAKE_MODULE_PATH ${toxcore_SOURCE_DIR}/cmake)
 # versions in a synchronised way.
 set(PROJECT_VERSION_MAJOR "0")
 set(PROJECT_VERSION_MINOR "2")
-set(PROJECT_VERSION_PATCH "13")
+set(PROJECT_VERSION_PATCH "18")
 set(PROJECT_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
 
 # set .so library version / following libtool scheme
@@ -52,7 +67,6 @@ message("SOVERSION: ${SOVERSION}")
 #
 ################################################################################
 
-include(ApiDsl)
 include(CTest)
 include(ModulePackage)
 include(StrictAbi)
@@ -69,22 +83,17 @@ set(CMAKE_MACOSX_RPATH ON)
 if(${CMAKE_VERSION} VERSION_LESS "3.1.0")
   if(NOT MSVC)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
   endif()
 else()
   # Set standard version for compiler.
   set(CMAKE_C_STANDARD 99)
-  set(CMAKE_CXX_STANDARD 11)
+  set(CMAKE_CXX_STANDARD 17)
   set(CMAKE_C_EXTENSIONS OFF)
   set(CMAKE_CXX_EXTENSIONS OFF)
 
   message(STATUS "Supported C compiler features = ${CMAKE_C_COMPILE_FEATURES}")
   message(STATUS "Supported C++ compiler features = ${CMAKE_CXX_COMPILE_FEATURES}")
-endif()
-
-option(EXECUTION_TRACE "Print a function trace during execution (for debugging)" OFF)
-if(EXECUTION_TRACE)
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -finstrument-functions")
 endif()
 
 set(MIN_LOGGER_LEVEL "" CACHE STRING "Logging level to use (TRACE, DEBUG, INFO, WARNING, ERROR)")
@@ -105,15 +114,45 @@ if(NOT USE_IPV6)
   add_definitions(-DUSE_IPV6=0)
 endif()
 
-option(USE_STDERR_LOGGER "Enable logging to stderr when the logger is NULL" OFF)
-if(USE_STDERR_LOGGER)
-  add_definitions(-DUSE_STDERR_LOGGER=1)
+option(USE_TEST_NETWORK "Use a separate test network with different packet IDs" OFF)
+if(USE_TEST_NETWORK)
+  add_definitions(-DUSE_TEST_NETWORK=1)
 endif()
 
-option(NON_HERMETIC_TESTS "Whether to build and run tests that depend on an internet connection" OFF)
+option(BUILD_MISC_TESTS "Build additional tests and utilities" OFF)
+option(BUILD_FUN_UTILS "Build additional just for fun utilities" OFF)
+
+option(AUTOTEST "Enable autotests (mainly for CI)" OFF)
+if (AUTOTEST)
+  option(NON_HERMETIC_TESTS "Whether to build and run tests that depend on an internet connection" OFF)
+  option(PROXY_TEST "Enable proxy test (needs HTTP/SOCKS5 proxy on port 8080/8081)" OFF)
+endif()
 
 option(BUILD_TOXAV "Whether to build the tox AV library" ON)
 option(MUST_BUILD_TOXAV "Fail the build if toxav cannot be built" OFF)
+
+option(DHT_BOOTSTRAP "Enable building of DHT_bootstrap" ON)
+option(BOOTSTRAP_DAEMON "Enable building of tox-bootstrapd" ON)
+if(BOOTSTRAP_DAEMON AND WIN32)
+  message(WARNING "Building tox-bootstrapd for Windows is not supported, disabling")
+  set(BOOTSTRAP_DAEMON OFF)
+endif()
+
+# Enabling this breaks all other tests and no network connections will be possible
+option(BUILD_FUZZ_TESTS "Build fuzzing harnesses" OFF)
+if(BUILD_FUZZ_TESTS)
+    message(STATUS "Building in fuzz testing mode, no network connection will be possible")
+    # Disable everything we can
+    set(AUTOTEST OFF)
+    set(BUILD_MISC_TESTS OFF)
+    set(BUILD_FUN_UTILS OFF)
+    set(ENABLE_SHARED OFF)
+    set(MUST_BUILD_TOXAV OFF)
+    set(BUILD_TOXAV OFF)
+    set(BOOTSTRAP_DAEMON OFF)
+    set(DHT_BOOTSTRAP OFF)
+endif()
+
 
 if(MSVC)
   option(MSVC_STATIC_SODIUM "Whether to link libsodium statically for MSVC" OFF)
@@ -153,6 +192,10 @@ if(BUILD_TOXAV)
   endif()
 endif()
 
+# Disable float/double packing in CMP (C MessagePack library).
+# We don't transfer floats over the network, so we disable this functionality.
+add_definitions(-DCMP_NO_FLOAT=1)
+
 ################################################################################
 #
 # :: Tox Core Library
@@ -171,97 +214,123 @@ set(toxcore_PKGCONFIG_LIBS)
 # Requires: in pkg-config file.
 set(toxcore_PKGCONFIG_REQUIRES)
 
-# LAYER 1: Crypto core
-# --------------------
-apidsl(toxcore/crypto_core.api.h)
-set(toxcore_SOURCES ${toxcore_SOURCES}
+set(toxcore_SOURCES
+  third_party/cmp/cmp.c
+  third_party/cmp/cmp.h
+  toxcore/announce.c
+  toxcore/announce.h
+  toxcore/bin_pack.c
+  toxcore/bin_pack.h
+  toxcore/bin_unpack.c
+  toxcore/bin_unpack.h
+  toxcore/ccompat.c
   toxcore/ccompat.h
   toxcore/crypto_core.c
   toxcore/crypto_core.h
-  toxcore/crypto_core_mem.c)
-include(CheckFunctionExists)
-check_function_exists(explicit_bzero HAVE_EXPLICIT_BZERO)
-check_function_exists(memset_s HAVE_MEMSET_S)
-set(toxcore_LINK_MODULES ${toxcore_LINK_MODULES} ${LIBSODIUM_LIBRARIES})
-set(toxcore_PKGCONFIG_REQUIRES ${toxcore_PKGCONFIG_REQUIRES} libsodium)
-
-# LAYER 2: Basic networking
-# -------------------------
-set(toxcore_SOURCES ${toxcore_SOURCES}
-  toxcore/logger.c
-  toxcore/logger.h
-  toxcore/mono_time.c
-  toxcore/mono_time.h
-  toxcore/network.c
-  toxcore/network.h
-  toxcore/state.c
-  toxcore/state.h
-  toxcore/util.c
-  toxcore/util.h)
-
-# LAYER 3: Distributed Hash Table
-# -------------------------------
-apidsl(toxcore/LAN_discovery.api.h)
-apidsl(toxcore/ping.api.h)
-apidsl(toxcore/ping_array.api.h)
-set(toxcore_SOURCES ${toxcore_SOURCES}
   toxcore/DHT.c
   toxcore/DHT.h
+  toxcore/events/conference_connected.c
+  toxcore/events/conference_invite.c
+  toxcore/events/conference_message.c
+  toxcore/events/conference_peer_list_changed.c
+  toxcore/events/conference_peer_name.c
+  toxcore/events/conference_title.c
+  toxcore/events/events_alloc.c
+  toxcore/events/events_alloc.h
+  toxcore/events/file_chunk_request.c
+  toxcore/events/file_recv.c
+  toxcore/events/file_recv_chunk.c
+  toxcore/events/file_recv_control.c
+  toxcore/events/friend_connection_status.c
+  toxcore/events/friend_lossless_packet.c
+  toxcore/events/friend_lossy_packet.c
+  toxcore/events/friend_message.c
+  toxcore/events/friend_name.c
+  toxcore/events/friend_read_receipt.c
+  toxcore/events/friend_request.c
+  toxcore/events/friend_status.c
+  toxcore/events/friend_status_message.c
+  toxcore/events/friend_typing.c
+  toxcore/events/self_connection_status.c
+  toxcore/forwarding.c
+  toxcore/forwarding.h
+  toxcore/friend_connection.c
+  toxcore/friend_connection.h
+  toxcore/friend_requests.c
+  toxcore/friend_requests.h
+  toxcore/group.c
+  toxcore/group_chats.c
+  toxcore/group_chats.h
+  toxcore/group_common.h
+  toxcore/group_connection.c
+  toxcore/group_connection.h
+  toxcore/group.h
+  toxcore/group_announce.c
+  toxcore/group_announce.h
+  toxcore/group_moderation.c
+  toxcore/group_moderation.h
+  toxcore/group_onion_announce.c
+  toxcore/group_onion_announce.h
+  toxcore/group_pack.c
+  toxcore/group_pack.h
   toxcore/LAN_discovery.c
   toxcore/LAN_discovery.h
+  toxcore/list.c
+  toxcore/list.h
+  toxcore/logger.c
+  toxcore/logger.h
+  toxcore/Messenger.c
+  toxcore/Messenger.h
+  toxcore/mono_time.c
+  toxcore/mono_time.h
+  toxcore/net_crypto.c
+  toxcore/net_crypto.h
+  toxcore/network.c
+  toxcore/network.h
+  toxcore/onion_announce.c
+  toxcore/onion_announce.h
+  toxcore/onion.c
+  toxcore/onion_client.c
+  toxcore/onion_client.h
+  toxcore/onion.h
+  toxcore/ping_array.c
+  toxcore/ping_array.h
   toxcore/ping.c
   toxcore/ping.h
-  toxcore/ping_array.c
-  toxcore/ping_array.h)
-
-# LAYER 4: Onion routing, TCP connections, crypto connections
-# -----------------------------------------------------------
-set(toxcore_SOURCES ${toxcore_SOURCES}
+  toxcore/state.c
+  toxcore/state.h
   toxcore/TCP_client.c
   toxcore/TCP_client.h
+  toxcore/TCP_common.c
+  toxcore/TCP_common.h
   toxcore/TCP_connection.c
   toxcore/TCP_connection.h
   toxcore/TCP_server.c
   toxcore/TCP_server.h
-  toxcore/list.c
-  toxcore/list.h
-  toxcore/net_crypto.c
-  toxcore/net_crypto.h
-  toxcore/onion.c
-  toxcore/onion.h
-  toxcore/onion_announce.c
-  toxcore/onion_announce.h
-  toxcore/onion_client.c
-  toxcore/onion_client.h)
-
-# LAYER 5: Friend requests and connections
-# ----------------------------------------
-set(toxcore_SOURCES ${toxcore_SOURCES}
-  toxcore/friend_connection.c
-  toxcore/friend_connection.h
-  toxcore/friend_requests.c
-  toxcore/friend_requests.h)
-
-# LAYER 6: Tox messenger
-# ----------------------
-set(toxcore_SOURCES ${toxcore_SOURCES}
-  toxcore/Messenger.c
-  toxcore/Messenger.h)
-
-# LAYER 7: Group chats
-# --------------------
-set(toxcore_SOURCES ${toxcore_SOURCES}
-  toxcore/group.c
-  toxcore/group.h)
-
-# LAYER 8: Public API
-# -------------------
-apidsl(toxcore/tox.api.h)
-set(toxcore_SOURCES ${toxcore_SOURCES}
+  toxcore/timed_auth.c
+  toxcore/timed_auth.h
   toxcore/tox_api.c
   toxcore/tox.c
-  toxcore/tox.h)
-set(toxcore_API_HEADERS ${toxcore_API_HEADERS} ${toxcore_SOURCE_DIR}/toxcore/tox.h^tox)
+  toxcore/tox_dispatch.c
+  toxcore/tox_dispatch.h
+  toxcore/tox_events.c
+  toxcore/tox_events.h
+  toxcore/tox.h
+  toxcore/tox_private.c
+  toxcore/tox_private.h
+  toxcore/tox_unpack.c
+  toxcore/tox_unpack.h
+  toxcore/util.c
+  toxcore/util.h
+  toxutil/toxutil.c
+  toxutil/toxutil.h)
+set(toxcore_LINK_MODULES ${toxcore_LINK_MODULES} ${LIBSODIUM_LIBRARIES})
+set(toxcore_PKGCONFIG_REQUIRES ${toxcore_PKGCONFIG_REQUIRES} libsodium)
+set(toxcore_API_HEADERS
+  ${toxcore_SOURCE_DIR}/toxcore/tox.h^tox
+  ${toxcore_SOURCE_DIR}/toxutil/toxutil.h^tox
+  ${toxcore_SOURCE_DIR}/toxcore/tox_events.h^tox
+  ${toxcore_SOURCE_DIR}/toxcore/tox_dispatch.h^tox)
 
 ################################################################################
 #
@@ -274,7 +343,6 @@ set(toxcore_SOURCES ${toxcore_SOURCES}
 set(toxcore_API_HEADERS ${toxcore_API_HEADERS} ${toxcore_SOURCE_DIR}/toxutil/toxutil.h^tox)
 
 if(BUILD_TOXAV)
-  apidsl(toxav/toxav.api.h)
   set(toxcore_SOURCES ${toxcore_SOURCES}
     toxav/codecs/h264/codec.c
     toxav/codecs/vpx/codec.c
@@ -294,25 +362,17 @@ if(BUILD_TOXAV)
     toxav/rtp.h
     toxav/toxav.c
     toxav/toxav.h
+    toxav/toxav_hacks.h
     toxav/toxav_old.c
     toxav/ts_buffer.c
     toxav/ts_buffer.h
     toxav/video.c
     toxav/video.h)
-  set(toxcore_LINK_MODULES ${toxcore_LINK_MODULES}
-    ${OPUS_LIBRARIES}
-    ${VPX_LIBRARIES}
-    ${X264_LIBRARIES}
-    ${LIBAVCODEC_LIBRARIES}
-    ${LIBAVUTIL_LIBRARIES})
-  set(toxcore_PKGCONFIG_REQUIRES ${toxcore_PKGCONFIG_REQUIRES}
-    opus
-    vpx
-    x264
-    libavcodec
-    libavutil)
+  set(toxcore_API_HEADERS ${toxcore_API_HEADERS}
+    ${toxcore_SOURCE_DIR}/toxav/toxav.h^toxav)
 
-  set(toxcore_API_HEADERS ${toxcore_API_HEADERS} ${toxcore_SOURCE_DIR}/toxav/toxav.h^toxav)
+  set(toxcore_LINK_MODULES ${toxcore_LINK_MODULES} ${OPUS_LIBRARIES} ${VPX_LIBRARIES})
+  set(toxcore_PKGCONFIG_REQUIRES ${toxcore_PKGCONFIG_REQUIRES} opus vpx)
 endif()
 
 ################################################################################
@@ -321,11 +381,11 @@ endif()
 #
 ################################################################################
 
-apidsl(toxencryptsave/toxencryptsave.api.h)
 set(toxcore_SOURCES ${toxcore_SOURCES}
   toxencryptsave/toxencryptsave.c
   toxencryptsave/toxencryptsave.h)
-set(toxcore_API_HEADERS ${toxcore_API_HEADERS} ${toxcore_SOURCE_DIR}/toxencryptsave/toxencryptsave.h^tox)
+set(toxcore_API_HEADERS ${toxcore_API_HEADERS}
+  ${toxcore_SOURCE_DIR}/toxencryptsave/toxencryptsave.h^tox)
 
 ################################################################################
 #
@@ -393,11 +453,18 @@ include(CompileGTest)
 # The actual unit tests follow.
 #
 unit_test(toxav ring_buffer)
-# unit_test(toxav rtp) # Zoff:disabled for now
+unit_test(toxav rtp)
+unit_test(toxcore DHT)
+unit_test(toxcore bin_pack)
 unit_test(toxcore crypto_core)
+unit_test(toxcore group_announce)
+unit_test(toxcore group_moderation)
 unit_test(toxcore mono_time)
 unit_test(toxcore ping_array)
+unit_test(toxcore tox)
 unit_test(toxcore util)
+
+add_subdirectory(testing)
 
 ################################################################################
 #
@@ -405,86 +472,8 @@ unit_test(toxcore util)
 #
 ################################################################################
 
-add_library(misc_tools
-  testing/misc_tools.c
-  testing/misc_tools.h)
-target_link_modules(misc_tools toxcore)
-
-set(TEST_TIMEOUT_SECONDS "" CACHE STRING "Limit runtime of each test to the number of seconds specified")
-
-if(ANDROID_CPU_FEATURES)
-  # We need to compile cpufeatures.c as many times as there are executables,
-  # because libvpx doesn't include it although it depends on it. We can't get
-  # the link ordering right in cmake, so we need to compile the cpufeatures
-  # library into every binary explicitly.
-  #
-  # The alternative is to #include the library in every main file, but I
-  # (@iphydf) felt that this solution was cleaner.
-  add_definitions(-DANDROID_CPU_FEATURES="${ANDROID_CPU_FEATURES}")
-  set(CPUFEATURES other/cpufeatures.c)
-endif()
-
-option(AUTOTEST "Enable autotests (mainly for CI)" OFF)
-
-function(auto_test target)
-  if(AUTOTEST AND NOT (MSVC AND ARGV1 STREQUAL "MSVC_DONT_BUILD"))
-    add_executable(auto_${target}_test ${CPUFEATURES}
-      auto_tests/${target}_test.c)
-    target_link_modules(auto_${target}_test toxcore misc_tools)
-    if(NOT ARGV1 STREQUAL "DONT_RUN")
-      add_test(NAME ${target} COMMAND ${CROSSCOMPILING_EMULATOR} auto_${target}_test)
-      set_tests_properties(${target} PROPERTIES TIMEOUT "${TEST_TIMEOUT_SECONDS}")
-      set_property(TEST ${target} PROPERTY ENVIRONMENT "LLVM_PROFILE_FILE=${target}.profraw")
-    endif()
-  endif()
-endfunction()
-
-auto_test(TCP)
-auto_test(bootstrap)
-auto_test(conference)
-auto_test(conference_double_invite)
-auto_test(conference_invite_merge)
-auto_test(conference_peer_nick)
-auto_test(conference_simple)
-auto_test(conference_two)
-auto_test(crypto                        MSVC_DONT_BUILD)
-auto_test(dht                           MSVC_DONT_BUILD)
-auto_test(encryptsave)
-auto_test(file_transfer)
-auto_test(file_saving)
-auto_test(friend_connection)
-auto_test(friend_request)
-auto_test(invalid_tcp_proxy)
-auto_test(invalid_udp_proxy)
-auto_test(lan_discovery)
-auto_test(lossless_packet)
-auto_test(lossy_packet)
-auto_test(messenger                     MSVC_DONT_BUILD)
-auto_test(network)
-auto_test(onion)
-auto_test(overflow_recvq)
-auto_test(overflow_sendq)
-auto_test(reconnect)
-auto_test(save_friend)
-auto_test(save_load)
-auto_test(send_message)
-auto_test(set_name)
-auto_test(set_status_message)
-auto_test(skeleton)
-auto_test(tcp_relay)
-auto_test(tox_many)
-auto_test(tox_many_tcp)
-auto_test(tox_one)
-auto_test(tox_strncasecmp)
-auto_test(typing)
-auto_test(version)
-auto_test(save_compatibility)
-
-if(BUILD_TOXAV)
-  auto_test(conference_av)
-  auto_test(toxav_basic)
-  auto_test(toxav_many)
-  auto_test(toxav_many_sep_iter)
+if(AUTOTEST)
+  add_subdirectory(auto_tests)
 endif()
 
 ################################################################################
@@ -493,70 +482,27 @@ endif()
 #
 ################################################################################
 
-option(DHT_BOOTSTRAP "Enable building of DHT_bootstrap" ON)
 if(DHT_BOOTSTRAP)
-  add_executable(DHT_bootstrap ${CPUFEATURES}
+  add_executable(DHT_bootstrap
     other/DHT_bootstrap.c
     other/bootstrap_node_packets.c)
   target_link_modules(DHT_bootstrap toxcore misc_tools)
   install(TARGETS DHT_bootstrap RUNTIME DESTINATION bin)
 endif()
 
-option(BOOTSTRAP_DAEMON "Enable building of tox-bootstrapd" ON)
-if(BOOTSTRAP_DAEMON AND WIN32)
-  message(WARNING "Building tox-bootstrapd for Windows is not supported")
-  set(BOOTSTRAP_DAEMON OFF)
-endif()
 if(BOOTSTRAP_DAEMON)
-  if(NOT LIBCONFIG_FOUND)
+  if(LIBCONFIG_FOUND)
+    add_subdirectory(other/bootstrap_daemon)
+  else()
     message(WARNING "Option BOOTSTRAP_DAEMON is enabled but required library LIBCONFIG was not found.")
     set(BOOTSTRAP_DAEMON OFF)
-  else()
-    add_executable(tox-bootstrapd ${CPUFEATURES}
-      other/bootstrap_daemon/src/command_line_arguments.c
-      other/bootstrap_daemon/src/command_line_arguments.h
-      other/bootstrap_daemon/src/config.c
-      other/bootstrap_daemon/src/config.h
-      other/bootstrap_daemon/src/config_defaults.h
-      other/bootstrap_daemon/src/global.h
-      other/bootstrap_daemon/src/log.c
-      other/bootstrap_daemon/src/log.h
-      other/bootstrap_daemon/src/log_backend_stdout.c
-      other/bootstrap_daemon/src/log_backend_stdout.h
-      other/bootstrap_daemon/src/log_backend_syslog.c
-      other/bootstrap_daemon/src/log_backend_syslog.h
-      other/bootstrap_daemon/src/tox-bootstrapd.c
-      other/bootstrap_node_packets.c
-      other/bootstrap_node_packets.h)
-    target_link_modules(tox-bootstrapd toxcore ${LIBCONFIG_LIBRARIES})
-    install(TARGETS tox-bootstrapd RUNTIME DESTINATION bin)
   endif()
 endif()
 
-################################################################################
-#
-# :: Test programs
-#
-################################################################################
+if(BUILD_FUN_UTILS)
+  add_subdirectory(other/fun)
+endif()
 
-option(BUILD_MISC_TESTS "Build additional tests" OFF)
-if (BUILD_MISC_TESTS)
-  add_executable(DHT_test ${CPUFEATURES}
-    testing/DHT_test.c)
-  target_link_modules(DHT_test toxcore misc_tools)
-
-  add_executable(Messenger_test ${CPUFEATURES}
-    testing/Messenger_test.c)
-  target_link_modules(Messenger_test toxcore misc_tools)
-
-  add_executable(random_testing ${CPUFEATURES}
-    testing/random_testing.cc)
-  target_link_modules(random_testing toxcore misc_tools)
-
-  add_executable(save-generator
-    other/fun/save-generator.c)
-  target_link_modules(save-generator toxcore misc_tools)
-  add_executable(afl_toxsave
-    testing/afl_toxsave.c)
-  target_link_modules(afl_toxsave toxcore)
+if (BUILD_FUZZ_TESTS)
+  add_subdirectory(testing/fuzzing)
 endif()

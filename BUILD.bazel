@@ -1,15 +1,17 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("//tools/project:build_defs.bzl", "project")
 
+package(features = ["layering_check"])
+
 project()
 
 genrule(
-    name = "copy_headers",
+    name = "public_headers",
     srcs = [
-        "//c-toxcore/toxav:public_headers",
-        "//c-toxcore/toxcore:public_headers",
-        "//c-toxcore/toxencryptsave:public_headers",
-        "//c-toxcore/toxutil:public_headers",
+        "//c-toxcore/toxav:toxav.h",
+        "//c-toxcore/toxcore:tox.h",
+        "//c-toxcore/toxencryptsave:toxencryptsave.h",
+        "//c-toxcore/toxutil:toxutil.h",
     ],
     outs = [
         "tox/toxav.h",
@@ -18,21 +20,17 @@ genrule(
         "tox/toxutil.h",
     ],
     cmd = """
-        cp $(location //c-toxcore/toxav:public_headers) $(GENDIR)/c-toxcore/tox/toxav.h
-        cp $(location //c-toxcore/toxcore:public_headers) $(GENDIR)/c-toxcore/tox/tox.h
-        cp $(location //c-toxcore/toxencryptsave:public_headers) $(GENDIR)/c-toxcore/tox/toxencryptsave.h
-        cp $(location //c-toxcore/toxutil:public_headers) $(GENDIR)/c-toxcore/tox/toxutil.h
+        cp $(location //c-toxcore/toxav:toxav.h) $(GENDIR)/c-toxcore/tox/toxav.h
+        cp $(location //c-toxcore/toxcore:tox.h) $(GENDIR)/c-toxcore/tox/tox.h
+        cp $(location //c-toxcore/toxencryptsave:toxencryptsave.h) $(GENDIR)/c-toxcore/tox/toxencryptsave.h
+        cp $(location //c-toxcore/toxutil:toxutil.h) $(GENDIR)/c-toxcore/toxutil/toxutil.h
     """,
+    visibility = ["//visibility:public"],
 )
 
 cc_library(
     name = "c-toxcore",
-    hdrs = [
-        "tox/tox.h",
-        "tox/toxav.h",
-        "tox/toxencryptsave.h",
-        "tox/toxutil.h",
-    ],
+    hdrs = [":public_headers"],
     includes = ["."],
     visibility = ["//visibility:public"],
     deps = [

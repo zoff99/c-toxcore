@@ -23,6 +23,7 @@
  *
  * EX: ./test Save.bak
  */
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,6 +33,7 @@
 #endif
 
 #include "../toxcore/Messenger.h"
+#include "../toxcore/ccompat.h"
 #include "../toxcore/mono_time.h"
 #include "misc_tools.h"
 
@@ -90,7 +92,7 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
-    Mono_Time *const mono_time = mono_time_new();
+    Mono_Time *const mono_time = mono_time_new(nullptr, nullptr);
 
     if (mono_time == nullptr) {
         fputs("Failed to allocate monotonic timer datastructure\n", stderr);
@@ -99,15 +101,23 @@ int main(int argc, char *argv[])
 
     Messenger_Options options = {0};
     options.ipv6enabled = ipv6enabled;
-    m = new_messenger(mono_time, &options, nullptr);
+    Messenger_Error err;
+    m = new_messenger(mono_time, system_random(), system_network(), &options, &err);
 
     if (!m) {
-        fputs("Failed to allocate messenger datastructure\n", stderr);
+        fprintf(stderr, "Failed to allocate messenger datastructure: %d\n", err);
         exit(0);
     }
 
     if (argc == argvoffset + 4) {
-        uint16_t port = net_htons(atoi(argv[argvoffset + 2]));
+        const long int port_conv = strtol(argv[argvoffset + 2], nullptr, 10);
+
+        if (port_conv <= 0 || port_conv > UINT16_MAX) {
+            printf("Failed to convert \"%s\" into a valid port. Exiting...\n", argv[argvoffset + 2]);
+            exit(1);
+        }
+
+        const uint16_t port = net_htons((uint16_t)port_conv);
         uint8_t *bootstrap_key = hex_string_to_bin(argv[argvoffset + 3]);
         int res = dht_bootstrap_from_address(m->dht, argv[argvoffset + 1],
                                              ipv6enabled, port, bootstrap_key);

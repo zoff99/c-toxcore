@@ -3,26 +3,23 @@
  * Copyright © 2014 Tox project.
  */
 
-/*
+/**
  * Implementation of an efficient array to store that we pinged something.
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include "ping_array.h"
 
 #include <stdlib.h>
 #include <string.h>
 
+#include "ccompat.h"
 #include "crypto_core.h"
 #include "mono_time.h"
 #include "util.h"
 
 typedef struct Ping_Array_Entry {
-    void *data;
+    uint8_t *data;
     uint32_t length;
-    uint64_t time;
+    uint64_t ping_time;
     uint64_t ping_id;
 } Ping_Array_Entry;
 
@@ -66,6 +63,7 @@ Ping_Array *ping_array_new(uint32_t size, uint32_t timeout)
     return empty_array;
 }
 
+non_null()
 static void clear_entry(Ping_Array *array, uint32_t index)
 {
     const Ping_Array_Entry empty = {nullptr};
@@ -89,14 +87,14 @@ void ping_array_kill(Ping_Array *array)
     free(array);
 }
 
-/* Clear timed out entries.
- */
+/** Clear timed out entries. */
+non_null()
 static void ping_array_clear_timedout(Ping_Array *array, const Mono_Time *mono_time)
 {
     while (array->last_deleted != array->last_added) {
         const uint32_t index = array->last_deleted % array->total_size;
 
-        if (!mono_time_is_timeout(mono_time, array->entries[index].time, array->timeout)) {
+        if (!mono_time_is_timeout(mono_time, array->entries[index].ping_time, array->timeout)) {
             break;
         }
 
@@ -105,8 +103,8 @@ static void ping_array_clear_timedout(Ping_Array *array, const Mono_Time *mono_t
     }
 }
 
-uint64_t ping_array_add(Ping_Array *array, const Mono_Time *mono_time, const uint8_t *data,
-                        uint32_t length)
+uint64_t ping_array_add(Ping_Array *array, const Mono_Time *mono_time, const Random *rng,
+                        const uint8_t *data, uint32_t length)
 {
     ping_array_clear_timedout(array, mono_time);
     const uint32_t index = array->last_added % array->total_size;
@@ -116,7 +114,7 @@ uint64_t ping_array_add(Ping_Array *array, const Mono_Time *mono_time, const uin
         clear_entry(array, index);
     }
 
-    array->entries[index].data = malloc(length);
+    array->entries[index].data = (uint8_t *)malloc(length);
 
     if (array->entries[index].data == nullptr) {
         return 0;
@@ -124,9 +122,9 @@ uint64_t ping_array_add(Ping_Array *array, const Mono_Time *mono_time, const uin
 
     memcpy(array->entries[index].data, data, length);
     array->entries[index].length = length;
-    array->entries[index].time = mono_time_get(mono_time);
+    array->entries[index].ping_time = mono_time_get(mono_time);
     ++array->last_added;
-    uint64_t ping_id = random_u64();
+    uint64_t ping_id = random_u64(rng);
     ping_id /= array->total_size;
     ping_id *= array->total_size;
     ping_id += index;
@@ -152,7 +150,7 @@ int32_t ping_array_check(Ping_Array *array, const Mono_Time *mono_time, uint8_t 
         return -1;
     }
 
-    if (mono_time_is_timeout(mono_time, array->entries[index].time, array->timeout)) {
+    if (mono_time_is_timeout(mono_time, array->entries[index].ping_time, array->timeout)) {
         return -1;
     }
 

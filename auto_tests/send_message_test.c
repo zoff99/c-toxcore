@@ -1,66 +1,79 @@
 /* Tests that we can send messages to friends.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
 typedef struct State {
-    uint32_t index;
-    uint64_t clock;
-
     bool message_received;
 } State;
 
-#include "run_auto_test.h"
+#include "auto_test_support.h"
 
 #define MESSAGE_FILLER 'G'
 
 static void message_callback(
     Tox *m, uint32_t friendnumber, Tox_Message_Type type,
-    const uint8_t *string, size_t length, void *userdata)
+    const uint8_t *string, size_t length, void *user_data)
 {
-    State *state = (State *)userdata;
+    const AutoTox *autotox = (AutoTox *)user_data;
+    State *state = (State *)autotox->state;
 
     if (type != TOX_MESSAGE_TYPE_NORMAL) {
         ck_abort_msg("Bad type");
     }
 
-    uint8_t cmp_msg[TOX_MAX_MESSAGE_LENGTH];
-    memset(cmp_msg, MESSAGE_FILLER, sizeof(cmp_msg));
+    const size_t cmp_msg_len = tox_max_message_length();
+    uint8_t *cmp_msg = (uint8_t *)malloc(cmp_msg_len);
+    ck_assert(cmp_msg != nullptr);
+    memset(cmp_msg, MESSAGE_FILLER, cmp_msg_len);
 
-    if (length == TOX_MAX_MESSAGE_LENGTH && memcmp(string, cmp_msg, sizeof(cmp_msg)) == 0) {
+    if (length == tox_max_message_length() && memcmp(string, cmp_msg, cmp_msg_len) == 0) {
         state->message_received = true;
     }
+
+    free(cmp_msg);
 }
 
-static void send_message_test(Tox **toxes, State *state)
+static void send_message_test(AutoTox *autotoxes)
 {
-    tox_callback_friend_message(toxes[1], &message_callback);
+    tox_callback_friend_message(autotoxes[1].tox, &message_callback);
 
-    uint8_t msgs[TOX_MAX_MESSAGE_LENGTH + 1];
-    memset(msgs, MESSAGE_FILLER, sizeof(msgs));
+    const size_t msgs_len = tox_max_message_length() + 1;
+    uint8_t *msgs = (uint8_t *)malloc(msgs_len);
+    memset(msgs, MESSAGE_FILLER, msgs_len);
 
     Tox_Err_Friend_Send_Message errm;
-    tox_friend_send_message(toxes[0], 0, TOX_MESSAGE_TYPE_NORMAL, msgs, TOX_MAX_MESSAGE_LENGTH + 1, &errm);
-    ck_assert_msg(errm == TOX_ERR_FRIEND_SEND_MESSAGE_TOO_LONG, "TOX_MAX_MESSAGE_LENGTH is too small? error=%d", errm);
+    tox_friend_send_message(autotoxes[0].tox, 0, TOX_MESSAGE_TYPE_NORMAL, msgs, msgs_len, &errm);
+    ck_assert_msg(errm == TOX_ERR_FRIEND_SEND_MESSAGE_TOO_LONG, "tox_max_message_length() is too small? error=%d", errm);
 
-    tox_friend_send_message(toxes[0], 0, TOX_MESSAGE_TYPE_NORMAL, msgs, TOX_MAX_MESSAGE_LENGTH, &errm);
-    ck_assert_msg(errm == TOX_ERR_FRIEND_SEND_MESSAGE_OK, "TOX_MAX_MESSAGE_LENGTH is too big? error=%d", errm);
+    tox_friend_send_message(autotoxes[0].tox, 0, TOX_MESSAGE_TYPE_NORMAL, msgs, tox_max_message_length(), &errm);
+    ck_assert_msg(errm == TOX_ERR_FRIEND_SEND_MESSAGE_OK, "tox_max_message_length() is too big? error=%d", errm);
+
+    free(msgs);
 
     do {
-        iterate_all_wait(2, toxes, state, ITERATION_INTERVAL);
-    } while (!state[1].message_received);
+        iterate_all_wait(autotoxes, 2, ITERATION_INTERVAL);
+    } while (!((State *)autotoxes[1].state)->message_received);
 }
 
 int main(void)
 {
     setvbuf(stdout, nullptr, _IONBF, 0);
 
-    run_auto_test(2, send_message_test, false);
+    struct Tox_Options *tox_options = tox_options_new(nullptr);
+    ck_assert(tox_options != nullptr);
+
+    Run_Auto_Options options = default_run_auto_options();
+    options.graph = GRAPH_LINEAR;
+    tox_options_set_ipv6_enabled(tox_options, true);
+    run_auto_test(tox_options, 2, send_message_test, sizeof(State), &options);
+
+    tox_options_set_ipv6_enabled(tox_options, false);
+    run_auto_test(tox_options, 2, send_message_test, sizeof(State), &options);
+
+    tox_options_free(tox_options);
+
     return 0;
 }

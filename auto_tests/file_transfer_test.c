@@ -1,10 +1,6 @@
 /* File transfer test.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +10,7 @@
 #include "../toxcore/ccompat.h"
 #include "../toxcore/tox.h"
 #include "../toxcore/util.h"
+#include "auto_test_support.h"
 #include "check_compat.h"
 
 /* The Travis-CI container responds poorly to ::1 as a localhost address

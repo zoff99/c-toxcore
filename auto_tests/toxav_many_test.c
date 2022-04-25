@@ -1,7 +1,3 @@
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,7 +16,9 @@
 #include "../toxcore/crypto_core.h"
 #include "../toxcore/logger.h"
 #include "../toxcore/tox.h"
+#include "../toxcore/tox_struct.h"
 #include "../toxcore/util.h"
+#include "auto_test_support.h"
 #include "check_compat.h"
 
 typedef struct {
@@ -47,7 +45,7 @@ static void t_toxav_call_cb(ToxAV *av, uint32_t friend_number, bool audio_enable
 
 static void t_toxav_call_state_cb(ToxAV *av, uint32_t friend_number, uint32_t state, void *user_data)
 {
-    printf("Handling CALL STATE callback: %d %p\n", state, (void *)av);
+    printf("Handling CALL STATE callback: %u %p\n", state, (void *)av);
     ((CallControl *)user_data)[friend_number].state = state;
 }
 
@@ -132,6 +130,33 @@ static void *call_thread(void *pd)
     return nullptr;
 }
 
+typedef struct Time_Data {
+    pthread_mutex_t lock;
+    uint64_t clock;
+} Time_Data;
+
+static uint64_t get_state_clock_callback(void *user_data)
+{
+    Time_Data *time_data = (Time_Data *)user_data;
+    pthread_mutex_lock(&time_data->lock);
+    uint64_t clock = time_data->clock;
+    pthread_mutex_unlock(&time_data->lock);
+    return clock;
+}
+
+static void increment_clock(Time_Data *time_data, uint64_t count)
+{
+    pthread_mutex_lock(&time_data->lock);
+    time_data->clock += count;
+    pthread_mutex_unlock(&time_data->lock);
+}
+
+static void set_current_time_callback(Tox *tox, Time_Data *time_data)
+{
+    Mono_Time *mono_time = tox->mono_time;
+    mono_time_set_current_time_callback(mono_time, get_state_clock_callback, time_data);
+}
+
 static void test_av_three_calls(void)
 {
     uint32_t index[] = { 1, 2, 3, 4, 5 };
@@ -141,23 +166,32 @@ static void test_av_three_calls(void)
 
     CallControl AliceCC[3], BobsCC[3];
 
+    Time_Data time_data;
+    pthread_mutex_init(&time_data.lock, nullptr);
     {
         Tox_Err_New error;
 
         bootstrap = tox_new_log(nullptr, &error, &index[0]);
         ck_assert(error == TOX_ERR_NEW_OK);
 
+        time_data.clock = current_time_monotonic(bootstrap->mono_time);
+        set_current_time_callback(bootstrap, &time_data);
+
         Alice = tox_new_log(nullptr, &error, &index[1]);
         ck_assert(error == TOX_ERR_NEW_OK);
+        set_current_time_callback(Alice, &time_data);
 
         Bobs[0] = tox_new_log(nullptr, &error, &index[2]);
         ck_assert(error == TOX_ERR_NEW_OK);
+        set_current_time_callback(Bobs[0], &time_data);
 
         Bobs[1] = tox_new_log(nullptr, &error, &index[3]);
         ck_assert(error == TOX_ERR_NEW_OK);
+        set_current_time_callback(Bobs[1], &time_data);
 
         Bobs[2] = tox_new_log(nullptr, &error, &index[4]);
         ck_assert(error == TOX_ERR_NEW_OK);
+        set_current_time_callback(Bobs[2], &time_data);
     }
 
     printf("Created 5 instances of Tox\n");
@@ -211,7 +245,8 @@ static void test_av_three_calls(void)
             break;
         }
 
-        c_sleep(20);
+        increment_clock(&time_data, 200);
+        c_sleep(5);
     }
 
     AliceAV = setup_av_instance(Alice, AliceCC);
@@ -248,7 +283,9 @@ static void test_av_three_calls(void)
         tox_iterate(Bobs[0], nullptr);
         tox_iterate(Bobs[1], nullptr);
         tox_iterate(Bobs[2], nullptr);
-        c_sleep(20);
+
+        increment_clock(&time_data, 100);
+        c_sleep(5);
     } while (time(nullptr) - start_time < 1);
 
     /* Call */
@@ -285,7 +322,8 @@ static void test_av_three_calls(void)
             }
         }
 
-        c_sleep(20);
+        increment_clock(&time_data, 100);
+        c_sleep(5);
     } while (time(nullptr) - start_time < 3);
 
     /* Hangup */
@@ -305,7 +343,8 @@ static void test_av_three_calls(void)
         tox_iterate(Bobs[1], nullptr);
         tox_iterate(Bobs[2], nullptr);
 
-        c_sleep(20);
+        increment_clock(&time_data, 100);
+        c_sleep(5);
     } while (time(nullptr) - start_time < 5);
 
     ck_assert(pthread_join(tids[0], &retval) == 0);
@@ -327,6 +366,8 @@ static void test_av_three_calls(void)
     tox_kill(Bobs[0]);
     tox_kill(Alice);
     tox_kill(bootstrap);
+
+    pthread_mutex_destroy(&time_data.lock);
 
     printf("\nTest successful!\n");
 }

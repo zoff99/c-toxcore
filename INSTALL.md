@@ -23,7 +23,6 @@ These instructions will guide you through the process of building and installing
       - [Cross-compiling from Linux](#cross-compiling-from-linux)
 - [Pre-built binaries](#pre-built-binaries)
   - [Linux](#linux)
-  - [Windows](#windows-1)
 
 ## Overview
 
@@ -40,20 +39,40 @@ This repository, although called `toxcore`, in fact contains several libraries b
 | `toxencryptsave` | Library    | libtoxcore, libnacl or libsodium              | Cross-platform | Provides encryption of Tox profiles (savedata), as well as arbitrary data. |
 | `DHT_bootstrap`  | Executable | libtoxcore                                    | Cross-platform | A simple DHT bootstrap node.                                               |
 | `tox-bootstrapd` | Executable | libtoxcore, libconfig                         | Unix-like      | Highly configurable DHT bootstrap node daemon (systemd, SysVinit, Docker). |
+| `cmp`            | Library    |                                               | Cross-platform | C implementation of the MessagePack serialization format. [https://github.com/camgunz/cmp](https://github.com/camgunz/cmp) |
 
 #### Secondary
 
-There are some programs that are not plugged into the CMake build system which you might find interesting. You would need to build those programs yourself. These programs reside in [`other/fun`](other/fun) directory.
+There are some programs that are not built by default which you might find interesting. You need to pass `-DBUILD_FUN_UTILS=ON` to cmake to build them.
 
-| Name                     | Type       | Dependencies         | Platform       | Description                                                                                                                                                            |
-|--------------------------|------------|----------------------|----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `bootstrap_node_info`    | Script     | python3              | Cross-platform | Prints version and Message Of The Day (MOTD) information of a specified DHT bootstrap node.                                                                            |
-| `cracker`                | Executable | libnacl or libsodium | Cross-platform | Tries to find a curve25519 key pair, hex representation of the public key of which starts with a specified byte sequence.                                              |
-| `make-funny-savefile`    | Script     | python               | Cross-platform | Generates a Tox profile file (savedata file) with the provided key pair. Useful for generating Tox profiles from the output of cracker or strkey programs.             |
-| `minimal-save-generator` | Executable | libsodium            | Cross-platform | Generates a minimal Tox profile file (savedata file) with a random key pair.                                                                                           |
-| `save-generator`         | Executable | libtoxcore           | Cross-platform | Generates a Tox profile file (savedata file) with a random key pair using libtoxcore. Allows setting a name and adding friends.                                        |
-| `sign`                   | Executable | libsodium            | Cross-platform | Signs a file with a ed25519 key.                                                                                                                                       |
-| `strkey`                 | Executable | libsodium            | Cross-platform | Tries to find a curve25519 key pair, hex representation of the public key of which contains a specified byte pattern at a specified position or at any position.       |
+##### Vanity key generators
+
+Can be used to generate vanity Tox Ids or DHT bootstrap node public keys.
+
+| Name                      | Type       | Dependencies          | Platform       | Description                                                                                                                                                                     |
+|---------------------------|------------|-----------------------|----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `cracker`                 | Executable | libsodium, OpenMP     | Cross-platform | Tries to find a curve25519 key pair, hex representation of the public key of which starts with a specified byte sequence. Multi-threaded.                                       |
+| `cracker_simple`          | Executable | libsodium             | Cross-platform | Tries to find a curve25519 key pair, hex representation of the public key of which starts with a specified byte sequence. Single-threaded.                                      |
+| `strkey`                  | Executable | libsodium             | Cross-platform | Tries to find a curve25519 key pair, hex representation of the public key of which contains a specified byte sequence at a specified or any position at all. Single-threaded.   |
+
+##### Key file generators
+
+Useful for generating Tox profiles from the output of the vanity key generators, as well as generating random Tox profiles.
+
+| Name                      | Type       | Dependencies          | Platform       | Description                                                                                                                                                                     |
+|---------------------------|------------|-----------------------|----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `make-funny-savefile`     | Script     | python                | Cross-platform | Generates a Tox profile file (savedata file) with the provided key pair.                                                                                                        |
+| `create_bootstrap_keys`   | Executable | libsodium             | Cross-platform | Generates a keys file for tox-bootstrapd with either the provided or a random key pair.                                                                                         |
+| `create_minimal_savedata` | Executable | libsodium             | Cross-platform | Generates a minimal Tox profile file (savedata file) with either the provided or a random key pair, printing the generated Tox Id and secret & public key information.          |
+| `create_savedata`         | Executable | libsodium, libtoxcore | Cross-platform | Generates a Tox profile file (savedata file) with either the provided or a random key pair using libtoxcore, printing the generated Tox Id and secret & public key information. |
+| `save-generator`          | Executable | libtoxcore            | Cross-platform | Generates a Tox profile file (savedata file) with a random key pair using libtoxcore, setting the specified user name, going online and adding specified Tox Ids as friends.    |
+
+##### Other
+
+| Name                      | Type       | Dependencies          | Platform       | Description                                                                                                                                                                     |
+|---------------------------|------------|-----------------------|----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `bootstrap_node_info`     | Script     | python3               | Cross-platform | Prints version and Message Of The Day (MOTD) information of the specified DHT bootstrap node, given the node doesn't have those disabled.                                       |
+| `sign`                    | Executable | libsodium             | Cross-platform | Signs a file with a ed25519 key.                                                                                                                                                |
 
 ## Building
 
@@ -62,6 +81,9 @@ There are some programs that are not plugged into the CMake build system which y
 #### Library dependencies
 
 Library dependencies are listed in the [components](#components) table. The dependencies need to be satisfied for the components to be built. Note that if you don't have a dependency for some component, e.g. you don't have `libopus` installed required for building `toxav` component, building of that component is silently disabled.
+
+
+Be advised that due to the addition of `cmp` as a submodule, you now also need to initialize the git submodules required by toxcore. This can be done by cloning the repo with the addition of `--recurse-submodules` or by running `git submodule update --init` in the root directory of the repo. 
 
 #### Compiler requirements
 
@@ -87,13 +109,21 @@ There are some options that are available to configure the build.
 |------------------------|-----------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|---------------------------------------------------|
 | `AUTOTEST`             | Enable autotests (mainly for CI).                                                             | ON or OFF                                                                 | OFF                                               |
 | `BOOTSTRAP_DAEMON`     | Enable building of tox-bootstrapd, the DHT bootstrap node daemon. For Unix-like systems only. | ON or OFF                                                                 | ON                                                |
+| `BUILD_FUZZ_TESTS`     | Build fuzzing harnesses.                                                                      | ON or OFF                                                                 | OFF                                               |
 | `BUILD_MISC_TESTS`     | Build additional tests.                                                                       | ON or OFF                                                                 | OFF                                               |
-| `BUILD_TOXAV`          | Whether to build the tox AV library.                                                          | ON or OFF                                                                 | ON                                                |
+| `BUILD_FUN_UTILS`      | Build additional funny utilities.                                                             | ON or OFF                                                                 | OFF                                               |
+| `BUILD_TOXAV`          | Whether to build the toxav library.                                                           | ON or OFF                                                                 | ON                                                |
 | `CMAKE_INSTALL_PREFIX` | Path to where everything should be installed.                                                 | Directory path.                                                           | Platform-dependent. Refer to CMake documentation. |
+| `CMAKE_BUILD_TYPE`     | Specifies the build type on single-configuration generators (e.g. make or ninja).             | Debug, Release, RelWithDebInfo, MinSizeRel                                | Empty string.                                     |
 | `DHT_BOOTSTRAP`        | Enable building of `DHT_bootstrap`                                                            | ON or OFF                                                                 | ON                                                |
 | `ENABLE_SHARED`        | Build shared (dynamic) libraries for all modules.                                             | ON or OFF                                                                 | ON                                                |
 | `ENABLE_STATIC`        | Build static libraries for all modules.                                                       | ON or OFF                                                                 | ON                                                |
+| `EXECUTION_TRACE`      | Print a function trace during execution (for debugging).                                      | ON or OFF                                                                 | OFF                                               |
+| `FULLY_STATIC`         | Build fully static executables.                                                               | ON or OFF                                                                 | OFF                                               |
 | `MIN_LOGGER_LEVEL`     | Logging level to use.                                                                         | TRACE, DEBUG, INFO, WARNING, ERROR or nothing (empty string) for default. | Empty string.                                     |
+| `MSVC_STATIC_SODIUM`   | Whether to link libsodium statically for MSVC.                                                | ON or OFF                                                                 | OFF                                               |
+| `MUST_BUILD_TOXAV`     | Fail the build if toxav cannot be built.                                                      | ON or OFF                                                                 | OFF                                               |
+| `NON_HERMETIC_TESTS`   | Whether to build and run tests that depend on an internet connection.                         | ON or OFF                                                                 | OFF                                               |
 | `STRICT_ABI`           | Enforce strict ABI export in dynamic libraries.                                               | ON or OFF                                                                 | OFF                                               |
 | `TEST_TIMEOUT_SECONDS` | Limit runtime of each test to the number of seconds specified.                                | Positive number or nothing (empty string).                                | Empty string.                                     |
 | `USE_IPV6`             | Use IPv6 in tests.                                                                            | ON or OFF                                                                 | ON                                                |
@@ -112,11 +142,19 @@ Example of calling cmake with options
 ```sh
 cmake \
   -D ENABLE_STATIC=OFF \
-  -D MIN_LOGGER_LEVEL=DEBUG \
-  -D CMAKE_INSTALL_PREFIX=/opt \
+  -D ENABLE_SHARED=ON \
+  -D CMAKE_INSTALL_PREFIX="${PWD}/prefix" \
+  -D CMAKE_BUILD_TYPE=Release \
   -D TEST_TIMEOUT_SECONDS=120 \
   ..
 ```
+
+### Building tests
+In addition to the integration tests ("autotests") and miscellaneous tests
+enabled by cmake variables described above, there are unit tests which will be
+built if the source distribution of gtest (the Google Unit Test framework) is
+found by cmake in `c-toxcore/third_party`. This can be achieved by running
+'git clone https://github.com/google/googletest` from that directory.
 
 ### Build process
 
@@ -155,7 +193,40 @@ msbuild ALL_BUILD.vcxproj
 
 ###### MSYS/Cygwin
 
-There are currently no instructions on how to build toxcore on Windows host in MSYS/Cygwin. Contribution of the instructions is welcome!
+Download Cygwin ([32-bit](https://cygwin.com/setup-x86.exe)/[64-bit](https://cygwin.com/setup-x86_64.exe))
+
+Search and select exactly these packages in Devel category:
+
+  - mingw64-i686-gcc-core (32-bit) / mingw64-x86_64-gcc-core (64-bit)
+  - mingw64-i686-gcc-g++ (32-bit) / mingw64-x86_64-gcc-g++ (64-bit)
+  - make
+  - cmake
+  - libtool
+  - autoconf
+  - automake
+  - tree
+  - curl
+  - perl
+  - yasm
+  - pkg-config
+
+To handle Windows EOL correctly run the following in the Cygwin Terminal:
+
+```sh
+echo '
+export SHELLOPTS
+set -o igncr
+' > ~/.bash_profile
+```
+
+Download toxcore source code and extract it to a folder.
+
+Open Cygwin Terminal in the toxcore folder and run `./other/windows_build_script_toxcore.sh` to start the build process.
+
+Toxcore build result files will appear in `/root/prefix/` relatively to Cygwin folder (default `C:\cygwin64`).
+
+Dependency versions can be customized in `./other/windows_build_script_toxcore.sh` and described in the section below.
+
 
 ##### Cross-compiling from Linux
 
@@ -179,9 +250,10 @@ Build the container image based on the Dockerfile. The following options are ava
 | `SUPPORT_ARCH_i686`   | Support building 32-bit toxcore.                               | "true" or "false" (case sensitive). | true          |
 | `SUPPORT_ARCH_x86_64` | Support building 64-bit toxcore.                               | "true" or "false" (case sensitive). | true          |
 | `SUPPORT_TEST`        | Support running toxcore automated tests.                       | "true" or "false" (case sensitive). | false         |
-| `VERSION_OPUS`        | Version of libopus to build toxcore with.                      | Git branch name.                    | v1.2.1        |
-| `VERSION_SODIUM`      | Version of libsodium to build toxcore with.                    | Git branch name.                    | 1.0.18        |
-| `VERSION_VPX`         | Version of libvpx to build toxcore with.                       | Git branch name.                    | v1.6.1        |
+| `CROSS_COMPILE`       | Cross-compiling. True for Docker, false for Cygwin.            | "true" or "false" (case sensitive). | true          |
+| `VERSION_OPUS`        | Version of libopus to build toxcore with.                      | Numeric version number.             | 1.3.1         |
+| `VERSION_SODIUM`      | Version of libsodium to build toxcore with.                    | Numeric version number.             | 1.0.18        |
+| `VERSION_VPX`         | Version of libvpx to build toxcore with.                       | Numeric version number.             | 1.11.0        |
 
 Example of building a container image with options
 
@@ -201,7 +273,8 @@ Run the container to build toxcore. The following options are available to custo
 | `ENABLE_ARCH_i686`   | Build 32-bit toxcore. The image should have been built with `SUPPORT_ARCH_i686` enabled.   | "true" or "false" (case sensitive). | `true`                                                             |
 | `ENABLE_ARCH_x86_64` | Build 64-bit toxcore. The image should have been built with `SUPPORT_ARCH_x86_64` enabled. | "true" or "false" (case sensitive). | `true`                                                             |
 | `ENABLE_TEST`        | Run the test suite. The image should have been built with `SUPPORT_TEST` enabled.          | "true" or "false" (case sensitive). | `false`                                                            |
-| `EXTRA_CMAKE_FLAGS`  | Extra arguments to pass to the CMake command when building toxcore.                        | CMake options.                      | `-DWARNINGS=OFF -DBOOTSTRAP_DAEMON=OFF -DTEST_TIMEOUT_SECONDS=300` |
+| `EXTRA_CMAKE_FLAGS`  | Extra arguments to pass to the CMake command when building toxcore.                        | CMake options.                      | `-DTEST_TIMEOUT_SECONDS=90`                                        |
+| `CROSS_COMPILE`      | Cross-compiling. True for Docker, false for Cygwin.                                        | "true" or "false" (case sensitive). | `true`                                                             |
 
 Example of running the container with options
 
@@ -222,14 +295,3 @@ After the build succeeds, you should see the built toxcore libraries in `/path/t
 ### Linux
 
 Toxcore is packaged by at least by the following distributions: ALT Linux, [Arch Linux](https://www.archlinux.org/packages/?q=toxcore), [Fedora](https://apps.fedoraproject.org/packages/toxcore), Mageia, openSUSE, PCLinuxOS, ROSA and Slackware, [according to the information from pkgs.org](https://pkgs.org/download/toxcore). Note that this list might be incomplete and some other distributions might package it too.
-
-Debian and Ubuntu packages are available in [tox.chat's package repository](https://tox.chat/download.html#gnulinux).
-
-### Windows
-
-There are nightly cross-compiled binaries available on Jenkins.
-
-|        | Shared                                                                                                                                                                              | Static                                                                                                                                                                              |
-|--------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 32-bit | [Download](https://build.tox.chat/job/libtoxcore-toktok_build_windows_x86_shared_release/lastSuccessfulBuild/artifact/libtoxcore-toktok_build_windows_x86_shared_release.zip)       | [Download](https://build.tox.chat/job/libtoxcore-toktok_build_windows_x86_static_release/lastSuccessfulBuild/artifact/libtoxcore-toktok_build_windows_x86_static_release.zip)       |
-| 64-bit | [Download](https://build.tox.chat/job/libtoxcore-toktok_build_windows_x86-64_shared_release/lastSuccessfulBuild/artifact/libtoxcore-toktok_build_windows_x86-64_shared_release.zip) | [Download](https://build.tox.chat/job/libtoxcore-toktok_build_windows_x86-64_static_release/lastSuccessfulBuild/artifact/libtoxcore-toktok_build_windows_x86-64_static_release.zip) |

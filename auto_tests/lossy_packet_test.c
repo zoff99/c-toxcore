@@ -1,10 +1,6 @@
 /* Tests that we can send lossy packets.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,48 +11,57 @@
 #include "check_compat.h"
 
 typedef struct State {
-    uint32_t index;
-    uint64_t clock;
-
     bool custom_packet_received;
 } State;
 
-#include "run_auto_test.h"
+#include "auto_test_support.h"
 
 #define LOSSY_PACKET_FILLER 200
 
 static void handle_lossy_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length, void *user_data)
 {
-    uint8_t cmp_packet[TOX_MAX_CUSTOM_PACKET_SIZE];
-    memset(cmp_packet, LOSSY_PACKET_FILLER, sizeof(cmp_packet));
+    uint8_t *cmp_packet = (uint8_t *)malloc(tox_max_custom_packet_size());
+    ck_assert(cmp_packet != nullptr);
+    memset(cmp_packet, LOSSY_PACKET_FILLER, tox_max_custom_packet_size());
 
-    if (length == TOX_MAX_CUSTOM_PACKET_SIZE && memcmp(data, cmp_packet, sizeof(cmp_packet)) == 0) {
-        State *state = (State *)user_data;
+    if (length == tox_max_custom_packet_size() && memcmp(data, cmp_packet, tox_max_custom_packet_size()) == 0) {
+        const AutoTox *autotox = (AutoTox *)user_data;
+        State *state = (State *)autotox->state;
         state->custom_packet_received = true;
     }
+
+    free(cmp_packet);
 }
 
-static void test_lossy_packet(Tox **toxes, State *state)
+static void test_lossy_packet(AutoTox *autotoxes)
 {
-    tox_callback_friend_lossy_packet(toxes[1], &handle_lossy_packet);
-    uint8_t packet[TOX_MAX_CUSTOM_PACKET_SIZE + 1];
-    memset(packet, LOSSY_PACKET_FILLER, sizeof(packet));
+    tox_callback_friend_lossy_packet(autotoxes[1].tox, &handle_lossy_packet);
+    const size_t packet_size = tox_max_custom_packet_size() + 1;
+    uint8_t *packet = (uint8_t *)malloc(packet_size);
+    ck_assert(packet != nullptr);
+    memset(packet, LOSSY_PACKET_FILLER, packet_size);
 
-    bool ret = tox_friend_send_lossy_packet(toxes[0], 0, packet, sizeof(packet), nullptr);
+    bool ret = tox_friend_send_lossy_packet(autotoxes[0].tox, 0, packet, packet_size, nullptr);
     ck_assert_msg(ret == false, "should not be able to send custom packets this big %i", ret);
 
-    ret = tox_friend_send_lossy_packet(toxes[0], 0, packet, TOX_MAX_CUSTOM_PACKET_SIZE, nullptr);
+    ret = tox_friend_send_lossy_packet(autotoxes[0].tox, 0, packet, tox_max_custom_packet_size(), nullptr);
     ck_assert_msg(ret == true, "tox_friend_send_lossy_packet fail %i", ret);
 
+    free(packet);
+
     do {
-        iterate_all_wait(2, toxes, state, ITERATION_INTERVAL);
-    } while (!state[1].custom_packet_received);
+        iterate_all_wait(autotoxes, 2, ITERATION_INTERVAL);
+    } while (!((State *)autotoxes[1].state)->custom_packet_received);
 }
 
 int main(void)
 {
     setvbuf(stdout, nullptr, _IONBF, 0);
 
-    run_auto_test(2, test_lossy_packet, false);
+    Run_Auto_Options options = default_run_auto_options();
+    options.graph = GRAPH_LINEAR;
+
+    run_auto_test(nullptr, 2, test_lossy_packet, sizeof(State), &options);
+
     return 0;
 }

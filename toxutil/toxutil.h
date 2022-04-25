@@ -20,6 +20,8 @@
 #ifndef TOXUTIL_H
 #define TOXUTIL_H
 
+//!TOKSTYLE-
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -155,5 +157,7 @@ bool tox_utils_friend_delete(Tox *tox, uint32_t friend_number, TOX_ERR_FRIEND_DE
 #ifdef __cplusplus
 }
 #endif
+
+//!TOKSTYLE+
 
 #endif

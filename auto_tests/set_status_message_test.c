@@ -1,10 +1,6 @@
 /* Tests that we can set our status message
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +10,7 @@
 #include "../toxcore/ccompat.h"
 #include "../toxcore/tox.h"
 #include "../toxcore/util.h"
+#include "auto_test_support.h"
 #include "check_compat.h"
 
 #define STATUS_MESSAGE "Installing Gentoo"
@@ -76,7 +73,7 @@ static void test_set_status_message(void)
     tox_callback_friend_status_message(tox2, status_callback);
     bool ret = tox_self_set_status_message(tox1, (const uint8_t *)STATUS_MESSAGE, sizeof(STATUS_MESSAGE),
                                            &err_n);
-    ck_assert_msg(ret && err_n == TOX_ERR_SET_INFO_OK, "tox_self_set_status_message failed because %u\n", err_n);
+    ck_assert_msg(ret && err_n == TOX_ERR_SET_INFO_OK, "tox_self_set_status_message failed because %d\n", err_n);
 
     bool status_updated = false;
 

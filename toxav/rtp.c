@@ -19,6 +19,9 @@
 #include "audio.h"
 #include "dummy_ntp.h"
 
+#include "../toxcore/ccompat.h"
+#include "../toxcore/tox_private.h"
+#include "../toxcore/tox_struct.h"
 #include "../toxcore/network.h"
 #include "../toxcore/logger.h"
 #include "../toxcore/util.h"
@@ -33,6 +36,8 @@ int rtp_send_custom_lossless_packet(Tox *tox, int32_t friendnumber, const uint8_
 #include <libavcodec/avcodec.h>
 // for H264 ----------
 
+
+#define DISABLE_H264_ENCODER_FEATURE    0
 
 #define DISABLE_H264_ENCODER_FEATURE    0
 
@@ -489,10 +494,9 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         }
     }
 
-    void *toxav = NULL;
-    tox_get_av_object(tox, (void **)(&toxav));
+    void *toxav = (void *)tox_get_av_object(tox);
 
-    if (!toxav) {
+    if (toxav == nullptr) {
         return;
     }
 
@@ -978,7 +982,7 @@ RTPSession *rtp_new(int payload_type, Tox *tox, ToxAV *toxav, uint32_t friendnum
     // First entry is free.
     session->work_buffer_list->next_free_entry = 0;
 
-    session->ssrc = payload_type == RTP_TYPE_VIDEO ? 0 : random_u32(); // Zoff: what is this??
+    session->ssrc = payload_type == RTP_TYPE_VIDEO ? 0 : random_u32(&tox->rng); // Zoff: what is this??
     session->payload_type = payload_type;
     session->tox = tox;
     session->toxav = toxav;

@@ -2,11 +2,10 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.65])
-AC_INIT([tox], [0.2.13])
+AC_INIT([tox], [0.2.18])
 AC_CONFIG_AUX_DIR(configure_aux)
 AC_CONFIG_SRCDIR([toxcore/net_crypto.c])
-AC_CONFIG_HEADERS([config.h])
-AM_INIT_AUTOMAKE([foreign 1.10 -Wall subdir-objects tar-ustar])
+AM_INIT_AUTOMAKE([foreign 1.10 -Wall -Werror subdir-objects tar-ustar])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -173,6 +172,16 @@ AC_ARG_ENABLE([[ipv6]],
 
 if test "$use_ipv6" != "yes"; then
   AC_DEFINE([USE_IPV6],[0],[define to 0 to force ipv4])
+fi
+
+AC_ARG_ENABLE([[test_network]],
+  [AS_HELP_STRING([[--enable-test-network[=ARG]]], [build tox for a test network incompatible with the main DHT [no]])],
+    [use_test_network=${enableval}],
+    [use_test_network='no']
+  )
+
+if test "$use_test_network" == "yes"; then
+  AC_DEFINE([USE_TEST_NETWORK],[1],[define to 1 to enable the test network])
 fi
 
 AX_HAVE_EPOLL

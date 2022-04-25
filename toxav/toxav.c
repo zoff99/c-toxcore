@@ -14,9 +14,12 @@
 #include "video.h"
 
 
+#include "../toxcore/ccompat.h"
 #include "../toxcore/logger.h"
 #include "../toxcore/util.h"
 #include "../toxcore/mono_time.h"
+#include "../toxcore/tox_private.h"
+#include "../toxcore/tox_struct.h"
 
 
 #include "tox_generic.h"
@@ -67,7 +70,7 @@ BWController *bwc_controller_get(void *call);
 
 MSISession *tox_av_msi_get(ToxAV *av)
 {
-    if (!av) {
+    if (av == nullptr) {
         return nullptr;
     }
 
@@ -144,7 +147,7 @@ ToxAV *toxav_new(Tox *tox, Toxav_Err_New *error)
         goto RETURN;
     }
 
-    av->toxav_mono_time = mono_time_new();
+    av->toxav_mono_time = mono_time_new(nullptr, nullptr);
     av->tox = tox;
     av->msi = msi_new(av->tox);
 
@@ -221,6 +224,9 @@ void toxav_kill(ToxAV *av)
 
     pthread_mutex_unlock(av->mutex);
     pthread_mutex_destroy(av->mutex);
+
+    // set ToxAV object to NULL in toxcore, to signal ToxAV has been shutdown
+    tox_set_av_object(av->tox, nullptr);
 
     free(av);
     av = nullptr;

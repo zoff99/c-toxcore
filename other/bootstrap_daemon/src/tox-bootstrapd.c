@@ -12,9 +12,9 @@
 #endif
 
 // system provided
+#include <signal.h> // system header, rather than C, because we need it for POSIX sigaction(2)
 #include <sys/resource.h>
 #include <sys/stat.h>
-#include <signal.h> // system header, rather than C, because we need it for POSIX sigaction(2)
 #include <unistd.h>
 
 // C
@@ -28,6 +28,8 @@
 #include "../../../toxcore/tox.h"
 #include "../../../toxcore/LAN_discovery.h"
 #include "../../../toxcore/TCP_server.h"
+#include "../../../toxcore/announce.h"
+#include "../../../toxcore/group_onion_announce.h"
 #include "../../../toxcore/logger.h"
 #include "../../../toxcore/mono_time.h"
 #include "../../../toxcore/onion_announce.h"
@@ -42,7 +44,13 @@
 #include "log.h"
 
 
-#define SLEEP_MILLISECONDS(MS) usleep(1000*MS)
+static void sleep_milliseconds(uint32_t ms)
+{
+    struct timespec req;
+    req.tv_sec = ms / 1000;
+    req.tv_nsec = (long)ms % 1000 * 1000 * 1000;
+    nanosleep(&req, nullptr);
+}
 
 // Uses the already existing key or creates one if it didn't exist
 //
@@ -56,7 +64,7 @@ static int manage_keys(DHT *dht, char *keys_file_path)
     FILE *keys_file;
 
     // Check if file exits, proceed to open and load keys
-    keys_file = fopen(keys_file_path, "r");
+    keys_file = fopen(keys_file_path, "rb");
 
     if (keys_file != nullptr) {
         const size_t read_size = fread(keys, sizeof(uint8_t), KEYS_SIZE, keys_file);
@@ -73,7 +81,7 @@ static int manage_keys(DHT *dht, char *keys_file_path)
         memcpy(keys, dht_get_self_public_key(dht), CRYPTO_PUBLIC_KEY_SIZE);
         memcpy(keys + CRYPTO_PUBLIC_KEY_SIZE, dht_get_self_secret_key(dht), CRYPTO_SECRET_KEY_SIZE);
 
-        keys_file = fopen(keys_file_path, "w");
+        keys_file = fopen(keys_file_path, "wb");
 
         if (!keys_file) {
             return 0;
@@ -99,10 +107,8 @@ static void print_public_key(const uint8_t *public_key)
     char buffer[2 * CRYPTO_PUBLIC_KEY_SIZE + 1];
     int index = 0;
 
-    size_t i;
-
-    for (i = 0; i < CRYPTO_PUBLIC_KEY_SIZE; i++) {
-        index += sprintf(buffer + index, "%02X", public_key[i]);
+    for (size_t i = 0; i < CRYPTO_PUBLIC_KEY_SIZE; i++) {
+        index += snprintf(buffer + index, sizeof(buffer) - index, "%02X", public_key[i]);
     }
 
     log_write(LOG_LEVEL_INFO, "Public Key: %s\n", buffer);
@@ -213,7 +219,7 @@ static void handle_signal(int signum)
 int main(int argc, char *argv[])
 {
     umask(077);
-    char *cfg_file_path;
+    char *cfg_file_path = nullptr;
     LOG_BACKEND log_backend;
     bool run_in_foreground;
 
@@ -230,7 +236,7 @@ int main(int argc, char *argv[])
 
     char *pid_file_path = nullptr;
     char *keys_file_path = nullptr;
-    int port;
+    int start_port;
     int enable_ipv6;
     int enable_ipv4_fallback;
     int enable_lan_discovery;
@@ -240,7 +246,7 @@ int main(int argc, char *argv[])
     int enable_motd;
     char *motd = nullptr;
 
-    if (get_general_config(cfg_file_path, &pid_file_path, &keys_file_path, &port, &enable_ipv6, &enable_ipv4_fallback,
+    if (get_general_config(cfg_file_path, &pid_file_path, &keys_file_path, &start_port, &enable_ipv6, &enable_ipv4_fallback,
                            &enable_lan_discovery, &enable_tcp_relay, &tcp_relay_ports, &tcp_relay_port_count, &enable_motd, &motd)) {
         log_write(LOG_LEVEL_INFO, "General config read successfully\n");
     } else {
@@ -248,8 +254,8 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    if (port < MIN_ALLOWED_PORT || port > MAX_ALLOWED_PORT) {
-        log_write(LOG_LEVEL_ERROR, "Invalid port: %d, should be in [%d, %d]. Exiting.\n", port, MIN_ALLOWED_PORT,
+    if (start_port < MIN_ALLOWED_PORT || start_port > MAX_ALLOWED_PORT) {
+        log_write(LOG_LEVEL_ERROR, "Invalid port: %d, should be in [%d, %d]. Exiting.\n", start_port, MIN_ALLOWED_PORT,
                   MAX_ALLOWED_PORT);
         free(motd);
         free(tcp_relay_ports);
@@ -273,14 +279,16 @@ int main(int argc, char *argv[])
         logger_callback_log(logger, toxcore_logger_callback, nullptr, nullptr);
     }
 
-    Networking_Core *net = new_networking(logger, ip, port);
+    const uint16_t end_port = start_port + (TOX_PORTRANGE_TO - TOX_PORTRANGE_FROM);
+    const Network *ns = system_network();
+    Networking_Core *net = new_networking_ex(logger, ns, &ip, start_port, end_port, nullptr);
 
     if (net == nullptr) {
         if (enable_ipv6 && enable_ipv4_fallback) {
             log_write(LOG_LEVEL_WARNING, "Couldn't initialize IPv6 networking. Falling back to using IPv4.\n");
             enable_ipv6 = 0;
             ip_init(&ip, enable_ipv6);
-            net = new_networking(logger, ip, port);
+            net = new_networking_ex(logger, ns, &ip, start_port, end_port, nullptr);
 
             if (net == nullptr) {
                 log_write(LOG_LEVEL_ERROR, "Couldn't fallback to IPv4. Exiting.\n");
@@ -300,7 +308,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    Mono_Time *const mono_time = mono_time_new();
+    Mono_Time *const mono_time = mono_time_new(nullptr, nullptr);
 
     if (mono_time == nullptr) {
         log_write(LOG_LEVEL_ERROR, "Couldn't initialize monotonic timer. Exiting.\n");
@@ -314,7 +322,8 @@ int main(int argc, char *argv[])
 
     mono_time_update(mono_time);
 
-    DHT *const dht = new_dht(logger, mono_time, net, true);
+    const Random *rng = system_random();
+    DHT *const dht = new_dht(logger, rng, ns, mono_time, net, true, enable_lan_discovery);
 
     if (dht == nullptr) {
         log_write(LOG_LEVEL_ERROR, "Couldn't initialize Tox DHT instance. Exiting.\n");
@@ -327,10 +336,57 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    Onion *onion = new_onion(mono_time, dht);
+    Forwarding *forwarding = new_forwarding(logger, rng, mono_time, dht);
+
+    if (forwarding == nullptr) {
+        log_write(LOG_LEVEL_ERROR, "Couldn't initialize forwarding. Exiting.\n");
+        kill_dht(dht);
+        mono_time_free(mono_time);
+        kill_networking(net);
+        logger_kill(logger);
+        free(motd);
+        free(tcp_relay_ports);
+        free(keys_file_path);
+        return 1;
+    }
+
+    Announcements *announce = new_announcements(logger, rng, mono_time, forwarding);
+
+    if (announce == nullptr) {
+        log_write(LOG_LEVEL_ERROR, "Couldn't initialize DHT announcements. Exiting.\n");
+        kill_forwarding(forwarding);
+        kill_dht(dht);
+        mono_time_free(mono_time);
+        kill_networking(net);
+        logger_kill(logger);
+        free(motd);
+        free(tcp_relay_ports);
+        free(keys_file_path);
+        return 1;
+    }
+
+    GC_Announces_List *group_announce = new_gca_list();
+
+    if (group_announce == nullptr) {
+        log_write(LOG_LEVEL_ERROR, "Couldn't initialize group announces. Exiting.\n");
+        kill_announcements(announce);
+        kill_forwarding(forwarding);
+        kill_dht(dht);
+        mono_time_free(mono_time);
+        kill_networking(net);
+        logger_kill(logger);
+        free(motd);
+        free(tcp_relay_ports);
+        free(keys_file_path);
+        return 1;
+    }
+
+    Onion *onion = new_onion(logger, mono_time, rng, dht);
 
     if (!onion) {
         log_write(LOG_LEVEL_ERROR, "Couldn't initialize Tox Onion. Exiting.\n");
+        kill_announcements(announce);
+        kill_forwarding(forwarding);
         kill_dht(dht);
         mono_time_free(mono_time);
         kill_networking(net);
@@ -341,11 +397,14 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    Onion_Announce *onion_a = new_onion_announce(mono_time, dht);
+    Onion_Announce *onion_a = new_onion_announce(logger, rng, mono_time, dht);
 
     if (!onion_a) {
         log_write(LOG_LEVEL_ERROR, "Couldn't initialize Tox Onion Announce. Exiting.\n");
+        kill_gca(group_announce);
         kill_onion(onion);
+        kill_announcements(announce);
+        kill_forwarding(forwarding);
         kill_dht(dht);
         mono_time_free(mono_time);
         kill_networking(net);
@@ -355,6 +414,8 @@ int main(int argc, char *argv[])
         free(keys_file_path);
         return 1;
     }
+
+    gca_onion_init(group_announce, onion_a);
 
     if (enable_motd) {
         if (bootstrap_set_callbacks(dht_get_net(dht), DAEMON_VERSION_NUMBER, (uint8_t *)motd, strlen(motd) + 1) == 0) {
@@ -363,7 +424,10 @@ int main(int argc, char *argv[])
         } else {
             log_write(LOG_LEVEL_ERROR, "Couldn't set MOTD: %s. Exiting.\n", motd);
             kill_onion_announce(onion_a);
+            kill_gca(group_announce);
             kill_onion(onion);
+            kill_announcements(announce);
+            kill_forwarding(forwarding);
             kill_dht(dht);
             mono_time_free(mono_time);
             kill_networking(net);
@@ -381,7 +445,10 @@ int main(int argc, char *argv[])
     } else {
         log_write(LOG_LEVEL_ERROR, "Couldn't read/write: %s. Exiting.\n", keys_file_path);
         kill_onion_announce(onion_a);
+        kill_gca(group_announce);
         kill_onion(onion);
+        kill_announcements(announce);
+        kill_forwarding(forwarding);
         kill_dht(dht);
         mono_time_free(mono_time);
         kill_networking(net);
@@ -397,6 +464,9 @@ int main(int argc, char *argv[])
         if (tcp_relay_port_count == 0) {
             log_write(LOG_LEVEL_ERROR, "No TCP relay ports read. Exiting.\n");
             kill_onion_announce(onion_a);
+	        kill_gca(group_announce);
+            kill_announcements(announce);
+            kill_forwarding(forwarding);
             kill_onion(onion);
             kill_dht(dht);
             mono_time_free(mono_time);
@@ -406,8 +476,8 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        tcp_server = new_TCP_server(logger, enable_ipv6, tcp_relay_port_count, tcp_relay_ports, dht_get_self_secret_key(dht),
-                                    onion);
+        tcp_server = new_TCP_server(logger, rng, ns, enable_ipv6, tcp_relay_port_count, tcp_relay_ports,
+                                    dht_get_self_secret_key(dht), onion, forwarding);
 
         free(tcp_relay_ports);
 
@@ -440,7 +510,10 @@ int main(int argc, char *argv[])
         } else {
             log_write(LOG_LEVEL_ERROR, "Couldn't initialize Tox TCP server. Exiting.\n");
             kill_onion_announce(onion_a);
+            kill_gca(group_announce);
             kill_onion(onion);
+            kill_announcements(announce);
+            kill_forwarding(forwarding);
             kill_dht(dht);
             mono_time_free(mono_time);
             kill_networking(net);
@@ -455,7 +528,10 @@ int main(int argc, char *argv[])
         log_write(LOG_LEVEL_ERROR, "Couldn't read list of bootstrap nodes in %s. Exiting.\n", cfg_file_path);
         kill_TCP_server(tcp_server);
         kill_onion_announce(onion_a);
+        kill_gca(group_announce);
         kill_onion(onion);
+        kill_announcements(announce);
+        kill_forwarding(forwarding);
         kill_dht(dht);
         mono_time_free(mono_time);
         kill_networking(net);
@@ -466,12 +542,14 @@ int main(int argc, char *argv[])
     print_public_key(dht_get_self_public_key(dht));
 
     uint64_t last_LANdiscovery = 0;
-    const uint16_t net_htons_port = net_htons(port);
+    const uint16_t net_htons_port = net_htons(start_port);
 
     int waiting_for_dht_connection = 1;
 
+    Broadcast_Info *broadcast = nullptr;
+
     if (enable_lan_discovery) {
-        lan_discovery_init(dht);
+        broadcast = lan_discovery_init(ns);
         log_write(LOG_LEVEL_INFO, "Initialized LAN discovery successfully.\n");
     }
 
@@ -499,7 +577,7 @@ int main(int argc, char *argv[])
         do_dht(dht);
 
         if (enable_lan_discovery && mono_time_is_timeout(mono_time, last_LANdiscovery, LAN_DISCOVERY_INTERVAL)) {
-            lan_discovery_send(net_htons_port, dht);
+            lan_discovery_send(dht_get_net(dht), broadcast, dht_get_self_public_key(dht), net_htons_port);
             last_LANdiscovery = mono_time_get(mono_time);
         }
 
@@ -514,7 +592,7 @@ int main(int argc, char *argv[])
             waiting_for_dht_connection = 0;
         }
 
-        SLEEP_MILLISECONDS(30);
+        sleep_milliseconds(30);
     }
 
     switch (caught_signal) {
@@ -530,13 +608,13 @@ int main(int argc, char *argv[])
             log_write(LOG_LEVEL_INFO, "Received (%d) signal. Exiting.\n", caught_signal);
     }
 
-    if (enable_lan_discovery) {
-        lan_discovery_kill(dht);
-    }
-
+    lan_discovery_kill(broadcast);
     kill_TCP_server(tcp_server);
     kill_onion_announce(onion_a);
+    kill_gca(group_announce);
     kill_onion(onion);
+    kill_announcements(announce);
+    kill_forwarding(forwarding);
     kill_dht(dht);
     mono_time_free(mono_time);
     kill_networking(net);
