@@ -8082,6 +8082,31 @@ uint32_t copy_grouplist(const GC_Session *c, uint32_t *out_list, uint32_t list_s
     return ret;
 }
 
+uint32_t get_group_peercount(const GC_Chat *chat)
+{
+    if (chat == nullptr) {
+        return 0;
+    }
+
+    if (chat->numpeers == 0) {
+        return 0;
+    }
+
+    uint32_t sum = 0;
+
+    for (uint32_t i = 0; i < chat->numpeers; ++i) {
+        const GC_Connection *gconn = get_gc_connection(chat, i);
+
+        assert(gconn != nullptr);
+
+        if (gconn->confirmed) {
+            ++sum;
+        }
+    }
+
+    return sum;
+}
+
 void copy_peerlist(const GC_Chat *chat, uint32_t *out_list)
 {
     if (out_list == nullptr) {
@@ -8096,8 +8121,17 @@ void copy_peerlist(const GC_Chat *chat, uint32_t *out_list)
         return;
     }
 
+    uint32_t index = 0;
+
     for (uint32_t i = 0; i < chat->numpeers; ++i) {
-        out_list[i] = chat->group[i].peer_id;
+        const GC_Connection *gconn = get_gc_connection(chat, i);
+
+        assert(gconn != nullptr);
+
+        if (gconn->confirmed) {
+            out_list[index] = chat->group[i].peer_id;
+            ++index;
+        }
     }
 }
 

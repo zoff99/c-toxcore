@@ -3466,7 +3466,7 @@ bool tox_group_self_get_public_key(const Tox *tox, uint32_t group_number, uint8_
     return true;
 }
 
-size_t tox_group_peer_count(const Tox *tox, uint32_t group_number, Tox_Err_Group_Peer_Query *error)
+uint32_t tox_group_peer_count(const Tox *tox, uint32_t group_number, Tox_Err_Group_Peer_Query *error)
 {
     assert(tox != nullptr);
 
@@ -3479,7 +3479,7 @@ size_t tox_group_peer_count(const Tox *tox, uint32_t group_number, Tox_Err_Group
         return -1;
     }
 
-    const size_t ret = chat->numpeers;
+    const uint32_t ret = get_group_peercount(chat);
     tox_unlock(tox);
 
     SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_OK);

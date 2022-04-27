@@ -685,6 +685,9 @@ non_null()
 uint32_t copy_grouplist(const GC_Session *c, uint32_t *out_list, uint32_t list_size);
 
 non_null()
+uint32_t get_group_peercount(const GC_Chat *chat);
+
+non_null()
 void copy_peerlist(const GC_Chat *chat, uint32_t *out_list);
 
 /** @brief Returns true if peer_number exists */
