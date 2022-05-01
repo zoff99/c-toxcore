@@ -3486,6 +3486,26 @@ uint32_t tox_group_peer_count(const Tox *tox, uint32_t group_number, Tox_Err_Gro
     return ret;
 }
 
+uint32_t tox_group_offline_peer_count(const Tox *tox, uint32_t group_number, Tox_Err_Group_Peer_Query *error)
+{
+    assert(tox != nullptr);
+
+    tox_lock(tox);
+    const GC_Chat *chat = gc_get_group(tox->m->group_handler, group_number);
+
+    if (chat == nullptr) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_GROUP_NOT_FOUND);
+        tox_unlock(tox);
+        return -1;
+    }
+
+    const uint32_t ret = get_group_offline_peercount(chat);
+    tox_unlock(tox);
+
+    SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_OK);
+    return ret;
+}
+
 void tox_group_get_peerlist(const Tox *tox, uint32_t group_number, uint32_t *peerlist, Tox_Err_Group_Peer_Query *error)
 {
     assert(tox != nullptr);
@@ -3506,6 +3526,32 @@ void tox_group_get_peerlist(const Tox *tox, uint32_t group_number, uint32_t *pee
     }
 
     copy_peerlist(chat, peerlist);
+    tox_unlock(tox);
+
+    SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_OK);
+    return;
+}
+
+void tox_group_get_offline_peerlist(const Tox *tox, uint32_t group_number, uint32_t *peerlist, Tox_Err_Group_Peer_Query *error)
+{
+    assert(tox != nullptr);
+
+    tox_lock(tox);
+    const GC_Chat *chat = gc_get_group(tox->m->group_handler, group_number);
+
+    if (chat == nullptr) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_GROUP_NOT_FOUND);
+        tox_unlock(tox);
+        return;
+    }
+
+    if (peerlist == nullptr) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_GROUP_NOT_FOUND);
+        tox_unlock(tox);
+        return;
+    }
+
+    copy_offline_peerlist(chat, peerlist);
     tox_unlock(tox);
 
     SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_OK);

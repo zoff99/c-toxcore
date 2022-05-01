@@ -688,7 +688,13 @@ non_null()
 uint32_t get_group_peercount(const GC_Chat *chat);
 
 non_null()
+uint32_t get_group_offline_peercount(const GC_Chat *chat);
+
+non_null()
 void copy_peerlist(const GC_Chat *chat, uint32_t *out_list);
+
+non_null()
+void copy_offline_peerlist(const GC_Chat *chat, uint32_t *out_list);
 
 /** @brief Returns true if peer_number exists */
 non_null()

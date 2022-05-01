@@ -4069,9 +4069,10 @@ typedef enum Tox_Err_Group_Peer_Query {
 
 
 uint32_t tox_group_peer_count(const Tox *tox, uint32_t group_number, Tox_Err_Group_Peer_Query *error);
+uint32_t tox_group_offline_peer_count(const Tox *tox, uint32_t group_number, Tox_Err_Group_Peer_Query *error);
 
 void tox_group_get_peerlist(const Tox *tox, uint32_t group_number, uint32_t *peerlist, Tox_Err_Group_Peer_Query *error);
-
+void tox_group_get_offline_peerlist(const Tox *tox, uint32_t group_number, uint32_t *peerlist, Tox_Err_Group_Peer_Query *error);
 
 /**
  * Return the length of the peer's name. If the group number or ID is invalid, the
