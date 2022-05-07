@@ -197,8 +197,8 @@ typedef int oniondata_handler_cb(void *object, const uint8_t *source_pubkey, con
 non_null(1) nullable(3, 4)
 void oniondata_registerhandler(Onion_Client *onion_c, uint8_t byte, oniondata_handler_cb *cb, void *object);
 
-typedef bool onion_group_announce_cb(Onion_Client *onion_c, uint32_t sendback_num, uint32_t len_nodes,
-                                     const uint8_t *data, size_t data_length, void *user_data);
+typedef bool onion_group_announce_cb(Onion_Client *onion_c, uint32_t sendback_num, const uint8_t *data,
+                                     size_t data_length, void *user_data);
 
 /** Function to call when the onion gets a group announce response. */
 non_null(1) nullable(2, 3)

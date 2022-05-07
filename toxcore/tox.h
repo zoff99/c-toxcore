@@ -1190,6 +1190,7 @@ void tox_self_get_secret_key(const Tox *tox, uint8_t *secret_key);
 uint64_t tox_self_get_capabilities(void);
 /** @} */
 
+
 /** @{
  * @name User-visible client information (nickname/status)
  */
@@ -3574,7 +3575,7 @@ typedef enum Tox_Group_Voice_State {
 /**
  * Represents group roles.
  *
- * Roles are are hierarchical in that each role has a set of privileges plus all the privileges
+ * Roles are hierarchical in that each role has a set of privileges plus all the privileges
  * of the roles below it.
  */
 typedef enum Tox_Group_Role {
@@ -3839,12 +3840,6 @@ typedef enum Tox_Err_Group_Leave {
      * The parting packet failed to send.
      */
     TOX_ERR_GROUP_LEAVE_FAIL_SEND,
-
-    /**
-     * The group chat instance failed to be deleted. This may occur due to memory related errors.
-     */
-    TOX_ERR_GROUP_LEAVE_DELETE_FAIL,
-
 } Tox_Err_Group_Leave;
 
 
@@ -4022,7 +4017,7 @@ uint32_t tox_group_self_get_peer_id(const Tox *tox, uint32_t group_number, Tox_E
 /**
  * Write the client's group public key designated by the given group number to a byte array.
  *
- * This key will be parmanently tied to the client's identity for this particular group until
+ * This key will be permanently tied to the client's identity for this particular group until
  * the client explicitly leaves the group. This key is the only way for other peers to reliably
  * identify the client across client restarts.
  *
@@ -4145,7 +4140,7 @@ Tox_Connection tox_group_peer_get_connection_status(const Tox *tox, uint32_t gro
 /**
  * Write the group public key with the designated peer_id for the designated group number to public_key.
  *
- * This key will be parmanently tied to a particular peer until they explicitly leave the group or
+ * This key will be permanently tied to a particular peer until they explicitly leave the group or
  * get kicked, and is the only way to reliably identify the same peer across client restarts.
  *
  * `public_key` should have room for at least TOX_GROUP_PEER_PUBLIC_KEY_SIZE bytes. If `public_key` is null
@@ -4594,7 +4589,7 @@ typedef enum Tox_Err_Group_Send_Private_Message {
     TOX_ERR_GROUP_SEND_PRIVATE_MESSAGE_GROUP_NOT_FOUND,
 
     /**
-     * The ID passed did not designate a valid peer.
+     * The peer ID passed did not designate a valid peer.
      */
     TOX_ERR_GROUP_SEND_PRIVATE_MESSAGE_PEER_NOT_FOUND,
 
@@ -4698,9 +4693,13 @@ typedef enum Tox_Err_Group_Send_Custom_Packet {
  * is messing with the connection) or might arrive in the wrong order.
  *
  * Unless latency is an issue or message reliability is not important, it is recommended that you use
- * lossless custom packets.
+ * lossless packets.
  *
- * @param group_number The group number of the group the message is intended for.
+ * The message length may not exceed TOX_MAX_CUSTOM_PACKET_SIZE. Larger packets
+ * must be split by the client and sent as separate packets. Other clients can
+ * then reassemble the fragments. Packets may not be empty.
+ *
+ * @param group_number The group number of the group the packet is intended for.
  * @param lossless True if the packet should be lossless.
  * @param data A byte array containing the packet data.
  * @param length The length of the packet data byte array.
@@ -4710,6 +4709,80 @@ typedef enum Tox_Err_Group_Send_Custom_Packet {
 bool tox_group_send_custom_packet(const Tox *tox, uint32_t group_number, bool lossless, const uint8_t *data,
                                   size_t length,
                                   Tox_Err_Group_Send_Custom_Packet *error);
+
+
+typedef enum Tox_Err_Group_Send_Custom_Private_Packet {
+
+    /**
+     * The function returned successfully.
+     */
+    TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_OK,
+
+    /**
+     * The group number passed did not designate a valid group.
+     */
+    TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_GROUP_NOT_FOUND,
+
+    /**
+     * Message length exceeded TOX_MAX_MESSAGE_LENGTH.
+     */
+    TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_TOO_LONG,
+
+    /**
+     * The message pointer is null or length is zero.
+     */
+    TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_EMPTY,
+
+    /**
+     * The peer ID passed did no designate a valid peer.
+     */
+    TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_PEER_NOT_FOUND,
+
+    /**
+     * The caller does not have the required permissions to send group messages.
+     */
+    TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_PERMISSIONS,
+
+    /**
+     * The packet failed to send.
+     */
+    TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_FAIL_SEND,
+
+    /**
+     * The group is disconnected.
+     */
+    TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_DISCONNECTED,
+
+} Tox_Err_Group_Send_Custom_Private_Packet;
+
+/**
+ * Send a custom private packet to a designated peer in the group.
+ *
+ * If lossless is true the packet will be lossless. Lossless packet behaviour is comparable
+ * to TCP (reliability, arrive in order) but with packets instead of a stream.
+ *
+ * If lossless is false, the packet will be lossy. Lossy packets behave like UDP packets,
+ * meaning they might never reach the other side or might arrive more than once (if someone
+ * is messing with the connection) or might arrive in the wrong order.
+ *
+ * Unless latency is an issue or message reliability is not important, it is recommended that you use
+ * lossless packets.
+ *
+ * The packet length may not exceed TOX_MAX_CUSTOM_PACKET_SIZE. Larger packets
+ * must be split by the client and sent as separate packets. Other clients can
+ * then reassemble the fragments. Packets may not be empty.
+ *
+ * @param group_number The group number of the group the packet is intended for.
+ * @param peer_id The ID of the peer the packet is intended for.
+ * @param lossless True if the packet should be lossless.
+ * @param data A byte array containing the packet data.
+ * @param length The length of the packet data byte array.
+ *
+ * @return true on success.
+ */
+bool tox_group_send_custom_private_packet(const Tox *tox, uint32_t group_number, uint32_t peer_id, bool lossless,
+        const uint8_t *data, size_t length,
+        Tox_Err_Group_Send_Custom_Private_Packet *error);
 
 
 /*******************************************************************************
@@ -4756,9 +4829,9 @@ typedef void tox_group_private_message_cb(Tox *tox, uint32_t group_number, uint3
 void tox_callback_group_private_message(Tox *tox, tox_group_private_message_cb *callback);
 
 /**
- * @param group_number The group number of the group the custom packet is intended for.
- * @param peer_id The ID of the peer who sent the custom packet.
- * @param data The custom packet data.
+ * @param group_number The group number of the group the packet is intended for.
+ * @param peer_id The ID of the peer who sent the packet.
+ * @param data The packet data.
  * @param length The length of the data.
  */
 typedef void tox_group_custom_packet_cb(Tox *tox, uint32_t group_number, uint32_t peer_id, const uint8_t *data,
@@ -4771,6 +4844,23 @@ typedef void tox_group_custom_packet_cb(Tox *tox, uint32_t group_number, uint32_
  * This event is triggered when the client receives a custom packet.
  */
 void tox_callback_group_custom_packet(Tox *tox, tox_group_custom_packet_cb *callback);
+
+/**
+ * @param group_number The group number of the group the packet is intended for.
+ * @param peer_id The ID of the peer who sent the packet.
+ * @param data The packet data.
+ * @param length The length of the data.
+ */
+typedef void tox_group_custom_private_packet_cb(Tox *tox, uint32_t group_number, uint32_t peer_id, const uint8_t *data,
+        size_t length, void *user_data);
+
+
+/**
+ * Set the callback for the `group_custom_private_packet` event. Pass NULL to unset.
+ *
+ * This event is triggered when the client receives a custom private packet.
+ */
+void tox_callback_group_custom_private_packet(Tox *tox, tox_group_custom_private_packet_cb *callback);
 
 
 /*******************************************************************************
@@ -5203,7 +5293,7 @@ typedef enum Tox_Err_Group_Founder_Set_Voice_State {
  * If an attempt is made to set the voice state to the same state that the group is already
  * in, the function call will be successful and no action will be taken.
  *
- * @param group_number The group number of the group for which we wish to change the privacy state.
+ * @param group_number The group number of the group for which we wish to change the voice state.
  * @param voice_state The voice state we wish to set the group to.
  *
  * @return true on success.
@@ -5322,42 +5412,42 @@ bool tox_group_founder_set_peer_limit(const Tox *tox, uint32_t group_number, uin
 
 
 
-typedef enum Tox_Err_Group_Toggle_Ignore {
+typedef enum Tox_Err_Group_Set_Ignore {
 
     /**
      * The function returned successfully.
      */
-    TOX_ERR_GROUP_TOGGLE_IGNORE_OK,
+    TOX_ERR_GROUP_SET_IGNORE_OK,
 
     /**
      * The group number passed did not designate a valid group.
      */
-    TOX_ERR_GROUP_TOGGLE_IGNORE_GROUP_NOT_FOUND,
+    TOX_ERR_GROUP_SET_IGNORE_GROUP_NOT_FOUND,
 
     /**
      * The ID passed did not designate a valid peer.
      */
-    TOX_ERR_GROUP_TOGGLE_IGNORE_PEER_NOT_FOUND,
+    TOX_ERR_GROUP_SET_IGNORE_PEER_NOT_FOUND,
 
     /**
      * The caller attempted to ignore himself.
      */
-    TOX_ERR_GROUP_TOGGLE_IGNORE_SELF,
+    TOX_ERR_GROUP_SET_IGNORE_SELF,
 
-} Tox_Err_Group_Toggle_Ignore;
+} Tox_Err_Group_Set_Ignore;
 
 
 /**
  * Ignore or unignore a peer.
  *
- * @param group_number The group number of the group the in which you wish to ignore a peer.
+ * @param group_number The group number of the group in which you wish to ignore a peer.
  * @param peer_id The ID of the peer who shall be ignored or unignored.
  * @param ignore True to ignore the peer, false to unignore the peer.
  *
  * @return true on success.
  */
-bool tox_group_toggle_ignore(const Tox *tox, uint32_t group_number, uint32_t peer_id, bool ignore,
-                             Tox_Err_Group_Toggle_Ignore *error);
+bool tox_group_set_ignore(const Tox *tox, uint32_t group_number, uint32_t peer_id, bool ignore,
+                          Tox_Err_Group_Set_Ignore *error);
 
 typedef enum Tox_Err_Group_Mod_Set_Role {
 

@@ -21,6 +21,7 @@
 #define MAX_GC_TOPIC_SIZE 512
 #define MAX_GC_GROUP_NAME_SIZE 48
 #define MAX_GC_MESSAGE_SIZE 1372
+#define MAX_GC_CUSTOM_PACKET_SIZE 1373
 #define MAX_GC_PASSWORD_SIZE 32
 #define MAX_GC_SAVED_INVITES 10
 #define MAX_GC_PEERS_DEFAULT 100
@@ -194,7 +195,7 @@ typedef struct GC_TimedOutPeer {
 } GC_TimedOutPeer;
 
 typedef struct GC_Peer {
-    /* Below state is sent to other peers in peer info exchange*/
+    /* Below state is sent to other peers in peer info exchange */
     uint8_t       nick[MAX_GC_NICK_SIZE];
     uint16_t      nick_length;
     uint8_t       status;
@@ -311,6 +312,9 @@ typedef void gc_private_message_cb(const Messenger *m, uint32_t group_number, ui
                                    const uint8_t *data, size_t length, void *user_data);
 typedef void gc_custom_packet_cb(const Messenger *m, uint32_t group_number, uint32_t peer_id, const uint8_t *data,
                                  size_t length, void *user_data);
+typedef void gc_custom_private_packet_cb(const Messenger *m, uint32_t group_number, uint32_t peer_id,
+        const uint8_t *data,
+        size_t length, void *user_data);
 typedef void gc_moderation_cb(const Messenger *m, uint32_t group_number, uint32_t peer_id, uint32_t target_peer,
                               unsigned int mod_event, void *user_data);
 typedef void gc_nick_change_cb(const Messenger *m, uint32_t group_number, uint32_t peer_id, const uint8_t *data,
@@ -341,6 +345,7 @@ typedef struct GC_Session {
     gc_message_cb *message;
     gc_private_message_cb *private_message;
     gc_custom_packet_cb *custom_packet;
+    gc_custom_private_packet_cb *custom_private_packet;
     gc_moderation_cb *moderation;
     gc_nick_change_cb *nick_change;
     gc_status_change_cb *status_change;
@@ -358,7 +363,7 @@ typedef struct GC_Session {
 
 /** @brief Adds a new peer to group_number's peer list.
  *
- * Return peer_number if success.
+ * Return peer_number on success.
  * Return -1 on failure.
  * Return -2 if a peer with public_key is already in our peerlist.
  */

@@ -27,7 +27,7 @@
 /** Seconds since last direct UDP packet was received before the connection is considered dead */
 #define GCC_UDP_DIRECT_TIMEOUT (GC_PING_TIMEOUT + 4)
 
-/** Returns true if ary entry does not contain an active packet. */
+/** Returns true if array entry does not contain an active packet. */
 non_null()
 static bool array_entry_is_empty(const GC_Message_Array_Entry *array_entry)
 {
@@ -35,11 +35,7 @@ static bool array_entry_is_empty(const GC_Message_Array_Entry *array_entry)
     return array_entry->time_added == 0;
 }
 
-/** @brief Clears an array entry.
- *
- * Return 0 on success.
- * Return -1 on failure.
- */
+/** @brief Clears an array entry. */
 non_null()
 static void clear_array_entry(GC_Message_Array_Entry *const array_entry)
 {
@@ -54,7 +50,7 @@ static void clear_array_entry(GC_Message_Array_Entry *const array_entry)
 
 /**
  * Clears every send array message from queue starting at the index designated by
- * `start_id` and ending at `end_id` and sets the send_message_id for `gconn`
+ * `start_id` and ending at `end_id`, and sets the send_message_id for `gconn`
  * to `start_id`.
  */
 non_null()
@@ -87,7 +83,7 @@ void gcc_set_recv_message_id(GC_Connection *gconn, uint64_t id)
     gconn->received_message_id = id;
 }
 
-/** @brief Puts packet data in ary_entry.
+/** @brief Puts packet data in array_entry.
  *
  * Return true on success.
  */
@@ -282,7 +278,7 @@ bool gcc_copy_tcp_relay(const Random *rng, Node_format *tcp_node, const GC_Conne
         return false;
     }
 
-    const uint32_t rand_idx = random_u32(rng) % gconn->tcp_relays_count;
+    const uint32_t rand_idx = random_range_u32(rng, gconn->tcp_relays_count);
 
     if (!ipport_isset(&gconn->connected_tcp_relays[rand_idx].ip_port)) {
         return false;
@@ -312,7 +308,7 @@ int gcc_save_tcp_relay(const Random *rng, GC_Connection *gconn, const Node_forma
     uint32_t idx = gconn->tcp_relays_count;
 
     if (gconn->tcp_relays_count >= MAX_FRIEND_TCP_CONNECTIONS) {
-        idx = random_u32(rng) % gconn->tcp_relays_count;
+        idx = random_range_u32(rng, gconn->tcp_relays_count);
     } else {
         ++gconn->tcp_relays_count;
     }
@@ -348,7 +344,7 @@ static bool store_in_recv_array(const Logger *log, const Mono_Time *mono_time, G
 }
 
 /**
- * Reassambles a fragmented packet sequence ending with the data in the receive
+ * Reassembles a fragmented packet sequence ending with the data in the receive
  * array at slot `message_id - 1` and starting with the last found slot containing
  * a GP_FRAGMENT packet when searching backwards in the array.
  *
@@ -447,7 +443,7 @@ int gcc_handle_packet_fragment(const GC_Session *c, GC_Chat *chat, uint32_t peer
         return -1;
     }
 
-    if (handle_gc_lossless_helper(c, chat, peer_number, payload + 1, processed_len - 1, payload[0], userdata) < 0) {
+    if (!handle_gc_lossless_helper(c, chat, peer_number, payload + 1, processed_len - 1, payload[0], userdata)) {
         free(payload);
         return -1;
     }
@@ -512,8 +508,8 @@ static bool process_recv_array_entry(const GC_Session *c, GC_Chat *chat, GC_Conn
     uint8_t sender_pk[ENC_PUBLIC_KEY_SIZE];
     memcpy(sender_pk, get_enc_key(gconn->addr.public_key), ENC_PUBLIC_KEY_SIZE);
 
-    const int ret = handle_gc_lossless_helper(c, chat, peer_number, array_entry->data, array_entry->data_length,
-                    array_entry->packet_type, userdata);
+    const bool ret = handle_gc_lossless_helper(c, chat, peer_number, array_entry->data, array_entry->data_length,
+                     array_entry->packet_type, userdata);
 
     /* peer number can change from peer add operations in packet handlers */
     peer_number = get_peer_number_of_enc_pk(chat, sender_pk, false);
@@ -525,7 +521,7 @@ static bool process_recv_array_entry(const GC_Session *c, GC_Chat *chat, GC_Conn
         return true;
     }
 
-    if (ret < 0) {
+    if (!ret) {
         gc_send_message_ack(chat, gconn, array_entry->message_id, GR_ACK_REQ);
         return false;
     }
@@ -626,8 +622,8 @@ bool gcc_encrypt_and_send_lossless_packet(const GC_Chat *chat, const GC_Connecti
     }
 
     const int enc_len = group_packet_wrap(
-            chat->log, chat->rng, chat->self_public_key, gconn->session_shared_key, packet,
-            packet_size, data, length, message_id, packet_type, NET_PACKET_GC_LOSSLESS);
+                            chat->log, chat->rng, chat->self_public_key, gconn->session_shared_key, packet,
+                            packet_size, data, length, message_id, packet_type, NET_PACKET_GC_LOSSLESS);
 
     if (enc_len < 0) {
         LOGGER_ERROR(chat->log, "Failed to wrap packet (type: 0x%02x, error: %d)", packet_type, enc_len);

@@ -313,12 +313,16 @@ uint32_t net_ntohl(uint32_t hostlong);
 uint16_t net_ntohs(uint16_t hostshort);
 
 non_null()
+size_t net_pack_bool(uint8_t *bytes, bool v);
+non_null()
 size_t net_pack_u16(uint8_t *bytes, uint16_t v);
 non_null()
 size_t net_pack_u32(uint8_t *bytes, uint32_t v);
 non_null()
 size_t net_pack_u64(uint8_t *bytes, uint64_t v);
 
+non_null()
+size_t net_unpack_bool(const uint8_t *bytes, bool *v);
 non_null()
 size_t net_unpack_u16(const uint8_t *bytes, uint16_t *v);
 non_null()

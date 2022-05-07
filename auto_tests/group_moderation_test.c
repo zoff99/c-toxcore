@@ -47,7 +47,7 @@ typedef struct State {
     bool user_check;
     size_t user_event_count;
 
-    bool kick_check;  // moderater gets kicked
+    bool kick_check;  // mod gets kicked
 } State;
 
 static bool all_peers_connected(AutoTox *autotoxes)

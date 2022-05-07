@@ -2349,19 +2349,24 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
         case PACKET_ID_INVITE_GROUPCHAT: {
 #ifndef VANILLA_NACL
 
+            // first two bytes are messenger packet type and group invite type
             if (data_length < 2 + GC_JOIN_DATA_LENGTH) {
                 break;
             }
 
+            const uint8_t invite_type = data[1];
+            const uint8_t *join_data = data + 2;
+            const uint32_t join_data_len = data_length - 2;
+
             if (m->group_invite != nullptr && data[1] == GROUP_INVITE && data_length != 2 + GC_JOIN_DATA_LENGTH) {
-                if (group_not_added(m->group_handler, data + 2, data_length - 1)) {
-                    m->group_invite(m, i, data + 2, GC_JOIN_DATA_LENGTH,
-                                    data + 2 + GC_JOIN_DATA_LENGTH, data_length - 2 - GC_JOIN_DATA_LENGTH, userdata);
+                if (group_not_added(m->group_handler, join_data, join_data_len)) {
+                    m->group_invite(m, i, join_data, GC_JOIN_DATA_LENGTH,
+                                    join_data + GC_JOIN_DATA_LENGTH, join_data_len - GC_JOIN_DATA_LENGTH, userdata);
                 }
-            } else if (data[1] == GROUP_INVITE_ACCEPTED) {
-                handle_gc_invite_accepted_packet(m->group_handler, i, data + 2, data_length - 2);
-            } else if (data[1] == GROUP_INVITE_CONFIRMATION) {
-                handle_gc_invite_confirmed_packet(m->group_handler, i, data + 2, data_length - 2);
+            } else if (invite_type == GROUP_INVITE_ACCEPTED) {
+                handle_gc_invite_accepted_packet(m->group_handler, i, join_data, join_data_len);
+            } else if (invite_type == GROUP_INVITE_CONFIRMATION) {
+                handle_gc_invite_confirmed_packet(m->group_handler, i, join_data, join_data_len);
             }
 
 #endif
@@ -2504,7 +2509,7 @@ uint32_t messenger_run_interval(const Messenger *m)
 non_null()
 static bool self_announce_group(const Messenger *m, GC_Chat *chat, Onion_Friend *onion_friend)
 {
-    GC_Public_Announce announce = {{0}};
+    GC_Public_Announce announce = {{{{{0}}}}};
 
     const bool ip_port_is_set = chat->self_udp_status != SELF_UDP_STATUS_NONE;
     const int tcp_num = tcp_copy_connected_relays(chat->tcp_conn, announce.base_announce.tcp_relays,
@@ -3635,9 +3640,9 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
     m->group_announce = new_gca_list();
 
     if (m->group_announce == nullptr) {
-        kill_networking(m->net);
         kill_net_crypto(m->net_crypto);
         kill_dht(m->dht);
+        kill_networking(m->net);
         friendreq_kill(m->fr);
         logger_kill(m->log);
         free(m);
@@ -3689,9 +3694,12 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
         kill_onion_announce(m->onion_a);
         kill_onion_client(m->onion_c);
         kill_gca(m->group_announce);
-        kill_networking(m->net);
+        kill_friend_connections(m->fr_c);
+        kill_announcements(m->announce);
+        kill_forwarding(m->forwarding);
         kill_net_crypto(m->net_crypto);
         kill_dht(m->dht);
+        kill_networking(m->net);
         friendreq_kill(m->fr);
         logger_kill(m->log);
         free(m);

@@ -8,11 +8,11 @@
 
 #include "auto_test_support.h"
 
+#ifdef USE_TEST_NETWORK
+
 #define NUM_GROUP_TOXES 2
 #define CODEWORD "RONALD MCDONALD"
 #define CODEWORD_LEN (sizeof(CODEWORD) - 1)
-
-#ifdef USE_TEST_NETWORK
 
 typedef struct State {
     size_t   num_peers;
@@ -107,11 +107,7 @@ static bool all_peers_connected(AutoTox *autotoxes)
         }
     }
 
-    if (count == NUM_GROUP_TOXES) {
-        return true;
-    }
-
-    return false;
+    return count == NUM_GROUP_TOXES;
 }
 
 static bool all_peers_got_code(AutoTox *autotoxes)
@@ -128,11 +124,7 @@ static bool all_peers_got_code(AutoTox *autotoxes)
         }
     }
 
-    if (count == NUM_GROUP_TOXES - 1) {
-        return true;
-    }
-
-    return false;
+    return count == NUM_GROUP_TOXES - 1;
 }
 
 static void group_tcp_test(AutoTox *autotoxes)
@@ -256,6 +248,8 @@ int main(void)
     return 0;
 }
 
+#ifdef USE_TEST_NETWORK
 #undef NUM_GROUP_TOXES
 #undef CODEWORD_LEN
 #undef CODEWORD
+#endif // USE_TEST_NETWORK

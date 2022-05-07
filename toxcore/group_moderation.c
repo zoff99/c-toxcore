@@ -568,7 +568,7 @@ bool sanctions_list_check_integrity(const Moderation *moderation, const Mod_Sanc
 }
 
 /** @brief Validates a sanctions list if credentials are supplied. If successful,
- *   or if no credentials are supplid, assigns new sanctions list and credentials
+ *   or if no credentials are supplied, assigns new sanctions list and credentials
  *   to moderation object.
  *
  * @param moderation The moderation object being operated on.

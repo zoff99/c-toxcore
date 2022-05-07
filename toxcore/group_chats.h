@@ -82,6 +82,7 @@ typedef enum Group_Packet_Type {
     GP_INVITE_RESPONSE_REJECT   = 0x03,
 
     /* lossless packets */
+    GP_CUSTOM_PRIVATE_PACKET    = 0xee,
     GP_FRAGMENT                 = 0xef,
     GP_KEY_ROTATION             = 0xf0,
     GP_TCP_RELAYS               = 0xf1,
@@ -139,19 +140,19 @@ int get_peer_number_of_enc_pk(const GC_Chat *chat, const uint8_t *public_enc_key
  */
 non_null(1, 2, 3, 4, 5) nullable(7)
 int group_packet_wrap(
-        const Logger *log, const Random *rng, const uint8_t *self_pk, const uint8_t *shared_key, uint8_t *packet,
-        uint16_t packet_size, const uint8_t *data, uint16_t length, uint64_t message_id,
-        uint8_t gp_packet_type, uint8_t net_packet_type);
+    const Logger *log, const Random *rng, const uint8_t *self_pk, const uint8_t *shared_key, uint8_t *packet,
+    uint16_t packet_size, const uint8_t *data, uint16_t length, uint64_t message_id,
+    uint8_t gp_packet_type, uint8_t net_packet_type);
 
 /** @brief Returns the size of a wrapped/encrypted packet with a plain size of `length`.
  *
- * `pakcket_type` must be either NET_PACKET_GC_LOSSY or NET_PACKET_GC_LOSSLESS.
+ * `packet_type` should be either NET_PACKET_GC_LOSSY or NET_PACKET_GC_LOSSLESS.
  */
-uint16_t gc_get_wrapped_packet_size(uint16_t length, uint8_t packet_type);
+uint16_t gc_get_wrapped_packet_size(uint16_t length, Net_Packet_Type packet_type);
 
 /** @brief Sends a plain message or an action, depending on type.
  *
- * `length` must not exceept MAX_GC_MESSAGE_SIZE and must not be equal to zero.
+ * `length` must not exceed MAX_GC_MESSAGE_SIZE and must not be equal to zero.
  *
  * Returns 0 on success.
  * Returns -1 if the message is too long.
@@ -165,7 +166,7 @@ int gc_send_message(const GC_Chat *chat, const uint8_t *message, uint16_t length
 
 /** @brief Sends a private message to peer_id.
  *
- * `length` must not exceept MAX_GC_MESSAGE_SIZE and must not be equal to zero.
+ * `length` must not exceed MAX_GC_MESSAGE_SIZE and must not be equal to zero.
  *
  * Returns 0 on success.
  * Returns -1 if the message is too long.
@@ -181,7 +182,7 @@ int gc_send_private_message(const GC_Chat *chat, uint32_t peer_id, uint8_t type,
 
 /** @brief Sends a custom packet to the group. If lossless is true, the packet will be lossless.
  *
- * `length` must not exceept MAX_GC_MESSAGE_SIZE and must not be equal to zero.
+ * `length` must not exceed MAX_GC_MESSAGE_SIZE and must not be equal to zero.
  *
  * Returns 0 on success.
  * Returns -1 if the message is too long.
@@ -191,14 +192,29 @@ int gc_send_private_message(const GC_Chat *chat, uint32_t peer_id, uint8_t type,
 non_null()
 int gc_send_custom_packet(const GC_Chat *chat, bool lossless, const uint8_t *data, uint16_t length);
 
-/** @brief Toggles ignore for peer_id.
+/** @brief Sends a custom private packet to the peer designated by peer_id.
+ *
+ * `length` must not exceed MAX_GC_MESSAGE_SIZE and must not be equal to zero.
+ *
+ * @retval 0 on success.
+ * @retval -1 if the message is too long.
+ * @retval -2 if the message pointer is NULL or length is zero.
+ * @retval -3 if the supplied peer_id does not designate a valid peer.
+ * @retval -4 if the sender has the observer role.
+ * @retval -5 if the packet fails to send.
+ */
+non_null()
+int gc_send_custom_private_packet(const GC_Chat *chat, bool lossless, uint32_t peer_id, const uint8_t *message,
+                                  uint16_t length);
+
+/** @brief Sets ignore for peer_id.
  *
  * Returns 0 on success.
  * Returns -1 if the peer_id is invalid.
  * Returns -2 if the caller attempted to ignore himself.
  */
 non_null()
-int gc_toggle_ignore(const GC_Chat *chat, uint32_t peer_id, bool ignore);
+int gc_set_ignore(const GC_Chat *chat, uint32_t peer_id, bool ignore);
 
 /** @brief Sets the group topic and broadcasts it to the group.
  *
@@ -395,7 +411,7 @@ non_null()
 int gc_set_self_status(const Messenger *m, int group_number, Group_Peer_Status status);
 
 /** @brief Returns the status of peer designated by `peer_id`.
- * Returns (uint8_t) -1 on failure.
+ * Returns UINT8_MAX on failure.
  *
  * The status returned is equal to the last status received through the status_change
  * callback.
@@ -531,6 +547,8 @@ void gc_get_chat_id(const GC_Chat *chat, uint8_t *dest);
 non_null(1) nullable(2) void gc_callback_message(const Messenger *m, gc_message_cb *function);
 non_null(1) nullable(2) void gc_callback_private_message(const Messenger *m, gc_private_message_cb *function);
 non_null(1) nullable(2) void gc_callback_custom_packet(const Messenger *m, gc_custom_packet_cb *function);
+non_null(1) nullable(2) void gc_callback_custom_private_packet(const Messenger *m,
+        gc_custom_private_packet_cb *function);
 non_null(1) nullable(2) void gc_callback_moderation(const Messenger *m, gc_moderation_cb *function);
 non_null(1) nullable(2) void gc_callback_nick_change(const Messenger *m, gc_nick_change_cb *function);
 non_null(1) nullable(2) void gc_callback_status_change(const Messenger *m, gc_status_change_cb *function);
@@ -550,10 +568,10 @@ non_null(1) nullable(2)
 void do_gc(GC_Session *c, void *userdata);
 
 /**
- * Returns a NULL pointer if fail.
- * Make sure that DHT is initialized before calling this
+ * Make sure that DHT is initialized before calling this.
+ * Returns a NULL pointer on failure.
  */
-non_null()
+nullable(1)
 GC_Session *new_dht_groupchats(Messenger *m);
 
 /** @brief Cleans up groupchat structures and calls `gc_group_exit()` for every group chat */
@@ -672,7 +690,6 @@ int gc_invite_friend(const GC_Session *c, GC_Chat *chat, int32_t friend_number,
  * Return 0 on success.
  * Return -1 if the parting message is too long.
  * Return -2 if the parting message failed to send.
- * Return -3 if the group instance failed delete.
  */
 non_null(1, 2) nullable(3)
 int gc_group_exit(GC_Session *c, GC_Chat *chat, const uint8_t *message, uint16_t length);
@@ -706,14 +723,14 @@ bool gc_peer_number_is_valid(const GC_Chat *chat, int peer_number);
 non_null()
 GC_Chat *gc_get_group(const GC_Session *c, int group_number);
 
-/** @brief Sends a lossless message acknowledgement to peer associated with `gconn`.
+/** @brief Sends a lossy message acknowledgement to peer associated with `gconn`.
  *
  * If `type` is GR_ACK_RECV we send a read-receipt for read_id's packet. If `type` is GR_ACK_REQ
  * we send a request for the respective id's packet.
  *
- * requests are limited to one per second per peer.
+ * Requests are limited to one per second per peer.
  *
- * Return true on success.
+ * @retval true on success.
  */
 non_null()
 bool gc_send_message_ack(const GC_Chat *chat, GC_Connection *gconn, uint64_t message_id, Group_Message_Ack_Type type);
@@ -722,20 +739,18 @@ bool gc_send_message_ack(const GC_Chat *chat, GC_Connection *gconn, uint64_t mes
  *
  * Note: This function may modify the peer list and change peer numbers.
  *
- * Return 0 if packet is successfully handled.
- * Return -1 on failure.
+ * @retval true if packet is successfully handled.
  */
 non_null(1, 2) nullable(4, 7)
-int handle_gc_lossless_helper(const GC_Session *c, GC_Chat *chat, uint32_t peer_number, const uint8_t *data,
-                              uint16_t length, uint8_t packet_type, void *userdata);
+bool handle_gc_lossless_helper(const GC_Session *c, GC_Chat *chat, uint32_t peer_number, const uint8_t *data,
+                               uint16_t length, uint8_t packet_type, void *userdata);
 
 /** @brief Handles an invite accept packet.
  *
- * Return 0 on success.
- * Return -1 on failure.
+ * @retval true on success.
  */
 non_null()
-int handle_gc_invite_accepted_packet(const GC_Session *c, int friend_number, const uint8_t *data, uint16_t length);
+bool handle_gc_invite_accepted_packet(const GC_Session *c, int friend_number, const uint8_t *data, uint16_t length);
 
 /** @brief Return true if `chat_id` is not present in our group sessions array.
  *

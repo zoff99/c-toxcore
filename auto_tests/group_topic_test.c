@@ -92,19 +92,14 @@ static void group_topic_lock_handler(Tox *tox, uint32_t groupnumber, Tox_Group_T
 
 /* Sets group topic.
  *
- * Return 0 on success.
- * Return -1 on failure.
+ * Return true on success.
  */
-static int set_topic(Tox *tox, uint32_t groupnumber, const char *topic, size_t length)
+static bool set_topic(Tox *tox, uint32_t groupnumber, const char *topic, size_t length)
 {
     Tox_Err_Group_Topic_Set err;
     tox_group_set_topic(tox, groupnumber, (const uint8_t *)topic, length, &err);
 
-    if (err != TOX_ERR_GROUP_TOPIC_SET_OK) {
-        return -1;
-    }
-
-    return 0;
+    return err == TOX_ERR_GROUP_TOPIC_SET_OK;
 }
 
 /* Returns 0 if group topic matches expected topic.
@@ -195,7 +190,7 @@ static uint32_t set_topic_all_peers(const Random *rng, AutoTox *autotoxes, size_
         snprintf(new_topic, sizeof(new_topic), "peer %zu changes topic %u", i, random_u32(rng));
         size_t length = strlen(new_topic);
 
-        if (set_topic(autotoxes[i].tox, groupnumber, new_topic, length) == 0) {
+        if (set_topic(autotoxes[i].tox, groupnumber, new_topic, length)) {
             wait_state_topic(autotoxes, groupnumber, new_topic, length);
             ++change_count;
         } else {
@@ -235,8 +230,8 @@ static void group_topic_test(AutoTox *autotoxes)
     iterate_all_wait(autotoxes, NUM_GROUP_TOXES, ITERATION_INTERVAL);
 
     /* Founder sets group topic before anyone else joins */
-    const int s_ret = set_topic(tox0, groupnumber, TOPIC, TOPIC_LEN);
-    ck_assert_msg(s_ret == 0, "Founder failed to set topic: %d\n", s_ret);
+    const bool s_ret = set_topic(tox0, groupnumber, TOPIC, TOPIC_LEN);
+    ck_assert_msg(s_ret, "Founder failed to set topic");
 
     /* Founder gets the Chat ID and implicitly shares it publicly */
     Tox_Err_Group_State_Queries id_err;
@@ -302,8 +297,8 @@ static void group_topic_test(AutoTox *autotoxes)
     /* Wait for all peers to get topic lock state change */
     wait_topic_lock(autotoxes, groupnumber, TOX_GROUP_TOPIC_LOCK_ENABLED);
 
-    const int s3_ret = set_topic(tox0, groupnumber, TOPIC2, TOPIC_LEN2);
-    ck_assert_msg(s3_ret == 0, "Founder failed to set topic second time: %d", s3_ret);
+    const bool s3_ret = set_topic(tox0, groupnumber, TOPIC2, TOPIC_LEN2);
+    ck_assert_msg(s3_ret, "Founder failed to set topic second time");
 
     wait_state_topic(autotoxes, groupnumber, TOPIC2, TOPIC_LEN2);
 

@@ -337,6 +337,14 @@ struct Messenger {
 };
 
 /**
+ * Determines if the friendnumber passed is valid in the Messenger object.
+ *
+ * @param friendnumber The index in the friend list.
+ */
+non_null()
+bool friend_is_valid(const Messenger *m, int32_t friendnumber);
+
+/**
  * Format: `[real_pk (32 bytes)][nospam number (4 bytes)][checksum (2 bytes)]`
  *
  * @param[out] address FRIEND_ADDRESS_SIZE byte address to give to others.

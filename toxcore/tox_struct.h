@@ -55,6 +55,7 @@ struct Tox {
     tox_group_message_cb *group_message_callback;
     tox_group_private_message_cb *group_private_message_callback;
     tox_group_custom_packet_cb *group_custom_packet_callback;
+    tox_group_custom_private_packet_cb *group_custom_private_packet_callback;
     tox_group_invite_cb *group_invite_callback;
     tox_group_peer_join_cb *group_peer_join_callback;
     tox_group_peer_exit_cb *group_peer_exit_callback;

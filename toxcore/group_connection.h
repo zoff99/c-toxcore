@@ -53,7 +53,7 @@ uint16_t gcc_get_array_index(uint64_t message_id);
 
 /** @brief Removes send_array item with message_id.
  *
- * Return true if success.
+ * Return true on success.
  */
 non_null()
 bool gcc_handle_ack(const Logger *log, GC_Connection *gconn, uint64_t message_id);

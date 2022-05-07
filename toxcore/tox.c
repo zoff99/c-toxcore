@@ -363,8 +363,8 @@ static void tox_dht_get_nodes_response_handler(const DHT *dht, const Node_format
 
     Ip_Ntoa ip_str;
     tox_data->tox->dht_get_nodes_response_callback(
-            tox_data->tox, node->public_key, net_ip_ntoa(&node->ip_port.ip, &ip_str), net_ntohs(node->ip_port.port),
-            tox_data->user_data);
+        tox_data->tox, node->public_key, net_ip_ntoa(&node->ip_port.ip, &ip_str), net_ntohs(node->ip_port.port),
+        tox_data->user_data);
 }
 
 static m_friend_lossy_packet_cb tox_friend_lossy_packet_handler;
@@ -550,6 +550,20 @@ static void tox_group_custom_packet_handler(const Messenger *m, uint32_t group_n
     if (tox_data->tox->group_custom_packet_callback != nullptr) {
         tox_unlock(tox_data->tox);
         tox_data->tox->group_custom_packet_callback(tox_data->tox, group_number, peer_id, data, length, tox_data->user_data);
+        tox_lock(tox_data->tox);
+    }
+}
+
+non_null(1, 4) nullable(6)
+static void tox_group_custom_private_packet_handler(const Messenger *m, uint32_t group_number, uint32_t peer_id,
+        const uint8_t *data, size_t length, void *user_data)
+{
+    struct Tox_Userdata *tox_data = (struct Tox_Userdata *)user_data;
+
+    if (tox_data->tox->group_custom_private_packet_callback != nullptr) {
+        tox_unlock(tox_data->tox);
+        tox_data->tox->group_custom_private_packet_callback(tox_data->tox, group_number, peer_id, data, length,
+                tox_data->user_data);
         tox_lock(tox_data->tox);
     }
 }
@@ -806,6 +820,7 @@ Tox *tox_new(const struct Tox_Options *options, Tox_Err_New *error)
 
     const Tox_System *sys = tox_options_get_operating_system(opts);
     const Tox_System default_system = tox_default_system();
+
     if (sys == nullptr) {
         sys = &default_system;
     }
@@ -837,7 +852,8 @@ Tox *tox_new(const struct Tox_Options *options, Tox_Err_New *error)
 
         const char *const proxy_host = tox_options_get_proxy_host(opts);
 
-        if (proxy_host == nullptr || !addr_resolve_or_parse_ip(&tox->ns, proxy_host, &m_options.proxy_info.ip_port.ip, nullptr)) {
+        if (proxy_host == nullptr
+                || !addr_resolve_or_parse_ip(&tox->ns, proxy_host, &m_options.proxy_info.ip_port.ip, nullptr)) {
             SET_ERROR_PARAMETER(error, TOX_ERR_NEW_PROXY_BAD_HOST);
             // TODO(irungentoo): TOX_ERR_NEW_PROXY_NOT_FOUND if domain.
             tox_options_free(default_options);
@@ -955,6 +971,7 @@ Tox *tox_new(const struct Tox_Options *options, Tox_Err_New *error)
     gc_callback_message(tox->m, tox_group_message_handler);
     gc_callback_private_message(tox->m, tox_group_private_message_handler);
     gc_callback_custom_packet(tox->m, tox_group_custom_packet_handler);
+    gc_callback_custom_private_packet(tox->m, tox_group_custom_private_packet_handler);
     gc_callback_moderation(tox->m, tox_group_moderation_handler);
     gc_callback_nick_change(tox->m, tox_group_peer_name_handler);
     gc_callback_status_change(tox->m, tox_group_peer_status_handler);
@@ -1024,9 +1041,9 @@ size_t tox_get_savedata_size(const Tox *tox)
     assert(tox != nullptr);
     tox_lock(tox);
     const size_t ret = 2 * sizeof(uint32_t)
-                 + messenger_size(tox->m)
-                 + conferences_size(tox->m->conferences_object)
-                 + end_size();
+                       + messenger_size(tox->m)
+                       + conferences_size(tox->m->conferences_object)
+                       + end_size();
     tox_unlock(tox);
     return ret;
 }
@@ -1059,7 +1076,8 @@ void tox_get_savedata(const Tox *tox, uint8_t *savedata)
 }
 
 non_null(5) nullable(1, 2, 4, 6)
-static int32_t resolve_bootstrap_node(Tox *tox, const char *host, uint16_t port, const uint8_t *public_key, IP_Port **root, Tox_Err_Bootstrap *error)
+static int32_t resolve_bootstrap_node(Tox *tox, const char *host, uint16_t port, const uint8_t *public_key,
+                                      IP_Port **root, Tox_Err_Bootstrap *error)
 {
     assert(tox != nullptr);
     assert(root != nullptr);
@@ -2943,6 +2961,12 @@ void tox_callback_group_custom_packet(Tox *tox, tox_group_custom_packet_cb *call
     tox->group_custom_packet_callback = callback;
 }
 
+void tox_callback_group_custom_private_packet(Tox *tox, tox_group_custom_private_packet_cb *callback)
+{
+    assert(tox != nullptr);
+    tox->group_custom_private_packet_callback = callback;
+}
+
 void tox_callback_group_moderation(Tox *tox, tox_group_moderation_cb *callback)
 {
     assert(tox != nullptr);
@@ -3246,11 +3270,6 @@ bool tox_group_leave(Tox *tox, uint32_t group_number, const uint8_t *part_messag
         case -2: {
             SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_LEAVE_FAIL_SEND);
             return true;   /* the group was still successfully deleted */
-        }
-
-        case -3: {
-            SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_LEAVE_DELETE_FAIL);
-            return false;
         }
     }
 
@@ -3627,7 +3646,7 @@ Tox_User_Status tox_group_peer_get_status(const Tox *tox, uint32_t group_number,
     const uint8_t ret = gc_get_status(chat, peer_id);
     tox_unlock(tox);
 
-    if (ret == (uint8_t) -1) {
+    if (ret == UINT8_MAX) {
         SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_PEER_NOT_FOUND);
         return (Tox_User_Status) - 1;
     }
@@ -4232,6 +4251,68 @@ bool tox_group_send_custom_packet(const Tox *tox, uint32_t group_number, bool lo
     return false;
 }
 
+bool tox_group_send_custom_private_packet(const Tox *tox, uint32_t group_number, uint32_t peer_id, bool lossless,
+        const uint8_t *data, size_t length,
+        Tox_Err_Group_Send_Custom_Private_Packet *error)
+{
+    assert(tox != nullptr);
+
+    tox_lock(tox);
+    const GC_Chat *chat = gc_get_group(tox->m->group_handler, group_number);
+
+    if (chat == nullptr) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_GROUP_NOT_FOUND);
+        tox_unlock(tox);
+        return false;
+    }
+
+    if (chat->connection_state == CS_DISCONNECTED) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_DISCONNECTED);
+        tox_unlock(tox);
+        return false;
+    }
+
+    const int ret = gc_send_custom_private_packet(chat, lossless, peer_id, data, length);
+    tox_unlock(tox);
+
+    switch (ret) {
+        case 0: {
+            SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_OK);
+            return true;
+        }
+
+        case -1: {
+            SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_TOO_LONG);
+            return false;
+        }
+
+        case -2: {
+            SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_EMPTY);
+            return false;
+        }
+
+        case -3: {
+            SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_PEER_NOT_FOUND);
+            return false;
+        }
+
+        case -4: {
+            SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_PERMISSIONS);
+            return false;
+        }
+
+        case -5: {
+            SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_FAIL_SEND);
+            return false;
+        }
+    }
+
+    /* can't happen */
+    LOGGER_FATAL(tox->m->log, "impossible return value: %d", ret);
+
+    return false;
+}
+
 bool tox_group_invite_friend(const Tox *tox, uint32_t group_number, uint32_t friend_number,
                              Tox_Err_Group_Invite_Friend *error)
 {
@@ -4601,8 +4682,8 @@ bool tox_group_founder_set_peer_limit(const Tox *tox, uint32_t group_number, uin
     return false;
 }
 
-bool tox_group_toggle_ignore(const Tox *tox, uint32_t group_number, uint32_t peer_id, bool ignore,
-                             Tox_Err_Group_Toggle_Ignore *error)
+bool tox_group_set_ignore(const Tox *tox, uint32_t group_number, uint32_t peer_id, bool ignore,
+                          Tox_Err_Group_Set_Ignore *error)
 {
     assert(tox != nullptr);
 
@@ -4610,27 +4691,27 @@ bool tox_group_toggle_ignore(const Tox *tox, uint32_t group_number, uint32_t pee
     const GC_Chat *chat = gc_get_group(tox->m->group_handler, group_number);
 
     if (chat == nullptr) {
-        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_TOGGLE_IGNORE_GROUP_NOT_FOUND);
+        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SET_IGNORE_GROUP_NOT_FOUND);
         tox_unlock(tox);
         return false;
     }
 
-    const int ret = gc_toggle_ignore(chat, peer_id, ignore);
+    const int ret = gc_set_ignore(chat, peer_id, ignore);
     tox_unlock(tox);
 
     switch (ret) {
         case 0: {
-            SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_TOGGLE_IGNORE_OK);
+            SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SET_IGNORE_OK);
             return true;
         }
 
         case -1: {
-            SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_TOGGLE_IGNORE_PEER_NOT_FOUND);
+            SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SET_IGNORE_PEER_NOT_FOUND);
             return false;
         }
 
         case -2: {
-            SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_TOGGLE_IGNORE_SELF);
+            SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SET_IGNORE_SELF);
             return false;
         }
     }

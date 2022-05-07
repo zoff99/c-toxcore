@@ -188,7 +188,8 @@ static bool all_peers_see_same_roles(const AutoTox *autotoxes, uint32_t num_peer
     return true;
 }
 
-static void role_spam(const Random *rng, AutoTox *autotoxes, uint32_t num_peers, uint32_t num_demoted, uint32_t groupnumber)
+static void role_spam(const Random *rng, AutoTox *autotoxes, uint32_t num_peers, uint32_t num_demoted,
+                      uint32_t groupnumber)
 {
     const State *state0 = (const State *)autotoxes[0].state;
     Tox *tox0 = autotoxes[0].tox;

@@ -21,6 +21,7 @@ typedef struct State {
     bool message_received;
     bool private_message_received;
     size_t custom_packets_received;
+    size_t custom_private_packets_received;
     bool lossless_check;
     bool wraparound_check;
     int32_t last_msg_recv;
@@ -41,6 +42,9 @@ typedef struct State {
 
 #define TEST_CUSTOM_PACKET "Why'd ya spill yer beans?"
 #define TEST_CUSTOM_PACKET_LEN (sizeof(TEST_CUSTOM_PACKET) - 1)
+
+#define TEST_CUSTOM_PRIVATE_PACKET "This is a custom private packet. Enjoy."
+#define TEST_CUSTOM_PRIVATE_PACKET_LEN (sizeof(TEST_CUSTOM_PRIVATE_PACKET) - 1)
 
 #define IGNORE_MESSAGE "Am I bothering you?"
 #define IGNORE_MESSAGE_LEN (sizeof(IGNORE_MESSAGE) - 1)
@@ -89,6 +93,52 @@ static void group_peer_join_handler(Tox *tox, uint32_t groupnumber, uint32_t pee
     printf("peer %u joined, sending message\n", peer_id);
     state->peer_joined = true;
     state->peer_id = peer_id;
+}
+
+static void group_custom_private_packet_handler(Tox *tox, uint32_t groupnumber, uint32_t peer_id, const uint8_t *data,
+        size_t length, void *user_data)
+{
+    ck_assert_msg(length == TEST_CUSTOM_PRIVATE_PACKET_LEN,
+                  "Failed to receive custom private packet. Invalid length: %zu\n", length);
+
+    char message_buf[TOX_MAX_CUSTOM_PACKET_SIZE + 1];
+    memcpy(message_buf, data, length);
+    message_buf[length] = 0;
+
+    Tox_Err_Group_Peer_Query q_err;
+    size_t peer_name_len = tox_group_peer_get_name_size(tox, groupnumber, peer_id, &q_err);
+
+    ck_assert(q_err == TOX_ERR_GROUP_PEER_QUERY_OK);
+    ck_assert(peer_name_len <= TOX_MAX_NAME_LENGTH);
+
+    char peer_name[TOX_MAX_NAME_LENGTH + 1];
+    tox_group_peer_get_name(tox, groupnumber, peer_id, (uint8_t *) peer_name, &q_err);
+    peer_name[peer_name_len] = 0;
+
+    ck_assert(q_err == TOX_ERR_GROUP_PEER_QUERY_OK);
+    ck_assert(memcmp(peer_name, PEER0_NICK, peer_name_len) == 0);
+
+    Tox_Err_Group_Self_Query s_err;
+    size_t self_name_len = tox_group_self_get_name_size(tox, groupnumber, &s_err);
+    ck_assert(s_err == TOX_ERR_GROUP_SELF_QUERY_OK);
+    ck_assert(self_name_len <= TOX_MAX_NAME_LENGTH);
+
+    char self_name[TOX_MAX_NAME_LENGTH + 1];
+    tox_group_self_get_name(tox, groupnumber, (uint8_t *) self_name, &s_err);
+    self_name[self_name_len] = 0;
+
+    ck_assert(s_err == TOX_ERR_GROUP_SELF_QUERY_OK);
+    ck_assert(memcmp(self_name, PEER1_NICK, self_name_len) == 0);
+
+    printf("%s sent custom private packet to %s: %s\n", peer_name, self_name, message_buf);
+    ck_assert(memcmp(message_buf, TEST_CUSTOM_PRIVATE_PACKET, length) == 0);
+
+    AutoTox *autotox = (AutoTox *)user_data;
+    ck_assert(autotox != nullptr);
+
+    State *state = (State *)autotox->state;
+
+    ++state->custom_private_packets_received;
 }
 
 static void group_custom_packet_handler(Tox *tox, uint32_t groupnumber, uint32_t peer_id, const uint8_t *data,
@@ -297,6 +347,7 @@ static void group_message_test(AutoTox *autotoxes)
     tox_callback_group_peer_join(tox0, group_peer_join_handler);
     tox_callback_group_message(tox0, group_message_handler);
     tox_callback_group_custom_packet(tox0, group_custom_packet_handler);
+    tox_callback_group_custom_private_packet(tox0, group_custom_private_packet_handler);
     tox_callback_group_private_message(tox0, group_private_message_handler);
 
     Tox_Err_Group_Send_Message err_send;
@@ -325,9 +376,9 @@ static void group_message_test(AutoTox *autotoxes)
     }
 
     // tox0 ignores tox1
-    Tox_Err_Group_Toggle_Ignore ig_err;
-    tox_group_toggle_ignore(tox0, group_number, state0->peer_id, true, &ig_err);
-    ck_assert_msg(ig_err == TOX_ERR_GROUP_TOGGLE_IGNORE_OK, "%d", ig_err);
+    Tox_Err_Group_Set_Ignore ig_err;
+    tox_group_set_ignore(tox0, group_number, state0->peer_id, true, &ig_err);
+    ck_assert_msg(ig_err == TOX_ERR_GROUP_SET_IGNORE_OK, "%d", ig_err);
 
     iterate_all_wait(autotoxes, NUM_GROUP_TOXES, ITERATION_INTERVAL);
 
@@ -338,8 +389,8 @@ static void group_message_test(AutoTox *autotoxes)
     iterate_all_wait(autotoxes, NUM_GROUP_TOXES, ITERATION_INTERVAL);
 
     // tox0 unignores tox1
-    tox_group_toggle_ignore(tox0, group_number, state0->peer_id, false, &ig_err);
-    ck_assert_msg(ig_err == TOX_ERR_GROUP_TOGGLE_IGNORE_OK, "%d", ig_err);
+    tox_group_set_ignore(tox0, group_number, state0->peer_id, false, &ig_err);
+    ck_assert_msg(ig_err == TOX_ERR_GROUP_SET_IGNORE_OK, "%d", ig_err);
 
     fprintf(stderr, "Sending private message...\n");
 
@@ -361,7 +412,24 @@ static void group_message_test(AutoTox *autotoxes)
                                  &c_err);
     ck_assert_msg(c_err == TOX_ERR_GROUP_SEND_CUSTOM_PACKET_OK, "%d", c_err);
 
-    while (!state0->private_message_received && state0->custom_packets_received < 2) {
+    fprintf(stderr, "Sending custom private packets...\n");
+
+    // tox0 sends a lossless and lossy custom private packet to tox1
+    Tox_Err_Group_Send_Custom_Private_Packet cperr;
+    tox_group_send_custom_private_packet(tox1, group_number, state1->peer_id, true,
+                                         (const uint8_t *)TEST_CUSTOM_PRIVATE_PACKET,
+                                         TEST_CUSTOM_PRIVATE_PACKET_LEN, &cperr);
+
+    ck_assert_msg(cperr == TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_OK, "%d", cperr);
+
+    tox_group_send_custom_private_packet(tox1, group_number, state1->peer_id, false,
+                                         (const uint8_t *)TEST_CUSTOM_PRIVATE_PACKET,
+                                         TEST_CUSTOM_PRIVATE_PACKET_LEN, &cperr);
+
+    ck_assert_msg(cperr == TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_OK, "%d", cperr);
+
+    while (!state0->private_message_received || state0->custom_packets_received < 2
+            || state0->custom_private_packets_received < 2) {
         iterate_all_wait(autotoxes, NUM_GROUP_TOXES, ITERATION_INTERVAL);
     }
 
@@ -451,7 +519,10 @@ int main(void)
 #undef TEST_MESSAGE
 #undef TEST_MESSAGE_LEN
 #undef TEST_PRIVATE_MESSAGE_LEN
+#undef TEST_CUSTOM_PACKET
 #undef TEST_CUSTOM_PACKET_LEN
+#undef TEST_CUSTOM_PRIVATE_PACKET
+#undef TEST_CUSTOM_PRIVATE_PACKET_LEN
 #undef IGNORE_MESSAGE
 #undef IGNORE_MESSAGE_LEN
 #undef MAX_NUM_MESSAGES_LOSSLESS_TEST
