@@ -399,7 +399,6 @@ static int friend_received_packet(const Messenger *m, int32_t friendnumber, uint
 bool m_create_group_connection(Messenger *m, GC_Chat *chat)
 {
     random_bytes(m->rng, chat->m_group_public_key, CRYPTO_PUBLIC_KEY_SIZE);
-
     const int friendcon_id = new_friend_connection(m->fr_c, chat->m_group_public_key);
 
     if (friendcon_id == -1) {
@@ -413,9 +412,6 @@ bool m_create_group_connection(Messenger *m, GC_Chat *chat)
     }
 
     chat->friend_connection_id = friendcon_id;
-
-    friend_connection_callbacks(m->fr_c, friendcon_id, MESSENGER_CALLBACK_INDEX, &m_handle_status, &m_handle_packet,
-                                &m_handle_lossy_packet, m, chat->group_number);
 
     if (friend_con_connected(m->fr_c, friendcon_id) == FRIENDCONN_STATUS_CONNECTED) {
         send_online_packet(m, friendcon_id);

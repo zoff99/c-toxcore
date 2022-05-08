@@ -352,6 +352,8 @@ static void group_message_test(AutoTox *autotoxes)
 
     Tox_Err_Group_Send_Message err_send;
 
+    fprintf(stderr, "Tox 0 creates new group and invites tox1...\n");
+
     // tox0 makes new group.
     Tox_Err_Group_New err_new;
     const uint32_t group_number = tox_group_new(tox0, TOX_GROUP_PRIVACY_STATE_PRIVATE, (const uint8_t *)TEST_GROUP_NAME,
@@ -374,6 +376,12 @@ static void group_message_test(AutoTox *autotoxes)
             state1->message_sent = true;
         }
     }
+
+    // Make sure we're still connected to each friend
+    Tox_Connection conn_1 = tox_friend_get_connection_status(tox0, 0, nullptr);
+    Tox_Connection conn_2 = tox_friend_get_connection_status(tox0, 0, nullptr);
+
+    ck_assert(conn_1 != TOX_CONNECTION_NONE && conn_2 != TOX_CONNECTION_NONE);
 
     // tox0 ignores tox1
     Tox_Err_Group_Set_Ignore ig_err;

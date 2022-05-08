@@ -157,6 +157,14 @@ non_null() static bool saved_peer_is_valid(const GC_SavedPeerInfo *saved_peer);
 
 static const GC_Chat empty_gc_chat = {nullptr};
 
+non_null()
+static void kill_group_friend_connection(const GC_Session *c, const GC_Chat *chat)
+{
+    if (chat->friend_connection_id != -1) {
+        m_kill_group_connection(c->messenger, chat);
+    }
+}
+
 uint16_t gc_get_wrapped_packet_size(uint16_t length, Net_Packet_Type packet_type)
 {
     assert(length <= MAX_GC_PACKET_CHUNK_SIZE);
@@ -2747,7 +2755,7 @@ static void do_privacy_state_change(const GC_Session *c, GC_Chat *chat, void *us
             chat->update_self_announces = true;
         }
     } else {
-        m_kill_group_connection(c->messenger, chat);
+        kill_group_friend_connection(c, chat);
         cleanup_gca(c->announces_list, get_chat_id(chat->chat_public_key));
     }
 
@@ -4663,7 +4671,7 @@ int gc_founder_set_privacy_state(const Messenger *m, int group_number, Group_Pri
 
     if (new_privacy_state == GI_PRIVATE) {
         cleanup_gca(c->announces_list, get_chat_id(chat->chat_public_key));
-        m_kill_group_connection(c->messenger, chat);
+        kill_group_friend_connection(c, chat);
     } else {
         if (!m_create_group_connection(c->messenger, chat)) {
             LOGGER_ERROR(chat->log, "Failed to initialize group friend connection");
@@ -7263,6 +7271,7 @@ static int create_new_group(GC_Session *c, const uint8_t *nick, size_t nick_leng
     chat->net = m->net;
     chat->mono_time = m->mono_time;
     chat->last_ping_interval = tm;
+    chat->friend_connection_id = -1;
 
     if (!create_new_chat_ext_keypair(chat)) {
         LOGGER_ERROR(chat->log, "Failed to create extended keypair");
@@ -7588,7 +7597,7 @@ int gc_rejoin_group(GC_Session *c, GC_Chat *chat)
     }
 
     if (is_public_chat(chat)) {
-        m_kill_group_connection(c->messenger, chat);
+        kill_group_friend_connection(c, chat);
 
         if (!m_create_group_connection(c->messenger, chat)) {
             LOGGER_WARNING(chat->log, "Failed to create new messenger connection for group");
@@ -8015,7 +8024,7 @@ GC_Session *new_dht_groupchats(Messenger *m)
 
 static void group_cleanup(GC_Session *c, GC_Chat *chat)
 {
-    m_kill_group_connection(c->messenger, chat);
+    kill_group_friend_connection(c, chat);
     mod_list_cleanup(&chat->moderation);
     sanctions_list_cleanup(&chat->moderation);
 
