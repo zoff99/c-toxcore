@@ -7090,10 +7090,10 @@ void do_gc(GC_Session *c, void *userdata)
 
         if (chat->connection_state == CS_CONNECTED) {
             do_gc_ping_and_key_rotation(chat);
-            do_new_connection_cooldown(chat);
             do_timed_out_reconn(chat);
         }
 
+        do_new_connection_cooldown(chat);
         do_peer_delete(c, chat, userdata);
     }
 }
@@ -7411,6 +7411,7 @@ int gc_group_load(GC_Session *c, Bin_Unpack *bu)
     chat->log = m->log;
     chat->rng = m->rng;
     chat->last_ping_interval = tm;
+    chat->friend_connection_id = -1;
 
     if (!gc_load_unpack_group(chat, bu)) {
         LOGGER_ERROR(chat->log, "Failed to unpack group");
