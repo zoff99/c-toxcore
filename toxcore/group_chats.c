@@ -187,7 +187,7 @@ static bool peer_number_is_self(int peer_number)
 
 bool gc_peer_number_is_valid(const GC_Chat *chat, int peer_number)
 {
-    return peer_number >= 0 && peer_number < chat->numpeers;
+    return peer_number >= 0 && peer_number < (int)chat->numpeers;
 }
 
 non_null()
@@ -2006,7 +2006,7 @@ static bool send_gc_tcp_relays(const GC_Chat *chat, GC_Connection *gconn)
 
     const int nodes_len = pack_nodes(chat->log, data, sizeof(data), tcp_relays, n);
 
-    if (nodes_len <= 0 || nodes_len > sizeof(data)) {
+    if (nodes_len <= 0 || (uint32_t)nodes_len > sizeof(data)) {
         LOGGER_ERROR(chat->log, "Failed to pack tcp relays (nodes_len: %d)", nodes_len);
         return false;
     }
@@ -2039,7 +2039,7 @@ static int handle_gc_tcp_relays(GC_Chat *chat, GC_Connection *gconn, const uint8
         return -2;
     }
 
-    for (size_t i = 0; i < num_nodes; ++i) {
+    for (int i = 0; i < num_nodes; ++i) {
         const Node_format *tcp_node = &tcp_relays[i];
 
         if (add_tcp_relay_connection(chat->tcp_conn, gconn->tcp_connection_num, &tcp_node->ip_port,
@@ -4016,7 +4016,7 @@ static int validate_unpack_gc_set_mod(GC_Chat *chat, uint32_t peer_number, const
             return -3;
         }
 
-        if (peer_number == target_peer_number) {
+        if (peer_number == (uint32_t)target_peer_number) {
             return -1;
         }
 
@@ -4037,7 +4037,7 @@ static int validate_unpack_gc_set_mod(GC_Chat *chat, uint32_t peer_number, const
             return -3;
         }
 
-        if (peer_number == target_peer_number) {
+        if (peer_number == (uint32_t)target_peer_number) {
             return -1;
         }
 
@@ -4266,7 +4266,11 @@ static int handle_gc_set_observer(const GC_Session *c, GC_Chat *chat, uint32_t p
 
     const int target_peer_number = get_peer_number_of_enc_pk(chat, public_key, false);
 
-    if (target_peer_number == peer_number) {
+    if (target_peer_number < 0) {
+        return -2;
+    }
+
+    if ((uint32_t)target_peer_number == peer_number) {
         return -2;
     }
 
@@ -4365,7 +4369,7 @@ static bool mod_gc_set_observer(GC_Chat *chat, uint32_t peer_number, bool add_ob
         // topic info
         const int setter_peer_number = get_peer_number_of_sig_pk(chat, chat->topic_info.public_sig_key);
 
-        if (setter_peer_number == peer_number) {
+        if (setter_peer_number >= 0 && (uint32_t)setter_peer_number == peer_number) {
             if (gc_set_topic(chat, chat->topic_info.topic, chat->topic_info.length) != 0) {
                 return false;
             }
@@ -5327,7 +5331,7 @@ static int unwrap_group_handshake_packet(const Logger *log, const uint8_t *self_
     const int plain_len = decrypt_data(sender_pk, self_sk, packet, packet + CRYPTO_NONCE_SIZE,
                                        length - CRYPTO_NONCE_SIZE, plain);
 
-    if (plain_len != plain_size) {
+    if (plain_len < 0 || (uint32_t)plain_len != plain_size) {
         LOGGER_DEBUG(log, "decrypt handshake request failed: len: %d, size: %zu", plain_len, plain_size);
         return -2;
     }
@@ -5368,7 +5372,7 @@ static int wrap_group_handshake_packet(
 
     const int enc_len = encrypt_data(target_pk, self_sk, nonce, data, length, encrypt);
 
-    if (enc_len != encrypt_buf_size) {
+    if (enc_len < 0 || (size_t)enc_len != encrypt_buf_size) {
         LOGGER_ERROR(log, "Failed to encrypt group handshake packet (len: %d)", enc_len);
         free(encrypt);
         return -3;
