@@ -5,6 +5,7 @@ libauto_test_support_la_SOURCES = ../auto_tests/auto_test_support.c ../auto_test
 libauto_test_support_la_LIBADD = libmisc_tools.la libtoxcore.la
 
 TESTS = \
+        group_rejoin_test \
         announce_test \
 	conference_double_invite_test \
 	conference_invite_merge_test \
@@ -74,6 +75,10 @@ check_PROGRAMS = $(TESTS)
 announce_test_SOURCES = ../auto_tests/announce_test.c
 announce_test_CFLAGS = $(AUTOTEST_CFLAGS)
 announce_test_LDADD = $(AUTOTEST_LDADD)
+
+group_rejoin_test_SOURCES = ../auto_tests/group_rejoin_test.c
+group_rejoin_test_CFLAGS = $(AUTOTEST_CFLAGS)
+group_rejoin_test_LDADD = $(AUTOTEST_LDADD)
 
 conference_double_invite_test_SOURCES = ../auto_tests/conference_double_invite_test.c
 conference_double_invite_test_CFLAGS = $(AUTOTEST_CFLAGS)
