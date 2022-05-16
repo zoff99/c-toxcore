@@ -404,7 +404,7 @@ void gc_save_pack_group(const GC_Chat *chat, Bin_Pack *bp)
 
     // --------------------------------------
     // HINT: dump chat struct with data
-    __builtin_dump_struct(&chat, &printf);
+    __builtin_dump_struct(chat, &printf);
     // HINT: dump chat struct with data
     // --------------------------------------
 
