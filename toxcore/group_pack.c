@@ -402,6 +402,12 @@ void gc_save_pack_group(const GC_Chat *chat, Bin_Pack *bp)
 
     bin_pack_array(bp, 7);
 
+    // --------------------------------------
+    // HINT: dump chat struct with data
+    __builtin_dump_struct(&chat, &printf);
+    // HINT: dump chat struct with data
+    // --------------------------------------
+
     save_pack_state_values(chat, bp); // 1
     save_pack_state_bin(chat, bp); // 2
     save_pack_topic_info(chat, bp); // 3
