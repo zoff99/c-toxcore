@@ -4795,7 +4795,7 @@ non_null(1, 2, 3, 4) nullable(7)
 static int handle_gc_message(const GC_Session *c, const GC_Chat *chat, const GC_Peer *peer, const uint8_t *data,
                              uint16_t length, uint8_t type, void *userdata)
 {
-    if (data == nullptr || length > MAX_GC_MESSAGE_SIZE_RAW || length <= GC_MESSAGE_PSEUDO_ID_SIZE) {
+    if (data == nullptr || length > MAX_GC_MESSAGE_RAW_SIZE || length <= GC_MESSAGE_PSEUDO_ID_SIZE) {
         return -1;
     }
 
