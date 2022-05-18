@@ -4765,10 +4765,24 @@ int gc_send_message(const GC_Chat *chat, const uint8_t *message, uint16_t length
 
     const uint8_t packet_type = type == GC_MESSAGE_TYPE_NORMAL ? GM_PLAIN_MESSAGE : GM_ACTION_MESSAGE;
 
-    if (!send_gc_broadcast_message(chat, message, length, packet_type)) {
+    uint16_t length_raw = length + MAX_GC_MESSAGE_SIZE_PSEUDO_ID;
+    uint8_t *message_raw = (uint8_t *)calloc(1, length_raw);
+    if (!message_raw) {
         return -5;
     }
 
+    uint32_t pseudo_msg_id = random_u32(chat->rng);
+    memcpy(message_raw, &pseudo_msg_id, MAX_GC_MESSAGE_SIZE_PSEUDO_ID);
+
+    uint8_t *message_text = message_raw + (MAX_GC_MESSAGE_SIZE_PSEUDO_ID);
+    memcpy(message_text, message, length);
+
+    if (!send_gc_broadcast_message(chat, message_raw, length_raw, packet_type)) {
+        free(message_raw);
+        return -5;
+    }
+
+    free(message_raw);
     return 0;
 }
 
@@ -4781,7 +4795,7 @@ non_null(1, 2, 3, 4) nullable(7)
 static int handle_gc_message(const GC_Session *c, const GC_Chat *chat, const GC_Peer *peer, const uint8_t *data,
                              uint16_t length, uint8_t type, void *userdata)
 {
-    if (data == nullptr || length > MAX_GC_MESSAGE_SIZE || length == 0) {
+    if (data == nullptr || length > MAX_GC_MESSAGE_SIZE_RAW || length == 0 || length <= MAX_GC_MESSAGE_SIZE_PSEUDO_ID) {
         return -1;
     }
 
@@ -4796,8 +4810,13 @@ static int handle_gc_message(const GC_Session *c, const GC_Chat *chat, const GC_
 
     const uint8_t cb_type = (type == GM_PLAIN_MESSAGE) ? MESSAGE_NORMAL : MESSAGE_ACTION;
 
+    uint16_t length_text_data = length - (MAX_GC_MESSAGE_SIZE_PSEUDO_ID);
+    uint8_t *text_data = data + (MAX_GC_MESSAGE_SIZE_PSEUDO_ID);
+    uint32_t pseudo_msg_id = 0;
+    memcpy(&pseudo_msg_id, data, MAX_GC_MESSAGE_SIZE_PSEUDO_ID);
+
     if (c->message != nullptr) {
-        c->message(c->messenger, chat->group_number, peer->peer_id, cb_type, data, length, userdata);
+        c->message(c->messenger, chat->group_number, peer->peer_id, cb_type, text_data, length_text_data, pseudo_msg_id, userdata);
     }
 
     return 0;
