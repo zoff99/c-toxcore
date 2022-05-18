@@ -4810,8 +4810,8 @@ static int handle_gc_message(const GC_Session *c, const GC_Chat *chat, const GC_
 
     const uint8_t cb_type = (type == GM_PLAIN_MESSAGE) ? MESSAGE_NORMAL : MESSAGE_ACTION;
 
-    uint16_t length_text_data = length - (MAX_GC_MESSAGE_SIZE_PSEUDO_ID);
-    uint8_t *text_data = data + (MAX_GC_MESSAGE_SIZE_PSEUDO_ID);
+    const uint16_t length_text_data = length - (MAX_GC_MESSAGE_SIZE_PSEUDO_ID);
+    const uint8_t *text_data = data + (MAX_GC_MESSAGE_SIZE_PSEUDO_ID);
     uint32_t pseudo_msg_id = 0;
     memcpy(&pseudo_msg_id, data, MAX_GC_MESSAGE_SIZE_PSEUDO_ID);
 
