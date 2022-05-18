@@ -4765,16 +4765,16 @@ int gc_send_message(const GC_Chat *chat, const uint8_t *message, uint16_t length
 
     const uint8_t packet_type = type == GC_MESSAGE_TYPE_NORMAL ? GM_PLAIN_MESSAGE : GM_ACTION_MESSAGE;
 
-    uint16_t length_raw = length + MAX_GC_MESSAGE_SIZE_PSEUDO_ID;
+    uint16_t length_raw = length + GC_MESSAGE_PSEUDO_ID_SIZE;
     uint8_t *message_raw = (uint8_t *)calloc(1, length_raw);
     if (!message_raw) {
         return -5;
     }
 
     uint32_t pseudo_msg_id = random_u32(chat->rng);
-    memcpy(message_raw, &pseudo_msg_id, MAX_GC_MESSAGE_SIZE_PSEUDO_ID);
+    net_pack_u32(message_raw, pseudo_msg_id);
 
-    uint8_t *message_text = message_raw + (MAX_GC_MESSAGE_SIZE_PSEUDO_ID);
+    uint8_t *message_text = message_raw + (GC_MESSAGE_PSEUDO_ID_SIZE);
     memcpy(message_text, message, length);
 
     if (!send_gc_broadcast_message(chat, message_raw, length_raw, packet_type)) {
@@ -4795,7 +4795,7 @@ non_null(1, 2, 3, 4) nullable(7)
 static int handle_gc_message(const GC_Session *c, const GC_Chat *chat, const GC_Peer *peer, const uint8_t *data,
                              uint16_t length, uint8_t type, void *userdata)
 {
-    if (data == nullptr || length > MAX_GC_MESSAGE_SIZE_RAW || length == 0 || length <= MAX_GC_MESSAGE_SIZE_PSEUDO_ID) {
+    if (data == nullptr || length > MAX_GC_MESSAGE_SIZE_RAW || length <= GC_MESSAGE_PSEUDO_ID_SIZE) {
         return -1;
     }
 
@@ -4810,10 +4810,10 @@ static int handle_gc_message(const GC_Session *c, const GC_Chat *chat, const GC_
 
     const uint8_t cb_type = (type == GM_PLAIN_MESSAGE) ? MESSAGE_NORMAL : MESSAGE_ACTION;
 
-    const uint16_t length_text_data = length - (MAX_GC_MESSAGE_SIZE_PSEUDO_ID);
-    const uint8_t *text_data = data + (MAX_GC_MESSAGE_SIZE_PSEUDO_ID);
+    const uint16_t length_text_data = length - (GC_MESSAGE_PSEUDO_ID_SIZE);
+    const uint8_t *text_data = data + (GC_MESSAGE_PSEUDO_ID_SIZE);
     uint32_t pseudo_msg_id = 0;
-    memcpy(&pseudo_msg_id, data, MAX_GC_MESSAGE_SIZE_PSEUDO_ID);
+    memcpy(&pseudo_msg_id, data, GC_MESSAGE_PSEUDO_ID_SIZE);
 
     if (c->message != nullptr) {
         c->message(c->messenger, chat->group_number, peer->peer_id, cb_type, text_data, length_text_data, pseudo_msg_id, userdata);
