@@ -450,13 +450,13 @@ static void tox_group_password_handler(const Messenger *m, uint32_t group_number
 
 non_null(1, 5) nullable(7)
 static void tox_group_message_handler(const Messenger *m, uint32_t group_number, uint32_t peer_id, unsigned int type,
-                                      const uint8_t *message, size_t length, void *user_data)
+                                      const uint8_t *message, size_t length, uint32_t pseudo_msg_id, void *user_data)
 {
     struct Tox_Userdata *tox_data = (struct Tox_Userdata *)user_data;
 
     if (tox_data->tox->group_message_callback != nullptr) {
         tox_data->tox->group_message_callback(tox_data->tox, group_number, peer_id, (Tox_Message_Type)type, message, length,
-                                              tox_data->user_data);
+                                              pseudo_msg_id, tox_data->user_data);
     }
 }
 
