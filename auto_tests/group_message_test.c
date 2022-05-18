@@ -192,7 +192,7 @@ static void group_message_handler(Tox *tox, uint32_t groupnumber, uint32_t peer_
     ck_assert(!(length == IGNORE_MESSAGE_LEN && memcmp(message, IGNORE_MESSAGE, length) == 0));
     ck_assert_msg(length == TEST_MESSAGE_LEN, "Failed to receive message. Invalid length: %zu\n", length);
 
-    char message_buf[TOX_MAX_MESSAGE_LENGTH + 1];
+    char message_buf[TOX_GROUP_MAX_MESSAGE_LENGTH + 1];
     memcpy(message_buf, message, length);
     message_buf[length] = 0;
 
@@ -237,7 +237,7 @@ static void group_private_message_handler(Tox *tox, uint32_t groupnumber, uint32
 {
     ck_assert_msg(length == TEST_PRIVATE_MESSAGE_LEN, "Failed to receive message. Invalid length: %zu\n", length);
 
-    char message_buf[TOX_MAX_MESSAGE_LENGTH + 1];
+    char message_buf[TOX_GROUP_MAX_MESSAGE_LENGTH + 1];
     memcpy(message_buf, message, length);
     message_buf[length] = 0;
 
@@ -287,7 +287,7 @@ static void group_message_handler_lossless_test(Tox *tox, uint32_t groupnumber, 
 
     State *state = (State *)autotox->state;
 
-    ck_assert(length >= 4 && length <= TOX_MAX_MESSAGE_LENGTH);
+    ck_assert(length >= 4 && length <= TOX_GROUP_MAX_MESSAGE_LENGTH);
 
     uint16_t start;
     uint16_t checksum;
@@ -441,7 +441,7 @@ static void group_message_test(AutoTox *autotoxes)
         iterate_all_wait(autotoxes, NUM_GROUP_TOXES, ITERATION_INTERVAL);
     }
 
-    uint8_t m[TOX_MAX_MESSAGE_LENGTH] = {0};
+    uint8_t m[TOX_GROUP_MAX_MESSAGE_LENGTH] = {0};
 
     fprintf(stderr, "Doing lossless packet test...\n");
 
@@ -454,7 +454,7 @@ static void group_message_test(AutoTox *autotoxes)
             iterate_all_wait(autotoxes, NUM_GROUP_TOXES, ITERATION_INTERVAL);
         }
 
-        uint16_t message_size = min_u16(4 + (random_u16(rng) % TOX_MAX_MESSAGE_LENGTH), TOX_MAX_MESSAGE_LENGTH);
+        uint16_t message_size = min_u16(4 + (random_u16(rng) % TOX_GROUP_MAX_MESSAGE_LENGTH), TOX_GROUP_MAX_MESSAGE_LENGTH);
 
         memcpy(m, &i, sizeof(uint16_t));
 

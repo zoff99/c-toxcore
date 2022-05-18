@@ -3299,6 +3299,11 @@ uint32_t tox_group_max_topic_length(void);
 uint32_t tox_group_max_part_length(void);
 
 /**
+ * Maximum length of a group text message.
+ */
+#define TOX_GROUP_MAX_MESSAGE_LENGTH    1368
+
+/**
  * Maximum length of a group name.
  */
 #define TOX_GROUP_MAX_GROUP_NAME_LENGTH 48
