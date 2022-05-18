@@ -335,7 +335,7 @@ static void voice_state_message_test(AutoTox *autotox, Tox_Group_Voice_State voi
 
     Tox_Err_Group_Send_Message msg_err;
     bool send_ret = tox_group_send_message(autotox->tox, state->group_number, TOX_MESSAGE_TYPE_NORMAL,
-                                           (const uint8_t *)"test", 4, &msg_err);
+                                           (const uint8_t *)"test", 4, nullptr, &msg_err);
 
     switch (self_role) {
         case TOX_GROUP_ROLE_OBSERVER: {

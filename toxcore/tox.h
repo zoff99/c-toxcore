@@ -3299,6 +3299,11 @@ uint32_t tox_group_max_topic_length(void);
 uint32_t tox_group_max_part_length(void);
 
 /**
+ * Maximum length of a group text message.
+ */
+#define TOX_GROUP_MAX_MESSAGE_LENGTH    1368
+
+/**
  * Maximum length of a group name.
  */
 #define TOX_GROUP_MAX_GROUP_NAME_LENGTH 48
@@ -4337,7 +4342,7 @@ typedef enum Tox_Err_Group_Send_Message {
     TOX_ERR_GROUP_SEND_MESSAGE_GROUP_NOT_FOUND,
 
     /**
-     * Message length exceeded TOX_MAX_MESSAGE_LENGTH.
+     * Message length exceeded TOX_GROUP_MAX_MESSAGE_LENGTH.
      */
     TOX_ERR_GROUP_SEND_MESSAGE_TOO_LONG,
 
@@ -4375,7 +4380,7 @@ typedef enum Tox_Err_Group_Send_Message {
  * This function creates a group message packet and pushes it into the send
  * queue.
  *
- * The message length may not exceed TOX_MAX_MESSAGE_LENGTH. Larger messages
+ * The message length may not exceed TOX_GROUP_MAX_MESSAGE_LENGTH. Larger messages
  * must be split by the client and sent as separate messages. Other clients can
  * then reassemble the fragments. Messages may not be empty.
  *
@@ -4384,11 +4389,14 @@ typedef enum Tox_Err_Group_Send_Message {
  * @param message A non-NULL pointer to the first element of a byte array
  *   containing the message text.
  * @param length Length of the message to be sent.
+ * @param pseudo_msg_id A pointer to a uint32_t. the pseudo_msg_id of this message will be returned
+ *   unless the paramter is NULL. then the returned paramter value will be undefined.
+ *   if this function returns false the returned paramter `pseudo_msg_id` value will also be undefined.
  *
  * @return true on success.
  */
 bool tox_group_send_message(const Tox *tox, uint32_t group_number, Tox_Message_Type type, const uint8_t *message,
-                            size_t length, Tox_Err_Group_Send_Message *error);
+                            size_t length, uint32_t *pseudo_msg_id, Tox_Err_Group_Send_Message *error);
 
 typedef enum Tox_Err_Group_Send_Private_Message {
 
@@ -4408,7 +4416,7 @@ typedef enum Tox_Err_Group_Send_Private_Message {
     TOX_ERR_GROUP_SEND_PRIVATE_MESSAGE_PEER_NOT_FOUND,
 
     /**
-     * Message length exceeded TOX_MAX_MESSAGE_LENGTH.
+     * Message length exceeded TOX_GROUP_MAX_MESSAGE_LENGTH.
      */
     TOX_ERR_GROUP_SEND_PRIVATE_MESSAGE_TOO_LONG,
 
@@ -4446,7 +4454,7 @@ typedef enum Tox_Err_Group_Send_Private_Message {
  * This function creates a group private message packet and pushes it into the send
  * queue.
  *
- * The message length may not exceed TOX_MAX_MESSAGE_LENGTH. Larger messages
+ * The message length may not exceed TOX_GROUP_MAX_MESSAGE_LENGTH. Larger messages
  * must be split by the client and sent as separate messages. Other clients can
  * then reassemble the fragments. Messages may not be empty.
  *
@@ -4474,7 +4482,7 @@ typedef enum Tox_Err_Group_Send_Custom_Packet {
     TOX_ERR_GROUP_SEND_CUSTOM_PACKET_GROUP_NOT_FOUND,
 
     /**
-     * Message length exceeded TOX_MAX_MESSAGE_LENGTH.
+     * Message length exceeded TOX_GROUP_MAX_MESSAGE_LENGTH.
      */
     TOX_ERR_GROUP_SEND_CUSTOM_PACKET_TOO_LONG,
 
@@ -4538,7 +4546,7 @@ typedef enum Tox_Err_Group_Send_Custom_Private_Packet {
     TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_GROUP_NOT_FOUND,
 
     /**
-     * Message length exceeded TOX_MAX_MESSAGE_LENGTH.
+     * Message length exceeded TOX_MAX_CUSTOM_PACKET_SIZE.
      */
     TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_TOO_LONG,
 
@@ -4612,10 +4620,11 @@ bool tox_group_send_custom_private_packet(const Tox *tox, uint32_t group_number,
  * @param peer_id The ID of the peer who sent the message.
  * @param type The type of message (normal, action, ...).
  * @param message The message data.
+ * @param pseudo_msg_id a pseudo message id that clients can use to uniquely identify this group message.
  * @param length The length of the message.
  */
 typedef void tox_group_message_cb(Tox *tox, uint32_t group_number, uint32_t peer_id, Tox_Message_Type type,
-                                  const uint8_t *message, size_t length, void *user_data);
+                                  const uint8_t *message, size_t length, uint32_t pseudo_msg_id, void *user_data);
 
 
 /**

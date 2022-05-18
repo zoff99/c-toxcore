@@ -56,6 +56,10 @@ static_assert(TOX_MAX_NAME_LENGTH == MAX_NAME_LENGTH,
               "TOX_MAX_NAME_LENGTH is assumed to be equal to MAX_NAME_LENGTH");
 static_assert(TOX_MAX_STATUS_MESSAGE_LENGTH == MAX_STATUSMESSAGE_LENGTH,
               "TOX_MAX_STATUS_MESSAGE_LENGTH is assumed to be equal to MAX_STATUSMESSAGE_LENGTH");
+static_assert(TOX_GROUP_MAX_MESSAGE_LENGTH == GROUP_MAX_MESSAGE_LENGTH,
+              "TOX_GROUP_MAX_MESSAGE_LENGTH is assumed to be equal to GROUP_MAX_MESSAGE_LENGTH");
+static_assert(TOX_MAX_CUSTOM_PACKET_SIZE == MAX_GC_CUSTOM_PACKET_SIZE,
+              "TOX_MAX_CUSTOM_PACKET_SIZE is assumed to be equal to MAX_GC_CUSTOM_PACKET_SIZE");
 
 struct Tox_Userdata {
     Tox *tox;
@@ -450,13 +454,13 @@ static void tox_group_password_handler(const Messenger *m, uint32_t group_number
 
 non_null(1, 5) nullable(7)
 static void tox_group_message_handler(const Messenger *m, uint32_t group_number, uint32_t peer_id, unsigned int type,
-                                      const uint8_t *message, size_t length, void *user_data)
+                                      const uint8_t *message, size_t length, uint32_t pseudo_msg_id, void *user_data)
 {
     struct Tox_Userdata *tox_data = (struct Tox_Userdata *)user_data;
 
     if (tox_data->tox->group_message_callback != nullptr) {
         tox_data->tox->group_message_callback(tox_data->tox, group_number, peer_id, (Tox_Message_Type)type, message, length,
-                                              tox_data->user_data);
+                                              pseudo_msg_id, tox_data->user_data);
     }
 }
 
@@ -3826,7 +3830,7 @@ bool tox_group_get_password(const Tox *tox, uint32_t group_number, uint8_t *pass
 }
 
 bool tox_group_send_message(const Tox *tox, uint32_t group_number, Tox_Message_Type type, const uint8_t *message,
-                            size_t length, Tox_Err_Group_Send_Message *error)
+                            size_t length, uint32_t *pseudo_msg_id, Tox_Err_Group_Send_Message *error)
 {
     assert(tox != nullptr);
 
@@ -3845,7 +3849,7 @@ bool tox_group_send_message(const Tox *tox, uint32_t group_number, Tox_Message_T
         return false;
     }
 
-    const int ret = gc_send_message(chat, message, length, type);
+    const int ret = gc_send_message(chat, message, length, type, pseudo_msg_id);
     tox_unlock(tox);
 
     switch (ret) {
