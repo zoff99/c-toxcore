@@ -187,7 +187,7 @@ static void group_custom_packet_handler(Tox *tox, uint32_t groupnumber, uint32_t
 }
 
 static void group_message_handler(Tox *tox, uint32_t groupnumber, uint32_t peer_id, TOX_MESSAGE_TYPE type,
-                                  const uint8_t *message, size_t length, void *user_data)
+                                  const uint8_t *message, size_t length, uint32_t pseudo_msg_id, void *user_data)
 {
     ck_assert(!(length == IGNORE_MESSAGE_LEN && memcmp(message, IGNORE_MESSAGE, length) == 0));
     ck_assert_msg(length == TEST_MESSAGE_LEN, "Failed to receive message. Invalid length: %zu\n", length);
@@ -280,7 +280,7 @@ static void group_private_message_handler(Tox *tox, uint32_t groupnumber, uint32
 }
 
 static void group_message_handler_lossless_test(Tox *tox, uint32_t groupnumber, uint32_t peer_id, TOX_MESSAGE_TYPE type,
-        const uint8_t *message, size_t length, void *user_data)
+        const uint8_t *message, size_t length, uint32_t pseudo_msg_id, void *user_data)
 {
     AutoTox *autotox = (AutoTox *)user_data;
     ck_assert(autotox != nullptr);
@@ -305,7 +305,7 @@ static void group_message_handler_lossless_test(Tox *tox, uint32_t groupnumber, 
 }
 static void group_message_handler_wraparound_test(Tox *tox, uint32_t groupnumber, uint32_t peer_id,
         TOX_MESSAGE_TYPE type,
-        const uint8_t *message, size_t length, void *user_data)
+        const uint8_t *message, size_t length, uint32_t pseudo_msg_id, void *user_data)
 {
     AutoTox *autotox = (AutoTox *)user_data;
     ck_assert(autotox != nullptr);
