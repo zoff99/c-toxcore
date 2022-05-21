@@ -3927,8 +3927,8 @@ uint32_t tox_group_by_chat_id(const Tox *tox, const uint8_t *chat_id, Tox_Err_Gr
     if (chat == nullptr)
     {
         SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_STATE_QUERIES_GROUP_NOT_FOUND);
-        return UINT32_MAX;
         tox_unlock(tox);
+        return UINT32_MAX;
     }
 
     uint32_t ret = chat->group_number;
