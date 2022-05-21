@@ -81,8 +81,11 @@
  */
 #define GC_PING_PACKET_MIN_DATA_SIZE ((sizeof(uint16_t) * 4) + (sizeof(uint32_t) * 3))
 
-/* How often we can send a group sync request packet */
+/* How often in seconds we can send a group sync request packet */
 #define GC_SYNC_REQUEST_LIMIT (GC_PING_TIMEOUT + 1)
+
+/* How often in seconds we can send the peer list to any peer in the group in a sync response */
+#define GC_SYNC_RESPONSE_PEER_LIST_LIMIT 3
 
 /* How often in seconds we try to handshake with an unconfirmed peer */
 #define GC_SEND_HANDSHAKE_INTERVAL 3
@@ -1736,7 +1739,8 @@ non_null(1, 2, 4) nullable(6)
 static int handle_gc_sync_response(const GC_Session *c, GC_Chat *chat, uint32_t peer_number, const uint8_t *data,
                                    uint16_t length, void *userdata)
 {
-    if (chat->connection_state == CS_CONNECTED && get_gc_confirmed_numpeers(chat) >= chat->shared_state.maxpeers) {
+    if (chat->connection_state == CS_CONNECTED && get_gc_confirmed_numpeers(chat) >= chat->shared_state.maxpeers
+            && !peer_is_founder(chat, peer_number)) {
         return -1;
     }
 
@@ -1804,8 +1808,15 @@ static bool create_sync_announce(const GC_Chat *chat, const GC_Connection *gconn
 }
 
 non_null()
-static bool sync_response_send_peers(const GC_Chat *chat, GC_Connection *gconn, uint32_t peer_number)
+static bool sync_response_send_peers(GC_Chat *chat, GC_Connection *gconn, uint32_t peer_number, bool first_sync)
 {
+    // Always respond to a peer's first sync request
+    if (!first_sync && !mono_time_is_timeout(chat->mono_time,
+            chat->last_sync_response_peer_list,
+            GC_SYNC_RESPONSE_PEER_LIST_LIMIT)) {
+        return true;
+    }
+
     uint8_t *response = (uint8_t *)malloc(MAX_GC_PACKET_CHUNK_SIZE);
 
     if (response == nullptr) {
@@ -1854,6 +1865,8 @@ static bool sync_response_send_peers(const GC_Chat *chat, GC_Connection *gconn, 
             LOGGER_WARNING(chat->log, "Failed to send peer announce info");
             return false;
         }
+    } else {
+        chat->last_sync_response_peer_list = mono_time_get(chat->mono_time);
     }
 
     return true;
@@ -1864,9 +1877,11 @@ static bool sync_response_send_peers(const GC_Chat *chat, GC_Connection *gconn, 
  * Return true on success.
  */
 non_null()
-static bool sync_response_send_state(const GC_Chat *chat, GC_Connection *gconn, uint32_t peer_number,
+static bool sync_response_send_state(GC_Chat *chat, GC_Connection *gconn, uint32_t peer_number,
                                      uint16_t sync_flags)
 {
+    const bool first_sync = gconn->last_sync_response == 0;
+
     /* Do not change the order of these four send calls. See: https://toktok.ltd/spec.html#sync_request-0xf8 */
     if ((sync_flags & GF_STATE) > 0 && chat->shared_state.version > 0) {
         if (!send_peer_shared_state(chat, gconn)) {
@@ -1897,7 +1912,7 @@ static bool sync_response_send_state(const GC_Chat *chat, GC_Connection *gconn, 
     }
 
     if ((sync_flags & GF_PEERS) > 0) {
-        if (!sync_response_send_peers(chat, gconn, peer_number)) {
+        if (!sync_response_send_peers(chat, gconn, peer_number, first_sync)) {
             return false;
         }
 
@@ -1921,7 +1936,7 @@ static bool sync_response_send_state(const GC_Chat *chat, GC_Connection *gconn, 
  * Return -4 if `peer_number` does not designate a valid peer.
  */
 non_null()
-static int handle_gc_sync_request(const GC_Chat *chat, uint32_t peer_number, const uint8_t *data, uint16_t length)
+static int handle_gc_sync_request(GC_Chat *chat, uint32_t peer_number, const uint8_t *data, uint16_t length)
 {
     GC_Connection *gconn = get_gc_connection(chat, peer_number);
 
@@ -2164,19 +2179,26 @@ static bool send_gc_invite_response_reject(const GC_Chat *chat, const GC_Connect
  * Return -1 if the group is full.
  * Return -2 if the supplied password is invalid.
  * Return -3 if we fail to send an invite response.
+ * Return -4 if peer_number does not designate a valid peer.
  */
 non_null()
-static int handle_gc_invite_request(GC_Chat *chat, GC_Connection *gconn, const uint8_t *data, uint16_t length)
+static int handle_gc_invite_request(GC_Chat *chat, uint32_t peer_number, const uint8_t *data, uint16_t length)
 {
     if (chat->shared_state.version == 0) {  // we aren't synced yet; ignore request
         return 0;
+    }
+
+    GC_Connection *gconn = get_gc_connection(chat, peer_number);
+
+    if (gconn == nullptr) {
+        return -4;
     }
 
     int ret = -1;
 
     uint8_t invite_error;
 
-    if (get_gc_confirmed_numpeers(chat) >= chat->shared_state.maxpeers) {
+    if (get_gc_confirmed_numpeers(chat) >= chat->shared_state.maxpeers && !peer_is_founder(chat, peer_number)) {
         invite_error = GJ_GROUP_FULL;
         goto FAILED_INVITE;
     }
@@ -2576,7 +2598,8 @@ static int handle_gc_peer_info_request(const GC_Chat *chat, uint32_t peer_number
         return -3;
     }
 
-    if (!gconn->confirmed && get_gc_confirmed_numpeers(chat) >= chat->shared_state.maxpeers) {
+    if (!gconn->confirmed && get_gc_confirmed_numpeers(chat) >= chat->shared_state.maxpeers
+            && !peer_is_founder(chat, peer_number)) {
         return -1;
     }
 
@@ -2638,7 +2661,8 @@ static int handle_gc_peer_info_response(const GC_Session *c, GC_Chat *chat, uint
 
     GC_Connection *gconn = &peer->gconn;
 
-    if (!gconn->confirmed && get_gc_confirmed_numpeers(chat) >= chat->shared_state.maxpeers) {
+    if (!gconn->confirmed && get_gc_confirmed_numpeers(chat) >= chat->shared_state.maxpeers
+            && !peer_is_founder(chat, peer_number)) {
         return -4;
     }
 
@@ -4266,11 +4290,7 @@ static int handle_gc_set_observer(const GC_Session *c, GC_Chat *chat, uint32_t p
 
     const int target_peer_number = get_peer_number_of_enc_pk(chat, public_key, false);
 
-    if (target_peer_number < 0) {
-        return -2;
-    }
-
-    if ((uint32_t)target_peer_number == peer_number) {
+    if (target_peer_number >= 0 && (uint32_t)target_peer_number == peer_number) {
         return -2;
     }
 
@@ -5830,7 +5850,7 @@ bool handle_gc_lossless_helper(const GC_Session *c, GC_Chat *chat, uint32_t peer
         }
 
         case GP_INVITE_REQUEST: {
-            ret = handle_gc_invite_request(chat, gconn, data, length);
+            ret = handle_gc_invite_request(chat, peer_number, data, length);
             break;
         }
 
@@ -8030,6 +8050,7 @@ GC_Session *new_dht_groupchats(Messenger *m)
 static void group_cleanup(GC_Session *c, GC_Chat *chat)
 {
     kill_group_friend_connection(c, chat);
+
     mod_list_cleanup(&chat->moderation);
     sanctions_list_cleanup(&chat->moderation);
 
