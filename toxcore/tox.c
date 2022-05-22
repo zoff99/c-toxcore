@@ -3826,7 +3826,7 @@ bool tox_group_get_password(const Tox *tox, uint32_t group_number, uint8_t *pass
 }
 
 bool tox_group_send_message(const Tox *tox, uint32_t group_number, Tox_Message_Type type, const uint8_t *message,
-                            size_t length, Tox_Err_Group_Send_Message *error)
+                            size_t length, uint32_t *pseudo_msg_id, Tox_Err_Group_Send_Message *error)
 {
     assert(tox != nullptr);
 
@@ -3845,7 +3845,7 @@ bool tox_group_send_message(const Tox *tox, uint32_t group_number, Tox_Message_T
         return false;
     }
 
-    const int ret = gc_send_message(chat, message, length, type);
+    const int ret = gc_send_message(chat, message, length, type, pseudo_msg_id);
     tox_unlock(tox);
 
     switch (ret) {
