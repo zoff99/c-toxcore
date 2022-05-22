@@ -4818,7 +4818,7 @@ static int handle_gc_message(const GC_Session *c, const GC_Chat *chat, const GC_
     const uint16_t length_text_data = length - (GC_MESSAGE_PSEUDO_ID_SIZE);
     const uint8_t *text_data = data + (GC_MESSAGE_PSEUDO_ID_SIZE);
     uint32_t pseudo_msg_id = 0;
-    memcpy(&pseudo_msg_id, data, GC_MESSAGE_PSEUDO_ID_SIZE);
+    net_unpack_u32(data, &pseudo_msg_id);
 
     if (c->message != nullptr) {
         c->message(c->messenger, chat->group_number, peer->peer_id, cb_type, text_data, length_text_data, pseudo_msg_id, userdata);
