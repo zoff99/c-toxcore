@@ -32,7 +32,7 @@
 /**
  * check if TOX_GROUP_MAX_MESSAGE_LENGTH in tox.h and GROUP_MAX_MESSAGE_LENGTH in group_common.h are equal
  */
-typedef char __fail_if_notsynced_1 [ TOX_GROUP_MAX_MESSAGE_LENGTH == GROUP_MAX_MESSAGE_LENGTH ? 1 : -1 ];
+typedef char fail_if_notsynced_1 [ TOX_GROUP_MAX_MESSAGE_LENGTH == GROUP_MAX_MESSAGE_LENGTH ? 1 : -1 ];
 
 #define SET_ERROR_PARAMETER(param, x) \
     do {                              \
