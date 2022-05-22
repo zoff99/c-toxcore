@@ -222,7 +222,7 @@ static void group_message_handler(Tox *tox, uint32_t groupnumber, uint32_t peer_
     ck_assert(s_err == TOX_ERR_GROUP_SELF_QUERY_OK);
     ck_assert(memcmp(self_name, PEER1_NICK, self_name_len) == 0);
 
-    printf("%s sent message to %s: %s\n", peer_name, self_name, message_buf);
+    printf("%s sent message to %s:(id:%u) %s\n", peer_name, self_name, pseudo_msg_id, message_buf);
     ck_assert(memcmp(message_buf, TEST_MESSAGE, length) == 0);
 
     AutoTox *autotox = (AutoTox *)user_data;
@@ -343,8 +343,9 @@ static void group_message_test(AutoTox *autotoxes)
     State *state0 = (State *)autotoxes[0].state;
     State *state1 = (State *)autotoxes[1].state;
 
-	state0->pseudo_msg_id = 0;
-	state1->pseudo_msg_id = 1;
+    // initialize to different values
+    state0->pseudo_msg_id = 0;
+    state1->pseudo_msg_id = 1;
 
     tox_callback_group_invite(tox1, group_invite_handler);
     tox_callback_group_join_fail(tox1, group_join_fail_handler);
