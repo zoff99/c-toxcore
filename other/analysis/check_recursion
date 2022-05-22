@@ -110,6 +110,4 @@ def find_recursion(expected: Set[str]) -> None:
 
 
 find_recursion(expected={
-    "add_to_closest -> add_to_closest",
-    "add_to_list -> add_to_list",
 })
