@@ -4742,7 +4742,7 @@ int gc_founder_set_max_peers(GC_Chat *chat, uint16_t max_peers)
     return 0;
 }
 
-int gc_send_message(const GC_Chat *chat, const uint8_t *message, uint16_t length, uint8_t type)
+int gc_send_message(const GC_Chat *chat, const uint8_t *message, uint16_t length, uint8_t type, uint32_t *pseudo_msg_id_param)
 {
     if (length > MAX_GC_MESSAGE_SIZE) {
         return -1;
@@ -4773,6 +4773,11 @@ int gc_send_message(const GC_Chat *chat, const uint8_t *message, uint16_t length
 
     uint32_t pseudo_msg_id = random_u32(chat->rng);
     net_pack_u32(message_raw, pseudo_msg_id);
+
+    if (pseudo_msg_id_param != nullptr)
+    {
+        *pseudo_msg_id_param = pseudo_msg_id;
+    }
 
     uint8_t *message_text = message_raw + (GC_MESSAGE_PSEUDO_ID_SIZE);
     memcpy(message_text, message, length);
