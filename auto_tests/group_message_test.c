@@ -19,6 +19,7 @@ typedef struct State {
     bool peer_joined;
     bool message_sent;
     bool message_received;
+    uint32_t pseudo_msg_id;
     bool private_message_received;
     size_t custom_packets_received;
     size_t custom_private_packets_received;
@@ -230,6 +231,8 @@ static void group_message_handler(Tox *tox, uint32_t groupnumber, uint32_t peer_
     State *state = (State *)autotox->state;
 
     state->message_received = true;
+
+    state->pseudo_msg_id = pseudo_msg_id;
 }
 
 static void group_private_message_handler(Tox *tox, uint32_t groupnumber, uint32_t peer_id, TOX_MESSAGE_TYPE type,
@@ -340,6 +343,9 @@ static void group_message_test(AutoTox *autotoxes)
     State *state0 = (State *)autotoxes[0].state;
     State *state1 = (State *)autotoxes[1].state;
 
+	state0->pseudo_msg_id = 0;
+	state1->pseudo_msg_id = 1;
+
     tox_callback_group_invite(tox1, group_invite_handler);
     tox_callback_group_join_fail(tox1, group_join_fail_handler);
     tox_callback_group_peer_join(tox1, group_peer_join_handler);
@@ -371,11 +377,13 @@ static void group_message_test(AutoTox *autotoxes)
 
         if (state1->peer_joined && !state1->message_sent) {
             tox_group_send_message(tox1, group_number, TOX_MESSAGE_TYPE_NORMAL, (const uint8_t *)TEST_MESSAGE,
-                                   TEST_MESSAGE_LEN, nullptr, &err_send);
+                                   TEST_MESSAGE_LEN, &state1->pseudo_msg_id, &err_send);
             ck_assert(err_send == TOX_ERR_GROUP_SEND_MESSAGE_OK);
             state1->message_sent = true;
         }
     }
+
+    ck_assert_msg(state0->pseudo_msg_id == state1->pseudo_msg_id, "id0:%u id1:%u", state0->pseudo_msg_id, state1->pseudo_msg_id);
 
     // Make sure we're still connected to each friend
     Tox_Connection conn_1 = tox_friend_get_connection_status(tox0, 0, nullptr);
