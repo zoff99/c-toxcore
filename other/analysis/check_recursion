@@ -109,4 +109,4 @@ def find_recursion(expected: Set[str]) -> None:
         sys.exit(1)
 
 
-find_recursion()
+find_recursion(expected=None)
