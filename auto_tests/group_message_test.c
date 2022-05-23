@@ -388,7 +388,7 @@ static void group_message_test(AutoTox *autotoxes)
 
     // Make sure we're still connected to each friend
     Tox_Connection conn_1 = tox_friend_get_connection_status(tox0, 0, nullptr);
-    Tox_Connection conn_2 = tox_friend_get_connection_status(tox0, 0, nullptr);
+    Tox_Connection conn_2 = tox_friend_get_connection_status(tox1, 0, nullptr);
 
     ck_assert(conn_1 != TOX_CONNECTION_NONE && conn_2 != TOX_CONNECTION_NONE);
 
