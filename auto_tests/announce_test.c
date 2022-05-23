@@ -57,6 +57,7 @@ static void test_store_data(void)
     Logger *log = logger_new();
     ck_assert(log != nullptr);
 #pragma GCC diagnostic push
+#if !defined(__has_warning) || __has_warning("-Wcast-function-type")
 #pragma GCC diagnostic ignored "-Wcast-function-type"
     logger_callback_log(log, (logger_cb *)print_debug_log, nullptr, nullptr);
 #pragma GCC diagnostic pop
