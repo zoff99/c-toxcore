@@ -51,7 +51,6 @@ static void test_basic(void)
     Logger *logger = logger_new();
 
 #pragma GCC diagnostic push
-#if !defined(__has_warning) || __has_warning("-Wcast-function-type")
 #pragma GCC diagnostic ignored "-Wcast-function-type"
     logger_callback_log(logger, (logger_cb *)print_debug_log, nullptr, nullptr);
 #pragma GCC diagnostic pop
