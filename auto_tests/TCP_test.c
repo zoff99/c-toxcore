@@ -49,7 +49,11 @@ static void test_basic(void)
     const Random *rng = system_random();
     ck_assert(rng != nullptr);
     Logger *logger = logger_new();
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
     logger_callback_log(logger, (logger_cb *)print_debug_log, nullptr, nullptr);
+#pragma GCC diagnostic pop
 
     // Attempt to create a new TCP_Server instance.
     uint8_t self_public_key[CRYPTO_PUBLIC_KEY_SIZE];
