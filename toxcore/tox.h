@@ -4620,7 +4620,7 @@ bool tox_group_send_custom_private_packet(const Tox *tox, uint32_t group_number,
  * @param peer_id The ID of the peer who sent the message.
  * @param type The type of message (normal, action, ...).
  * @param message The message data.
- * @param pseudo_msg_id a pseudo message id that clients can use to uniqly identify a group message.
+ * @param pseudo_msg_id a pseudo message id that clients can use to uniquely identify this group message.
  * @param length The length of the message.
  */
 typedef void tox_group_message_cb(Tox *tox, uint32_t group_number, uint32_t peer_id, Tox_Message_Type type,
