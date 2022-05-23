@@ -55,7 +55,8 @@ static void test_basic(void)
 #  if __has_warning("-Wcast-function-type")
 #    pragma GCC diagnostic ignored "-Wcast-function-type"
 #  endif
-#endif    logger_callback_log(logger, (logger_cb *)print_debug_log, nullptr, nullptr);
+#endif
+    logger_callback_log(logger, (logger_cb *)print_debug_log, nullptr, nullptr);
 #pragma GCC diagnostic pop
 
     // Attempt to create a new TCP_Server instance.

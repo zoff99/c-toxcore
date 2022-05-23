@@ -61,7 +61,8 @@ static void test_store_data(void)
 #  if __has_warning("-Wcast-function-type")
 #    pragma GCC diagnostic ignored "-Wcast-function-type"
 #  endif
-#endif    logger_callback_log(log, (logger_cb *)print_debug_log, nullptr, nullptr);
+#endif
+    logger_callback_log(log, (logger_cb *)print_debug_log, nullptr, nullptr);
 #pragma GCC diagnostic pop
     Mono_Time *mono_time = mono_time_new(nullptr, nullptr);
     Networking_Core *net = new_networking_no_udp(log, ns);
