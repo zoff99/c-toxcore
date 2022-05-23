@@ -109,7 +109,11 @@ static Forwarding_Subtox *new_forwarding_subtox(bool no_udp, uint32_t *index, ui
 
     subtox->log = logger_new();
     ck_assert(subtox->log != nullptr);
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
     logger_callback_log(subtox->log, (logger_cb *)print_debug_log, nullptr, index);
+#pragma GCC diagnostic pop
     subtox->mono_time = mono_time_new(nullptr, nullptr);
 
     const Random *rng= system_random();

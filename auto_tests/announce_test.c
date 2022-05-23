@@ -56,7 +56,10 @@ static void test_store_data(void)
     ck_assert(ns != nullptr);
     Logger *log = logger_new();
     ck_assert(log != nullptr);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
     logger_callback_log(log, (logger_cb *)print_debug_log, nullptr, nullptr);
+#pragma GCC diagnostic pop
     Mono_Time *mono_time = mono_time_new(nullptr, nullptr);
     Networking_Core *net = new_networking_no_udp(log, ns);
     DHT *dht = new_dht(log, rng, ns, mono_time, net, true, true);
