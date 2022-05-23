@@ -4342,7 +4342,7 @@ typedef enum Tox_Err_Group_Send_Message {
     TOX_ERR_GROUP_SEND_MESSAGE_GROUP_NOT_FOUND,
 
     /**
-     * Message length exceeded TOX_MAX_MESSAGE_LENGTH.
+     * Message length exceeded TOX_GROUP_MAX_MESSAGE_LENGTH.
      */
     TOX_ERR_GROUP_SEND_MESSAGE_TOO_LONG,
 
@@ -4380,7 +4380,7 @@ typedef enum Tox_Err_Group_Send_Message {
  * This function creates a group message packet and pushes it into the send
  * queue.
  *
- * The message length may not exceed TOX_MAX_MESSAGE_LENGTH. Larger messages
+ * The message length may not exceed TOX_GROUP_MAX_MESSAGE_LENGTH. Larger messages
  * must be split by the client and sent as separate messages. Other clients can
  * then reassemble the fragments. Messages may not be empty.
  *
@@ -4416,7 +4416,7 @@ typedef enum Tox_Err_Group_Send_Private_Message {
     TOX_ERR_GROUP_SEND_PRIVATE_MESSAGE_PEER_NOT_FOUND,
 
     /**
-     * Message length exceeded TOX_MAX_MESSAGE_LENGTH.
+     * Message length exceeded TOX_GROUP_MAX_MESSAGE_LENGTH.
      */
     TOX_ERR_GROUP_SEND_PRIVATE_MESSAGE_TOO_LONG,
 
@@ -4454,7 +4454,7 @@ typedef enum Tox_Err_Group_Send_Private_Message {
  * This function creates a group private message packet and pushes it into the send
  * queue.
  *
- * The message length may not exceed TOX_MAX_MESSAGE_LENGTH. Larger messages
+ * The message length may not exceed TOX_GROUP_MAX_MESSAGE_LENGTH. Larger messages
  * must be split by the client and sent as separate messages. Other clients can
  * then reassemble the fragments. Messages may not be empty.
  *
@@ -4482,7 +4482,7 @@ typedef enum Tox_Err_Group_Send_Custom_Packet {
     TOX_ERR_GROUP_SEND_CUSTOM_PACKET_GROUP_NOT_FOUND,
 
     /**
-     * Message length exceeded TOX_MAX_MESSAGE_LENGTH.
+     * Message length exceeded TOX_GROUP_MAX_MESSAGE_LENGTH.
      */
     TOX_ERR_GROUP_SEND_CUSTOM_PACKET_TOO_LONG,
 
@@ -4546,7 +4546,7 @@ typedef enum Tox_Err_Group_Send_Custom_Private_Packet {
     TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_GROUP_NOT_FOUND,
 
     /**
-     * Message length exceeded TOX_MAX_MESSAGE_LENGTH.
+     * Message length exceeded TOX_MAX_CUSTOM_PACKET_SIZE.
      */
     TOX_ERR_GROUP_SEND_CUSTOM_PRIVATE_PACKET_TOO_LONG,
 
