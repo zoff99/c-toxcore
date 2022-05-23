@@ -4769,7 +4769,7 @@ int gc_send_message(const GC_Chat *chat, const uint8_t *message, uint16_t length
 
     uint16_t length_raw = length + GC_MESSAGE_PSEUDO_ID_SIZE;
     uint8_t *message_raw = (uint8_t *)calloc(1, length_raw);
-    if (!message_raw) {
+    if (message_raw == nullptr) {
         return -5;
     }
 
