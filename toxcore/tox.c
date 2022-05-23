@@ -34,6 +34,11 @@
  */
 typedef char fail_if_notsynced_1 [ TOX_GROUP_MAX_MESSAGE_LENGTH == GROUP_MAX_MESSAGE_LENGTH ? 1 : -1 ];
 
+/**
+ * check if TOX_MAX_CUSTOM_PACKET_SIZE in tox.h and MAX_GC_CUSTOM_PACKET_SIZE in group_common.h are equal
+ */
+typedef char fail_if_notsynced_2 [ TOX_MAX_CUSTOM_PACKET_SIZE == MAX_GC_CUSTOM_PACKET_SIZE ? 1 : -1 ];
+
 #define SET_ERROR_PARAMETER(param, x) \
     do {                              \
         if (param != nullptr) {       \
