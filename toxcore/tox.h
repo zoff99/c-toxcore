@@ -4151,12 +4151,12 @@ size_t tox_group_get_name_size(const Tox *tox, uint32_t group_number, Tox_Err_Gr
  *
  * Call tox_group_get_name_size to determine the allocation size for the `name` parameter.
  *
- * @param name A valid memory region large enough to store the group name.
+ * @param group_name A valid memory region large enough to store the group name.
  *   If this parameter is NULL, this function call has no effect.
  *
  * @return true on success.
  */
-bool tox_group_get_name(const Tox *tox, uint32_t group_number, uint8_t *name, Tox_Err_Group_State_Queries *error);
+bool tox_group_get_name(const Tox *tox, uint32_t group_number, uint8_t *group_name, Tox_Err_Group_State_Queries *error);
 
 /**
  * Write the Chat ID designated by the given group number to a byte array.
