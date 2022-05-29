@@ -4744,7 +4744,7 @@ int gc_founder_set_max_peers(GC_Chat *chat, uint16_t max_peers)
     return 0;
 }
 
-int gc_send_message(const GC_Chat *chat, const uint8_t *message, uint16_t length, uint8_t type, uint32_t *pseudo_msg_id_param)
+int gc_send_message(const GC_Chat *chat, const uint8_t *message, uint16_t length, uint8_t type, uint32_t *message_id)
 {
     if (length > MAX_GC_MESSAGE_SIZE) {
         return -1;
@@ -4783,8 +4783,8 @@ int gc_send_message(const GC_Chat *chat, const uint8_t *message, uint16_t length
         return -5;
     }
 
-    if (pseudo_msg_id_param != nullptr) {
-        *pseudo_msg_id_param = pseudo_msg_id;
+    if (message_id != nullptr) {
+        *message_id = pseudo_msg_id;
     }
 
     free(message_raw);
