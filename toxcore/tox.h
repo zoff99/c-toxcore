@@ -4389,9 +4389,9 @@ typedef enum Tox_Err_Group_Send_Message {
  * @param message A non-NULL pointer to the first element of a byte array
  *   containing the message text.
  * @param length Length of the message to be sent.
- * @param pseudo_msg_id A pointer to a uint32_t. the pseudo_msg_id of this message will be returned
- *   unless the paramter is NULL. then the returned paramter value will be undefined.
- *   if this function returns false the returned paramter `pseudo_msg_id` value will also be undefined.
+ * @param pseudo_msg_id A pointer to a uint32_t. The pseudo_msg_id of this message will be returned
+ *   unless the parameter is NULL, in which case the returned paramter value will be undefined.
+ *   If this function returns false the returned paramter `pseudo_msg_id` value will also be undefined.
  *
  * @return true on success.
  */
@@ -4620,7 +4620,7 @@ bool tox_group_send_custom_private_packet(const Tox *tox, uint32_t group_number,
  * @param peer_id The ID of the peer who sent the message.
  * @param type The type of message (normal, action, ...).
  * @param message The message data.
- * @param pseudo_msg_id a pseudo message id that clients can use to uniquely identify this group message.
+ * @param pseudo_msg_id A pseudo message id that clients can use to uniquely identify this group message.
  * @param length The length of the message.
  */
 typedef void tox_group_message_cb(Tox *tox, uint32_t group_number, uint32_t peer_id, Tox_Message_Type type,
