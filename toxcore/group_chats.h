@@ -153,7 +153,7 @@ uint16_t gc_get_wrapped_packet_size(uint16_t length, Net_Packet_Type packet_type
 /** @brief Sends a plain message or an action, depending on type.
  *
  * `length` must not exceed MAX_GC_MESSAGE_SIZE and must not be equal to zero.
- * `pseudo_msg_id_param` should either point to a uint32_t or be NULL.
+ * `message_id` should either point to a uint32_t or be NULL.
  *
  * Returns 0 on success.
  * Returns -1 if the message is too long.
@@ -164,7 +164,7 @@ uint16_t gc_get_wrapped_packet_size(uint16_t length, Net_Packet_Type packet_type
  */
 non_null(1, 2, 3, 4) nullable(5)
 int gc_send_message(const GC_Chat *chat, const uint8_t *message, uint16_t length, uint8_t type,
-                    uint32_t *pseudo_msg_id_param);
+                    uint32_t *message_id);
 
 /** @brief Sends a private message to peer_id.
  *
