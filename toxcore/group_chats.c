@@ -4774,10 +4774,9 @@ int gc_send_message(const GC_Chat *chat, const uint8_t *message, uint16_t length
     }
 
     uint32_t pseudo_msg_id = random_u32(chat->rng);
-    net_pack_u32(message_raw, pseudo_msg_id);
 
-    uint8_t *message_text = message_raw + (GC_MESSAGE_PSEUDO_ID_SIZE);
-    memcpy(message_text, message, length);
+    net_pack_u32(message_raw, pseudo_msg_id);
+    memcpy(message_raw + GC_MESSAGE_PSEUDO_ID_SIZE, message, length);
 
     if (!send_gc_broadcast_message(chat, message_raw, length_raw, packet_type)) {
         free(message_raw);
@@ -4816,13 +4815,11 @@ static int handle_gc_message(const GC_Session *c, const GC_Chat *chat, const GC_
 
     const uint8_t cb_type = (type == GM_PLAIN_MESSAGE) ? MESSAGE_NORMAL : MESSAGE_ACTION;
 
-    const uint16_t length_text_data = length - (GC_MESSAGE_PSEUDO_ID_SIZE);
-    const uint8_t *text_data = data + (GC_MESSAGE_PSEUDO_ID_SIZE);
-    uint32_t pseudo_msg_id = 0;
+    uint32_t pseudo_msg_id;
     net_unpack_u32(data, &pseudo_msg_id);
 
     if (c->message != nullptr) {
-        c->message(c->messenger, chat->group_number, peer->peer_id, cb_type, text_data, length_text_data, pseudo_msg_id, userdata);
+        c->message(c->messenger, chat->group_number, peer->peer_id, cb_type, data + GC_MESSAGE_PSEUDO_ID_SIZE, length - GC_MESSAGE_PSEUDO_ID_SIZE, pseudo_msg_id, userdata);
     }
 
     return 0;
