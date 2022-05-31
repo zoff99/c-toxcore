@@ -4390,8 +4390,8 @@ typedef enum Tox_Err_Group_Send_Message {
  *   containing the message text.
  * @param length Length of the message to be sent.
  * @param pseudo_msg_id A pointer to a uint32_t. The pseudo_msg_id of this message will be returned
- *   unless the parameter is NULL, in which case the returned paramter value will be undefined.
- *   If this function returns false the returned paramter `pseudo_msg_id` value will also be undefined.
+ *   unless the parameter is NULL, in which case the returned parameter value will be undefined.
+ *   If this function returns false the returned parameter `pseudo_msg_id` value will also be undefined.
  *
  * @return true on success.
  */
