@@ -312,7 +312,7 @@ typedef struct Messenger Messenger;
 #endif /* MESSENGER_DEFINED */
 
 typedef void gc_message_cb(const Messenger *m, uint32_t group_number, uint32_t peer_id, unsigned int type,
-                           const uint8_t *data, size_t length, uint32_t pseudo_msg_id, void *user_data);
+                           const uint8_t *data, size_t length, uint32_t message_id, void *user_data);
 typedef void gc_private_message_cb(const Messenger *m, uint32_t group_number, uint32_t peer_id, unsigned int type,
                                    const uint8_t *data, size_t length, void *user_data);
 typedef void gc_custom_packet_cb(const Messenger *m, uint32_t group_number, uint32_t peer_id, const uint8_t *data,
