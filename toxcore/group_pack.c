@@ -44,8 +44,6 @@ static bool load_unpack_state_values(GC_Chat *chat, Bin_Unpack *bu)
     }
 
     chat->connection_state = manually_disconnected ? CS_DISCONNECTED : CS_CONNECTING;
-    LOGGER_WARNING(chat->log, "chat->connection_state == %d save == %d", chat->connection_state, manually_disconnected);
-
     chat->shared_state.privacy_state = (Group_Privacy_State)privacy_state;
     chat->shared_state.voice_state = (Group_Voice_State)voice_state;
 
@@ -225,13 +223,11 @@ static bool load_unpack_saved_peers(GC_Chat *chat, Bin_Unpack *bu)
     }
 
     if (saved_peers_size == 0) {
-        LOGGER_WARNING(chat->log, "saved_peers_size == 0");
         bin_unpack_nil(bu);
         return true;
     }
 
     uint8_t *saved_peers = (uint8_t *)malloc(saved_peers_size * GC_SAVED_PEER_SIZE);
-    LOGGER_WARNING(chat->log, "saved_peers_size == %d", saved_peers_size);
 
     if (saved_peers == nullptr) {
         LOGGER_ERROR(chat->log, "Failed to allocate memory for saved peer list");
@@ -274,7 +270,6 @@ static void save_pack_state_values(const GC_Chat *chat, Bin_Pack *bp)
 {
     bin_pack_array(bp, 8);
     bin_pack_bool(bp, chat->connection_state == CS_DISCONNECTED); // 1
-    LOGGER_WARNING(chat->log, "chat->connection_state == %d save == %d", chat->connection_state, (chat->connection_state == CS_DISCONNECTED));
     bin_pack_u16(bp, chat->shared_state.group_name_len); // 2
     bin_pack_u08(bp, chat->shared_state.privacy_state); // 3
     bin_pack_u16(bp, chat->shared_state.maxpeers); // 4
@@ -386,7 +381,6 @@ static void save_pack_saved_peers(const GC_Chat *chat, Bin_Pack *bp)
 
     uint16_t packed_size = 0;
     const int count = pack_gc_saved_peers(chat, saved_peers, GC_MAX_SAVED_PEERS * GC_SAVED_PEER_SIZE, &packed_size);
-    LOGGER_WARNING(chat->log, "count == %d", count);
 
     if (count < 0) {
         LOGGER_ERROR(chat->log, "Failed to pack saved peers");
@@ -395,7 +389,6 @@ static void save_pack_saved_peers(const GC_Chat *chat, Bin_Pack *bp)
     bin_pack_u16(bp, packed_size); // 1
 
     if (packed_size == 0) {
-        LOGGER_WARNING(chat->log, "packed_size == 0");
         bin_pack_nil(bp); // 2
         free(saved_peers);
         return;
@@ -414,19 +407,6 @@ void gc_save_pack_group(const GC_Chat *chat, Bin_Pack *bp)
     }
 
     bin_pack_array(bp, 7);
-
-    // --------------------------------------
-    //
-    // HINT: dump chat struct with data
-    //       works only with clang-8 and up
-    //
-    // printf("=======DUMP start=========\n");
-    // __builtin_dump_struct(chat, &printf);
-    // printf("=======DUMP  end =========\n");
-    //
-    // HINT: dump chat struct with data
-    //
-    // --------------------------------------
 
     save_pack_state_values(chat, bp); // 1
     save_pack_state_bin(chat, bp); // 2

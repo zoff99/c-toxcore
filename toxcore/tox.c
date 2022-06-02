@@ -62,6 +62,10 @@ static_assert(TOX_MAX_NAME_LENGTH == MAX_NAME_LENGTH,
               "TOX_MAX_NAME_LENGTH is assumed to be equal to MAX_NAME_LENGTH");
 static_assert(TOX_MAX_STATUS_MESSAGE_LENGTH == MAX_STATUSMESSAGE_LENGTH,
               "TOX_MAX_STATUS_MESSAGE_LENGTH is assumed to be equal to MAX_STATUSMESSAGE_LENGTH");
+static_assert(TOX_GROUP_MAX_MESSAGE_LENGTH == GROUP_MAX_MESSAGE_LENGTH,
+              "TOX_GROUP_MAX_MESSAGE_LENGTH is assumed to be equal to GROUP_MAX_MESSAGE_LENGTH");
+static_assert(TOX_MAX_CUSTOM_PACKET_SIZE == MAX_GC_CUSTOM_PACKET_SIZE,
+              "TOX_MAX_CUSTOM_PACKET_SIZE is assumed to be equal to MAX_GC_CUSTOM_PACKET_SIZE");
 
 struct Tox_Userdata {
     Tox *tox;
@@ -512,16 +516,16 @@ static void tox_group_password_handler(const Messenger *m, uint32_t group_number
     }
 }
 
-non_null(1, 5) nullable(7)
+non_null(1, 5) nullable(8)
 static void tox_group_message_handler(const Messenger *m, uint32_t group_number, uint32_t peer_id, unsigned int type,
-                                      const uint8_t *message, size_t length, void *user_data)
+                                      const uint8_t *message, size_t length, uint32_t message_id, void *user_data)
 {
     struct Tox_Userdata *tox_data = (struct Tox_Userdata *)user_data;
 
     if (tox_data->tox->group_message_callback != nullptr) {
         tox_unlock(tox_data->tox);
         tox_data->tox->group_message_callback(tox_data->tox, group_number, peer_id, (Tox_Message_Type)type, message, length,
-                                              tox_data->user_data);
+                                              message_id, tox_data->user_data);
         tox_lock(tox_data->tox);
     }
 }
@@ -3851,7 +3855,7 @@ size_t tox_group_get_name_size(const Tox *tox, uint32_t group_number, Tox_Err_Gr
     return ret;
 }
 
-bool tox_group_get_name(const Tox *tox, uint32_t group_number, uint8_t *groupname, Tox_Err_Group_State_Queries *error)
+bool tox_group_get_name(const Tox *tox, uint32_t group_number, uint8_t *group_name, Tox_Err_Group_State_Queries *error)
 {
     assert(tox != nullptr);
 
@@ -3864,7 +3868,7 @@ bool tox_group_get_name(const Tox *tox, uint32_t group_number, uint8_t *groupnam
         return false;
     }
 
-    gc_get_group_name(chat, groupname);
+    gc_get_group_name(chat, group_name);
     tox_unlock(tox);
 
     SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_STATE_QUERIES_OK);
@@ -4074,7 +4078,7 @@ bool tox_group_get_password(const Tox *tox, uint32_t group_number, uint8_t *pass
 }
 
 bool tox_group_send_message(const Tox *tox, uint32_t group_number, Tox_Message_Type type, const uint8_t *message,
-                            size_t length, Tox_Err_Group_Send_Message *error)
+                            size_t length, uint32_t *message_id, Tox_Err_Group_Send_Message *error)
 {
     assert(tox != nullptr);
 
@@ -4093,7 +4097,7 @@ bool tox_group_send_message(const Tox *tox, uint32_t group_number, Tox_Message_T
         return false;
     }
 
-    const int ret = gc_send_message(chat, message, length, type);
+    const int ret = gc_send_message(chat, message, length, type, message_id);
     tox_unlock(tox);
 
     switch (ret) {
@@ -4631,7 +4635,7 @@ bool tox_group_founder_set_voice_state(const Tox *tox, uint32_t group_number, To
     return false;
 }
 
-bool tox_group_founder_set_peer_limit(const Tox *tox, uint32_t group_number, uint16_t maxpeers,
+bool tox_group_founder_set_peer_limit(const Tox *tox, uint32_t group_number, uint16_t max_peers,
                                       Tox_Err_Group_Founder_Set_Peer_Limit *error)
 {
     assert(tox != nullptr);
@@ -4651,7 +4655,7 @@ bool tox_group_founder_set_peer_limit(const Tox *tox, uint32_t group_number, uin
         return false;
     }
 
-    const int ret = gc_founder_set_max_peers(chat, maxpeers);
+    const int ret = gc_founder_set_max_peers(chat, max_peers);
     tox_unlock(tox);
 
     switch (ret) {

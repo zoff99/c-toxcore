@@ -37,10 +37,10 @@ static int pack_group_announces(void *object, const Logger *logger, const Mono_T
 
     GC_Announce gc_announces[GCA_MAX_SENT_ANNOUNCES];
     const int num_ann = gca_get_announces(gc_announces_list,
-                        gc_announces,
-                        GCA_MAX_SENT_ANNOUNCES,
-                        public_announce.chat_public_key,
-                        new_announce->base_announce.peer_public_key);
+                                          gc_announces,
+                                          GCA_MAX_SENT_ANNOUNCES,
+                                          public_announce.chat_public_key,
+                                          new_announce->base_announce.peer_public_key);
 
     if (num_ann < 0) {
         LOGGER_ERROR(logger, "failed to get group announce");
@@ -69,10 +69,10 @@ void gca_onion_init(GC_Announces_List *group_announce, Onion_Announce *onion_a)
 #ifndef VANILLA_NACL
 
 int create_gca_announce_request(
-        const Random *rng, uint8_t *packet, uint16_t max_packet_length, const uint8_t *dest_client_id,
-        const uint8_t *public_key, const uint8_t *secret_key, const uint8_t *ping_id,
-        const uint8_t *client_id, const uint8_t *data_public_key, uint64_t sendback_data,
-        const uint8_t *gc_data, uint16_t gc_data_length)
+    const Random *rng, uint8_t *packet, uint16_t max_packet_length, const uint8_t *dest_client_id,
+    const uint8_t *public_key, const uint8_t *secret_key, const uint8_t *ping_id,
+    const uint8_t *client_id, const uint8_t *data_public_key, uint64_t sendback_data,
+    const uint8_t *gc_data, uint16_t gc_data_length)
 {
     if (max_packet_length < ONION_ANNOUNCE_REQUEST_MAX_SIZE || gc_data_length == 0) {
         return -1;

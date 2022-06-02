@@ -1474,14 +1474,17 @@ int group_packet_wrap(
     uint8_t gp_packet_type, uint8_t net_packet_type)
 {
     const uint16_t padding_len = group_packet_padding_length(length);
+    const uint16_t min_packet_size = net_packet_type == NET_PACKET_GC_LOSSLESS
+                                     ? length + padding_len + CRYPTO_MAC_SIZE + 1 + ENC_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + GC_MESSAGE_ID_BYTES
+                                     : length + padding_len + CRYPTO_MAC_SIZE + 1 + ENC_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + 1;
 
-    if (length + padding_len + CRYPTO_MAC_SIZE + 1 + ENC_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE > packet_size) {
+    if (min_packet_size > packet_size) {
         LOGGER_ERROR(log, "Invalid packet buffer size: %u", packet_size);
         return -1;
     }
 
     if (length > MAX_GC_PACKET_CHUNK_SIZE) {
-        LOGGER_ERROR(log, "Invalid packet buffer size: %u", packet_size);
+        LOGGER_ERROR(log, "Packet payload size (%u) exceeds maximum (%u)", packet_size, MAX_GC_PACKET_CHUNK_SIZE);
         return -1;
     }
 
@@ -1625,14 +1628,14 @@ static bool send_gc_sync_request(GC_Chat *chat, GC_Connection *gconn, uint16_t s
         net_pack_u16(data + length, chat->shared_state.password_length);
         length += sizeof(uint16_t);
 
-        memcpy(data + (sizeof(uint16_t) * 2), chat->shared_state.password, MAX_GC_PASSWORD_SIZE);
+        memcpy(data + length, chat->shared_state.password, MAX_GC_PASSWORD_SIZE);
         length += MAX_GC_PASSWORD_SIZE;
     }
 
     return send_lossless_group_packet(chat, gconn, data, length, GP_SYNC_REQUEST);
 }
 
-/** @brief Sends a sync response packet to peer desingnated by `gconn`.
+/** @brief Sends a sync response packet to peer designated by `gconn`.
  *
  * Return true on success.
  */
@@ -1732,7 +1735,7 @@ static bool unpack_gc_sync_announce(GC_Chat *chat, const uint8_t *data, const ui
  * Note: This function may change peer numbers.
  *
  * Return 0 on success.
- * Return -1 if the group is full and the peer cannot be added to our peer list.
+ * Return -1 if the group is full or the peer failed to unpack.
  * Return -2 if `peer_number` does not designate a valid peer.
  */
 non_null(1, 2, 4) nullable(6)
@@ -1777,7 +1780,8 @@ non_null() static bool send_peer_sanctions_list(const GC_Chat *chat, GC_Connecti
 non_null() static bool send_peer_topic(const GC_Chat *chat, GC_Connection *gconn);
 
 
-/** @brief Creates a sync announce for peer designated by `gconn` and puts it in `announce`.
+/** @brief Creates a sync announce for peer designated by `gconn` and puts it in `announce`, which
+ * must be zeroed by the caller.
  *
  * Returns true if announce was successfully created.
  */
@@ -1800,8 +1804,6 @@ static bool create_sync_announce(const GC_Chat *chat, const GC_Connection *gconn
     if (gcc_ip_port_is_set(gconn)) {
         announce->ip_port = gconn->addr.ip_port;
         announce->ip_port_is_set = true;
-    } else {
-        announce->ip_port_is_set = false;
     }
 
     return true;
@@ -1882,7 +1884,7 @@ static bool sync_response_send_state(GC_Chat *chat, GC_Connection *gconn, uint32
 {
     const bool first_sync = gconn->last_sync_response == 0;
 
-    /* Do not change the order of these four send calls. See: https://toktok.ltd/spec.html#sync_request-0xf8 */
+    // Do not change the order of these four send calls. See: https://toktok.ltd/spec.html#sync_request-0xf8
     if ((sync_flags & GF_STATE) > 0 && chat->shared_state.version > 0) {
         if (!send_peer_shared_state(chat, gconn)) {
             LOGGER_WARNING(chat->log, "Failed to send shared state");
@@ -4742,7 +4744,7 @@ int gc_founder_set_max_peers(GC_Chat *chat, uint16_t max_peers)
     return 0;
 }
 
-int gc_send_message(const GC_Chat *chat, const uint8_t *message, uint16_t length, uint8_t type)
+int gc_send_message(const GC_Chat *chat, const uint8_t *message, uint16_t length, uint8_t type, uint32_t *message_id)
 {
     if (length > MAX_GC_MESSAGE_SIZE) {
         return -1;
@@ -4765,10 +4767,28 @@ int gc_send_message(const GC_Chat *chat, const uint8_t *message, uint16_t length
 
     const uint8_t packet_type = type == GC_MESSAGE_TYPE_NORMAL ? GM_PLAIN_MESSAGE : GM_ACTION_MESSAGE;
 
-    if (!send_gc_broadcast_message(chat, message, length, packet_type)) {
+    const uint16_t length_raw = length + GC_MESSAGE_PSEUDO_ID_SIZE;
+    uint8_t *message_raw = (uint8_t *)malloc(length_raw);
+
+    if (message_raw == nullptr) {
         return -5;
     }
 
+    const uint32_t pseudo_msg_id = random_u32(chat->rng);
+
+    net_pack_u32(message_raw, pseudo_msg_id);
+    memcpy(message_raw + GC_MESSAGE_PSEUDO_ID_SIZE, message, length);
+
+    if (!send_gc_broadcast_message(chat, message_raw, length_raw, packet_type)) {
+        free(message_raw);
+        return -5;
+    }
+
+    if (message_id != nullptr) {
+        *message_id = pseudo_msg_id;
+    }
+
+    free(message_raw);
     return 0;
 }
 
@@ -4781,7 +4801,7 @@ non_null(1, 2, 3, 4) nullable(7)
 static int handle_gc_message(const GC_Session *c, const GC_Chat *chat, const GC_Peer *peer, const uint8_t *data,
                              uint16_t length, uint8_t type, void *userdata)
 {
-    if (data == nullptr || length > MAX_GC_MESSAGE_SIZE || length == 0) {
+    if (data == nullptr || length > MAX_GC_MESSAGE_RAW_SIZE || length <= GC_MESSAGE_PSEUDO_ID_SIZE) {
         return -1;
     }
 
@@ -4796,8 +4816,12 @@ static int handle_gc_message(const GC_Session *c, const GC_Chat *chat, const GC_
 
     const uint8_t cb_type = (type == GM_PLAIN_MESSAGE) ? MESSAGE_NORMAL : MESSAGE_ACTION;
 
+    uint32_t pseudo_msg_id;
+    net_unpack_u32(data, &pseudo_msg_id);
+
     if (c->message != nullptr) {
-        c->message(c->messenger, chat->group_number, peer->peer_id, cb_type, data, length, userdata);
+        c->message(c->messenger, chat->group_number, peer->peer_id, cb_type, data + GC_MESSAGE_PSEUDO_ID_SIZE,
+                   length - GC_MESSAGE_PSEUDO_ID_SIZE, pseudo_msg_id, userdata);
     }
 
     return 0;

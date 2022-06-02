@@ -715,7 +715,7 @@ static int send_packet_to(Net_Crypto *c, int crypt_connection_id, const uint8_t 
         conn->last_tcp_sent = current_time_monotonic(c->mono_time);
     }
 
-    if (ret == 0 || direct_send_attempt) {
+    if (direct_send_attempt) {
         return 0;
     }
 
@@ -1083,7 +1083,7 @@ static int send_data_packet(Net_Crypto *c, int crypt_connection_id, const uint8_
     const int len = encrypt_data_symmetric(conn->shared_key, conn->sent_nonce, data, length, packet + 1 + sizeof(uint16_t));
 
     if (len + 1 + sizeof(uint16_t) != packet_size) {
-        LOGGER_WARNING(c->log, "encryption failed: %d", len);
+        LOGGER_ERROR(c->log, "encryption failed: %d", len);
         return -1;
     }
 
@@ -2172,7 +2172,7 @@ static int tcp_data_callback(void *object, int crypt_connection_id, const uint8_
         return tcp_handle_cookie_request(c, conn->connection_number_tcp, data, length);
     }
 
-    const int ret = handle_packet_connection(c, crypt_connection_id, data, length, 0, userdata);
+    const int ret = handle_packet_connection(c, crypt_connection_id, data, length, false, userdata);
 
     if (ret != 0) {
         return -1;

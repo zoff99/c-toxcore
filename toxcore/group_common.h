@@ -20,7 +20,11 @@
 #define MAX_GC_NICK_SIZE 128
 #define MAX_GC_TOPIC_SIZE 512
 #define MAX_GC_GROUP_NAME_SIZE 48
-#define MAX_GC_MESSAGE_SIZE 1372
+#define GC_MESSAGE_PSEUDO_ID_SIZE 4
+#define GROUP_MAX_MESSAGE_LENGTH  1368
+
+#define MAX_GC_MESSAGE_SIZE       GROUP_MAX_MESSAGE_LENGTH
+#define MAX_GC_MESSAGE_RAW_SIZE   (MAX_GC_MESSAGE_SIZE + GC_MESSAGE_PSEUDO_ID_SIZE)
 #define MAX_GC_CUSTOM_PACKET_SIZE 1373
 #define MAX_GC_PASSWORD_SIZE 32
 #define MAX_GC_SAVED_INVITES 10
@@ -308,7 +312,7 @@ typedef struct Messenger Messenger;
 #endif /* MESSENGER_DEFINED */
 
 typedef void gc_message_cb(const Messenger *m, uint32_t group_number, uint32_t peer_id, unsigned int type,
-                           const uint8_t *data, size_t length, void *user_data);
+                           const uint8_t *data, size_t length, uint32_t message_id, void *user_data);
 typedef void gc_private_message_cb(const Messenger *m, uint32_t group_number, uint32_t peer_id, unsigned int type,
                                    const uint8_t *data, size_t length, void *user_data);
 typedef void gc_custom_packet_cb(const Messenger *m, uint32_t group_number, uint32_t peer_id, const uint8_t *data,

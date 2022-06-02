@@ -27,6 +27,10 @@ static_assert(MOD_MAX_NUM_SANCTIONS * MOD_SANCTION_PACKED_SIZE + MOD_SANCTIONS_C
               "MOD_MAX_NUM_SANCTIONS must be able to fit inside the maximum allowed payload size");
 static_assert(MOD_MAX_NUM_MODERATORS * MOD_LIST_ENTRY_SIZE <= MAX_PACKET_SIZE_NO_HEADERS,
               "MOD_MAX_NUM_MODERATORS must be able to fit insize the maximum allowed payload size");
+static_assert(MOD_MAX_NUM_MODERATORS <= MOD_MAX_NUM_MODERATORS_LIMIT,
+              "MOD_MAX_NUM_MODERATORS must be <= MOD_MAX_NUM_MODERATORS_LIMIT");
+static_assert(MOD_MAX_NUM_SANCTIONS <= MOD_MAX_NUM_SANCTIONS_LIMIT,
+              "MOD_MAX_NUM_SANCTIONS must be <= MOD_MAX_NUM_SANCTIONS_LIMIT");
 
 uint16_t mod_list_packed_size(const Moderation *moderation)
 {
