@@ -1,0 +1,145 @@
+diff --git a/toxcore/Messenger.c b/toxcore/Messenger.c
+index ff2f3b2af..1761e2a1b 100644
+--- a/toxcore/Messenger.c
++++ b/toxcore/Messenger.c
+@@ -569,7 +569,7 @@ int m_friend_exists(const Messenger *m, int32_t friendnumber)
+ int m_send_message_generic(Messenger *m, int32_t friendnumber, uint8_t type, const uint8_t *message, uint32_t length,
+                            uint32_t *message_id)
+ {
+-    if (type > MESSAGE_ACTION) {
++    if (type > MESSAGE_HIGH_LEVEL_ACK) {
+         LOGGER_ERROR(m->log, "Message type %d is invalid", type);
+         return -5;
+     }
+@@ -2582,7 +2582,8 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
+         }
+ 
+         case PACKET_ID_MESSAGE: // fall-through
+-        case PACKET_ID_ACTION: {
++        case PACKET_ID_ACTION:
++        case PACKET_ID_HIGH_LEVEL_ACK: {
+             if (data_length == 0) {
+                 break;
+             }
+diff --git a/toxcore/Messenger.h b/toxcore/Messenger.h
+index a8b30f86c..a57c412a0 100644
+--- a/toxcore/Messenger.h
++++ b/toxcore/Messenger.h
+@@ -32,8 +32,9 @@
+ #define FRIEND_ADDRESS_SIZE (CRYPTO_PUBLIC_KEY_SIZE + sizeof(uint32_t) + sizeof(uint16_t))
+ 
+ typedef enum Message_Type {
+-    MESSAGE_NORMAL,
+-    MESSAGE_ACTION,
++    MESSAGE_NORMAL = 0,
++    MESSAGE_ACTION = 1,
++    MESSAGE_HIGH_LEVEL_ACK = 2,
+ } Message_Type;
+ 
+ typedef struct Messenger Messenger;
+@@ -88,6 +89,7 @@ typedef struct Messenger_Options {
+ #define TOX_CAPABILITY_CAPABILITIES ((uint64_t)1) << 0
+ #define TOX_CAPABILITY_MSGV2 ((uint64_t)1) << 1
+ #define TOX_CAPABILITY_TOXAV_H264 ((uint64_t)1) << 2
++#define TOX_CAPABILITY_MSGV3 ((uint64_t)1) << 3
+ /* add new flags/bits here */
+ /* if the TOX_CAPABILITY_NEXT_IMPLEMENTATION flag is set it means
+  * we are using a different system for indicating capabilities now,
+@@ -97,7 +99,7 @@ typedef struct Messenger_Options {
+ #define TOX_CAPABILITY_NEXT_IMPLEMENTATION ((uint64_t)1) << 63
+ /* hardcoded capabilities of this version/branch of toxcore */
+ #ifdef TOX_CAPABILITIES_ACTIVE
+-#define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_MSGV2 | TOX_CAPABILITY_TOXAV_H264)
++#define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_MSGV2 | TOX_CAPABILITY_TOXAV_H264 | TOX_CAPABILITY_MSGV3)
+ #else
+ #define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_TOXAV_H264)
+ #endif
+diff --git a/toxcore/net_crypto.h b/toxcore/net_crypto.h
+index 799f8a7a2..030f1b645 100644
+--- a/toxcore/net_crypto.h
++++ b/toxcore/net_crypto.h
+@@ -55,6 +55,7 @@
+ #define PACKET_ID_TYPING 51
+ #define PACKET_ID_MESSAGE 64
+ #define PACKET_ID_ACTION 65 // PACKET_ID_MESSAGE + MESSAGE_ACTION
++#define PACKET_ID_HIGH_LEVEL_ACK 66 // MSG V3
+ #define PACKET_ID_MSI 69    // Used by AV to setup calls and etc
+ #define PACKET_ID_FILE_SENDREQUEST 80
+ #define PACKET_ID_FILE_CONTROL 81
+diff --git a/toxcore/tox.c b/toxcore/tox.c
+index f280a5828..d9ad1e358 100644
+--- a/toxcore/tox.c
++++ b/toxcore/tox.c
+@@ -941,6 +941,17 @@ bool tox_self_set_name(Tox *tox, const uint8_t *name, size_t length, Tox_Err_Set
+     return 0;
+ }
+ 
++bool tox_messagev3_get_new_message_id(uint8_t *msg_id)
++{
++    if (msg_id == nullptr) {
++        return false;
++    }
++
++    /* Tox keys are 32 bytes like TOX_MSGV3_MSGID_LENGTH. */
++    new_symmetric_key(msg_id);
++    return true;
++}
++
+ size_t tox_self_get_name_size(const Tox *tox)
+ {
+     lock(tox);
+diff --git a/toxcore/tox.h b/toxcore/tox.h
+index 8c42865ba..2851cb564 100644
+--- a/toxcore/tox.h
++++ b/toxcore/tox.h
+@@ -310,6 +310,13 @@ uint32_t tox_max_friend_request_length(void);
+ 
+ uint32_t tox_max_message_length(void);
+ 
++
++#define TOX_MSGV3_MSGID_LENGTH         32
++#define TOX_MSGV3_TIMESTAMP_LENGTH     4
++#define TOX_MSGV3_GUARD                2
++#define TOX_MSGV3_MAX_MESSAGE_LENGTH   (TOX_MAX_MESSAGE_LENGTH - TOX_MSGV3_MSGID_LENGTH - TOX_MSGV3_TIMESTAMP_LENGTH - TOX_MSGV3_GUARD)
++
++
+ /**
+  * Maximum size of custom packets. TODO(iphydf): should be LENGTH?
+  *
+@@ -436,13 +443,18 @@ typedef enum TOX_MESSAGE_TYPE {
+     /**
+      * Normal text message. Similar to PRIVMSG on IRC.
+      */
+-    TOX_MESSAGE_TYPE_NORMAL,
++    TOX_MESSAGE_TYPE_NORMAL = 0,
+ 
+     /**
+      * A message describing an user action. This is similar to /me (CTCP ACTION)
+      * on IRC.
+      */
+-    TOX_MESSAGE_TYPE_ACTION,
++    TOX_MESSAGE_TYPE_ACTION = 1,
++
++    /**
++     * A high level ACK for MSG ID (MSG V3 functionality)
++     */
++    TOX_MESSAGE_TYPE_HIGH_LEVEL_ACK = 2,
+ 
+ } TOX_MESSAGE_TYPE;
+ 
+@@ -1225,6 +1237,15 @@ size_t tox_self_get_name_size(const Tox *tox);
+  */
+ void tox_self_get_name(const Tox *tox, uint8_t *name);
+ 
++/**
++ * Write new message ID to a byte array.
++ *
++ * @param msg_id A valid memory location at least TOX_HASH_LENGTH bytes in size.
++ *
++ * @return true on success.
++ */
++bool tox_messagev3_get_new_message_id(uint8_t *msg_id);
++
+ /**
+  * Set the client's status message.
+  *

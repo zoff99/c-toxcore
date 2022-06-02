@@ -1,0 +1,511 @@
+diff --git a/toxcore/Messenger.c b/toxcore/Messenger.c
+index 0165b0e07..c7a81ff66 100644
+--- a/toxcore/Messenger.c
++++ b/toxcore/Messenger.c
+@@ -971,11 +971,16 @@ static void check_friend_connectionstatus(Messenger *m, int32_t friendnumber, ui
+     const uint8_t was_online = m->friendlist[friendnumber].status == FRIEND_ONLINE;
+     const uint8_t is_online = status == FRIEND_ONLINE;
+ 
++    /* if change from ONLINE to OFF-LINE or the reverse */
+     if (is_online != was_online) {
++        /* if change from ONLINE to OFF-LINE */
+         if (was_online) {
++            /* kill all FTs */
+             break_files(m, friendnumber);
++            /* remove all text message receipts */
+             clear_receipts(m, friendnumber);
+         } else {
++            /* if change from OFF-LINE to ONLINE */
+             m->friendlist[friendnumber].name_sent = 0;
+             m->friendlist[friendnumber].userstatus_sent = 0;
+             m->friendlist[friendnumber].statusmessage_sent = 0;
+@@ -1227,11 +1232,18 @@ long int new_filesender(const Messenger *m, int32_t friendnumber, uint32_t file_
+         ft->status = FILESTATUS_NOT_ACCEPTED;
+     }
+ 
++    /* remember the file_type of this FT */
++    ft->file_type = file_type;
++
+     ft->size = filesize;
+ 
+     ft->transferred = 0;
++    ft->transferred_prev = 0;
++
++    ft->needs_resend = 0;
+ 
+     ft->requested = 0;
++    ft->requested_prev = 0;
+ 
+     ft->slots_allocated = 0;
+ 
+@@ -1346,6 +1358,7 @@ int file_control(const Messenger *m, int32_t friendnumber, uint32_t filenumber,
+     if (send_file_control_packet(m, friendnumber, send_receive, file_number, control, nullptr, 0)) {
+         if (control == FILECONTROL_KILL) {
+             ft->status = FILESTATUS_NONE;
++            ft->needs_resend = 0;
+ 
+             if (send_receive == 0) {
+                 --m->friendlist[friendnumber].num_sending_files;
+@@ -1354,6 +1367,7 @@ int file_control(const Messenger *m, int32_t friendnumber, uint32_t filenumber,
+             ft->paused |= FILE_PAUSE_US;
+         } else if (control == FILECONTROL_ACCEPT) {
+             ft->status = FILESTATUS_TRANSFERRING;
++            ft->needs_resend = 0;
+ 
+             if (ft->paused & FILE_PAUSE_US) {
+                 ft->paused ^=  FILE_PAUSE_US;
+@@ -1508,10 +1522,13 @@ int file_data(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uin
+         return -6;
+     }
+ 
+-    int64_t ret = send_file_data_packet(m, friendnumber, filenumber, data, length);
++    int64_t packet_number = send_file_data_packet(m, friendnumber, filenumber, data, length);
++
++    if (packet_number != -1) {
++        if (ft->needs_resend == 1) {
++            ft->needs_resend = 0;
++        }
+ 
+-    if (ret != -1) {
+-        // TODO(irungentoo): record packet ids to check if other received complete file.
+         ft->transferred += length;
+ 
+         if (ft->slots_allocated) {
+@@ -1520,7 +1537,7 @@ int file_data(const Messenger *m, int32_t friendnumber, uint32_t filenumber, uin
+ 
+         if (length != MAX_FILE_DATA_SIZE || ft->size == ft->transferred) {
+             ft->status = FILESTATUS_FINISHED;
+-            ft->last_packet_number = ret;
++            ft->last_packet_number = packet_number;
+         }
+ 
+         return 0;
+@@ -1562,8 +1579,8 @@ uint64_t file_dataremaining(const Messenger *m, int32_t friendnumber, uint8_t fi
+ }
+ 
+ /**
+- * Iterate over all file transfers and request chunks (from the client) for each
+- * of them.
++ * Iterate over all file transfers (only file sending!! not receving) and
++ * request chunks (from the client) for each of them.
+  *
+  * The free_slots parameter is updated by this function.
+  *
+@@ -1594,11 +1611,16 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
+             --num;
+ 
+             // If the file transfer is complete, we request a chunk of size 0.
+-            if (ft->status == FILESTATUS_FINISHED && friend_received_packet(m, friendnumber, ft->last_packet_number) == 0) {
++            if (ft->status == FILESTATUS_FINISHED &&
++                    friend_received_packet(m, friendnumber, ft->last_packet_number) == 0) {
++
++                // send chunck to friend -------------------
+                 if (m->file_reqchunk) {
+                     m->file_reqchunk(m, friendnumber, i, ft->transferred, 0, userdata);
+                 }
+ 
++                // send chunck to friend -------------------
++
+                 // Now it's inactive, we're no longer sending this.
+                 ft->status = FILESTATUS_NONE;
+                 --friendcon->num_sending_files;
+@@ -1636,10 +1658,13 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
+             const uint64_t position = ft->requested;
+             ft->requested += length;
+ 
++            // send chunck to friend -------------------
+             if (m->file_reqchunk) {
+                 m->file_reqchunk(m, friendnumber, i, position, length, userdata);
+             }
+ 
++            // send chunck to friend -------------------
++
+             // The allocated slot is no longer free.
+             --*free_slots;
+         }
+@@ -1652,6 +1677,7 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
+     return any_active_fts;
+ }
+ 
++/* call a function to iterate over all sending (not receiving) filetransfers */
+ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdata)
+ {
+     // We're not currently doing any file transfers.
+@@ -1695,12 +1721,28 @@ static void break_files(const Messenger *m, int32_t friendnumber)
+ {
+     // TODO(irungentoo): Inform the client which file transfers get killed with a callback?
+     for (uint32_t i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
++
++        m->friendlist[friendnumber].file_sending[i].needs_resend = 0;
++        m->friendlist[friendnumber].file_receiving[i].needs_resend = 0;
++
+         if (m->friendlist[friendnumber].file_sending[i].status != FILESTATUS_NONE) {
+-            m->friendlist[friendnumber].file_sending[i].status = FILESTATUS_NONE;
++            /* only reset avatar and msgV2 FTs, but NOT normal data FTs */
++            if (m->friendlist[friendnumber].file_sending[i].file_type != TOX_FILE_KIND_DATA) {
++                m->friendlist[friendnumber].file_sending[i].status = FILESTATUS_NONE;
++            } else {
++                if (m->friendlist[friendnumber].file_sending[i].status == FILESTATUS_TRANSFERRING) {
++                    m->friendlist[friendnumber].file_sending[i].needs_resend = 1;
++                    m->friendlist[friendnumber].file_sending[i].transferred =  m->friendlist[friendnumber].file_sending[i].transferred_prev;
++                    m->friendlist[friendnumber].file_sending[i].requested =  m->friendlist[friendnumber].file_sending[i].requested_prev;
++                }
++            }
+         }
+ 
+         if (m->friendlist[friendnumber].file_receiving[i].status != FILESTATUS_NONE) {
+-            m->friendlist[friendnumber].file_receiving[i].status = FILESTATUS_NONE;
++            /* only reset avatar and msgV2 FTs, but NOT normal data FTs */
++            if (m->friendlist[friendnumber].file_receiving[i].file_type != TOX_FILE_KIND_DATA) {
++                m->friendlist[friendnumber].file_receiving[i].status = FILESTATUS_NONE;
++            }
+         }
+     }
+ }
+@@ -1711,6 +1753,7 @@ static struct File_Transfers *get_file_transfer(uint8_t receive_send, uint8_t fi
+     struct File_Transfers *ft;
+ 
+     if (receive_send == 0) {
++        // TODO: what is happening here?
+         *real_filenumber = (filenumber + 1) << 16;
+         ft = &sender->file_receiving[filenumber];
+     } else {
+@@ -1750,6 +1793,7 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, uint8_t receiv
+         case FILECONTROL_ACCEPT: {
+             if (receive_send && ft->status == FILESTATUS_NOT_ACCEPTED) {
+                 ft->status = FILESTATUS_TRANSFERRING;
++                ft->needs_resend = 0;
+             } else {
+                 if (ft->paused & FILE_PAUSE_OTHER) {
+                     ft->paused ^= FILE_PAUSE_OTHER;
+@@ -1789,6 +1833,7 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, uint8_t receiv
+             }
+ 
+             ft->status = FILESTATUS_NONE;
++            ft->needs_resend = 0;
+ 
+             if (receive_send) {
+                 --m->friendlist[friendnumber].num_sending_files;
+@@ -2398,6 +2443,7 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
+             break;
+         }
+ 
++        // handle receiving files ----
+         case PACKET_ID_FILE_SENDREQUEST: {
+             const unsigned int head_length = 1 + sizeof(uint32_t) + sizeof(uint64_t) + FILE_ID_LENGTH;
+ 
+@@ -2431,9 +2477,21 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
+             struct File_Transfers *ft = &m->friendlist[i].file_receiving[filenumber];
+ 
+             if (ft->status != FILESTATUS_NONE) {
++                if (ft->status == FILESTATUS_TRANSFERRING) {
++
++                    // TODO: we are receiving a filetransfer that we don't know about
++                    //       should we send FILECONTROL_KILL back to friend, to let him know?
++                    //
++                    // well, yes
++                    uint8_t send_receive = 1; // 0 -> send, 1 -> receive
++                    send_file_control_packet(m, i, send_receive, filenumber, FILECONTROL_KILL, nullptr, 0);
++                }
++
+                 break;
+             }
+ 
++            /* remember the file_type of this FT */
++            ft->file_type = file_type;
+ 
+             if ((file_type == TOX_FILE_KIND_MESSAGEV2_SEND)
+                     ||
+@@ -2503,6 +2561,7 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
+             break;
+         }
+ 
++        // handle receiving files ----
+         case PACKET_ID_FILE_DATA: {
+             if (data_length < 1) {
+                 break;
+@@ -2521,6 +2580,13 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
+             struct File_Transfers *ft = &m->friendlist[i].file_receiving[filenumber];
+ 
+             if (ft->status != FILESTATUS_TRANSFERRING) {
++                // TODO: should we send something back to friend
++                // well, yes
++                //
++                // Zoff: deactivating this again, not sure if FT packets can arrive out of order?
++                //       and don't want to make FTs unstable again
++                // uint8_t send_receive = 1; // 0 -> send, 1 -> receive
++                // send_file_control_packet(m, i, send_receive, filenumber, FILECONTROL_KILL, nullptr, 0);
+                 break;
+             }
+ 
+@@ -3105,6 +3171,115 @@ static State_Load_Status m_dht_load(Messenger *m, const uint8_t *data, uint32_t
+     return STATE_LOAD_STATUS_CONTINUE;
+ }
+ 
++// friendft state plugin
++static uint32_t saved_friendsft_size(const Messenger *m)
++{
++    uint32_t save_bytes = sizeof(uint32_t) +
++                          m->numfriends * (
++                              sizeof(uint8_t) * CRYPTO_PUBLIC_KEY_SIZE
++                              + sizeof(uint32_t)
++                              + (sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES * 2)
++                          );
++    return save_bytes;
++}
++
++static uint8_t *friendsft_save(const Messenger *m, uint8_t *data)
++{
++    uint32_t len;
++    uint32_t nf;
++    void *buf;
++
++    const uint32_t len1 = m_plugin_size(m, STATE_TYPE_FRIENDSFILETRANSFERS);
++    data = state_write_section_header(data, STATE_COOKIE_TYPE, len1, STATE_TYPE_FRIENDSFILETRANSFERS);
++
++    len = sizeof(uint32_t);
++    nf = m->numfriends;
++    memcpy(data, &nf, len);
++    data += len;
++
++    for (uint32_t i = 0; i < m->numfriends; ++i) {
++        len = sizeof(uint8_t) * CRYPTO_PUBLIC_KEY_SIZE;
++        buf = m->friendlist[i].real_pk;
++        memcpy(data, buf, len);
++        data += len;
++
++        len = sizeof(uint32_t);
++        buf = &(m->friendlist[i].num_sending_files);
++        memcpy(data, buf, len);
++        data += len;
++
++        len = sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES;
++        buf = m->friendlist[i].file_sending;
++        memcpy(data, buf, len);
++        data += len;
++
++        len = sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES;
++        buf = m->friendlist[i].file_receiving;
++        memcpy(data, buf, len);
++        data += len;
++    }
++
++    return data;
++}
++
++static State_Load_Status friendsft_load(Messenger *m, const uint8_t *data2, uint32_t length)
++{
++    if (length > sizeof(uint32_t)) {
++
++        uint8_t *data = data2;
++        uint32_t length_should_be = sizeof(uint32_t) +
++                                    m->numfriends * (
++                                        (sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES * 2)
++                                        + sizeof(uint32_t)
++                                    );
++
++        if (length != length_should_be) {
++            // wrong length, there is a problem!
++        } else {
++
++            uint32_t saved_friendsft_num = (uint32_t) * data;
++            int32_t found_friendnum = -1;
++            uint32_t len = 0;
++            data = data + sizeof(uint32_t);
++
++            for (uint32_t i = 0; i < saved_friendsft_num; ++i) {
++
++                // find friendnum by pubkey
++                len = sizeof(uint8_t) * CRYPTO_PUBLIC_KEY_SIZE;
++                found_friendnum = getfriend_id(m, (uint8_t *)data);
++                data = data + len;
++
++                if (found_friendnum > -1) {
++
++                    // now load FTs of this friend
++                    len = sizeof(uint32_t);
++                    m->friendlist[found_friendnum].num_sending_files = (uint32_t) * data;
++                    data = data + len;
++
++                    len = sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES;
++                    memcpy(m->friendlist[found_friendnum].file_sending, data, len);
++                    data += len;
++
++                    len = sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES;
++                    memcpy(m->friendlist[found_friendnum].file_receiving, data, len);
++                    data += len;
++
++                    // reset any FTs that are not normal DATA FTs (like Avatar or MsgV2 FTs)
++                    break_files(m, found_friendnum);
++
++                } else {
++                    // skip this friends data
++                    data = data
++                           + sizeof(uint32_t)
++                           + sizeof(struct File_Transfers) * MAX_CONCURRENT_FILE_PIPES * 2;
++                }
++            }
++        }
++    }
++
++    return STATE_LOAD_STATUS_CONTINUE;
++}
++
+ // friendlist state plugin
+ static uint32_t saved_friendslist_size(const Messenger *m)
+ {
+@@ -3312,7 +3487,8 @@ static uint8_t *save_tcp_relays(const Messenger *m, uint8_t *data)
+     return data;
+ }
+ 
+-static State_Load_Status load_tcp_relays(Messenger *m, const uint8_t *data, uint32_t length)
++static State_Load_Status messenger_load_state_callback(void *outer, const uint8_t *data, uint32_t length,
++        uint16_t type)
+ {
+     if (length != 0) {
+         m->num_loaded_relays = unpack_nodes(m->loaded_relays, NUM_SAVED_TCP_RELAYS, nullptr, data, length, 1);
+@@ -3372,6 +3548,7 @@ static void m_register_default_plugins(Messenger *m)
+     m_register_state_plugin(m, STATE_TYPE_STATUS, status_size, load_status, save_status);
+     m_register_state_plugin(m, STATE_TYPE_TCP_RELAY, tcp_relay_size, load_tcp_relays, save_tcp_relays);
+     m_register_state_plugin(m, STATE_TYPE_PATH_NODE, path_node_size, load_path_nodes, save_path_nodes);
++    m_register_state_plugin(m, STATE_TYPE_FRIENDSFILETRANSFERS, saved_friendsft_size, friendsft_load, friendsft_save);
+ }
+ 
+ bool messenger_load_state_section(Messenger *m, const uint8_t *data, uint32_t length, uint16_t type,
+diff --git a/toxcore/Messenger.h b/toxcore/Messenger.h
+index 7ce89cd75..a19994853 100644
+--- a/toxcore/Messenger.h
++++ b/toxcore/Messenger.h
+@@ -147,13 +147,18 @@ typedef enum Userstatus {
+ struct File_Transfers {
+     uint64_t size;
+     uint64_t transferred;
+-    uint8_t status; /* 0 == no transfer, 1 = not accepted, 3 = transferring, 4 = broken, 5 = finished */
+-    uint8_t paused; /* 0: not paused, 1 = paused by us, 2 = paused by other, 3 = paused by both. */
++    uint64_t transferred_prev;
++    uint8_t status; /* -> Filestatus */ /* 0 == no transfer, 1 = not accepted, 3 = transferring, 4 = broken, 5 = finished */
++    uint8_t paused; /* -> File_Pause */ /* 0: not paused, 1 = paused by us, 2 = paused by other, 3 = paused by both. */
+     uint32_t last_packet_number; /* number of the last packet sent. */
+     uint64_t requested; /* total data requested by the request chunk callback */
++    uint64_t requested_prev; /* total data requested by the previous request chunk callback */
+     unsigned int slots_allocated; /* number of slots allocated to this transfer. */
+     uint8_t id[FILE_ID_LENGTH];
++    uint32_t file_type; /* TOX_FILE_KIND of this FT */
++    uint8_t needs_resend; /* resend last chunk (after restart of tox or going offline), ONLY valid for sending FTs */
+ };
++
+ typedef enum Filestatus {
+     FILESTATUS_NONE,
+     FILESTATUS_NOT_ACCEPTED,
+@@ -245,9 +250,12 @@ typedef struct Friend {
+     uint32_t friendrequest_nospam; // The nospam number used in the friend request.
+     uint64_t last_seen_time;
+     uint8_t last_connection_udp_tcp;
++
++    /* save these 3 for resumable FTs */
+     struct File_Transfers file_sending[MAX_CONCURRENT_FILE_PIPES];
+     uint32_t num_sending_files;
+     struct File_Transfers file_receiving[MAX_CONCURRENT_FILE_PIPES];
++    /* save these 3 for resumable FTs */
+ 
+     RTP_Packet_Handler lossy_rtp_packethandlers[PACKET_ID_RANGE_LOSSY_AV_SIZE];
+ 
+diff --git a/toxcore/state.h b/toxcore/state.h
+index 829036d8d..7609f9e33 100644
+--- a/toxcore/state.h
++++ b/toxcore/state.h
+@@ -31,7 +31,7 @@ typedef enum State_Type {
+     STATE_TYPE_STATUS        = 6,
+     STATE_TYPE_TCP_RELAY     = 10,
+     STATE_TYPE_PATH_NODE     = 11,
+-    STATE_TYPE_CONFERENCES   = 20,
++    STATE_TYPE_FRIENDSFILETRANSFERS = 13,
+     STATE_TYPE_END           = 255,
+ } State_Type;
+ 
+diff --git a/toxcore/tox.api.h b/toxcore/tox.api.h
+index 2491f4489..bb0860470 100644
+--- a/toxcore/tox.api.h
++++ b/toxcore/tox.api.h
+@@ -1696,7 +1696,7 @@ namespace file {
+      * Arbitrary file data. Clients can choose to handle it based on the file name
+      * or magic or any other way they choose.
+      */
+-    DATA,
++    DATA = 0,
+     /**
+      * Avatar file_id. This consists of $hash(image).
+      * Avatar data. This consists of the image data.
+@@ -1717,16 +1717,16 @@ namespace file {
+      * When file_size is set to 0 in the transfer request it means that the client
+      * has no avatar.
+      */
+-    AVATAR,
++    AVATAR = 1,
+     /**
+      * MessageV2 Filetransfers
+      *
+      * filetransfers of this type are always autoaccepted
+      * and the overall size is limited to TOX_MAX_FILETRANSFER_SIZE_MSGV2
+      */
+-    MESSAGEV2_SEND,
+-    MESSAGEV2_ANSWER,
+-    MESSAGEV2_ALTER,
++    MESSAGEV2_SEND = 2,
++    MESSAGEV2_ANSWER = 3,
++    MESSAGEV2_ALTER = 4,
+   }
+ 
+ 
+diff --git a/toxcore/tox.h b/toxcore/tox.h
+index acc8a502f..e48273922 100644
+--- a/toxcore/tox.h
++++ b/toxcore/tox.h
+@@ -1901,13 +1901,16 @@ bool tox_hash(uint8_t *hash, const uint8_t *data, size_t length);
+  * clients can invent their own file kind. Unknown file kinds should be
+  * treated as TOX_FILE_KIND_DATA.
+  */
++/**
++ * pin down actual numbers here, since they are sent over the network to other nodes
++ */
+ enum TOX_FILE_KIND {
+ 
+     /**
+      * Arbitrary file data. Clients can choose to handle it based on the file name
+      * or magic or any other way they choose.
+      */
+-    TOX_FILE_KIND_DATA,
++    TOX_FILE_KIND_DATA = 0,
+ 
+     /**
+      * Avatar file_id. This consists of tox_hash(image).
+@@ -1929,7 +1932,7 @@ enum TOX_FILE_KIND {
+      * When file_size is set to 0 in the transfer request it means that the client
+      * has no avatar.
+      */
+-    TOX_FILE_KIND_AVATAR,
++    TOX_FILE_KIND_AVATAR = 1,
+ 
+     /**
+      * MessageV2 Filetransfers
+@@ -1937,9 +1940,17 @@ enum TOX_FILE_KIND {
+      * filetransfers of this type are always autoaccepted
+      * and the overall size is limited to TOX_MAX_FILETRANSFER_SIZE_MSGV2
+      */
+-    TOX_FILE_KIND_MESSAGEV2_SEND,
+-    TOX_FILE_KIND_MESSAGEV2_ANSWER,
+-    TOX_FILE_KIND_MESSAGEV2_ALTER,
++    TOX_FILE_KIND_MESSAGEV2_SEND = 2,
++
++    /**
++     * TODO: Generate doc
++     */
++    TOX_FILE_KIND_MESSAGEV2_ANSWER = 3,
++
++    /**
++     * TODO: Generate doc
++     */
++    TOX_FILE_KIND_MESSAGEV2_ALTER = 4,
+ 
+ };
+ 
