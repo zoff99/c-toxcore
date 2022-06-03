@@ -226,9 +226,9 @@ static void test_basic(void)
     const Network *ns = system_network();
 
     Logger *log1 = logger_new();
-    logger_callback_log(log1, (logger_cb *)print_debug_log, nullptr, &index[0]);
+    logger_callback_log(log1, print_debug_logger, nullptr, &index[0]);
     Logger *log2 = logger_new();
-    logger_callback_log(log2, (logger_cb *)print_debug_log, nullptr, &index[1]);
+    logger_callback_log(log2, print_debug_logger, nullptr, &index[1]);
 
     const Random *rng = system_random();
     ck_assert(rng != nullptr);
@@ -329,7 +329,7 @@ static void test_basic(void)
 
     c_sleep(1000);
     Logger *log3 = logger_new();
-    logger_callback_log(log3, (logger_cb *)print_debug_log, nullptr, &index[2]);
+    logger_callback_log(log3, print_debug_logger, nullptr, &index[2]);
 
     Mono_Time *mono_time3 = mono_time_new(nullptr, nullptr);
 
@@ -418,7 +418,7 @@ static Onions *new_onions(const Random *rng, uint16_t port, uint32_t *index)
         return nullptr;
     }
 
-    logger_callback_log(on->log, (logger_cb *)print_debug_log, nullptr, index);
+    logger_callback_log(on->log, print_debug_logger, nullptr, index);
 
     on->mono_time = mono_time_new(nullptr, nullptr);
 
@@ -540,10 +540,10 @@ static void dht_pk_callback(void *object, int32_t number, const uint8_t *dht_pub
 {
     if ((NUM_FIRST == number && !first) || (NUM_LAST == number && !last)) {
         Onions *on = (Onions *)object;
-        uint16_t count = 0;
-        int ret = dht_addfriend(on->onion->dht, dht_public_key, &dht_ip_callback, object, number, &count);
+        uint32_t token = 0;
+        int ret = dht_addfriend(on->onion->dht, dht_public_key, &dht_ip_callback, object, number, &token);
         ck_assert_msg(ret == 0, "dht_addfriend() did not return 0");
-        ck_assert_msg(count == 1, "Count not 1, count is %u", count);
+        ck_assert_msg(token == 1, "Count not 1, count is %u", token);
 
         if (NUM_FIRST == number && !first) {
             first = 1;
