@@ -11,6 +11,7 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -407,6 +408,39 @@ void gc_save_pack_group(const GC_Chat *chat, Bin_Pack *bp)
     }
 
     bin_pack_array(bp, 7);
+
+#if 0
+    // --------------------------------------
+    // HINT: dump chat struct with data
+#if defined __GNUC__
+    #ifdef __MINGW32__
+        #define COMPILER "MinGW GCC %d.%d.%d"
+    #else
+        #define COMPILER "GCC %d.%d.%d"
+    #endif
+
+    #if defined(__clang__)
+        #define COMP_VERSION __clang_major__, __clang_minor__, __clang_patchlevel__
+        #define COMPILER_CLANG "Clang %d.%d.%d"
+        printf("  Compiled using " COMPILER_CLANG "\n", COMP_VERSION);
+    #else
+        #define COMP_VERSION __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__
+        printf("  Compiled using " COMPILER "\n", COMP_VERSION);
+    #endif
+#endif
+
+#if defined(__clang__) && (__clang_major__ > 7)
+    printf("\n");
+    printf("\n");
+    printf("========= START =========\n");
+    __builtin_dump_struct(chat, &printf);
+    printf("=========  END  =========\n");
+    printf("\n");
+    printf("\n");
+#endif
+    // HINT: dump chat struct with data
+    // ---------------------------------------
+#endif
 
     save_pack_state_values(chat, bp); // 1
     save_pack_state_bin(chat, bp); // 2
