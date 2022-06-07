@@ -7056,7 +7056,7 @@ static void do_self_connection(const GC_Session *c, GC_Chat *chat)
     const bool udp_change = (chat->self_udp_status != self_udp_status) && (self_udp_status != SELF_UDP_STATUS_NONE);
     const bool tcp_change = tcp_connections != chat->tcp_connections;
 
-    if (udp_change || tcp_change) {
+    if (is_public_chat(chat) && (udp_change || tcp_change)) {
         chat->update_self_announces = true;
     }
 
