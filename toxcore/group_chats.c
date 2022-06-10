@@ -7245,10 +7245,10 @@ static bool init_gc_tcp_connection(const GC_Session *c, GC_Chat *chat)
 
 /** Initializes default shared state values. */
 non_null()
-static void init_gc_shared_state(GC_Chat *chat)
+static void init_gc_shared_state(GC_Chat *chat, const Group_Privacy_State privacy_state)
 {
     chat->shared_state.maxpeers = MAX_GC_PEERS_DEFAULT;
-    chat->shared_state.privacy_state = GI_PUBLIC;
+    chat->shared_state.privacy_state = privacy_state;
     chat->shared_state.topic_lock = GC_TOPIC_LOCK_ENABLED;
     chat->shared_state.voice_state = GV_ALL;
 }
@@ -7289,7 +7289,8 @@ non_null()
 static bool create_new_chat_ext_keypair(GC_Chat *chat);
 
 non_null()
-static int create_new_group(GC_Session *c, const uint8_t *nick, size_t nick_length, bool founder)
+static int create_new_group(GC_Session *c, const uint8_t *nick, size_t nick_length, bool founder,
+                            const Group_Privacy_State privacy_state)
 {
     if (nick == nullptr || nick_length == 0) {
         return -1;
@@ -7347,7 +7348,7 @@ static int create_new_group(GC_Session *c, const uint8_t *nick, size_t nick_leng
     self_gc_set_confirmed(chat, true);
     self_gc_set_ext_public_key(chat, chat->self_public_key);
 
-    init_gc_shared_state(chat);
+    init_gc_shared_state(chat, privacy_state);
     init_gc_moderation(chat);
 
     return group_number;
@@ -7506,7 +7507,7 @@ int gc_group_add(GC_Session *c, Group_Privacy_State privacy_state, const uint8_t
         return -2;
     }
 
-    const int group_number = create_new_group(c, nick, nick_length, true);
+    const int group_number = create_new_group(c, nick, nick_length, true, privacy_state);
 
     if (group_number == -1) {
         return -3;
@@ -7570,7 +7571,7 @@ int gc_group_join(GC_Session *c, const uint8_t *chat_id, const uint8_t *nick, si
         return -4;
     }
 
-    const int group_number = create_new_group(c, nick, nick_length, false);
+    const int group_number = create_new_group(c, nick, nick_length, false, GI_PUBLIC);
 
     if (group_number == -1) {
         return -1;
@@ -8007,7 +8008,7 @@ int gc_accept_invite(GC_Session *c, int32_t friend_number, const uint8_t *data, 
     const uint8_t *chat_id = data;
     const uint8_t *invite_chat_pk = data + CHAT_ID_SIZE;
 
-    const int group_number = create_new_group(c, nick, nick_length, false);
+    const int group_number = create_new_group(c, nick, nick_length, false, GI_PRIVATE);
 
     if (group_number == -1) {
         return -2;
