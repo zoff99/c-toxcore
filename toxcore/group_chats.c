@@ -1243,6 +1243,7 @@ static uint16_t unpack_gc_shared_state(GC_SharedState *shared_state, const uint8
 
     uint8_t privacy_state;
     memcpy(&privacy_state, data + len_processed, sizeof(uint8_t));
+printf("privacy_state:001:%d\n", privacy_state);
     len_processed += sizeof(uint8_t);
 
     net_unpack_u16(data + len_processed, &shared_state->password_length);
@@ -1260,6 +1261,7 @@ static uint16_t unpack_gc_shared_state(GC_SharedState *shared_state, const uint8
 
     shared_state->voice_state = (Group_Voice_State)voice_state;
     shared_state->privacy_state = (Group_Privacy_State)privacy_state;
+printf("privacy_state:002:%d\n", privacy_state);
 
     return len_processed;
 }
@@ -2774,7 +2776,7 @@ static bool broadcast_gc_shared_state(const GC_Chat *chat)
 non_null(1, 2) nullable(3)
 static void do_privacy_state_change(const GC_Session *c, GC_Chat *chat, void *userdata)
 {
-printf("is_public_chat:001:%d\n", is_public_chat(chat));
+printf("is_public_chat:003:%d\n", is_public_chat(chat));
 //    if (is_public_chat(chat)) {
 //        if (!m_create_group_connection(c->messenger, chat)) {
 //            LOGGER_ERROR(chat->log, "Failed to initialize group friend connection");
@@ -2810,6 +2812,7 @@ static void do_gc_shared_state_changes(const GC_Session *c, GC_Chat *chat, const
     /* privacy state changed */
     if (chat->shared_state.privacy_state != old_shared_state->privacy_state) {
         do_privacy_state_change(c, chat, userdata);
+        printf("privacy_state:004:%d\n", chat->shared_state.privacy_state);
     }
 
     /* password changed */
@@ -4671,6 +4674,8 @@ int gc_founder_set_privacy_state(const Messenger *m, int group_number, Group_Pri
     const GC_Session *c = m->group_handler;
     GC_Chat *chat = gc_get_group(c, group_number);
 
+    printf("privacy_state:005:%d\n", new_privacy_state);
+
     if (chat == nullptr) {
         return -1;
     }
@@ -4690,9 +4695,12 @@ int gc_founder_set_privacy_state(const Messenger *m, int group_number, Group_Pri
     }
 
     chat->shared_state.privacy_state = new_privacy_state;
+printf("privacy_state:006:%d\n", chat->shared_state.privacy_state);
+
 
     if (!sign_gc_shared_state(chat)) {
         chat->shared_state.privacy_state = old_privacy_state;
+printf("privacy_state:007:%d\n", chat->shared_state.privacy_state);
         return -4;
     }
 
@@ -7252,6 +7260,7 @@ static void init_gc_shared_state(GC_Chat *chat)
 {
     chat->shared_state.maxpeers = MAX_GC_PEERS_DEFAULT;
     chat->shared_state.privacy_state = GI_PUBLIC;
+printf("privacy_state:008:%d\n", chat->shared_state.privacy_state);
     chat->shared_state.topic_lock = GC_TOPIC_LOCK_ENABLED;
     chat->shared_state.voice_state = GV_ALL;
 }
@@ -7268,6 +7277,7 @@ static bool init_gc_shared_state_founder(GC_Chat *chat, Group_Privacy_State priv
     memcpy(chat->shared_state.group_name, group_name, name_length);
     chat->shared_state.group_name_len = name_length;
     chat->shared_state.privacy_state = privacy_state;
+printf("privacy_state:009:%d\n", chat->shared_state.privacy_state);
 
     return sign_gc_shared_state(chat);
 }
@@ -7494,6 +7504,9 @@ int gc_group_add(GC_Session *c, Group_Privacy_State privacy_state, const uint8_t
                  uint16_t group_name_length,
                  const uint8_t *nick, size_t nick_length)
 {
+printf("privacy_state:010:%d\n", privacy_state);
+
+
     if (group_name_length > MAX_GC_GROUP_NAME_SIZE) {
         return -1;
     }
