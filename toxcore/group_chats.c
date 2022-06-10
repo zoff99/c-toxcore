@@ -2774,6 +2774,7 @@ static bool broadcast_gc_shared_state(const GC_Chat *chat)
 non_null(1, 2) nullable(3)
 static void do_privacy_state_change(const GC_Session *c, GC_Chat *chat, void *userdata)
 {
+printf("is_public_chat:001:%d\n", is_public_chat(chat));
 //    if (is_public_chat(chat)) {
 //        if (!m_create_group_connection(c->messenger, chat)) {
 //            LOGGER_ERROR(chat->log, "Failed to initialize group friend connection");
@@ -7056,6 +7057,7 @@ static void do_self_connection(const GC_Session *c, GC_Chat *chat)
     const bool udp_change = (chat->self_udp_status != self_udp_status) && (self_udp_status != SELF_UDP_STATUS_NONE);
     const bool tcp_change = tcp_connections != chat->tcp_connections;
 
+printf("is_public_chat:002:%d\n", is_public_chat(chat));
 //    if (is_public_chat(chat) && (udp_change || tcp_change)) {
 //        chat->update_self_announces = true;
 //    }
@@ -7074,6 +7076,7 @@ static void do_self_connection(const GC_Session *c, GC_Chat *chat)
 non_null()
 static void do_timed_out_reconn(GC_Chat *chat)
 {
+printf("is_public_chat:003:%d\n", is_public_chat(chat));
 //    if (is_public_chat(chat)) {
 //        return;
 //    }
@@ -7477,6 +7480,7 @@ int gc_group_load(GC_Session *c, Bin_Unpack *bu)
         return group_number;
     }
 
+printf("is_public_chat:004:%d\n", is_public_chat(chat));
 //    if (is_public_chat(chat)) {
 //        if (!m_create_group_connection(m, chat)) {
 //            LOGGER_ERROR(chat->log, "Failed to initialize group friend connection");
@@ -7542,6 +7546,7 @@ int gc_group_add(GC_Session *c, Group_Privacy_State privacy_state, const uint8_t
     chat->connection_state = CS_CONNECTED;
     chat->time_connected = mono_time_get(c->messenger->mono_time);
 
+printf("is_public_chat:005:%d\n", is_public_chat(chat));
 //    if (is_public_chat(chat)) {
 //        if (!m_create_group_connection(c->messenger, chat)) {
 //            LOGGER_ERROR(chat->log, "Failed to initialize group friend connection");
@@ -7645,6 +7650,7 @@ int gc_rejoin_group(GC_Session *c, GC_Chat *chat)
         gcc_mark_for_deletion(gconn, chat->tcp_conn, GC_EXIT_TYPE_SELF_DISCONNECTED, nullptr, 0);
     }
 
+printf("is_public_chat:006:%d\n", is_public_chat(chat));
 //    if (is_public_chat(chat)) {
 //        kill_group_friend_connection(c, chat);
 //
@@ -8336,6 +8342,7 @@ int gc_add_peers_from_announces(GC_Chat *chat, const GC_Announce *announces, uin
         return -1;
     }
 
+printf("is_public_chat:007:%d\n", is_public_chat(chat));
 //    if (!is_public_chat(chat)) {
         return 0;
 //    }
