@@ -185,6 +185,12 @@ typedef enum Group_Privacy_State {
     GI_PRIVATE  = 0x01,  // Peers may only join the group via a friend invite
 } Group_Privacy_State;
 
+/** Handshake join types. */
+typedef enum Group_Handshake_Join_Type {
+    HJ_PUBLIC = 0x00,   // Indicates the group was joined via the DHT
+    HJ_PRIVATE = 0x01,  // Indicates the group was joined via private friend invite
+} Group_Handshake_Join_Type;
+
 typedef struct GC_SavedPeerInfo {
     uint8_t     public_key[ENC_PUBLIC_KEY_SIZE];
     Node_format tcp_relay;
@@ -247,6 +253,7 @@ typedef struct GC_Chat {
 
     uint32_t        tcp_connections; // the number of global TCP relays we're connected to
     uint64_t        last_checked_tcp_relays;
+    Group_Handshake_Join_Type join_type;
 
     GC_Peer         *group;
     Moderation      moderation;

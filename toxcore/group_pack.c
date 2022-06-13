@@ -47,6 +47,7 @@ static bool load_unpack_state_values(GC_Chat *chat, Bin_Unpack *bu)
     chat->connection_state = manually_disconnected ? CS_DISCONNECTED : CS_CONNECTING;
     chat->shared_state.privacy_state = (Group_Privacy_State)privacy_state;
     chat->shared_state.voice_state = (Group_Voice_State)voice_state;
+    chat->join_type = chat->shared_state.privacy_state == GI_PUBLIC ? HJ_PUBLIC : HJ_PRIVATE;
 
     return true;
 }

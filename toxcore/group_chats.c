@@ -33,7 +33,7 @@
 #ifndef VANILLA_NACL
 
 /* The minimum size of a plaintext group handshake packet */
-#define GC_MIN_HS_PACKET_PAYLOAD_SIZE (1 + ENC_PUBLIC_KEY_SIZE + SIG_PUBLIC_KEY_SIZE + 1)
+#define GC_MIN_HS_PACKET_PAYLOAD_SIZE (1 + ENC_PUBLIC_KEY_SIZE + SIG_PUBLIC_KEY_SIZE + 1 + 1)
 
 /* The minimum size of an encrypted group handshake packet. */
 #define GC_MIN_ENCRYPTED_HS_PAYLOAD_SIZE (1 + ENC_PUBLIC_KEY_SIZE + ENC_PUBLIC_KEY_SIZE +\
@@ -1647,7 +1647,7 @@ static bool send_gc_sync_response(const GC_Chat *chat, GC_Connection *gconn, con
 
 non_null() static bool send_gc_peer_exchange(const GC_Chat *chat, GC_Connection *gconn);
 non_null() static bool send_gc_handshake_packet(const GC_Chat *chat, GC_Connection *gconn, uint8_t handshake_type,
-        uint8_t request_type);
+        uint8_t request_type, uint8_t join_type);
 non_null() static bool send_gc_oob_handshake_request(const GC_Chat *chat, const GC_Connection *gconn);
 
 /** @brief Unpacks a sync announce.
@@ -2779,10 +2779,12 @@ static void do_privacy_state_change(const GC_Session *c, GC_Chat *chat, void *us
             LOGGER_ERROR(chat->log, "Failed to initialize group friend connection");
         } else {
             chat->update_self_announces = true;
+            chat->join_type = HJ_PUBLIC;
         }
     } else {
         kill_group_friend_connection(c, chat);
         cleanup_gca(c->announces_list, get_chat_id(chat->chat_public_key));
+        chat->join_type = HJ_PRIVATE;
     }
 
     if (c->privacy_state != nullptr) {
@@ -4698,11 +4700,13 @@ int gc_founder_set_privacy_state(const Messenger *m, int group_number, Group_Pri
     if (new_privacy_state == GI_PRIVATE) {
         cleanup_gca(c->announces_list, get_chat_id(chat->chat_public_key));
         kill_group_friend_connection(c, chat);
+        chat->join_type = HJ_PRIVATE;
     } else {
         if (!m_create_group_connection(c->messenger, chat)) {
             LOGGER_ERROR(chat->log, "Failed to initialize group friend connection");
         } else {
             chat->update_self_announces = true;
+            chat->join_type = HJ_PUBLIC;
         }
     }
 
@@ -5443,7 +5447,7 @@ static int wrap_group_handshake_packet(
  */
 non_null()
 static int make_gc_handshake_packet(const GC_Chat *chat, const GC_Connection *gconn, uint8_t handshake_type,
-                                    uint8_t request_type, uint8_t *packet, size_t packet_size,
+                                    uint8_t request_type, uint8_t join_type, uint8_t *packet, size_t packet_size,
                                     const Node_format *node)
 {
     if (packet_size != GC_MIN_ENCRYPTED_HS_PAYLOAD_SIZE + sizeof(Node_format)) {
@@ -5465,6 +5469,8 @@ static int make_gc_handshake_packet(const GC_Chat *chat, const GC_Connection *gc
     memcpy(data + length, get_sig_pk(chat->self_public_key), SIG_PUBLIC_KEY_SIZE);
     length += SIG_PUBLIC_KEY_SIZE;
     memcpy(data + length, &request_type, sizeof(uint8_t));
+    length += sizeof(uint8_t);
+    memcpy(data + length, &join_type, sizeof(uint8_t));
     length += sizeof(uint8_t);
 
     int nodes_size = pack_nodes(chat->log, data + length, sizeof(Node_format), node, MAX_SENT_GC_NODES);
@@ -5495,7 +5501,7 @@ static int make_gc_handshake_packet(const GC_Chat *chat, const GC_Connection *gc
  */
 non_null()
 static bool send_gc_handshake_packet(const GC_Chat *chat, GC_Connection *gconn, uint8_t handshake_type,
-                                     uint8_t request_type)
+                                     uint8_t request_type, uint8_t join_type)
 {
     if (gconn == nullptr) {
         return false;
@@ -5507,7 +5513,7 @@ static bool send_gc_handshake_packet(const GC_Chat *chat, GC_Connection *gconn, 
     gcc_copy_tcp_relay(chat->rng, &node, gconn);
 
     uint8_t packet[GC_MIN_ENCRYPTED_HS_PAYLOAD_SIZE + sizeof(Node_format)];
-    const int length = make_gc_handshake_packet(chat, gconn, handshake_type, request_type, packet,
+    const int length = make_gc_handshake_packet(chat, gconn, handshake_type, request_type, join_type, packet,
                        sizeof(packet), &node);
 
     if (length < 0) {
@@ -5564,7 +5570,7 @@ static bool send_gc_oob_handshake_request(const GC_Chat *chat, const GC_Connecti
     }
 
     uint8_t packet[GC_MIN_ENCRYPTED_HS_PAYLOAD_SIZE + sizeof(Node_format)];
-    const int length = make_gc_handshake_packet(chat, gconn, GH_REQUEST, gconn->pending_handshake_type,
+    const int length = make_gc_handshake_packet(chat, gconn, GH_REQUEST, gconn->pending_handshake_type, chat->join_type,
                        packet, sizeof(packet), &node);
 
     if (length < 0) {
@@ -5652,7 +5658,7 @@ static int handle_gc_handshake_response(const GC_Chat *chat, const uint8_t *send
 non_null()
 static bool send_gc_handshake_response(const GC_Chat *chat, GC_Connection *gconn)
 {
-    return send_gc_handshake_packet(chat, gconn, GH_RESPONSE, gconn->pending_handshake_type);
+    return send_gc_handshake_packet(chat, gconn, GH_RESPONSE, gconn->pending_handshake_type, 0);
 }
 
 /** @brief Handles handshake request packets.
@@ -5671,7 +5677,7 @@ static int handle_gc_handshake_request(GC_Chat *chat, const IP_Port *ipp, const 
 {
     // this should be checked at lower level; this is a redundant defense check. Ideally we should
     // guarantee that this can never happen in the future.
-    if (length < ENC_PUBLIC_KEY_SIZE + SIG_PUBLIC_KEY_SIZE + 1) {
+    if (length < ENC_PUBLIC_KEY_SIZE + SIG_PUBLIC_KEY_SIZE + 1 + 1) {
         LOGGER_FATAL(chat->log, "Invalid length (%u)", length);
         return -1;
     }
@@ -5691,6 +5697,7 @@ static int handle_gc_handshake_request(GC_Chat *chat, const IP_Port *ipp, const 
     const uint8_t *public_sig_key = data + ENC_PUBLIC_KEY_SIZE;
 
     const uint8_t request_type = data[ENC_PUBLIC_KEY_SIZE + SIG_PUBLIC_KEY_SIZE];
+    const uint8_t join_type = data[ENC_PUBLIC_KEY_SIZE + SIG_PUBLIC_KEY_SIZE + 1];
 
     int peer_number = get_peer_number_of_enc_pk(chat, sender_pk, false);
     const bool is_new_peer = peer_number < 0;
@@ -5731,7 +5738,7 @@ static int handle_gc_handshake_request(GC_Chat *chat, const IP_Port *ipp, const 
     gcc_set_ip_port(gconn, ipp);
 
     Node_format node[GCA_MAX_ANNOUNCED_TCP_RELAYS];
-    const int processed = ENC_PUBLIC_KEY_SIZE + SIG_PUBLIC_KEY_SIZE + 1;
+    const int processed = ENC_PUBLIC_KEY_SIZE + SIG_PUBLIC_KEY_SIZE + 1 + 1;
 
     const int nodes_count = unpack_nodes(node, GCA_MAX_ANNOUNCED_TCP_RELAYS, nullptr,
                                          data + processed, length - processed, true);
@@ -5765,6 +5772,11 @@ static int handle_gc_handshake_request(GC_Chat *chat, const IP_Port *ipp, const 
     gcc_make_session_shared_key(gconn, sender_session_pk);
 
     set_sig_pk(gconn->addr.public_key, public_sig_key);
+
+    if (join_type == GI_PUBLIC && !is_public_chat(chat)) {
+        gcc_mark_for_deletion(gconn, chat->tcp_conn, GC_EXIT_TYPE_DISCONNECTED, nullptr, 0);
+        return -1;
+    }
 
     gcc_set_recv_message_id(gconn, 1);  // handshake request is always first packet
 
@@ -6781,7 +6793,7 @@ static bool send_pending_handshake(const GC_Chat *chat, GC_Connection *gconn)
         return send_gc_oob_handshake_request(chat, gconn);
     }
 
-    return send_gc_handshake_packet(chat, gconn, GH_REQUEST, gconn->pending_handshake_type);
+    return send_gc_handshake_packet(chat, gconn, GH_REQUEST, gconn->pending_handshake_type, chat->join_type);
 }
 
 #define GC_TCP_RELAY_SEND_INTERVAL (60 * 3)
@@ -7540,6 +7552,7 @@ int gc_group_add(GC_Session *c, Group_Privacy_State privacy_state, const uint8_t
         return -4;
     }
 
+    chat->join_type = HJ_PRIVATE;
     chat->connection_state = CS_CONNECTED;
     chat->time_connected = mono_time_get(c->messenger->mono_time);
 
@@ -7549,6 +7562,8 @@ int gc_group_add(GC_Session *c, Group_Privacy_State privacy_state, const uint8_t
             group_delete(c, chat);
             return -5;
         }
+
+        chat->join_type = HJ_PUBLIC;
     }
 
     update_gc_peer_roles(chat);
@@ -8037,6 +8052,8 @@ int gc_accept_invite(GC_Session *c, int32_t friend_number, const uint8_t *data, 
     if (peer_id < 0) {
         return -2;
     }
+
+    chat->join_type = HJ_PRIVATE;
 
     if (send_gc_invite_accepted_packet(c->messenger, chat, friend_number) != 0) {
         return -7;
