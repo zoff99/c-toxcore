@@ -5773,7 +5773,7 @@ static int handle_gc_handshake_request(GC_Chat *chat, const IP_Port *ipp, const 
 
     set_sig_pk(gconn->addr.public_key, public_sig_key);
 
-    if (join_type == GI_PUBLIC && !is_public_chat(chat)) {
+    if (join_type == HJ_PUBLIC && !is_public_chat(chat)) {
         gcc_mark_for_deletion(gconn, chat->tcp_conn, GC_EXIT_TYPE_DISCONNECTED, nullptr, 0);
         return -1;
     }
