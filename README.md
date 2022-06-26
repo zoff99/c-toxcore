@@ -15,6 +15,6 @@ some of the subjects we are teaching here are:<br><br>
 - [x] fix some thread safety issues (see: https://github.com/TokTok/c-toxcore/issues/956)
 - [x] make Toxcore API thread safe (see: https://github.com/TokTok/c-toxcore/pull/1382)
 - [x] make ToxAV use only public Tox API functions (see: https://github.com/TokTok/c-toxcore/pull/1431)
-- [x] resumable Filetransfers, even across restarts (inside c-toxcore)
-- [x] Push Message Support (with TRIfA on Android and Antidote on iPhone)
+- [ ] resumable Filetransfers, even across restarts (inside c-toxcore) [was removed recently]
+- [x] Push Message Support (with TRIfA on Android and Antidote on iPhone and with a pachted version of qTox)
 
