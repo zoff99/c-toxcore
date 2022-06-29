@@ -3185,7 +3185,7 @@ static void pack_groupchats(const GC_Session *c, Bin_Pack *bp)
     for (uint32_t i = 0; i < c->chats_index; ++i) { // this loop must match the one in gc_count_groups()
         const GC_Chat *chat = &c->chats[i];
 
-        if (chat->connection_state == CS_NONE) {
+        if (!gc_group_is_valid(chat)) {
             continue;
         }
 

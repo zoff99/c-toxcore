@@ -696,6 +696,15 @@ int gc_invite_friend(const GC_Session *c, GC_Chat *chat, int32_t friend_number,
 non_null(1, 2) nullable(3)
 int gc_group_exit(GC_Session *c, GC_Chat *chat, const uint8_t *message, uint16_t length);
 
+/** @brief Returns true if `chat` is a valid group chat.
+ *
+ * A valid group chat constitutes an initialized chat instance with a non-zero shared state version.
+ * The shared state version will be non-zero either if a peer has created the group, or if
+ * they have ever successfully connected to the group.
+ */
+non_null(1)
+bool gc_group_is_valid(const GC_Chat *chat);
+
 /** @brief Returns the number of active groups in `c`. */
 non_null()
 uint32_t gc_count_groups(const GC_Session *c);

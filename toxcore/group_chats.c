@@ -8180,6 +8180,11 @@ void kill_dht_groupchats(GC_Session *c)
     free(c);
 }
 
+bool gc_group_is_valid(const GC_Chat *chat)
+{
+    return chat->connection_state != CS_NONE && chat->shared_state.version > 0;
+}
+
 /** Return true if `group_number` designates an active group in session `c`. */
 static bool group_number_valid(const GC_Session *c, int group_number)
 {
@@ -8199,7 +8204,9 @@ uint32_t gc_count_groups(const GC_Session *c)
     uint32_t count = 0;
 
     for (uint32_t i = 0; i < c->chats_index; ++i) {
-        if (c->chats[i].connection_state != CS_NONE) {
+        const GC_Chat *chat = &c->chats[i];
+
+        if (gc_group_is_valid(chat)) {
             ++count;
         }
     }
