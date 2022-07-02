@@ -2032,6 +2032,13 @@ enum Tox_File_Kind {
      * TODO: Generate doc
      */
     TOX_FILE_KIND_MESSAGEV2_SYNC = 5,
+
+    /**
+     * Filetransfer V2
+     *
+     * filetransfers of this type are not cancelled on going offline (either self or the other friend)
+     */
+    TOX_FILE_KIND_FTV2 = 16,
 };
 
 typedef enum TOX_MESSAGEV2_ALTER_TYPE {
