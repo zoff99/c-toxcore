@@ -140,7 +140,7 @@ void send_update(BWController *bwc, bool dummy)
             if (bwc->cycle.lost > 0) {
                 LOGGER_API_DEBUG(bwc->tox, "%p Sent update rcv: %u lost: %u percent: %f %%",
                              (void *)bwc, bwc->cycle.recv, bwc->cycle.lost,
-                             (float)(((float) bwc->cycle.lost / (bwc->cycle.recv + bwc->cycle.lost)) * 100.0f));
+                             (double)(((float) bwc->cycle.lost / (bwc->cycle.recv + bwc->cycle.lost)) * 100.0f));
             }
         }
 

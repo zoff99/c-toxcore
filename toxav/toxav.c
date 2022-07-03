@@ -40,7 +40,7 @@ uint32_t _debug_count_sent_audio_frames = 0;
 uint32_t _debug_skip_every_x_audio_frame = 10;
 #endif
 
-#define AUDIO_ITERATATIONS_WHILE_VIDEO (5)
+// #define AUDIO_ITERATATIONS_WHILE_VIDEO (5)
 #define VIDEO_MIN_SEND_KEYFRAME_INTERVAL 6000
 
 void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *user_data);
@@ -1960,7 +1960,7 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
         return;
     }
 
-    if ((loss * 100) < VIDEO_BITRATE_AUTO_INC_THRESHOLD) {
+    if ((int)(loss * 100) < (int)VIDEO_BITRATE_AUTO_INC_THRESHOLD) {
         if (call->video_bit_rate < VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
 
             int64_t tmp = (uint32_t)call->video_bit_rate_not_yet_set;
@@ -1991,7 +1991,7 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
                          (int)(loss * 100));
             call->video_bit_rate = (uint32_t)call->video_bit_rate_not_yet_set;
         }
-    } else if ((loss * 100) > VIDEO_BITRATE_AUTO_DEC_THRESHOLD) {
+    } else if ((int)(loss * 100) > (int)VIDEO_BITRATE_AUTO_DEC_THRESHOLD) {
         if (call->video_bit_rate > VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
 
             int64_t tmp = (int64_t)call->video_bit_rate - (VIDEO_BITRATE_SCALAR_DEC_BY_AUTO_VALUE_H264 * (int)(loss * 100));

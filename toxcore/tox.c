@@ -30,10 +30,13 @@
 
 #include "../toxencryptsave/defines.h"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic warning "-Wmissing-variable-declarations"
 bool global_filetransfer_is_resumable = false;
 bool global_force_udp_only_mode = false;
 bool global_do_not_sync_av = false;
 bool global_onion_active = true;
+#pragma clang diagnostic pop
 
 #define SET_ERROR_PARAMETER(param, x) \
     do {                              \

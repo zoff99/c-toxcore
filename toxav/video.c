@@ -239,6 +239,7 @@ void vc_kill(VCSession *vc)
     free(vc);
 }
 
+void video_switch_decoder(VCSession *vc, TOXAV_ENCODER_CODEC_USED_VALUE decoder_to_use);
 
 void video_switch_decoder(VCSession *vc, TOXAV_ENCODER_CODEC_USED_VALUE decoder_to_use)
 {
@@ -718,7 +719,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                          (int)(full_data_len - header_v3->received_length_full),
                          (int)header_v3->received_length_full,
                          (int)full_data_len,
-                         (float)percent_lost);
+                         (double)percent_lost);
         }
 
 
