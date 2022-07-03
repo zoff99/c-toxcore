@@ -8,7 +8,6 @@ workflows:
       # Dynamic analysis
       - asan
       - tsan
-      - ubsan
 
 jobs:
   asan:
