@@ -16,7 +16,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
-
+#ifndef C_TOXCORE_TOXAV_TOXAV_CODECS_H
+#define C_TOXCORE_TOXAV_TOXAV_CODECS_H
 
 // ----------- COMMON STUFF -----------
 /*
@@ -121,9 +122,4 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
 
 void vc_kill_h264(VCSession *vc);
 
-
-
-
-
-
-
+#endif // C_TOXCORE_TOXAV_TOXAV_CODECS_H

@@ -7,6 +7,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "msi.h"
+#include "toxav_hacks.h"
 
 #include "../toxcore/tox_private.h"
 #include "../toxcore/ccompat.h"
@@ -982,7 +983,7 @@ static void handle_pop(MSICall *call, const MSIMessage *msg)
 }
 
 /* !!hack!! */
-MSISession *tox_av_msi_get(void *av);
+MSISession *tox_av_msi_get(ToxAV *av);
 
 static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length2, void *object)
 {
@@ -999,7 +1000,7 @@ static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *d
 
     LOGGER_API_INFO(tox, "Got msi message:fnum=%d", friend_number);
 
-    void *toxav = (void *)tox_get_av_object(tox);
+    ToxAV *toxav = tox_get_av_object(tox);
 
     if (toxav == nullptr) {
         return;

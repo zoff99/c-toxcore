@@ -17,7 +17,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
-
+#ifndef C_TOXCORE_TOXAV_TOX_GENERIC_H
+#define C_TOXCORE_TOXAV_TOX_GENERIC_H
 
 #define DISABLE_H264_DECODER_FEATURE    0
 
@@ -186,3 +187,4 @@ struct ToxAV {
     Mono_Time *toxav_mono_time; // ToxAV's own mono_time instance
 };
 
+#endif // C_TOXCORE_TOXAV_TOX_GENERIC_H

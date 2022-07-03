@@ -50,6 +50,13 @@ echo "compiling on: $system__ $version__"
 
 echo "installing more system packages ..."
 
+# ---- TZ ----
+export DEBIAN_FRONTEND=noninteractive
+ln -fs /usr/share/zoneinfo/America/New_York /etc/localtime
+apt-get install -y tzdata
+dpkg-reconfigure --frontend noninteractive tzdata
+# ---- TZ ----
+
 pkgs="
     rsync
     nano
@@ -118,7 +125,7 @@ cp /workspace/_build/unit_* /workspace/_build/auto_* /artefacts/asan/
 chmod a+rx $_HOME_/script/do_it___external.sh
 
 
-system_to_build_for="ubuntu:18.04"
+system_to_build_for="ubuntu:20.04"
 
 cd $_HOME_/
 docker run -ti --rm \
