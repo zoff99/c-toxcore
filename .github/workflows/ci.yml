@@ -1,4 +1,4 @@
-name: ci
+name: github_build
 
 on:
   push:
@@ -8,8 +8,30 @@ jobs:
   common:
     uses: TokTok/ci-tools/.github/workflows/common-ci.yml@master
 
-  build-nacl:
-    runs-on: ubuntu-latest
+  linux-asan:
+    runs-on: ubuntu-18.04
     steps:
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+      - uses: actions/checkout@v3
+      - run: |
+          apt-get update && \
+          DEBIAN_FRONTEND=noninteractive \
+          apt-get install -y --no-install-recommends \
+          ca-certificates \
+          clang \
+          cmake \
+          git \
+          libconfig-dev \
+          libgtest-dev \
+          libopus-dev \
+          libsodium-dev \
+          libvpx-dev \
+          llvm-dev \
+          ninja-build \
+          pkg-config \
+          libavutil-dev \
+          libavcodec-dev \
+          libavformat-dev \
+          libavfilter-dev \
+          libx264-dev
+      - run: git submodule update --init --recursive
+      - run: CC=clang .circleci/cmake-asan
