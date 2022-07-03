@@ -19,6 +19,7 @@ typedef struct State {
     bool peer_joined;
     bool message_sent;
     bool message_received;
+    uint32_t pseudo_msg_id;
     bool private_message_received;
     size_t custom_packets_received;
     size_t custom_private_packets_received;
@@ -187,12 +188,12 @@ static void group_custom_packet_handler(Tox *tox, uint32_t groupnumber, uint32_t
 }
 
 static void group_message_handler(Tox *tox, uint32_t groupnumber, uint32_t peer_id, TOX_MESSAGE_TYPE type,
-                                  const uint8_t *message, size_t length, void *user_data)
+                                  const uint8_t *message, size_t length, uint32_t pseudo_msg_id, void *user_data)
 {
     ck_assert(!(length == IGNORE_MESSAGE_LEN && memcmp(message, IGNORE_MESSAGE, length) == 0));
     ck_assert_msg(length == TEST_MESSAGE_LEN, "Failed to receive message. Invalid length: %zu\n", length);
 
-    char message_buf[TOX_MAX_MESSAGE_LENGTH + 1];
+    char message_buf[TOX_GROUP_MAX_MESSAGE_LENGTH + 1];
     memcpy(message_buf, message, length);
     message_buf[length] = 0;
 
@@ -221,7 +222,7 @@ static void group_message_handler(Tox *tox, uint32_t groupnumber, uint32_t peer_
     ck_assert(s_err == TOX_ERR_GROUP_SELF_QUERY_OK);
     ck_assert(memcmp(self_name, PEER1_NICK, self_name_len) == 0);
 
-    printf("%s sent message to %s: %s\n", peer_name, self_name, message_buf);
+    printf("%s sent message to %s:(id:%u) %s\n", peer_name, self_name, pseudo_msg_id, message_buf);
     ck_assert(memcmp(message_buf, TEST_MESSAGE, length) == 0);
 
     AutoTox *autotox = (AutoTox *)user_data;
@@ -230,6 +231,8 @@ static void group_message_handler(Tox *tox, uint32_t groupnumber, uint32_t peer_
     State *state = (State *)autotox->state;
 
     state->message_received = true;
+
+    state->pseudo_msg_id = pseudo_msg_id;
 }
 
 static void group_private_message_handler(Tox *tox, uint32_t groupnumber, uint32_t peer_id, TOX_MESSAGE_TYPE type,
@@ -237,7 +240,7 @@ static void group_private_message_handler(Tox *tox, uint32_t groupnumber, uint32
 {
     ck_assert_msg(length == TEST_PRIVATE_MESSAGE_LEN, "Failed to receive message. Invalid length: %zu\n", length);
 
-    char message_buf[TOX_MAX_MESSAGE_LENGTH + 1];
+    char message_buf[TOX_GROUP_MAX_MESSAGE_LENGTH + 1];
     memcpy(message_buf, message, length);
     message_buf[length] = 0;
 
@@ -280,14 +283,14 @@ static void group_private_message_handler(Tox *tox, uint32_t groupnumber, uint32
 }
 
 static void group_message_handler_lossless_test(Tox *tox, uint32_t groupnumber, uint32_t peer_id, TOX_MESSAGE_TYPE type,
-        const uint8_t *message, size_t length, void *user_data)
+        const uint8_t *message, size_t length, uint32_t pseudo_msg_id, void *user_data)
 {
     AutoTox *autotox = (AutoTox *)user_data;
     ck_assert(autotox != nullptr);
 
     State *state = (State *)autotox->state;
 
-    ck_assert(length >= 4 && length <= TOX_MAX_MESSAGE_LENGTH);
+    ck_assert(length >= 4 && length <= TOX_GROUP_MAX_MESSAGE_LENGTH);
 
     uint16_t start;
     uint16_t checksum;
@@ -305,7 +308,7 @@ static void group_message_handler_lossless_test(Tox *tox, uint32_t groupnumber, 
 }
 static void group_message_handler_wraparound_test(Tox *tox, uint32_t groupnumber, uint32_t peer_id,
         TOX_MESSAGE_TYPE type,
-        const uint8_t *message, size_t length, void *user_data)
+        const uint8_t *message, size_t length, uint32_t pseudo_msg_id, void *user_data)
 {
     AutoTox *autotox = (AutoTox *)user_data;
     ck_assert(autotox != nullptr);
@@ -340,6 +343,10 @@ static void group_message_test(AutoTox *autotoxes)
     State *state0 = (State *)autotoxes[0].state;
     State *state1 = (State *)autotoxes[1].state;
 
+    // initialize to different values
+    state0->pseudo_msg_id = 0;
+    state1->pseudo_msg_id = 1;
+
     tox_callback_group_invite(tox1, group_invite_handler);
     tox_callback_group_join_fail(tox1, group_join_fail_handler);
     tox_callback_group_peer_join(tox1, group_peer_join_handler);
@@ -371,15 +378,17 @@ static void group_message_test(AutoTox *autotoxes)
 
         if (state1->peer_joined && !state1->message_sent) {
             tox_group_send_message(tox1, group_number, TOX_MESSAGE_TYPE_NORMAL, (const uint8_t *)TEST_MESSAGE,
-                                   TEST_MESSAGE_LEN, &err_send);
+                                   TEST_MESSAGE_LEN, &state1->pseudo_msg_id, &err_send);
             ck_assert(err_send == TOX_ERR_GROUP_SEND_MESSAGE_OK);
             state1->message_sent = true;
         }
     }
 
+    ck_assert_msg(state0->pseudo_msg_id == state1->pseudo_msg_id, "id0:%u id1:%u", state0->pseudo_msg_id, state1->pseudo_msg_id);
+
     // Make sure we're still connected to each friend
     Tox_Connection conn_1 = tox_friend_get_connection_status(tox0, 0, nullptr);
-    Tox_Connection conn_2 = tox_friend_get_connection_status(tox0, 0, nullptr);
+    Tox_Connection conn_2 = tox_friend_get_connection_status(tox1, 0, nullptr);
 
     ck_assert(conn_1 != TOX_CONNECTION_NONE && conn_2 != TOX_CONNECTION_NONE);
 
@@ -392,7 +401,7 @@ static void group_message_test(AutoTox *autotoxes)
 
     // tox1 sends group a message which should not be seen by tox0's message handler
     tox_group_send_message(tox1, group_number, TOX_MESSAGE_TYPE_NORMAL, (const uint8_t *)IGNORE_MESSAGE,
-                           IGNORE_MESSAGE_LEN, &err_send);
+                           IGNORE_MESSAGE_LEN, nullptr, &err_send);
 
     iterate_all_wait(autotoxes, NUM_GROUP_TOXES, ITERATION_INTERVAL);
 
@@ -441,7 +450,7 @@ static void group_message_test(AutoTox *autotoxes)
         iterate_all_wait(autotoxes, NUM_GROUP_TOXES, ITERATION_INTERVAL);
     }
 
-    uint8_t m[TOX_MAX_MESSAGE_LENGTH] = {0};
+    uint8_t m[TOX_GROUP_MAX_MESSAGE_LENGTH] = {0};
 
     fprintf(stderr, "Doing lossless packet test...\n");
 
@@ -454,7 +463,7 @@ static void group_message_test(AutoTox *autotoxes)
             iterate_all_wait(autotoxes, NUM_GROUP_TOXES, ITERATION_INTERVAL);
         }
 
-        uint16_t message_size = min_u16(4 + (random_u16(rng) % TOX_MAX_MESSAGE_LENGTH), TOX_MAX_MESSAGE_LENGTH);
+        uint16_t message_size = min_u16(4 + (random_u16(rng) % TOX_GROUP_MAX_MESSAGE_LENGTH), TOX_GROUP_MAX_MESSAGE_LENGTH);
 
         memcpy(m, &i, sizeof(uint16_t));
 
@@ -466,7 +475,7 @@ static void group_message_test(AutoTox *autotoxes)
 
         memcpy(m + 2, &checksum, sizeof(uint16_t));
 
-        tox_group_send_message(tox0, group_number, TOX_MESSAGE_TYPE_NORMAL, (const uint8_t *)m, message_size, &err_send);
+        tox_group_send_message(tox0, group_number, TOX_MESSAGE_TYPE_NORMAL, (const uint8_t *)m, message_size, nullptr, &err_send);
 
         ck_assert(err_send == TOX_ERR_GROUP_SEND_MESSAGE_OK);
     }
@@ -488,7 +497,7 @@ static void group_message_test(AutoTox *autotoxes)
 
         memcpy(m, &i, sizeof(uint16_t));
 
-        tox_group_send_message(tox0, group_number, TOX_MESSAGE_TYPE_NORMAL, (const uint8_t *)m, 2, &err_send);
+        tox_group_send_message(tox0, group_number, TOX_MESSAGE_TYPE_NORMAL, (const uint8_t *)m, 2, nullptr, &err_send);
         ck_assert(err_send == TOX_ERR_GROUP_SEND_MESSAGE_OK);
     }
 

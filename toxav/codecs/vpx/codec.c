@@ -730,7 +730,7 @@ void decode_frame_vpx(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t
         rc = vpx_codec_decode(vc->decoder, p->data, full_data_len, user_priv, (long)decode_time_auto_tune);
 
         LOGGER_API_DEBUG(tox, "AUTOTUNE:MAX_DECODE_TIME_US=%ld us = %.1f fps", (long)decode_time_auto_tune,
-                     (float)(1000000.0f / decode_time_auto_tune));
+                     (double)(1000000.0f / decode_time_auto_tune));
     }
 
 #else

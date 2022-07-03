@@ -52,6 +52,7 @@ echo "installing more system packages ..."
 
 pkgs="
     rsync
+    nano
     clang
     cmake
     libconfig-dev
@@ -129,3 +130,4 @@ docker run -ti --rm \
   "$system_to_build_for" \
   /bin/bash /script/do_it___external.sh
 
+# bash /script/do_it___external.sh 2>&1 |grep -C3 -A3 'error: '

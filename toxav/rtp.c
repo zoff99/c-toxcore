@@ -455,7 +455,7 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
 }
 
 /* !!hack!! TODO:fix me */
-void *call_get(void *av, uint32_t friend_number);
+void *call_get(ToxAV *av, uint32_t friend_number);
 RTPSession *rtp_session_get(void *call, int payload_type);
 pthread_mutex_t *call_mutex_get(void *call);
 /* !!hack!! TODO:fix me */
@@ -492,7 +492,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         }
     }
 
-    void *toxav = (void *)tox_get_av_object(tox);
+    ToxAV *toxav = tox_get_av_object(tox);
 
     if (toxav == nullptr) {
         return;

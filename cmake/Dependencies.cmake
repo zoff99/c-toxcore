@@ -18,6 +18,9 @@ pkg_use_module(LIBSODIUM            libsodium    )
 # For toxav.
 pkg_use_module(OPUS                 "opus;Opus"  )
 pkg_use_module(VPX                  "vpx;libvpx" )
+pkg_use_module(X264                 x264         )
+pkg_use_module(LIBAVCODEC           libavcodec   )
+pkg_use_module(LIBAVUTIL            libavutil    )
 
 # For tox-bootstrapd.
 pkg_use_module(LIBCONFIG            libconfig    )
