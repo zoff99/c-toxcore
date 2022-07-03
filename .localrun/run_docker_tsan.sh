@@ -50,8 +50,16 @@ echo "compiling on: $system__ $version__"
 
 echo "installing more system packages ..."
 
+# ---- TZ ----
+export DEBIAN_FRONTEND=noninteractive
+ln -fs /usr/share/zoneinfo/America/New_York /etc/localtime
+redirect_cmd apt-get install $qqq -y --force-yes tzdata
+redirect_cmd dpkg-reconfigure --frontend noninteractive tzdata
+# ---- TZ ----
+
 pkgs="
     rsync
+    nano
     clang
     cmake
     libconfig-dev
@@ -80,6 +88,7 @@ pkgs_z="
 for i in $pkgs_z ; do
     redirect_cmd apt-get install $qqq -y --force-yes --no-install-recommends $i
 done
+
 
 echo ""
 echo ""
