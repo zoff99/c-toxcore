@@ -169,6 +169,7 @@ struct File_Transfers {
     uint64_t requested; /* total data requested by the request chunk callback */
     uint8_t id[FILE_ID_LENGTH];
     uint32_t file_type;
+    bool received_seek_control;
 };
 typedef enum Filestatus {
     FILESTATUS_NONE,

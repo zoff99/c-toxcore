@@ -1262,6 +1262,8 @@ long int new_filesender(const Messenger *m, int32_t friendnumber, uint32_t file_
 
     ft->file_type = file_type;
 
+    ft->received_seek_control = false;
+
     if ((file_type == HACK_TOX_FILE_KIND_MESSAGEV2_SEND)
             ||
             (file_type == HACK_TOX_FILE_KIND_MESSAGEV2_ANSWER)
@@ -1408,6 +1410,7 @@ int file_control(const Messenger *m, int32_t friendnumber, uint32_t filenumber, 
                 }
 
                 ft->file_type = 0;
+                ft->received_seek_control = false;
                 ft->status = FILESTATUS_NONE;
                 break;
             }
@@ -1646,7 +1649,7 @@ int send_file_data(const Messenger *m, int32_t friendnumber, uint32_t filenumber
 }
 
 /**
- * Iterate over all file transfers and request chunks (from the client) for each
+ * Iterate over all file sending transfers and request chunks (from the client) for each
  * of them.
  *
  * The free_slots parameter is updated by this function.
@@ -1700,6 +1703,7 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
                 // Now it's inactive, we're no longer sending this.
                 ft->status = FILESTATUS_NONE;
                 ft->file_type = 0;
+                ft->received_seek_control = false;
                 --friendcon->num_sending_files;
             } else if (ft->status == FILESTATUS_TRANSFERRING && ft->paused == FILE_PAUSE_NOT) {
                 if (ft->size == ft->requested) {
@@ -1707,6 +1711,11 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
                     // we as sender think this FTv2 is already finished,
                     // so we wait for either the receiver to send FILECONTROL_FINISHED
                     // or to send a SEEK to a new position
+                    continue;
+                }
+
+                if (ft->received_seek_control) {
+                    LOGGER_DEBUG(m->log, "we are processing a SEEK control, so do not send new chunks for 1 tox_iterate() cycle");
                     continue;
                 }
 
@@ -1731,6 +1740,7 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
                 // Now it's inactive, we're no longer sending this.
                 ft->status = FILESTATUS_NONE;
                 ft->file_type = 0;
+                ft->received_seek_control = false;
                 --friendcon->num_sending_files;
             } else if (ft->status == FILESTATUS_TRANSFERRING && ft->paused == FILE_PAUSE_NOT) {
                 if (ft->size == 0) {
@@ -1764,7 +1774,7 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
 non_null(1) nullable(3)
 static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdata)
 {
-    // We're not currently doing any file transfers.
+    // We're not currently doing any sending file transfers.
     if (m->friendlist[friendnumber].num_sending_files == 0) {
         return;
     }
@@ -1800,6 +1810,17 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
             break;
         }
     }
+
+    // reset `received_seek_control` flag for sending FTs
+    Friend *const friendcon = &m->friendlist[friendnumber];
+    if (friendcon->num_sending_files > 0) {
+        for (uint32_t i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
+            struct File_Transfers *const ft = &friendcon->file_sending[i];
+            if (ft->received_seek_control) {
+                ft->received_seek_control = false;
+            }
+        }
+    }
 }
 
 
@@ -1816,12 +1837,14 @@ static void break_files(const Messenger *m, int32_t friendnumber)
         {
             f->file_sending[i].status = FILESTATUS_NONE;
             f->file_sending[i].file_type = 0;
+            f->file_sending[i].received_seek_control = false;
         }
 
         if (f->file_receiving[i].file_type != FILEKIND_FTV2)
         {
             f->file_receiving[i].status = FILESTATUS_NONE;
             f->file_receiving[i].file_type = 0;
+            f->file_receiving[i].received_seek_control = false;
         }
     }
 }
@@ -1926,6 +1949,7 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, bool outbound,
             LOGGER_DEBUG(m->log, "FILECONTROL_KILL:friendcon->num_sending_files=%d", m->friendlist[friendnumber].num_sending_files);
             ft->status = FILESTATUS_NONE;
             ft->file_type = 0;
+            ft->received_seek_control = false;
 
             return 0;
         }
@@ -1970,6 +1994,7 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, bool outbound,
             LOGGER_DEBUG(m->log,
                          "file control (friend %d, file %d): seek to position %ld was before seek transferred:%ld requested:%ld",
                          friendnumber, filenumber, (unsigned long)position, (unsigned long)ft->transferred, (unsigned long)ft->requested);
+            ft->received_seek_control = true;
             ft->requested = position;
             ft->transferred = position;
             return 0;
@@ -2554,6 +2579,7 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
                         ft->status = FILESTATUS_NONE;
                         ft->transferred = 0;
                         ft->file_type = 0;
+                        ft->received_seek_control = false;
                     }
                 }
             }
