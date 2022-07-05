@@ -1812,10 +1812,10 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
                         net_pack_u64(wanted_offset, ft->transferred);
                         if (!send_file_control_packet(m, friendnumber, true, real_filenumber, FILECONTROL_SEEK, wanted_offset, sizeof(wanted_offset))) {
                             // sending SEEK file control failed
-                            LOGGER_DEBUG(m->log, "sending SEEK file control failed. friendnum: %d filenum: %d",
+                            LOGGER_DEBUG(m->log, "stale receiving FT detected:sending SEEK file control failed. friendnum: %d filenum: %d",
                                 friendnumber, real_filenumber);
                         } else {
-                            LOGGER_DEBUG(m->log, "sending SEEK file control to friendnum: %d filenum: %d",
+                            LOGGER_DEBUG(m->log, "stale receiving FT detected:sending SEEK file control to friendnum: %d filenum: %d",
                                 friendnumber, real_filenumber);
                         }
                     } else {
