@@ -170,6 +170,8 @@ struct File_Transfers {
     uint8_t id[FILE_ID_LENGTH];
     uint32_t file_type;
     bool received_seek_control;
+    uint8_t received_seek_control_counter;
+    uint32_t file_receiver_last_received_chunk_this_many_iterations_ago;
 };
 typedef enum Filestatus {
     FILESTATUS_NONE,
@@ -264,6 +266,7 @@ typedef struct Friend {
     Connection_Status last_connection_udp_tcp;
     struct File_Transfers file_sending[MAX_CONCURRENT_FILE_PIPES];
     uint32_t num_sending_files;
+    uint32_t num_receiving_files;
     struct File_Transfers file_receiving[MAX_CONCURRENT_FILE_PIPES];
 
     struct Receipts *receipts_start;
