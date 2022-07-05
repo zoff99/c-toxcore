@@ -151,7 +151,7 @@ static bool send_online_packet(Messenger *m, int friendcon_id)
 
     if (write_cryptpacket(m->net_crypto, friend_connection_crypt_connection_id(m->fr_c,
                           friendcon_id), buf, (TOX_CAPABILITIES_SIZE + 1), false) == -1) {
-        return -1;
+        return false;
     }
 
     uint8_t packet = PACKET_ID_ONLINE;
