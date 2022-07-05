@@ -51,7 +51,7 @@ static_assert(MAX_CONCURRENT_FILE_PIPES <= UINT8_MAX + 1,
               "uint8_t cannot represent all file transfer numbers");
 
 #define PAUSE_CYCLES_ON_FTV2_SEEK_RECEIVED 20
-#define STALE_CYCLES_ON_FTV2_RECEIVER 8000
+#define STALE_CYCLES_ON_FTV2_RECEIVER 2000
 
 static const Friend empty_friend = {{0}};
 
