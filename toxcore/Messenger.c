@@ -2634,6 +2634,9 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
                     break;
                 }
 
+                // we have received a data packet, reset the stale counter
+                ft->file_receiver_last_received_chunk_this_many_iterations_ago = 0;
+
                 if (m->file_filedata != nullptr) {
                     m->file_filedata(m, i, real_filenumber, ft->transferred, file_data_raw, file_data_length_raw, userdata);
                 }
