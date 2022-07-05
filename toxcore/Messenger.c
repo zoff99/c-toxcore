@@ -1618,6 +1618,7 @@ int send_file_data(const Messenger *m, int32_t friendnumber, uint32_t filenumber
 
             if (ret != -1) {
                 ft->transferred += length_raw;
+                return 0;
             }
         }
         else
