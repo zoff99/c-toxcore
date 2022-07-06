@@ -94,11 +94,11 @@ jobs:
           gtest-dev \
           llvm-dev
       - run: |
-          sudo rm -f /usr/bin/c++;
-          sudo rm -f /usr/bin/g++;
-          sudo cd /usr/bin/;
-          sudo ln -f /usr/bin/clang++ c++;
-          sudo ln -f /usr/bin/clang++ g++
+          rm -f /usr/bin/c++;
+          rm -f /usr/bin/g++;
+          cd /usr/bin/;
+          ln -f /usr/bin/clang++ c++;
+          ln -f /usr/bin/clang++ g++
       - run: git submodule update --init --recursive
       - run: CC=clang .circleci/cmake-normal
 
