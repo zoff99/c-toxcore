@@ -58,4 +58,7 @@ jobs:
 
     steps:
       - checkout
-      - run: id -a;pwd
+      - run: id;pwd;echo $0
+      - run: |
+          sudo apk update && \
+          sudo apk add bash
