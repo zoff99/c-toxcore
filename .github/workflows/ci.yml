@@ -11,6 +11,7 @@ jobs:
       - uses: actions/checkout@v3
       - run: |
           sudo apt-get update && \
+          sudo DEBIAN_FRONTEND=noninteractive apt-get remove g++ && \
           sudo DEBIAN_FRONTEND=noninteractive \
           apt-get install -y --no-install-recommends \
           ca-certificates \
