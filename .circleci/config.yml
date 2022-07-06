@@ -5,9 +5,9 @@ workflows:
   version: 2
   program-analysis:
     jobs:
-      # Dynamic analysis
       - asan
       - tsan
+      - alpine-normal
 
 jobs:
   asan:
