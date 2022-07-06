@@ -60,5 +60,5 @@ jobs:
       - checkout
       - run: id;pwd;echo $0
       - run: |
-          sudo apk update && \
-          sudo apk add bash
+          apk update && \
+          apk add bash
