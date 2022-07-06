@@ -82,8 +82,12 @@
 #define VIDEO_BITRATE_MIN_AUTO_VALUE_VP8 200
 #define VIDEO_BITRATE_CORRECTION_FACTOR_VP8 (float)1
 
+#ifndef TOXAV_CALL_DEFINED
+#define TOXAV_CALL_DEFINED
+typedef struct ToxAVCall ToxAVCall;
+#endif /* TOXAV_CALL_DEFINED */
 
-typedef struct ToxAVCall_s {
+struct ToxAVCall {
     ToxAV *av;
 
     pthread_mutex_t mutex_audio[1];
@@ -129,9 +133,9 @@ typedef struct ToxAVCall_s {
 
     pthread_mutex_t toxav_call_mutex[1];
 
-    struct ToxAVCall_s *prev;
-    struct ToxAVCall_s *next;
-} ToxAVCall;
+    struct ToxAVCall *prev;
+    struct ToxAVCall *next;
+};
 
 
 struct ToxAV {

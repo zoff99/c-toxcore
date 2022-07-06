@@ -62,10 +62,7 @@ static void call_kill_transmission(ToxAVCall *call);
 MSISession *tox_av_msi_get(ToxAV *av);
 int toxav_friend_exists(const Tox *tox, int32_t friendnumber);
 Mono_Time *toxav_get_av_mono_time(ToxAV *toxav);
-ToxAVCall *call_get(ToxAV *av, uint32_t friend_number);
-RTPSession *rtp_session_get(void *call, int payload_type);
-pthread_mutex_t *call_mutex_get(void *call);
-BWController *bwc_controller_get(void *call);
+pthread_mutex_t *call_mutex_get(ToxAVCall *call);
 
 
 MSISession *tox_av_msi_get(ToxAV *av)
@@ -91,37 +88,37 @@ ToxAVCall *call_get(ToxAV *av, uint32_t friend_number)
     return av->calls[friend_number];
 }
 
-RTPSession *rtp_session_get(void *call, int payload_type)
+RTPSession *rtp_session_get(ToxAVCall *call, int payload_type)
 {
-    if (((ToxAVCall *)call) == nullptr) {
+    if (call == nullptr) {
         return nullptr;
     }
 
     if (payload_type == RTP_TYPE_VIDEO) {
-        return ((ToxAVCall *)call)->video_rtp;
+        return call->video_rtp;
     } else if (payload_type == RTP_TYPE_AUDIO) {
-        return ((ToxAVCall *)call)->audio_rtp;
+        return call->audio_rtp;
     }
 
     return nullptr;
 }
 
-pthread_mutex_t *call_mutex_get(void *call)
+pthread_mutex_t *call_mutex_get(ToxAVCall *call)
 {
-    if (((ToxAVCall *)call) == nullptr) {
+    if (call == nullptr) {
         return nullptr;
     }
 
-    return ((ToxAVCall *)call)->toxav_call_mutex;
+    return call->toxav_call_mutex;
 }
 
-BWController *bwc_controller_get(void *call)
+BWController *bwc_controller_get(ToxAVCall *call)
 {
-    if (((ToxAVCall *)call) == nullptr) {
+    if (call == nullptr) {
         return nullptr;
     }
 
-    return ((ToxAVCall *)call)->bwc;
+    return call->bwc;
 }
 
 ToxAV *toxav_new(Tox *tox, Toxav_Err_New *error)

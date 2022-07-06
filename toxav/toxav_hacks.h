@@ -20,5 +20,6 @@ MSISession *tox_av_msi_get(ToxAV *av);
 BWController *bwc_controller_get(ToxAVCall *call);
 Mono_Time *toxav_get_av_mono_time(ToxAV *toxav);
 Logger *toxav_get_logger(ToxAV *toxav);
+pthread_mutex_t *call_mutex_get(ToxAVCall *call);
 
 #endif // C_TOXCORE_TOXAV_HACKS_H

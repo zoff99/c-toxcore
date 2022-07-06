@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include "bwcontroller.h"
+#include "toxav_hacks.h"
 #include "video.h"
 #include "audio.h"
 #include "dummy_ntp.h"
@@ -453,12 +454,6 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
 
     return 0;
 }
-
-/* !!hack!! TODO:fix me */
-void *call_get(ToxAV *av, uint32_t friend_number);
-RTPSession *rtp_session_get(void *call, int payload_type);
-pthread_mutex_t *call_mutex_get(void *call);
-/* !!hack!! TODO:fix me */
 
 /**
  * receive custom lossypackets and process them. they can be incoming audio or video packets
