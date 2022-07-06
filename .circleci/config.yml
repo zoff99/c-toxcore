@@ -62,3 +62,43 @@ jobs:
       - run: |
           apk update && \
           apk add bash
+      - run: |
+          apk add \
+          wget \
+          git \
+          cmake \
+          automake \
+          autoconf \
+          check \
+          libtool \
+          rsync \
+          nano \
+          gcc \
+          g++ \
+          clang \
+          clang-extra-tools \
+          clang-analyzer \
+          libconfig-dev \
+          libsodium-dev \
+          opus-dev \
+          libvpx-dev \
+          x264-dev \
+          ffmpeg4-dev \
+          ninja \
+          pkgconf-dev \
+          make \
+          yasm \
+          file \
+          linux-headers \
+          binutils \
+          gtest-dev \
+          llvm-dev
+      - run: |
+          sudo rm -f /usr/bin/c++;
+          sudo rm -f /usr/bin/g++;
+          sudo cd /usr/bin/;
+          sudo ln -f /usr/bin/clang++ c++;
+          sudo ln -f /usr/bin/clang++ g++
+      - run: git submodule update --init --recursive
+      - run: CC=clang .circleci/cmake-normal
+
