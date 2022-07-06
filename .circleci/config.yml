@@ -51,3 +51,11 @@ jobs:
       - checkout
       - run: git submodule update --init --recursive
       - run: CC=clang .circleci/cmake-tsan
+
+  alpine-normal:
+    docker:
+      - image: alpine
+
+    steps:
+      - checkout
+      - run: id -a;pwd
