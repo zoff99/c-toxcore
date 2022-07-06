@@ -1229,10 +1229,6 @@ uint32_t tox_iteration_interval(const Tox *tox)
     tox_lock(tox);
     uint32_t ret = messenger_run_interval(tox->m);
 
-    if (m_is_receiving_file(tox->m)) {
-        ret = 1;
-    }
-
     tox_unlock(tox);
     return ret;
 }

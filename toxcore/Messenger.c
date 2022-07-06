@@ -3742,7 +3742,6 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
     set_filter_function(m->fr, &friend_already_added, m);
 
     m->lastdump = 0;
-    m->is_receiving_file = 0;
 
     m_register_default_plugins(m);
     callback_friendrequest(m->fr, m_handle_friend_request, m);
@@ -3794,28 +3793,4 @@ void kill_messenger(Messenger *m)
 
     free(m->options.state_plugins);
     free(m);
-}
-
-bool m_is_receiving_file(Messenger *m)
-{
-    // Only run the expensive loop below once every 64 tox_iterate calls.
-    const uint8_t skip_count = 64;
-
-    if (m->is_receiving_file != 0) {
-        --m->is_receiving_file;
-        return true;
-    }
-
-    // TODO(iphydf): This is a very expensive loop. Consider keeping track of
-    // the number of live file transfers.
-    for (size_t friend_number = 0; friend_number < m->numfriends; ++friend_number) {
-        for (size_t i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
-            if (m->friendlist[friend_number].file_receiving[i].status == FILESTATUS_TRANSFERRING) {
-                m->is_receiving_file = skip_count;
-                return true;
-            }
-        }
-    }
-
-    return false;
 }
