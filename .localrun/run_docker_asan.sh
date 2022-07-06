@@ -135,6 +135,6 @@ docker run -ti --rm \
   -v $_HOME_/workspace:/workspace \
   -e DISPLAY=$DISPLAY \
   "$system_to_build_for" \
-  /bin/bash /script/do_it___external.sh
+  /bin/sh -c "apk add bash >/dev/null 2>/dev/null; /bin/bash /script/do_it___external.sh"
 
 # bash /script/do_it___external.sh 2>&1 |grep -C3 -A3 'error: '
