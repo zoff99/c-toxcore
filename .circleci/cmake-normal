@@ -1,0 +1,43 @@
+#!/bin/bash
+
+set -eu
+
+CACHEDIR="$HOME/cache"
+
+. ".github/scripts/flags-$CC.sh"
+add_flag -Werror
+add_flag -fdiagnostics-color=always
+add_flag -fno-omit-frame-pointer
+add_flag -Wno-error=declaration-after-statement
+add_flag -Wno-error=documentation
+
+add_flag -Wno-error=unused-but-set-variable
+add_flag -Wno-error=c11-extensions
+
+add_flag -Wno-error=missing-variable-declarations
+add_flag -Wno-error=missing-prototypes
+add_flag -Wno-error=embedded-directive
+add_flag -Wno-error=unused-macros
+
+cmake -B_build -H. -GNinja \
+  -DCMAKE_C_FLAGS="$C_FLAGS" \
+  -DCMAKE_CXX_FLAGS="$CXX_FLAGS" \
+  -DCMAKE_EXE_LINKER_FLAGS="$LD_FLAGS" \
+  -DCMAKE_SHARED_LINKER_FLAGS="$LD_FLAGS" \
+  -DCMAKE_INSTALL_PREFIX:PATH="$PWD/_install" \
+  -DCMAKE_UNITY_BUILD=ON \
+  -DMIN_LOGGER_LEVEL=TRACE \
+  -DMUST_BUILD_TOXAV=ON \
+  -DNON_HERMETIC_TESTS=ON \
+  -DSTRICT_ABI=ON \
+  -DTEST_TIMEOUT_SECONDS=120 \
+  -DUSE_IPV6=OFF \
+  -DAUTOTEST=ON \
+  -DBUILD_MISC_TESTS=ON \
+  -DBUILD_FUN_UTILS=ON
+
+cd _build
+
+ninja install
+
+ctest -j50 --output-on-failure --rerun-failed --repeat until-pass:6
