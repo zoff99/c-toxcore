@@ -1808,7 +1808,7 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
                         ft->file_receiver_last_received_chunk_this_many_iterations_ago = 0;
                         // the receiving FT has not received a data chunk for many tox_iterate cycles. send a SEEK control to the sender
                         uint32_t real_filenumber;
-                        struct File_Transfers *ft = get_file_transfer(false, i, &real_filenumber, &m->friendlist[friendnumber]);
+                        struct File_Transfers *ft_unused = get_file_transfer(false, i, &real_filenumber, &m->friendlist[friendnumber]);
                         uint8_t wanted_offset[sizeof(uint64_t)];
                         net_pack_u64(wanted_offset, ft->transferred);
                         if (!send_file_control_packet(m, friendnumber, true, real_filenumber, FILECONTROL_SEEK, wanted_offset, sizeof(wanted_offset))) {
