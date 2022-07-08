@@ -69,6 +69,8 @@ static_assert(TOX_GROUP_MAX_MESSAGE_LENGTH == GROUP_MAX_MESSAGE_LENGTH,
               "TOX_GROUP_MAX_MESSAGE_LENGTH is assumed to be equal to GROUP_MAX_MESSAGE_LENGTH");
 static_assert(TOX_MAX_CUSTOM_PACKET_SIZE == MAX_GC_CUSTOM_PACKET_SIZE,
               "TOX_MAX_CUSTOM_PACKET_SIZE is assumed to be equal to MAX_GC_CUSTOM_PACKET_SIZE");
+static_assert(TOX_FILE_KIND_FTV2 == FILEKIND_FTV2,
+              "TOX_FILE_KIND_FTV2 is assumed to be equal to FILEKIND_FTV2");
 
 struct Tox_Userdata {
     Tox *tox;

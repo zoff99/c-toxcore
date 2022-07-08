@@ -91,6 +91,7 @@ typedef struct Messenger_Options {
 #define TOX_CAPABILITY_MSGV2 ((uint64_t)1) << 1
 #define TOX_CAPABILITY_TOXAV_H264 ((uint64_t)1) << 2
 #define TOX_CAPABILITY_MSGV3 ((uint64_t)1) << 3
+#define TOX_CAPABILITY_FTV2 ((uint64_t)1) << 4
 /* add new flags/bits here */
 /* if the TOX_CAPABILITY_NEXT_IMPLEMENTATION flag is set it means
  * we are using a different system for indicating capabilities now,
@@ -100,7 +101,7 @@ typedef struct Messenger_Options {
 #define TOX_CAPABILITY_NEXT_IMPLEMENTATION ((uint64_t)1) << 63
 /* hardcoded capabilities of this version/branch of toxcore */
 #ifdef TOX_CAPABILITIES_ACTIVE
-#define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_MSGV2 | TOX_CAPABILITY_MSGV3 | TOX_CAPABILITY_TOXAV_H264)
+#define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_MSGV2 | TOX_CAPABILITY_MSGV3 | TOX_CAPABILITY_TOXAV_H264 | TOX_CAPABILITY_FTV2)
 #else
 #define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_TOXAV_H264)
 #endif
@@ -157,6 +158,7 @@ typedef enum Userstatus {
 } Userstatus;
 
 #define FILE_ID_LENGTH 32
+#define FILE_OFFSET_LENGTH 8
 
 struct File_Transfers {
     uint64_t size;
@@ -166,6 +168,10 @@ struct File_Transfers {
     uint32_t last_packet_number; /* number of the last packet sent. */
     uint64_t requested; /* total data requested by the request chunk callback */
     uint8_t id[FILE_ID_LENGTH];
+    uint32_t file_type;
+    bool received_seek_control;
+    uint8_t received_seek_control_counter;
+    uint32_t file_receiver_last_received_chunk_this_many_iterations_ago;
 };
 typedef enum Filestatus {
     FILESTATUS_NONE,
@@ -187,11 +193,13 @@ typedef enum Filecontrol {
     FILECONTROL_PAUSE,
     FILECONTROL_KILL,
     FILECONTROL_SEEK,
+    FILECONTROL_FINISHED,
 } Filecontrol;
 
 typedef enum Filekind {
     FILEKIND_DATA,
     FILEKIND_AVATAR,
+    FILEKIND_FTV2 = 16,
 } Filekind;
 
 
@@ -258,6 +266,7 @@ typedef struct Friend {
     Connection_Status last_connection_udp_tcp;
     struct File_Transfers file_sending[MAX_CONCURRENT_FILE_PIPES];
     uint32_t num_sending_files;
+    uint32_t num_receiving_files;
     struct File_Transfers file_receiving[MAX_CONCURRENT_FILE_PIPES];
 
     struct Receipts *receipts_start;
