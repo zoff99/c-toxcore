@@ -71,7 +71,7 @@ auto_test(save_compatibility)
 
 if(NON_HERMETIC_TESTS)
 #  auto_test(bootstrap) # Does timeout.
-  auto_test(tcp_relay)
+#  auto_test(tcp_relay) # Does timeout.
 endif()
 
 if(BUILD_TOXAV)
