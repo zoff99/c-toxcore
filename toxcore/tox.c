@@ -3315,11 +3315,6 @@ bool tox_group_self_set_name(const Tox *tox, uint32_t group_number, const uint8_
         }
 
         case -4: {
-            SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SELF_NAME_SET_TAKEN);
-            return false;
-        }
-
-        case -5: {
             SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SELF_NAME_SET_FAIL_SEND);
             return false;
         }

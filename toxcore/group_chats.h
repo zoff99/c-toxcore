@@ -220,10 +220,10 @@ int gc_set_ignore(const GC_Chat *chat, uint32_t peer_id, bool ignore);
 
 /** @brief Sets the group topic and broadcasts it to the group.
  *
- * If `length` is equal to zero or topic is null the topic will be unset.
+ * If `length` is equal to zero the topic will be unset.
  *
  * Returns 0 on success.
- * Returns -1 if the topic is too long (must be `<= MAX_GC_TOPIC_LENGTH`).
+ * Returns -1 if the topic is too long (must be `<= MAX_GC_TOPIC_SIZE`).
  * Returns -2 if the caller does not have the required permissions to set the topic.
  * Returns -3 if the packet cannot be created or signing fails.
  * Returns -4 if the packet fails
@@ -313,8 +313,7 @@ uint16_t gc_get_max_peers(const GC_Chat *chat);
  * Returns -1 if group_number is invalid.
  * Returns -2 if the length is too long.
  * Returns -3 if the length is zero or nick is a NULL pointer.
- * Returns -4 if the nick is already taken.
- * Returns -5 if the packet fails to send.
+ * Returns -4 if the packet fails to send.
  */
 non_null()
 int gc_set_self_nick(const Messenger *m, int group_number, const uint8_t *nick, uint16_t length);
@@ -422,7 +421,7 @@ non_null()
 uint8_t gc_get_status(const GC_Chat *chat, uint32_t peer_id);
 
 /** @brief Returns the group role of peer designated by `peer_id`.
- * Returns (uint8_t)-1 on failure.
+ * Returns UINT8_MAX on failure.
  *
  * The role returned is equal to the last role received through the moderation callback.
  */

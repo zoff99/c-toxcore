@@ -228,7 +228,7 @@ typedef struct GC_SharedState {
     uint16_t    password_length;
     uint8_t     password[MAX_GC_PASSWORD_SIZE];
     uint8_t     mod_list_hash[MOD_MODERATION_HASH_SIZE];
-    uint32_t    topic_lock; // non-zero value when lock is enabled
+    uint32_t    topic_lock; // equal to GC_TOPIC_LOCK_ENABLED when lock is enabled
     Group_Voice_State voice_state;
 } GC_SharedState;
 

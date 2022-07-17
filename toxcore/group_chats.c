@@ -1475,7 +1475,7 @@ int group_packet_wrap(
 {
     const uint16_t padding_len = group_packet_padding_length(length);
     const uint16_t min_packet_size = net_packet_type == NET_PACKET_GC_LOSSLESS
-                                     ? length + padding_len + CRYPTO_MAC_SIZE + 1 + ENC_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + GC_MESSAGE_ID_BYTES
+                                     ? length + padding_len + CRYPTO_MAC_SIZE + 1 + ENC_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + GC_MESSAGE_ID_BYTES + 1
                                      : length + padding_len + CRYPTO_MAC_SIZE + 1 + ENC_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + 1;
 
     if (min_packet_size > packet_size) {
@@ -1484,7 +1484,7 @@ int group_packet_wrap(
     }
 
     if (length > MAX_GC_PACKET_CHUNK_SIZE) {
-        LOGGER_ERROR(log, "Packet payload size (%u) exceeds maximum (%u)", packet_size, MAX_GC_PACKET_CHUNK_SIZE);
+        LOGGER_ERROR(log, "Packet payload size (%u) exceeds maximum (%u)", length, MAX_GC_PACKET_CHUNK_SIZE);
         return -1;
     }
 
@@ -2516,7 +2516,7 @@ uint8_t gc_get_role(const GC_Chat *chat, uint32_t peer_id)
     const GC_Peer *peer = get_gc_peer(chat, peer_number);
 
     if (peer == nullptr) {
-        return (uint8_t) -1;
+        return UINT8_MAX;
     }
 
     return peer->role;
@@ -2794,7 +2794,7 @@ static void do_privacy_state_change(const GC_Session *c, GC_Chat *chat, void *us
 
 /**
  * Compares old_shared_state with the chat instance's current shared state and triggers the
- * appropriate callback depending on what piece of state information changed. Also
+ * appropriate callbacks depending on what pieces of state information changed. Also
  * handles DHT announcement/removal if the privacy state changed.
  *
  * The initial retrieval of the shared state on group join will be ignored by this function.
@@ -2892,7 +2892,7 @@ static int handle_gc_shared_state_error(GC_Chat *chat, GC_Connection *gconn)
 /** @brief Handles a shared state packet and validates the new shared state.
  *
  * Return 0 if packet is successfully handled.
- * Return -1 if packet has invalid size.
+ * Return -1 if packet is invalid and this is not successfully handled.
  */
 non_null(1, 2, 3, 4) nullable(6)
 static int handle_gc_shared_state(const GC_Session *c, GC_Chat *chat, GC_Connection *gconn, const uint8_t *data,
@@ -3010,11 +3010,9 @@ static int handle_gc_mod_list(const GC_Session *c, GC_Chat *chat, const uint8_t 
 
     const int unpack_ret = validate_unpack_mod_list(chat, data + sizeof(uint16_t), length - sizeof(uint16_t), num_mods);
 
-    if (unpack_ret != -1) {
-        update_gc_peer_roles(chat);
-    }
-
     if (unpack_ret == 0) {
+        update_gc_peer_roles(chat);
+
         if (chat->connection_state == CS_CONNECTED && c->moderation != nullptr) {
             c->moderation(c->messenger, chat->group_number, (uint32_t) -1, (uint32_t) -1, MV_MOD, userdata);
         }
@@ -3080,7 +3078,7 @@ non_null(1, 2, 3) nullable(5)
 static int handle_gc_sanctions_list(const GC_Session *c, GC_Chat *chat, const uint8_t *data, uint16_t length,
                                     void *userdata)
 {
-    if (length < sizeof(uint32_t)) {
+    if (length < sizeof(uint16_t)) {
         return -2;
     }
 
@@ -3359,21 +3357,15 @@ static int send_gc_self_exit(const GC_Chat *chat, const uint8_t *partmessage, ui
     return 0;
 }
 
-/** @brief Handles a peer exit broadcast.
- *
- * Return 0 if packet is handled correctly.
- * Return -1 if peer number is invalid.
- */
+/** @brief Handles a peer exit broadcast. */
 non_null(1, 2) nullable(3)
-static int handle_gc_peer_exit(const GC_Chat *chat, GC_Connection *gconn, const uint8_t *data, uint16_t length)
+static void handle_gc_peer_exit(const GC_Chat *chat, GC_Connection *gconn, const uint8_t *data, uint16_t length)
 {
     if (length > MAX_GC_PART_MESSAGE_SIZE) {
         length = MAX_GC_PART_MESSAGE_SIZE;
     }
 
     gcc_mark_for_deletion(gconn, chat->tcp_conn, GC_EXIT_TYPE_QUIT, data, length);
-
-    return 0;
 }
 
 int gc_set_self_nick(const Messenger *m, int group_number, const uint8_t *nick, uint16_t length)
@@ -3398,7 +3390,7 @@ int gc_set_self_nick(const Messenger *m, int group_number, const uint8_t *nick, 
     }
 
     if (!send_gc_broadcast_message(chat, nick, length, GM_NICK)) {
-        return -5;
+        return -4;
     }
 
     return 0;
@@ -3489,10 +3481,6 @@ int gc_get_peer_public_key_by_peer_id(const GC_Chat *chat, uint32_t peer_id, uin
 {
     const int peer_number = get_peer_number_of_peer_id(chat, peer_id);
 
-    if (peer_number < 0) {
-        return -1;
-    }
-
     const GC_Connection *gconn = get_gc_connection(chat, peer_number);
 
     if (gconn == nullptr) {
@@ -3511,10 +3499,6 @@ int gc_get_peer_public_key_by_peer_id(const GC_Chat *chat, uint32_t peer_id, uin
 unsigned int gc_get_peer_connection_status(const GC_Chat *chat, uint32_t peer_id)
 {
     const int peer_number = get_peer_number_of_peer_id(chat, peer_id);
-
-    if (peer_number < 0) {
-        return 0;
-    }
 
     if (peer_number_is_self(peer_number)) {  // we cannot have a connection with ourselves
         return 0;
@@ -4044,10 +4028,6 @@ static int validate_unpack_gc_set_mod(GC_Chat *chat, uint32_t peer_number, const
             return -3;
         }
 
-        if (peer_number == (uint32_t)target_peer_number) {
-            return -1;
-        }
-
         if (!mod_list_add_entry(&chat->moderation, mod_data)) {
             return -4;
         }
@@ -4063,10 +4043,6 @@ static int validate_unpack_gc_set_mod(GC_Chat *chat, uint32_t peer_number, const
 
         if (target_role != GR_MODERATOR) {
             return -3;
-        }
-
-        if (peer_number == (uint32_t)target_peer_number) {
-            return -1;
         }
 
         if (!mod_list_remove_entry(&chat->moderation, mod_data)) {
@@ -4118,8 +4094,6 @@ static int handle_gc_set_mod(const GC_Session *c, GC_Chat *chat, uint32_t peer_n
     if (target_peer == nullptr) {
         return 0;
     }
-
-    update_gc_peer_roles(chat);
 
     if (c->moderation != nullptr) {
         c->moderation(c->messenger, chat->group_number, setter_peer->peer_id, target_peer->peer_id,
@@ -4315,11 +4289,12 @@ static int handle_gc_set_observer(const GC_Session *c, GC_Chat *chat, uint32_t p
         return -2;
     }
 
-    update_gc_peer_roles(chat);
 
     if (ret == 1) {
         return 0;
     }
+
+    update_gc_peer_roles(chat);
 
     if (target_peer != nullptr) {
         if (c->moderation != nullptr) {
@@ -4612,6 +4587,7 @@ int gc_founder_set_topic_lock(const Messenger *m, int group_number, Group_Topic_
         chat->shared_state.topic_lock = GC_TOPIC_LOCK_ENABLED;
 
         if (gc_set_topic(chat, chat->topic_info.topic, chat->topic_info.length) != 0) {
+            chat->shared_state.topic_lock = old_topic_lock;
             return -6;
         }
     } else {
@@ -5325,7 +5301,8 @@ static int handle_gc_broadcast(const GC_Session *c, GC_Chat *chat, uint32_t peer
         }
 
         case GM_PEER_EXIT: {
-            ret = handle_gc_peer_exit(chat, gconn, message, m_len);
+            handle_gc_peer_exit(chat, gconn, message, m_len);
+            ret = 0;
             break;
         }
 
@@ -7399,10 +7376,6 @@ static size_t load_gc_peers(GC_Chat *chat, const GC_SavedPeerInfo *addrs, uint16
 
         const int peer_number = peer_add(chat, ip_port, addrs[i].public_key);
 
-        if (peer_number < 0) {
-            continue;
-        }
-
         GC_Connection *gconn = get_gc_connection(chat, peer_number);
 
         if (gconn == nullptr) {
@@ -7888,10 +7861,6 @@ int handle_gc_invite_confirmed_packet(const GC_Session *c, int friend_number, co
 
     const int peer_number = get_peer_number_of_enc_pk(chat, invite_chat_pk, false);
 
-    if (peer_number < 0) {
-        return -3;
-    }
-
     GC_Connection *gconn = get_gc_connection(chat, peer_number);
 
     if (gconn == nullptr) {
@@ -7955,7 +7924,7 @@ bool handle_gc_invite_accepted_packet(const GC_Session *c, int friend_number, co
 
     const int peer_number = peer_add(chat, nullptr, invite_chat_pk);
 
-    if (!friend_was_invited(m, chat, friend_number) || peer_number < 0) {
+    if (!friend_was_invited(m, chat, friend_number)) {
         return false;
     }
 

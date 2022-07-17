@@ -3925,11 +3925,6 @@ typedef enum Tox_Err_Group_Self_Name_Set {
     TOX_ERR_GROUP_SELF_NAME_SET_INVALID,
 
     /**
-     * The name is already taken by another peer in the group.
-     */
-    TOX_ERR_GROUP_SELF_NAME_SET_TAKEN,
-
-    /**
      * The packet failed to send.
      */
     TOX_ERR_GROUP_SELF_NAME_SET_FAIL_SEND,
