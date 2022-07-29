@@ -2017,7 +2017,6 @@ static bool send_gc_tcp_relays(const GC_Chat *chat, GC_Connection *gconn)
     for (uint32_t i = 0; i < n; ++i) {
         if (add_tcp_relay_connection(chat->tcp_conn, gconn->tcp_connection_num, &tcp_relays[i].ip_port,
                                      tcp_relays[i].public_key) != 0) {
-            LOGGER_DEBUG(chat->log, "Failed to add tcp relay connection %u out of %u", i, n);
         }
     }
 
