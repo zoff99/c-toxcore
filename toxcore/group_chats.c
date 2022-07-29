@@ -2015,9 +2015,8 @@ static bool send_gc_tcp_relays(const GC_Chat *chat, GC_Connection *gconn)
     gconn->tcp_relay_share_index += GCC_MAX_TCP_SHARED_RELAYS;
 
     for (uint32_t i = 0; i < n; ++i) {
-        if (add_tcp_relay_connection(chat->tcp_conn, gconn->tcp_connection_num, &tcp_relays[i].ip_port,
-                                     tcp_relays[i].public_key) != 0) {
-        }
+        add_tcp_relay_connection(chat->tcp_conn, gconn->tcp_connection_num, &tcp_relays[i].ip_port,
+                                     tcp_relays[i].public_key);
     }
 
     const int nodes_len = pack_nodes(chat->log, data, sizeof(data), tcp_relays, n);
