@@ -1726,7 +1726,7 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
                 --friendcon->num_sending_files;
             } else if (ft->status == FILESTATUS_TRANSFERRING && ft->paused == FILE_PAUSE_NOT) {
                 if (ft->size == ft->requested) {
-                    LOGGER_DEBUG(m->log, "we as sender think this FTv2 is already finished");
+                    // HINT: this is overkill in the log // LOGGER_DEBUG(m->log, "we as sender think this FTv2 is already finished");
                     // we as sender think this FTv2 is already finished,
                     // so we wait for either the receiver to send FILECONTROL_FINISHED
                     // or to send a SEEK to a new position
@@ -1811,7 +1811,7 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
                         struct File_Transfers *ft_unused = get_file_transfer(false, i, &real_filenumber, &m->friendlist[friendnumber]);
                         uint8_t wanted_offset[sizeof(uint64_t)];
                         net_pack_u64(wanted_offset, ft->transferred);
-                        if (!send_file_control_packet(m, friendnumber, true, real_filenumber, FILECONTROL_SEEK, wanted_offset, sizeof(wanted_offset))) {
+                        if (!send_file_control_packet(m, friendnumber, true, i, FILECONTROL_SEEK, wanted_offset, sizeof(wanted_offset))) {
                             // sending SEEK file control failed
                             LOGGER_DEBUG(m->log, "stale receiving FT detected:sending SEEK file control failed. friendnum: %d filenum: %d",
                                 friendnumber, real_filenumber);
@@ -2623,7 +2623,7 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
                     uint8_t wanted_offset[sizeof(uint64_t)];
                     net_pack_u64(wanted_offset, ft->transferred);
 
-                    if (!send_file_control_packet(m, i, true, real_filenumber, FILECONTROL_SEEK, wanted_offset, sizeof(wanted_offset))) {
+                    if (!send_file_control_packet(m, i, true, filenumber, FILECONTROL_SEEK, wanted_offset, sizeof(wanted_offset))) {
                         // sending SEEK file control failed
                         LOGGER_WARNING(m->log, "sending SEEK file control failed. friendnum: %d filenum: %d",
                             i, real_filenumber);
@@ -2646,7 +2646,7 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
 
                 if (ft->transferred == ft->size)
                 {
-                    if (!send_file_control_packet(m, i, true, real_filenumber, FILECONTROL_FINISHED, nullptr, 0)) {
+                    if (!send_file_control_packet(m, i, true, filenumber, FILECONTROL_FINISHED, nullptr, 0)) {
                         // sending FILECONTROL_FINISHED failed
                         LOGGER_DEBUG(m->log, "sending FILECONTROL_FINISHED failed. friendnum: %d filenum: %d", i, real_filenumber);
                         // TODO: if sending of FILECONTROL_FINISHED failed, what happens then?
