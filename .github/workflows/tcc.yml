@@ -29,3 +29,5 @@ jobs:
           libx264-dev
       - run: .localrun/run_tcc.sh
 
+      - name: Run the test
+        run: "./send_message_test | grep 'tox clients connected'"
