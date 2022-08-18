@@ -92,3 +92,4 @@ cscope.files
 tox.spec
 
 .idea/
+send_message_test
