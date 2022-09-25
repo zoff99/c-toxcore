@@ -4667,6 +4667,29 @@ typedef enum Tox_Err_Group_Send_Private_Message {
 bool tox_group_send_private_message(const Tox *tox, uint32_t group_number, uint32_t peer_id, Tox_Message_Type type,
                                     const uint8_t *message, size_t length, Tox_Err_Group_Send_Private_Message *error);
 
+/**
+ * Send a text chat message to the specified peer in the specified group.
+ *
+ * This function creates a group private packet and pushes it into the send
+ * queue.
+ *
+ * The message length may not exceed TOX_GROUP_MAX_MESSAGE_LENGTH. Larger messages
+ * must be split by the client and sent as separate messages. Other clients can
+ * then reassemble the fragments. Messages may not be empty.
+ *
+ * @param group_number The group number of the group the message is intended for.
+ * @param public_key A memory region of at least TOX_PUBLIC_KEY_SIZE bytes of the peer the
+ *   message is intended for. If this parameter is NULL, this function will return false.
+ * @param message A non-NULL pointer to the first element of a byte array
+ *   containing the message text.
+ * @param length Length of the message to be sent.
+ *
+ * @return true on success.
+ */
+bool tox_group_send_private_message_by_peerpubkey(const Tox *tox, uint32_t group_number, const uint8_t *public_key,
+                                    Tox_Message_Type type, const uint8_t *message, size_t length,
+                                    Tox_Err_Group_Send_Private_Message *error);
+
 typedef enum Tox_Err_Group_Send_Custom_Packet {
 
     /**

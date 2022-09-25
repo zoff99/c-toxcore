@@ -3482,6 +3482,10 @@ int64_t get_gc_peer_id_by_public_key(const GC_Chat *chat, const uint8_t *public_
         return -1;
     }
 
+    if (public_key == nullptr) {
+        return -1;
+    }
+
     if (chat->numpeers == 0) {
         return -1;
     }
