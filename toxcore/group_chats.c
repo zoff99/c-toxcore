@@ -3475,6 +3475,27 @@ static int get_gc_peer_public_key(const GC_Chat *chat, uint32_t peer_number, uin
     return 0;
 }
 
+non_null()
+int64_t get_gc_peer_id_by_public_key(const GC_Chat *chat, const uint8_t *public_key)
+{
+    if (chat == nullptr) {
+        return -1;
+    }
+
+    if (chat->numpeers == 0) {
+        return -1;
+    }
+
+    const int target_peer_number = get_peer_number_of_enc_pk(chat, public_key, false);
+
+    if (target_peer_number == -1)
+    {
+        return -1;
+    }
+
+    return (chat->group[target_peer_number].peer_id);
+}
+
 int gc_get_peer_public_key_by_peer_id(const GC_Chat *chat, uint32_t peer_id, uint8_t *public_key)
 {
     const int peer_number = get_peer_number_of_peer_id(chat, peer_id);

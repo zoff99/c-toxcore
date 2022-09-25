@@ -376,6 +376,14 @@ bool gc_get_peer_nick(const GC_Chat *chat, uint32_t peer_id, uint8_t *name);
 non_null()
 int gc_get_peer_nick_size(const GC_Chat *chat, uint32_t peer_id);
 
+/** @brief Returns the peer_id of the peer with this `public_key`.
+ *
+ * Returns peer_id on success.
+ * Returns -1 on error.
+ */
+non_null()
+int64_t get_gc_peer_id_by_public_key(const GC_Chat *chat, const uint8_t *public_key);
+
 /** @brief Copies peer_id's public key to `public_key`.
  *
  * This key is permanently tied to the peer's identity for `chat` until they explicitly

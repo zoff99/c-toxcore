@@ -3707,6 +3707,32 @@ bool tox_group_peer_get_public_key(const Tox *tox, uint32_t group_number, uint32
     return true;
 }
 
+uint32_t tox_group_peer_by_public_key(const Tox *tox, uint32_t group_number, const uint8_t *public_key,
+                                      Tox_Err_Group_Peer_Query *error)
+{
+    assert(tox != nullptr);
+
+    tox_lock(tox);
+    const GC_Chat *chat = gc_get_group(tox->m->group_handler, group_number);
+
+    if (chat == nullptr) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_GROUP_NOT_FOUND);
+        tox_unlock(tox);
+        return UINT32_MAX;
+    }
+
+    const int64_t peer_id = get_gc_peer_id_by_public_key(chat, public_key);
+    tox_unlock(tox);
+
+    if (peer_id == -1) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_PEER_NOT_FOUND);
+        return UINT32_MAX;
+    }
+
+    SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_OK);
+    return (uint32_t)peer_id;
+}
+
 Tox_Connection tox_group_peer_get_connection_status(const Tox *tox, uint32_t group_number, uint32_t peer_id,
         Tox_Err_Group_Peer_Query *error)
 {

@@ -4164,6 +4164,16 @@ bool tox_group_peer_get_public_key(const Tox *tox, uint32_t group_number, uint32
                                    Tox_Err_Group_Peer_Query *error);
 
 /**
+ * @brief Return the peer number associated with that NGC Peer Public Key.
+ *
+ * @return the peer number on success, an unspecified value on failure.
+ * @param public_key A byte array containing the NGC Peer Public Key.
+ */
+uint32_t tox_group_peer_by_public_key(const Tox *tox, uint32_t group_number, const uint8_t *public_key, Tox_Err_Group_Peer_Query *error);
+
+
+
+/**
  * @param group_number The group number of the group the name change is intended for.
  * @param peer_id The ID of the peer who has changed their name.
  * @param name The name data.
