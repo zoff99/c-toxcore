@@ -1460,6 +1460,9 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
 
         if (call->video_bit_rate > 0) {
             call->video_bit_rate = VIDEO_BITRATE_INITIAL_VALUE_H264;
+            if (call->video_bit_rate < (uint32_t)call->video->video_min_bitrate) {
+                call->video_bit_rate = (uint32_t)call->video->video_min_bitrate;
+            }
             call->video_bit_rate_not_yet_set = call->video_bit_rate;
         }
 
@@ -1769,6 +1772,9 @@ bool toxav_video_send_frame_h264_age(ToxAV *av, uint32_t friend_number, uint16_t
 
         if (call->video_bit_rate > 0) {
             call->video_bit_rate = VIDEO_BITRATE_INITIAL_VALUE_H264;
+            if (call->video_bit_rate < (uint32_t)call->video->video_min_bitrate) {
+                call->video_bit_rate = (uint32_t)call->video->video_min_bitrate;
+            }
             call->video_bit_rate_not_yet_set = call->video_bit_rate;
         }
 
