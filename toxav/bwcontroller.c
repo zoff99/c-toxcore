@@ -165,8 +165,18 @@ void send_update(BWController *bwc, bool dummy)
     }
 }
 
-static int on_update(BWController *bwc, const struct BWCMessage *msg)
+inline __attribute__((always_inline)) static int on_update(BWController *bwc, const struct BWCMessage *msg)
 {
+    if (!bwc) {
+        return -1;
+    }
+
+    if (!bwc->mcb) {
+        return -1;
+    }
+
+    m_cb *bwc_callback_pointer = bwc->mcb;
+
     /* Peers sent update too soon */
     if ((bwc->cycle.last_recv_timestamp + (BWC_SEND_INTERVAL_MS / 2)) > current_time_monotonic(bwc->bwc_mono_time)) {
         return -1;
@@ -176,14 +186,13 @@ static int on_update(BWController *bwc, const struct BWCMessage *msg)
     const uint32_t recv = msg->recv;
     const uint32_t lost = msg->lost;
 
-    if (bwc->mcb) {
-
+    if ((bwc_callback_pointer) && (bwc)) {
         if ((recv + lost) > 0) {
-            bwc->mcb(bwc, bwc->friend_number,
+            bwc_callback_pointer(bwc, bwc->friend_number,
                      ((float) lost / (recv + lost)),
                      bwc->mcb_user_data);
         } else {
-            bwc->mcb(bwc, bwc->friend_number,
+            bwc_callback_pointer(bwc, bwc->friend_number,
                      0,
                      bwc->mcb_user_data);
         }

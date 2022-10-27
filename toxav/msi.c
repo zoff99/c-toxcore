@@ -773,15 +773,20 @@ void kill_call(MSICall *call)
     }
 
     session->calls[call->friend_number] = nullptr;
+    LOGGER_API_INFO(session->tox, "Killing call:1: free(call)");
     free(call);
+    call = nullptr;
     return;
 
 CLEAR_CONTAINER:
     session->calls_head = 0;
     session->calls_tail = 0;
+    LOGGER_API_INFO(session->tox, "Killing call:2: free(session->calls)");
     free(session->calls);
-    free(call);
     session->calls = nullptr;
+    LOGGER_API_INFO(session->tox, "Killing call:2: free(call)");
+    free(call);
+    call = nullptr;
 }
 
 
