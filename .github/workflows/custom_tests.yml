@@ -56,7 +56,7 @@ jobs:
           set -x
           export PKG_CONFIG_PATH="$PWD"/_install/lib/pkgconfig
           ls -al "$PKG_CONFIG_PATH"
-          CC=clang $CC \
+          clang -g -O1 -fno-omit-frame-pointer -fsanitize=address \
           $(pkg-config --cflags toxcore libavcodec libavutil x264 opus vpx libsodium) \
           $(pkg-config --libs toxcore libavcodec libavutil x264 opus vpx libsodium) \
           ./custom_tests/toxav_msi_stress_test_01.c \
