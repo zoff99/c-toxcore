@@ -752,6 +752,8 @@ void kill_call(MSICall *call)
     MSISession *session = call->session;
 
     LOGGER_API_INFO(session->tox, "Killing call: %p", (void *)call);
+    LOGGER_API_INFO(session->tox, "Killing call:session->calls[call->friend_number] NULL ...");
+    session->calls[call->friend_number] = nullptr;
 
     MSICall *prev = call->prev;
     MSICall *next = call->next;
@@ -772,7 +774,6 @@ void kill_call(MSICall *call)
         goto CLEAR_CONTAINER;
     }
 
-    session->calls[call->friend_number] = nullptr;
     LOGGER_API_INFO(session->tox, "Killing call:1: free(call)");
     free(call);
     call = nullptr;

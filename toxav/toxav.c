@@ -2389,6 +2389,11 @@ static ToxAVCall *call_remove(ToxAVCall *call)
         call->msi_call->av_call = nullptr;
     }
 
+    pthread_mutex_lock(call->toxav_call_mutex);
+    LOGGER_API_DEBUG(av->tox, "call:calls[friend_number] NULL ...");
+    av->calls[friend_number] = nullptr;
+    pthread_mutex_unlock(call->toxav_call_mutex);
+
     LOGGER_API_WARNING(av->tox, "call:freeing ...");
     pthread_mutex_destroy(call->toxav_call_mutex);
     free(call);
@@ -2410,8 +2415,6 @@ static ToxAVCall *call_remove(ToxAVCall *call)
     } else {
         goto CLEAR;
     }
-
-    av->calls[friend_number] = nullptr;
 
     LOGGER_API_INFO(av->tox, "call:remove:fnum=%d after_01:h=%d t=%d", friend_number, av->calls_head, av->calls_tail);
 
@@ -2502,6 +2505,7 @@ static bool call_prepare_transmission(ToxAVCall *call)
 
 FAILURE:
     bwc_kill(call->bwc);
+    call->bwc = nullptr;
     rtp_kill(av->tox, call->audio_rtp);
     ac_kill(call->audio);
     call->audio_rtp = nullptr;
@@ -2535,6 +2539,7 @@ static void call_kill_transmission(ToxAVCall *call)
 
     pthread_mutex_lock(call->toxav_call_mutex);
     bwc_kill(call->bwc);
+    call->bwc = nullptr;
     pthread_mutex_unlock(call->toxav_call_mutex);
 
     ToxAV *av = call->av;

@@ -175,8 +175,6 @@ inline __attribute__((always_inline)) static int on_update(BWController *bwc, co
         return -1;
     }
 
-    m_cb *bwc_callback_pointer = bwc->mcb;
-
     /* Peers sent update too soon */
     if ((bwc->cycle.last_recv_timestamp + (BWC_SEND_INTERVAL_MS / 2)) > current_time_monotonic(bwc->bwc_mono_time)) {
         return -1;
@@ -186,13 +184,13 @@ inline __attribute__((always_inline)) static int on_update(BWController *bwc, co
     const uint32_t recv = msg->recv;
     const uint32_t lost = msg->lost;
 
-    if ((bwc_callback_pointer) && (bwc)) {
+    if ((bwc) && (bwc->mcb)) {
         if ((recv + lost) > 0) {
-            bwc_callback_pointer(bwc, bwc->friend_number,
+            bwc->mcb(bwc, bwc->friend_number,
                      ((float) lost / (recv + lost)),
                      bwc->mcb_user_data);
         } else {
-            bwc_callback_pointer(bwc, bwc->friend_number,
+            bwc->mcb(bwc, bwc->friend_number,
                      0,
                      bwc->mcb_user_data);
         }
@@ -224,22 +222,22 @@ void bwc_handle_data(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_
     call = (void *)call_get(toxav, friendnumber);
 
     if (!call) {
+        LOGGER_API_INFO(tox, "No Call Object!");
         return;
     }
 
     /* get Call object from Tox and friend number */
 
-
     BWController *bwc = NULL;
     bwc = bwc_controller_get(call);
 
     if (!bwc) {
-        LOGGER_API_WARNING(tox, "No BWC Object!");
+        LOGGER_API_INFO(tox, "No BWC Object!");
         return;
     }
 
     if (!bwc->bwc_receive_active) {
-        LOGGER_API_WARNING(tox, "receiving not allowed!");
+        LOGGER_API_INFO(tox, "receiving not allowed!");
         return;
     }
 
@@ -249,7 +247,9 @@ void bwc_handle_data(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_
     offset += net_unpack_u32(data + offset, &msg.recv);
     assert(offset == length);
 
-    on_update(bwc, &msg);
+    if (bwc) {
+        on_update(bwc, &msg);
+    }
 }
 
 /*
