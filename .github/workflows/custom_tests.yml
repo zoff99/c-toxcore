@@ -39,7 +39,6 @@ jobs:
           -DCMAKE_CXX_FLAGS="-fno-omit-frame-pointer -fsanitize=address" \
           -DCMAKE_EXE_LINKER_FLAGS="-fno-omit-frame-pointer -fsanitize=address" \
           -DCMAKE_SHARED_LINKER_FLAGS="-fno-omit-frame-pointer -fsanitize=address" \
-          -DCMAKE_UNITY_BUILD=ON \
           -DMIN_LOGGER_LEVEL=DEBUG \
           -DMUST_BUILD_TOXAV=ON \
           -DNON_HERMETIC_TESTS=OFF \
@@ -54,13 +53,14 @@ jobs:
       - run: |
           pwd
           ls -al
+          set -x
           export PKG_CONFIG_PATH="$PWD"/_install/lib/pkgconfig
           ls -al "$PKG_CONFIG_PATH"
           CC=clang $CC \
           $(pkg-config --cflags toxcore libavcodec libavutil x264 opus vpx libsodium) \
           $(pkg-config --libs toxcore libavcodec libavutil x264 opus vpx libsodium) \
           ./custom_tests/toxav_msi_stress_test_01.c \
-          toxav_msi_stress_test_01
+          -o toxav_msi_stress_test_01
           ldd toxav_msi_stress_test_01
           ./toxav_msi_stress_test_01
 
