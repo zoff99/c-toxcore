@@ -51,4 +51,17 @@ jobs:
           cd _build
           ninja install -j"$(nproc)"
 
+      - run: |
+          pwd
+          ls -al
+          export PKG_CONFIG_PATH="$PWD"/_install/pkgconfig
+          ls -al "$PKG_CONFIG_PATH"
+          CC=clang $CC \
+          $(pkg-config --cflags libtoxcore libavcodec libavutil x264 opus vpx libsodium) \
+          $(pkg-config --libs libtoxcore libavcodec libavutil x264 opus vpx libsodium) \
+          ../custom_tests/toxav_msi_stress_test_01.c \
+          toxav_msi_stress_test_01
+          ldd toxav_msi_stress_test_01
+          ./toxav_msi_stress_test_01
+
 
