@@ -54,7 +54,7 @@ jobs:
       - run: |
           pwd
           ls -al
-          export PKG_CONFIG_PATH="$PWD"/_install/pkgconfig
+          export PKG_CONFIG_PATH="$PWD"/_install/lib/pkgconfig
           ls -al "$PKG_CONFIG_PATH"
           CC=clang $CC \
           $(pkg-config --cflags libtoxcore libavcodec libavutil x264 opus vpx libsodium) \
