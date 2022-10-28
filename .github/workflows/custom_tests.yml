@@ -34,6 +34,11 @@ jobs:
       - run: git submodule update --init --recursive
       - run: |
           CC=clang cmake -B_build -H. -GNinja \
+          -DCMAKE_INSTALL_PREFIX:PATH="$PWD/_install" \
+          -DCMAKE_C_FLAGS="-fno-omit-frame-pointer -fsanitize=address" \
+          -DCMAKE_CXX_FLAGS="-fno-omit-frame-pointer -fsanitize=address" \
+          -DCMAKE_EXE_LINKER_FLAGS="-fno-omit-frame-pointer -fsanitize=address" \
+          -DCMAKE_SHARED_LINKER_FLAGS="-fno-omit-frame-pointer -fsanitize=address" \
           -DCMAKE_UNITY_BUILD=ON \
           -DMIN_LOGGER_LEVEL=DEBUG \
           -DMUST_BUILD_TOXAV=ON \
