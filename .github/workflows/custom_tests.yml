@@ -1,0 +1,49 @@
+name: custom_tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux-custom-tests:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - run: |
+          sudo apt-get update && \
+          sudo DEBIAN_FRONTEND=noninteractive apt-get remove g++ && \
+          sudo DEBIAN_FRONTEND=noninteractive \
+          apt-get install -y --no-install-recommends \
+          ca-certificates \
+          clang \
+          cmake \
+          git \
+          libconfig-dev \
+          libgtest-dev \
+          libopus-dev \
+          libsodium-dev \
+          libvpx-dev \
+          llvm-dev \
+          ninja-build \
+          pkg-config \
+          libavutil-dev \
+          libavcodec-dev \
+          libavformat-dev \
+          libavfilter-dev \
+          libx264-dev
+      - run: git submodule update --init --recursive
+      - run: |
+          CC=clang cmake -B_build -H. -GNinja \
+          -DCMAKE_UNITY_BUILD=ON \
+          -DMIN_LOGGER_LEVEL=DEBUG \
+          -DMUST_BUILD_TOXAV=ON \
+          -DNON_HERMETIC_TESTS=OFF \
+          -DSTRICT_ABI=OFF \
+          -DUSE_IPV6=OFF \
+          -DAUTOTEST=OFF \
+          -DBUILD_MISC_TESTS=OFF \
+          -DBUILD_FUN_UTILS=OFF
+          cd _build
+          ninja install -j"$(nproc)"
+
+
