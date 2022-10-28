@@ -39,7 +39,7 @@ jobs:
           -DCMAKE_CXX_FLAGS="-fno-omit-frame-pointer -fsanitize=address" \
           -DCMAKE_EXE_LINKER_FLAGS="-fno-omit-frame-pointer -fsanitize=address" \
           -DCMAKE_SHARED_LINKER_FLAGS="-fno-omit-frame-pointer -fsanitize=address" \
-          -DMIN_LOGGER_LEVEL=DEBUG \
+          -DMIN_LOGGER_LEVEL=INFO \
           -DMUST_BUILD_TOXAV=ON \
           -DNON_HERMETIC_TESTS=OFF \
           -DSTRICT_ABI=OFF \
