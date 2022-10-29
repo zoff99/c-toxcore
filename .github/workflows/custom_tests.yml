@@ -9,8 +9,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
-      - name: install deps
-        run: |
+      - run: |
           sudo apt-get update && \
           sudo DEBIAN_FRONTEND=noninteractive apt-get remove g++ && \
           sudo DEBIAN_FRONTEND=noninteractive \
@@ -32,9 +31,10 @@ jobs:
           libavformat-dev \
           libavfilter-dev \
           libx264-dev
+
       - name: git submodules
         run: git submodule update --init --recursive
-      - name: build toxcore with asan
+
         run: |
           CC=clang cmake -B_build -H. -GNinja \
           -DCMAKE_INSTALL_PREFIX:PATH="$PWD/_install" \
@@ -53,7 +53,6 @@ jobs:
           cd _build
           ninja install -j"$(nproc)"
 
-      - name: run tests
       - run: |
           pwd
           ls -al
