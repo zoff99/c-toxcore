@@ -998,7 +998,7 @@ int main(void)
         pthread_setname_np(tid[7], "t_toxav_v_snd2");
     }
 
-    for (long looper=0;looper<(40*60);looper++) {
+    for (long looper=0;looper<(80*60);looper++) {
         tox_iterate(tox1, (void *)&num1);
         usleep((generate_random_uint32() % 20) * 1000);
         tox_iterate(tox2, (void *)&num2);
