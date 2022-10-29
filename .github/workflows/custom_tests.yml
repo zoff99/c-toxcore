@@ -50,7 +50,8 @@ jobs:
           -DBUILD_FUN_UTILS=OFF
           cd _build
           ninja install -j"$(nproc)"
-      - run: |
+      - name: run custom tests
+        run: |
           pwd
           ls -al
           export PKG_CONFIG_PATH="$PWD"/_install/lib/pkgconfig
@@ -60,7 +61,7 @@ jobs:
           clang -g -O1 -fno-omit-frame-pointer -fsanitize=address \
           $(pkg-config --cflags toxcore libavcodec libavutil x264 opus vpx libsodium) \
           $(pkg-config --libs toxcore libavcodec libavutil x264 opus vpx libsodium) \
-          ./custom_tests/"$i" \
+          "$i" \
           -o test
           ./test || exit 1
           done
