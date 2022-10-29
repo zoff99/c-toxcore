@@ -59,6 +59,7 @@ jobs:
           ls -al "$PKG_CONFIG_PATH"
           for i in $(ls -1 ./custom_tests/*.c) ; do
           clang -g -O1 -fno-omit-frame-pointer -fsanitize=address \
+          -Wno-everything \
           $(pkg-config --cflags toxcore libavcodec libavutil x264 opus vpx libsodium) \
           $(pkg-config --libs toxcore libavcodec libavutil x264 opus vpx libsodium) \
           "$i" \
