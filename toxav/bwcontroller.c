@@ -22,8 +22,8 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "bwcontroller.h"
-
 #include "ring_buffer.h"
+#include "toxav_hacks.h"
 
 #include "../toxcore/tox_private.h"
 #include "../toxcore/ccompat.h"
@@ -199,11 +199,6 @@ inline __attribute__((always_inline)) static int on_update(BWController *bwc, co
     return 0;
 }
 
-/* !!hack!! TODO:fix me */
-void *call_get(void *av, uint32_t friend_number);
-BWController *bwc_controller_get(void *call);
-/* !!hack!! TODO:fix me */
-
 
 void bwc_handle_data(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_t length, void *dummy)
 {
@@ -211,10 +206,21 @@ void bwc_handle_data(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_
         return;
     }
 
-    /* get BWController object from Tox and friend number */
     void *toxav = (void *)tox_get_av_object(tox);
 
     if (toxav == nullptr) {
+        return;
+    }
+
+    pthread_mutex_t *endcall_mutex = NULL;
+    endcall_mutex = (void *)endcall_mutex_get(toxav);
+
+    if (!endcall_mutex) {
+        return;
+    }
+
+    if (pthread_mutex_trylock(endcall_mutex) != 0) {
+        LOGGER_API_DEBUG(tox, "could not lock mutex, we are ending a call");
         return;
     }
 
@@ -223,21 +229,24 @@ void bwc_handle_data(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_
 
     if (!call) {
         LOGGER_API_INFO(tox, "No Call Object!");
+        pthread_mutex_unlock(endcall_mutex);
         return;
     }
 
-    /* get Call object from Tox and friend number */
+    /* get Call object from Tox */
 
     BWController *bwc = NULL;
     bwc = bwc_controller_get(call);
 
     if (!bwc) {
         LOGGER_API_INFO(tox, "No BWC Object!");
+        pthread_mutex_unlock(endcall_mutex);
         return;
     }
 
     if (!bwc->bwc_receive_active) {
         LOGGER_API_INFO(tox, "receiving not allowed!");
+        pthread_mutex_unlock(endcall_mutex);
         return;
     }
 
@@ -250,6 +259,8 @@ void bwc_handle_data(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_
     if (bwc) {
         on_update(bwc, &msg);
     }
+
+    pthread_mutex_unlock(endcall_mutex);
 }
 
 /*

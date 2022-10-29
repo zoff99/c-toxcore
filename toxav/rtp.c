@@ -506,7 +506,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
 
     if (pthread_mutex_trylock(endcall_mutex) != 0) {
-        LOGGER_API_DEBUG(tox, "could not lock mutes, we are ending a call");
+        LOGGER_API_DEBUG(tox, "could not lock mutex, we are ending a call");
         return;
     }
 
@@ -901,7 +901,6 @@ NEW_MULTIPARTED:
     }
 
     pthread_mutex_unlock(endcall_mutex);
-    return;
 }
 
 size_t rtp_header_pack(uint8_t *const rdata, const struct RTPHeader *header)
