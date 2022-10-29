@@ -1023,5 +1023,7 @@ int main(void)
     tox_kill(tox2);
 
     fclose(logfile);
+
+    dbg(9, "--END--\n");
     return 0;
 } 
