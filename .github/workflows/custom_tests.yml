@@ -53,10 +53,9 @@ jobs:
       - name: run custom tests
         run: |
           pwd
-          ls -al
+          ls -1 ./custom_tests/*.c
           export PKG_CONFIG_PATH="$PWD"/_install/lib/pkgconfig
           export LD_LIBRARY_PATH="$PWD"/_install/lib
-          ls -al "$PKG_CONFIG_PATH"
           for i in $(ls -1 ./custom_tests/*.c) ; do
           clang -g -O1 -fno-omit-frame-pointer -fsanitize=address \
           -Wno-everything \
