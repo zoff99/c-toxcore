@@ -1022,8 +1022,8 @@ int main(void)
     tox_kill(tox1);
     tox_kill(tox2);
 
+    dbg(9, "--END--\n");
     fclose(logfile);
 
-    dbg(9, "--END--\n");
     return 0;
 } 
