@@ -32,7 +32,8 @@ jobs:
           libavfilter-dev \
           libx264-dev
       - run: git submodule update --init --recursive
-      - run: |
+      - name: build toxcore
+        run: |
           CC=clang cmake -B_build -H. -GNinja \
           -DCMAKE_INSTALL_PREFIX:PATH="$PWD/_install" \
           -DCMAKE_C_FLAGS="-g -O1 -fno-omit-frame-pointer -fsanitize=address" \
