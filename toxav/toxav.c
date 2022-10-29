@@ -112,6 +112,15 @@ pthread_mutex_t *call_mutex_get(ToxAVCall *call)
     return call->toxav_call_mutex;
 }
 
+pthread_mutex_t *endcall_mutex_get(ToxAV *av)
+{
+    if (av == nullptr) {
+        return nullptr;
+    }
+
+    return av->toxav_endcall_mutex;
+}
+
 BWController *bwc_controller_get(ToxAVCall *call)
 {
     if (call == nullptr) {
@@ -144,12 +153,20 @@ ToxAV *toxav_new(Tox *tox, Toxav_Err_New *error)
         goto RETURN;
     }
 
+    if (create_recursive_mutex(av->toxav_endcall_mutex) != 0) {
+        pthread_mutex_destroy(av->mutex);
+        LOGGER_API_WARNING(tox, "Mutex creation failed!");
+        rc = TOXAV_ERR_NEW_MALLOC;
+        goto RETURN;
+    }
+
     av->toxav_mono_time = mono_time_new(nullptr, nullptr);
     av->tox = tox;
     av->msi = msi_new(av->tox);
 
     if (av->msi == nullptr) {
         pthread_mutex_destroy(av->mutex);
+        pthread_mutex_destroy(av->toxav_endcall_mutex);
         rc = TOXAV_ERR_NEW_MALLOC;
         goto RETURN;
     }
@@ -221,6 +238,7 @@ void toxav_kill(ToxAV *av)
 
     pthread_mutex_unlock(av->mutex);
     pthread_mutex_destroy(av->mutex);
+    pthread_mutex_destroy(av->toxav_endcall_mutex);
 
     // set ToxAV object to NULL in toxcore, to signal ToxAV has been shutdown
     tox_set_av_object(av->tox, nullptr);
@@ -2544,9 +2562,12 @@ static void call_kill_transmission(ToxAVCall *call)
 
     ToxAV *av = call->av;
 
+    pthread_mutex_lock(av->toxav_endcall_mutex);
+
     pthread_mutex_lock(call->toxav_call_mutex);
-    rtp_kill(av->tox, call->audio_rtp);
+    RTPSession *audio_rtp_copy = call->audio_rtp;
     call->audio_rtp = nullptr;
+    rtp_kill(av->tox, audio_rtp_copy);
     pthread_mutex_unlock(call->toxav_call_mutex);
 
     pthread_mutex_lock(call->toxav_call_mutex);
@@ -2555,17 +2576,21 @@ static void call_kill_transmission(ToxAVCall *call)
     pthread_mutex_unlock(call->toxav_call_mutex);
 
     pthread_mutex_lock(call->toxav_call_mutex);
-    rtp_kill(av->tox, call->video_rtp);
+    RTPSession *video_rtp_copy = call->video_rtp;
     call->video_rtp = nullptr;
+    rtp_kill(av->tox, video_rtp_copy);
     pthread_mutex_unlock(call->toxav_call_mutex);
 
     pthread_mutex_lock(call->toxav_call_mutex);
-    vc_kill(call->video);
+    VCSession *vc_copy = (VCSession *)call->video;
     call->video = nullptr;
+    vc_kill(vc_copy);
     pthread_mutex_unlock(call->toxav_call_mutex);
 
     pthread_mutex_destroy(call->mutex_audio);
     pthread_mutex_destroy(call->mutex_video);
+
+    pthread_mutex_unlock(av->toxav_endcall_mutex);
 }
 
 Mono_Time *toxav_get_av_mono_time(ToxAV *toxav)

@@ -354,6 +354,10 @@ static int handle_video_packet(RTPSession *session, const struct RTPHeader *head
     // frame or it's not a multipart frame, then this value is 0.
     const uint32_t offset = header->offset_full; // without header
 
+    if (!session) {
+        return -1;
+    }
+
     LOGGER_API_DEBUG(session->tox, "FPATH:%d", (int)header->sequnum);
 
     // sanity checks ---------------
@@ -493,10 +497,24 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         return;
     }
 
+    pthread_mutex_t *endcall_mutex = NULL;
+    endcall_mutex = (void *)endcall_mutex_get(toxav);
+
+    if (!endcall_mutex) {
+        return;
+    }
+
+
+    if (pthread_mutex_trylock(endcall_mutex) != 0) {
+        LOGGER_API_DEBUG(tox, "could not lock mutes, we are ending a call");
+        return;
+    }
+
     void *call = NULL;
     call = (void *)call_get(toxav, friendnumber);
 
     if (!call) {
+        pthread_mutex_unlock(endcall_mutex);
         return;
     }
 
@@ -511,11 +529,13 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
     if (!session) {
         LOGGER_API_ERROR(tox, "No session!");
+        pthread_mutex_unlock(endcall_mutex);
         return;
     }
 
     if ((!session) && (!session->rtp_receive_active)) {
         LOGGER_API_WARNING(tox, "receiving not allowed!");
+        pthread_mutex_unlock(endcall_mutex);
         return;
     }
 
@@ -643,6 +663,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         }
 
         pthread_mutex_unlock(call_mutex_get(call));
+        pthread_mutex_unlock(endcall_mutex);
         return;
     }
     // ========== PACKET_TOXAV_COMM_CHANNEL paket handling ==========
@@ -658,12 +679,14 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     if (header.pt != packet_type % 128) {
         LOGGER_API_WARNING(tox, "RTPHeader packet type and Tox protocol packet type did not agree: %d != %d",
                          header.pt, packet_type % 128);
+        pthread_mutex_unlock(endcall_mutex);
         return;
     }
 
     if (header.pt != session->payload_type % 128) {
         LOGGER_API_WARNING(tox, "RTPHeader packet type does not match this session's payload type: %d != %d",
                          header.pt, session->payload_type % 128);
+        pthread_mutex_unlock(endcall_mutex);
         return;
     }
 
@@ -671,6 +694,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
             && (header.offset_full != 0 || header.data_length_full != 0)) {
         LOGGER_API_ERROR(tox, "Invalid video packet: frame offset (%u) >= full frame length (%u)",
                          (unsigned)header.offset_full, (unsigned)header.data_length_full);
+        pthread_mutex_unlock(endcall_mutex);
         return;
     }
 
@@ -678,6 +702,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         if (header.offset_lower >= header.data_length_lower) {
             LOGGER_API_ERROR(tox, "Invalid old protocol video packet: frame offset (%u) >= full frame length (%u)",
                              (unsigned)header.offset_lower, (unsigned)header.data_length_lower);
+            pthread_mutex_unlock(endcall_mutex);
             return;
         }
     }
@@ -718,13 +743,17 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         uint8_t pkg_buf[pkg_buf_len];
         pkg_buf[0] = PACKET_TOXAV_COMM_CHANNEL;
         pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_REQUEST;
-        uint32_t tmp = current_time_monotonic(rtp_get_mono_time_from_rtpsession(session));
-        pkg_buf[2] = tmp >> 24 & 0xFF;
-        pkg_buf[3] = tmp >> 16 & 0xFF;
-        pkg_buf[4] = tmp >> 8  & 0xFF;
-        pkg_buf[5] = tmp       & 0xFF;
+        if (session) {
+            pthread_mutex_lock(call_mutex_get(call));
+            uint32_t tmp = current_time_monotonic(rtp_get_mono_time_from_rtpsession(session));
+            pthread_mutex_unlock(call_mutex_get(call));
+            pkg_buf[2] = tmp >> 24 & 0xFF;
+            pkg_buf[3] = tmp >> 16 & 0xFF;
+            pkg_buf[4] = tmp >> 8  & 0xFF;
+            pkg_buf[5] = tmp       & 0xFF;
 
-        int result = rtp_send_custom_lossless_packet(tox, friendnumber, pkg_buf, pkg_buf_len);
+            int result = rtp_send_custom_lossless_packet(tox, friendnumber, pkg_buf, pkg_buf_len);
+        }
     }
     // HINT: ask sender for dummy ntp values -------------
 
@@ -732,6 +761,8 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
     // The sender uses the new large-frame capable protocol and is sending a
     // video packet.
     if ((header.flags & RTP_LARGE_FRAME) && (header.pt == (RTP_TYPE_VIDEO % 128))) {
+
+        pthread_mutex_lock(call_mutex_get(call));
 
         if (session->incoming_packets_ts_last_ts == -1) {
             session->incoming_packets_ts[session->incoming_packets_ts_index] = 0;
@@ -757,7 +788,10 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
         incoming_rtp_packets_delta_average = incoming_rtp_packets_delta_average / INCOMING_PACKETS_TS_ENTRIES;
         session->incoming_packets_ts_average = incoming_rtp_packets_delta_average;
+        pthread_mutex_unlock(call_mutex_get(call));
+
         handle_video_packet(session, &header, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE, nullptr);
+        pthread_mutex_unlock(endcall_mutex);
         return;
     }
 
@@ -791,6 +825,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         session->mp = new_message(tox, &header, length - RTP_HEADER_SIZE, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE);
         session->mcb(rtp_get_mono_time_from_rtpsession(session), session->cs, session->mp);
         session->mp = nullptr;
+        pthread_mutex_unlock(endcall_mutex);
         return;
     }
 
@@ -818,6 +853,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                 /* There happened to be some corruption on the stream;
                  * continue wihtout this part
                  */
+                pthread_mutex_unlock(endcall_mutex);
                 return;
             }
 
@@ -838,6 +874,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                 /* The received message part is from the old message;
                  * discard it.
                  */
+                pthread_mutex_unlock(endcall_mutex);
                 return;
             }
 
@@ -863,6 +900,7 @@ NEW_MULTIPARTED:
         memmove(session->mp->data + header.offset_lower, session->mp->data, session->mp->len);
     }
 
+    pthread_mutex_unlock(endcall_mutex);
     return;
 }
 

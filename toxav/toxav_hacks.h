@@ -21,5 +21,6 @@ BWController *bwc_controller_get(ToxAVCall *call);
 Mono_Time *toxav_get_av_mono_time(ToxAV *toxav);
 Logger *toxav_get_logger(ToxAV *toxav);
 pthread_mutex_t *call_mutex_get(ToxAVCall *call);
+pthread_mutex_t *endcall_mutex_get(ToxAV *av);
 
 #endif // C_TOXCORE_TOXAV_HACKS_H

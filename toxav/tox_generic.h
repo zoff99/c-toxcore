@@ -149,6 +149,7 @@ struct ToxAV {
     uint32_t calls_tail;
     uint32_t calls_head;
     pthread_mutex_t mutex[1];
+    pthread_mutex_t toxav_endcall_mutex[1];
 
     /* Call callback */
     toxav_call_cb *ccb;
