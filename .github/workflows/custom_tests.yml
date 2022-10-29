@@ -36,10 +36,10 @@ jobs:
         run: |
           CC=clang cmake -B_build -H. -GNinja \
           -DCMAKE_INSTALL_PREFIX:PATH="$PWD/_install" \
-          -DCMAKE_C_FLAGS="-g -O1 -Wno-everything -fno-omit-frame-pointer -fsanitize=address" \
-          -DCMAKE_CXX_FLAGS="-g -O1 -Wno-everything -fno-omit-frame-pointer -fsanitize=address" \
-          -DCMAKE_EXE_LINKER_FLAGS="-g -O1 -Wno-everything -fno-omit-frame-pointer -fsanitize=address" \
-          -DCMAKE_SHARED_LINKER_FLAGS="-g -O1 -Wno-everything -fno-omit-frame-pointer -fsanitize=address" \
+          -DCMAKE_C_FLAGS="-g -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
+          -DCMAKE_CXX_FLAGS="-g -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
+          -DCMAKE_EXE_LINKER_FLAGS="-g -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
+          -DCMAKE_SHARED_LINKER_FLAGS="-g -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
           -DMIN_LOGGER_LEVEL=INFO \
           -DMUST_BUILD_TOXAV=ON \
           -DNON_HERMETIC_TESTS=OFF \
@@ -58,12 +58,15 @@ jobs:
           export LD_LIBRARY_PATH="$PWD"/_install/lib
           for i in $(ls -1 ./custom_tests/*.c) ; do
           clang -g -O1 -fno-omit-frame-pointer -fsanitize=address \
-          -Wno-everything \
+          -Wno-everything -Wno-missing-variable-declarations \
           $(pkg-config --cflags toxcore libavcodec libavutil x264 opus vpx libsodium) \
           $(pkg-config --libs toxcore libavcodec libavutil x264 opus vpx libsodium) \
           "$i" \
           -o test
-          ./test || exit 1
+          ./test
+          if [ $? -ne 0 ]; then
+            exit $?
+          fi
           done
 
 
