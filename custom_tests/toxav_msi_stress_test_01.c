@@ -744,7 +744,7 @@ void *thread_control_av_1(void *data)
                 usleep(2 * 100);
                 toxav_call_control(av, 0, TOXAV_CALL_CONTROL_CANCEL, &error);
             } else {
-                usleep((generate_random_uint32() % 20) * 1000 * 1000);
+                usleep((generate_random_uint32() % 10) * 1000 * 1000);
             }
         }
     }
@@ -998,12 +998,18 @@ int main(void)
         pthread_setname_np(tid[7], "t_toxav_v_snd2");
     }
 
-    for (long looper=0;looper<(80*60);looper++) {
-        tox_iterate(tox1, (void *)&num1);
-        usleep((generate_random_uint32() % 20) * 1000);
-        tox_iterate(tox2, (void *)&num2);
-        usleep((generate_random_uint32() % 20) * 1000);
+#ifdef ENDLESS_RUN
+    while (1==1) {
+#endif
+        for (long looper=0;looper<(80*60);looper++) {
+            tox_iterate(tox1, (void *)&num1);
+            usleep((generate_random_uint32() % 20) * 1000);
+            tox_iterate(tox2, (void *)&num2);
+            usleep((generate_random_uint32() % 20) * 1000);
+        }
+#ifdef ENDLESS_RUN
     }
+#endif
 
     toxav_video_thread_stop = 1;
     toxav_audioiterate_thread_stop = 1;
