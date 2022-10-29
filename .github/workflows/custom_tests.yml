@@ -9,7 +9,8 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
-      - run: |
+      - name: install deps
+        run: |
           sudo apt-get update && \
           sudo DEBIAN_FRONTEND=noninteractive apt-get remove g++ && \
           sudo DEBIAN_FRONTEND=noninteractive \
@@ -31,8 +32,10 @@ jobs:
           libavformat-dev \
           libavfilter-dev \
           libx264-dev
-      - run: git submodule update --init --recursive
-      - run: |
+      - name: git submodules
+        run: git submodule update --init --recursive
+      - name: build toxcore with asan
+        run: |
           CC=clang cmake -B_build -H. -GNinja \
           -DCMAKE_INSTALL_PREFIX:PATH="$PWD/_install" \
           -DCMAKE_C_FLAGS="-g -O1 -fno-omit-frame-pointer -fsanitize=address" \
@@ -50,18 +53,20 @@ jobs:
           cd _build
           ninja install -j"$(nproc)"
 
+      - name: run tests
       - run: |
           pwd
           ls -al
           export PKG_CONFIG_PATH="$PWD"/_install/lib/pkgconfig
           export LD_LIBRARY_PATH="$PWD"/_install/lib
           ls -al "$PKG_CONFIG_PATH"
+          for i in $(ls -1 ./custom_tests/*.c) ; do
           clang -g -O1 -fno-omit-frame-pointer -fsanitize=address \
           $(pkg-config --cflags toxcore libavcodec libavutil x264 opus vpx libsodium) \
           $(pkg-config --libs toxcore libavcodec libavutil x264 opus vpx libsodium) \
-          ./custom_tests/toxav_msi_stress_test_01.c \
-          -o toxav_msi_stress_test_01
-          ldd toxav_msi_stress_test_01
-          ./toxav_msi_stress_test_01
+          ./custom_tests/"$i" \
+          -o test
+          ./test || exit 1
+          done
 
 
