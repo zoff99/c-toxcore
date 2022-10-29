@@ -57,15 +57,20 @@ jobs:
           export PKG_CONFIG_PATH="$PWD"/_install/lib/pkgconfig
           export LD_LIBRARY_PATH="$PWD"/_install/lib
           for i in $(ls -1 ./custom_tests/*.c) ; do
+          echo "CCC:--------------- ""$i"" ---------------"
           clang -g -O1 -fno-omit-frame-pointer -fsanitize=address \
           -Wno-everything -Wno-missing-variable-declarations \
           $(pkg-config --cflags toxcore libavcodec libavutil x264 opus vpx libsodium) \
           $(pkg-config --libs toxcore libavcodec libavutil x264 opus vpx libsodium) \
           "$i" \
           -o test
+          echo "RUN:--------------- ""$i"" ---------------"
           ./test
           if [ $? -ne 0 ]; then
+            echo "ERR:--------------- ""$i"" ---------------"
             exit $?
+          else
+            echo "OK :*************** ""$i"" ***************"
           fi
           done
 
