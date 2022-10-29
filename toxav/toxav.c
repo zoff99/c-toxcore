@@ -2544,15 +2544,25 @@ static void call_kill_transmission(ToxAVCall *call)
 
     ToxAV *av = call->av;
 
+    pthread_mutex_lock(call->toxav_call_mutex);
     rtp_kill(av->tox, call->audio_rtp);
-    ac_kill(call->audio);
     call->audio_rtp = nullptr;
-    call->audio = nullptr;
+    pthread_mutex_unlock(call->toxav_call_mutex);
 
+    pthread_mutex_lock(call->toxav_call_mutex);
+    ac_kill(call->audio);
+    call->audio = nullptr;
+    pthread_mutex_unlock(call->toxav_call_mutex);
+
+    pthread_mutex_lock(call->toxav_call_mutex);
     rtp_kill(av->tox, call->video_rtp);
-    vc_kill(call->video);
     call->video_rtp = nullptr;
+    pthread_mutex_unlock(call->toxav_call_mutex);
+
+    pthread_mutex_lock(call->toxav_call_mutex);
+    vc_kill(call->video);
     call->video = nullptr;
+    pthread_mutex_unlock(call->toxav_call_mutex);
 
     pthread_mutex_destroy(call->mutex_audio);
     pthread_mutex_destroy(call->mutex_video);

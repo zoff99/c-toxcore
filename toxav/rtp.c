@@ -514,7 +514,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         return;
     }
 
-    if (!session->rtp_receive_active) {
+    if ((!session) && (!session->rtp_receive_active)) {
         LOGGER_API_WARNING(tox, "receiving not allowed!");
         return;
     }
