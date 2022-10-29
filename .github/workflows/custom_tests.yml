@@ -31,10 +31,7 @@ jobs:
           libavformat-dev \
           libavfilter-dev \
           libx264-dev
-
-      - name: git submodules
-        run: git submodule update --init --recursive
-
+      - run: git submodule update --init --recursive
         run: |
           CC=clang cmake -B_build -H. -GNinja \
           -DCMAKE_INSTALL_PREFIX:PATH="$PWD/_install" \
@@ -52,7 +49,6 @@ jobs:
           -DBUILD_FUN_UTILS=OFF
           cd _build
           ninja install -j"$(nproc)"
-
       - run: |
           pwd
           ls -al
