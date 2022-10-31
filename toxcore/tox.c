@@ -5304,3 +5304,17 @@ void tox_set_onion_active(bool value)
 {
     global_onion_active = value;
 }
+
+void tox_get_all_tcp_relays(const Tox *tox, char *report)
+{
+    tox_lock(tox);
+    print_all_tcp_relays(tox->m, report);
+    tox_unlock(tox);
+}
+
+void tox_get_all_udp_connections(const Tox *tox, char *report)
+{
+    tox_lock(tox);
+    print_all_udp_connections(tox->m, report);
+    tox_unlock(tox);
+}

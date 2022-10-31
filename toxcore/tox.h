@@ -5724,6 +5724,20 @@ void tox_callback_friend_lossy_packet_per_pktid(Tox *tox, tox_friend_lossy_packe
  */
 void tox_callback_friend_lossless_packet_per_pktid(Tox *tox, tox_friend_lossless_packet_cb *callback, uint8_t pktid);
 
+/**
+ * Get a report as utf-8 encoded string of all connected tcp relays (friend connections and NGC group chats).
+ * `report` has to be allocated to at least 60301 bytes and cleared to all NULL bytes, before calling this API function.
+ *
+ */
+void tox_get_all_tcp_relays(const Tox *tox, char *report);
+
+/**
+ * Get a report as utf-8 encoded string of all udp connections (friend connections and NGC group chats).
+ * `report` has to be allocated to at least 60301 bytes and cleared to all NULL bytes, before calling this API function.
+ *
+ */
+void tox_get_all_udp_connections(const Tox *tox, char *report);
+
 //!TOKSTYLE+
 
 #endif // C_TOXCORE_TOXCORE_TOX_H

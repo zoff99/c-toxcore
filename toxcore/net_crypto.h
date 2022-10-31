@@ -412,4 +412,13 @@ void do_net_crypto(Net_Crypto *c, void *userdata);
 nullable(1)
 void kill_net_crypto(Net_Crypto *c);
 
+non_null()
+char *copy_all_connected_relays(Net_Crypto *c, char* relays_report_string, uint16_t max_num, uint32_t* num);
+
+non_null()
+char *copy_all_udp_connections(Net_Crypto *c, char *connections_report_string, uint16_t max_num, uint32_t* num);
+
+non_null()
+char *udp_copy_all_connected(IP_Port conn_ip_port, char *connections_report_string, uint16_t max_num, uint32_t* num);
+
 #endif

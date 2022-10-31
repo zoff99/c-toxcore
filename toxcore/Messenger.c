@@ -3723,6 +3723,62 @@ static uint32_t tcp_relay_size(const Messenger *m)
 }
 
 non_null()
+void print_all_udp_connections(const Messenger *m, char *connections_report_string)
+{
+    char *p = connections_report_string;
+    const int max_conn_to_print = 1000;
+    uint32_t num1 = 0;
+    p += snprintf(p, 60, "UDP:FRS:=================\n");
+    p = copy_all_udp_connections(m->net_crypto, p, max_conn_to_print, &num1);
+
+    Self_UDP_Status self_udp_status;
+    IP_Port         self_ip_port;
+
+    p += snprintf(p, 60, "UDP:FRS:NUM:%d\n", num1);
+
+    p += snprintf(p, 60, "UDP:GRP:=================\n");
+    const GC_Session *c = m->group_handler;
+    uint32_t num2 = 0;
+    for (uint32_t i = 0; i < c->chats_index; ++i) {
+        const GC_Chat *chat = &c->chats[i];
+        if (!gc_group_is_valid(chat)) {
+            continue;
+        }
+
+        if (chat->self_udp_status != SELF_UDP_STATUS_NONE) {
+            p = udp_copy_all_connected(chat->self_ip_port, p, (max_conn_to_print - num1), &num2);
+        }
+    }
+    p += snprintf(p, 60, "UDP:GRP:NUM:%d\n", num2);
+
+    p += snprintf(p, 60, "UDP:END:=================\n");
+}
+
+non_null()
+void print_all_tcp_relays(const Messenger *m, char *relays_report_string)
+{
+    char *p = relays_report_string;
+    const int max_relay_to_print = 1000;
+    uint32_t num1 = 0;
+    p += snprintf(p, 60, "FRS:=================\n");
+    p = copy_all_connected_relays(m->net_crypto, p, max_relay_to_print, &num1);
+    p += snprintf(p, 60, "FRS:NUM:%d\n", num1);
+
+    p += snprintf(p, 60, "GRP:=================\n");
+    const GC_Session *c = m->group_handler;
+    uint32_t num2 = 0;
+    for (uint32_t i = 0; i < c->chats_index; ++i) {
+        const GC_Chat *chat = &c->chats[i];
+        if (!gc_group_is_valid(chat)) {
+            continue;
+        }
+        p = tcp_copy_all_connected_relays(chat->tcp_conn, p, (max_relay_to_print - num1), &num2);
+    }
+    p += snprintf(p, 60, "GRP:NUM:%d\n", num2);
+    p += snprintf(p, 60, "END:=================\n");
+}
+
+non_null()
 static uint8_t *save_tcp_relays(const Messenger *m, uint8_t *data)
 {
     Node_format relays[NUM_SAVED_TCP_RELAYS] = {{{0}}};
