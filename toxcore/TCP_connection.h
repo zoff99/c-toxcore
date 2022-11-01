@@ -307,4 +307,7 @@ void do_tcp_connections(const Logger *logger, TCP_Connections *tcp_c, void *user
 nullable(1)
 void kill_tcp_connections(TCP_Connections *tcp_c);
 
+non_null()
+char *tcp_copy_all_connected_relays(const TCP_Connections *tcp_c, char* relays_report_string, uint16_t max_num, uint32_t* num);
+
 #endif

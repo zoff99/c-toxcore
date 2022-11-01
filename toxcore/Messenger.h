@@ -878,4 +878,10 @@ uint32_t count_friendlist(const Messenger *m);
 non_null()
 uint32_t copy_friendlist(const Messenger *m, uint32_t *out_list, uint32_t list_size);
 
+non_null()
+void print_all_tcp_relays(const Messenger *m, char *relays_report_string);
+
+non_null()
+void print_all_udp_connections(const Messenger *m, char *connections_report_string);
+
 #endif

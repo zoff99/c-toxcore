@@ -11,6 +11,7 @@
 #include "net_crypto.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -2298,6 +2299,113 @@ unsigned int copy_connected_tcp_relays(Net_Crypto *c, Node_format *tcp_relays, u
     }
 
     return tcp_copy_connected_relays(c->tcp_c, tcp_relays, num);
+}
+
+non_null()
+char *udp_copy_all_connected(IP_Port conn_ip_port, char *connections_report_string, uint16_t max_num, uint32_t* num)
+{
+    if (max_num == 0) {
+        return 0;
+    }
+
+    char *p = connections_report_string;
+    uint32_t copied = 0;
+
+    // HINT: we have an established UDP connection
+    if (!net_family_is_unspec(conn_ip_port.ip.family)) {
+        if (net_family_is_ipv4(conn_ip_port.ip.family)) {
+            char ipv4[20];
+            memset(ipv4, 0, 20);
+            snprintf(ipv4, 16, "%d.%d.%d.%d",
+                conn_ip_port.ip.ip.v4.uint8[0],
+                conn_ip_port.ip.ip.v4.uint8[1],
+                conn_ip_port.ip.ip.v4.uint8[2],
+                conn_ip_port.ip.ip.v4.uint8[3]
+            );
+            p += snprintf(p, 60, "port=%5d ip=%s\n", net_ntohs(conn_ip_port.port), ipv4);
+        } else if (net_family_is_ipv6(conn_ip_port.ip.family)) {
+            char ipv6[401];
+            memset(ipv6, 0, 401);
+            bool res = ip_parse_addr(&conn_ip_port.ip, ipv6, 400);
+            if (!res) {
+                snprintf(ipv6, 16, "<error in ipv6>");
+            }
+            p += snprintf(p, 60, "port=%5d ip=%s\n", net_ntohs(conn_ip_port.port), ipv6);
+        }
+
+        ++copied;
+    }
+
+    *num = *num + copied;
+    return p;
+}
+
+non_null()
+char *copy_all_udp_connections(Net_Crypto *c, char *connections_report_string, uint16_t max_num, uint32_t* num)
+{
+    if (max_num == 0) {
+        return 0;
+    }
+
+    char *p = connections_report_string;
+    uint32_t copied = 0;
+    for (uint32_t i = 0; i < c->crypto_connections_length; ++i) {
+        const Crypto_Connection *conn = get_crypto_connection(c, i);
+
+        if (conn == nullptr) {
+            continue;
+        }
+
+        if (conn->status < CRYPTO_CONN_COOKIE_REQUESTING) {
+            continue;
+        }
+
+        bool direct_connected = false;
+
+        if (!crypto_connection_status(c, i, &direct_connected, nullptr)) {
+            continue;
+        }
+
+        // HINT: we have an established UDP connection
+        const IP_Port conn_ip_port = return_ip_port_connection(c, i);
+        if (!net_family_is_unspec(conn_ip_port.ip.family)) {
+            if (net_family_is_ipv4(conn_ip_port.ip.family)) {
+                char ipv4[20];
+                memset(ipv4, 0, 20);
+                snprintf(ipv4, 16, "%d.%d.%d.%d",
+                    conn_ip_port.ip.ip.v4.uint8[0],
+                    conn_ip_port.ip.ip.v4.uint8[1],
+                    conn_ip_port.ip.ip.v4.uint8[2],
+                    conn_ip_port.ip.ip.v4.uint8[3]
+                );
+                p += snprintf(p, 60, "port=%5d ip=%s\n", net_ntohs(conn_ip_port.port), ipv4);
+            } else if (net_family_is_ipv6(conn_ip_port.ip.family)) {
+                char ipv6[401];
+                memset(ipv6, 0, 401);
+                bool res = ip_parse_addr(&conn_ip_port.ip, ipv6, 400);
+                if (!res) {
+                    snprintf(ipv6, 16, "<error in ipv6>");
+                }
+                p += snprintf(p, 60, "port=%5d ip=%s\n", net_ntohs(conn_ip_port.port), ipv6);
+            }
+
+            ++copied;
+        }
+    }
+
+    *num = *num + copied;
+    return p;
+}
+
+
+non_null()
+char *copy_all_connected_relays(Net_Crypto *c, char* relays_report_string, uint16_t max_num, uint32_t* num)
+{
+    if (max_num == 0) {
+        return 0;
+    }
+
+    return tcp_copy_all_connected_relays(c->tcp_c, relays_report_string, max_num, num);
 }
 
 uint32_t copy_connected_tcp_relays_index(Net_Crypto *c, Node_format *tcp_relays, uint16_t num, uint32_t idx)
