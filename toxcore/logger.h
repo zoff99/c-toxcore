@@ -19,6 +19,17 @@
 extern "C" {
 #endif
 
+#ifdef MUTEXLOCKINGDEBUG
+/*
+ * hook mutex function so we can nicely log them (to the NULL logger!)
+ */
+#define pthread_mutex_lock(MTX) my_pthread_mutex_lock(MTX, #MTX, __FILE__, __LINE__, __func__)
+#define pthread_mutex_unlock(MTX) my_pthread_mutex_unlock(MTX, #MTX, __FILE__, __LINE__, __func__)
+
+int my_pthread_mutex_lock(pthread_mutex_t *mutex, const char *mutex_name, const char *file, int line, const char *func);
+int my_pthread_mutex_unlock(pthread_mutex_t *mutex, const char *mutex_name, const char *file, int line, const char *func);
+#endif
+
 #ifndef MIN_LOGGER_LEVEL
 #define MIN_LOGGER_LEVEL LOGGER_LEVEL_INFO
 #endif
