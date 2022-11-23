@@ -779,7 +779,11 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
         goto END;
     }
 
-    pthread_mutex_lock(call->toxav_call_mutex);
+    if (pthread_mutex_trylock(call->toxav_call_mutex) != 0) {
+        pthread_mutex_unlock(av->mutex);
+        rc = TOXAV_ERR_OPTION_SET_OTHER_ERROR;
+        goto END;
+    }
 
     LOGGER_API_DEBUG(av->tox, "toxav_option_set:2 %d %d", (int)option, (int)value);
 
@@ -1555,10 +1559,13 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
     if ((call->video_bit_rate_last_last_changed_cb_ts + 500) < current_time_monotonic(av->toxav_mono_time)) {
         if (call->video_bit_rate_last_last_changed != call->video_bit_rate) {
             if (av->call_comm_cb) {
+                int64_t bitrate_copy = (int64_t)call->video_bit_rate;
+                pthread_mutex_unlock(call->toxav_call_mutex);
                 av->call_comm_cb(av, friend_number,
                                  TOXAV_CALL_COMM_ENCODER_CURRENT_BITRATE,
-                                 (int64_t)call->video_bit_rate,
+                                 bitrate_copy,
                                  av->call_comm_cb_user_data);
+                pthread_mutex_lock(call->toxav_call_mutex);
             }
 
             call->video_bit_rate_last_last_changed = call->video_bit_rate;
