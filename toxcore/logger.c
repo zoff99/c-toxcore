@@ -51,7 +51,7 @@ non_null(1, 3, 5, 6) nullable(7)
 static void logger_stderr_handler(void *context, Logger_Level level, const char *file, int line, const char *func,
                                   const char *message, void *userdata)
 {
-#ifdef MUTEXLOCKINGDEBUG | USE_STDERR_LOGGER
+#if (defined(MUTEXLOCKINGDEBUG) || defined(USE_STDERR_LOGGER))
     // GL stands for "global logger".
     fprintf(stderr, "[GL] %s %s:%d(%s): %s\n", logger_level_name(level), file, line, func, message);
 #else
