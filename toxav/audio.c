@@ -525,7 +525,7 @@ static int jbuf_write(Logger *log, ACSession *ac, struct TSBuffer *q, struct RTP
     void *tmp_buf2 = tsb_write(q, (void *)m, 0, (uint32_t)m->header.frame_record_timestamp);
 
     if (tmp_buf2 != NULL) {
-        LOGGER_API_DEBUG(ac->tox, "AADEBUG:rb_write: error in rb_write:rb_size=%d", (int)tsb_size(q));
+        LOGGER_API_WARNING(ac->tox, "AADEBUG:rb_write: error in rb_write:rb_size=%d", (int)tsb_size(q));
         free(tmp_buf2);
         return -1;
     }

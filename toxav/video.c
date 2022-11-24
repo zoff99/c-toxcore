@@ -648,7 +648,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
             LOGGER_API_DEBUG(tox, "missing some video frames: missing count=%d", (int)missing_frames_count);
 
-#define NORMAL_MISSING_FRAME_COUNT_TOLERANCE 0
+#define NORMAL_MISSING_FRAME_COUNT_TOLERANCE 1
 #define WHEN_SKIPPING_MISSING_FRAME_COUNT_TOLERANCE 2
 
             int32_t missing_frame_tolerance = NORMAL_MISSING_FRAME_COUNT_TOLERANCE;
@@ -969,7 +969,7 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
                                                    (uint32_t)header->frame_record_timestamp);
 
             if (msg_old) {
-                LOGGER_API_DEBUG(vc->av->tox, "FPATH:%d kicked out", (int)msg_old->header.sequnum);
+                LOGGER_API_WARNING(vc->av->tox, "FPATH:%d kicked out", (int)msg_old->header.sequnum);
                 free(msg_old);
             }
         } else {
