@@ -1110,6 +1110,10 @@ static int32_t resolve_bootstrap_node(Tox *tox, const char *host, uint16_t port,
         return -1;
     }
 
+    if (*root == nullptr) {
+        return -1;
+    }
+
     assert(*root != nullptr);
     return count;
 }
