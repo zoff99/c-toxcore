@@ -169,14 +169,14 @@ int my_pthread_mutex_lock(pthread_mutex_t *mutex, const char *mutex_name, const 
 {
     pthread_t cur_pthread_tid = pthread_self();
 #if !(defined(_WIN32) || defined(__WIN32__) || defined(WIN32))
-    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_LOCK:S:%s:m=%p", (int)cur_pthread_tid, mutex_name, (void*)mutex);
+    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%ld:MTX_LOCK:S:%s:m=%p", (int64_t)cur_pthread_tid, mutex_name, (void*)mutex);
 #else
     logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "MTX_LOCK:S:%s:m=%p",
                  mutex_name, (void *)mutex);
 #endif
     int ret = (pthread_mutex_lock)(mutex);
 #if !(defined(_WIN32) || defined(__WIN32__) || defined(WIN32))
-    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_LOCK:E:%s:m=%p", (int)cur_pthread_tid, mutex_name, (void*)mutex);
+    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%ld:MTX_LOCK:E:%s:m=%p", (int64_t)cur_pthread_tid, mutex_name, (void*)mutex);
 #else
     logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "MTX_LOCK:E:%s:m=%p",
                  mutex_name, (void *)mutex);
@@ -188,14 +188,14 @@ int my_pthread_mutex_unlock(pthread_mutex_t *mutex, const char *mutex_name, cons
 {
     pthread_t cur_pthread_tid = pthread_self();
 #if !(defined(_WIN32) || defined(__WIN32__) || defined(WIN32))
-    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_unLOCK:S:%s:m=%p", (int)cur_pthread_tid, mutex_name, (void*)mutex);
+    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%ld:MTX_unLOCK:S:%s:m=%p", (int64_t)cur_pthread_tid, mutex_name, (void*)mutex);
 #else
     logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "MTX_unLOCK:S:%s:m=%p",
                  mutex_name, (void *)mutex);
 #endif
     int ret = (pthread_mutex_unlock)(mutex);
 #if !(defined(_WIN32) || defined(__WIN32__) || defined(WIN32))
-    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%d:MTX_unLOCK:E:%s:m=%p", (int)cur_pthread_tid, mutex_name, (void*)mutex);
+    logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "TID:%ld:MTX_unLOCK:E:%s:m=%p", (int64_t)cur_pthread_tid, mutex_name, (void*)mutex);
 #else
     logger_write(NULL, LOGGER_LEVEL_DEBUG, file, line, func, "MTX_unLOCK:E:%s:m=%p",
                  mutex_name, (void *)mutex);
