@@ -377,47 +377,47 @@ IP6 get_ip6_loopback(void)
 
 const Socket net_invalid_socket = { (int)INVALID_SOCKET };
 
-Family net_family_unspec()
+Family net_family_unspec(void)
 {
     return family_unspec;
 }
 
-Family net_family_ipv4()
+Family net_family_ipv4(void)
 {
     return family_ipv4;
 }
 
-Family net_family_ipv6()
+Family net_family_ipv6(void)
 {
     return family_ipv6;
 }
 
-Family net_family_tcp_server()
+Family net_family_tcp_server(void)
 {
     return family_tcp_server;
 }
 
-Family net_family_tcp_client()
+Family net_family_tcp_client(void)
 {
     return family_tcp_client;
 }
 
-Family net_family_tcp_ipv4()
+Family net_family_tcp_ipv4(void)
 {
     return family_tcp_ipv4;
 }
 
-Family net_family_tcp_ipv6()
+Family net_family_tcp_ipv6(void)
 {
     return family_tcp_ipv6;
 }
 
-Family net_family_tox_tcp_ipv4()
+Family net_family_tox_tcp_ipv4(void)
 {
     return family_tox_tcp_ipv4;
 }
 
-Family net_family_tox_tcp_ipv6()
+Family net_family_tox_tcp_ipv6(void)
 {
     return family_tox_tcp_ipv6;
 }

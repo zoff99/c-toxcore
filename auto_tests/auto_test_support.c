@@ -13,7 +13,7 @@
 #define ABORT_ON_LOG_ERROR true
 #endif
 
-Run_Auto_Options default_run_auto_options()
+Run_Auto_Options default_run_auto_options(void)
 {
     return (Run_Auto_Options) {
         .graph = GRAPH_COMPLETE,
