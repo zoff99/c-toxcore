@@ -6498,6 +6498,12 @@ void gc_callback_status_change(const Messenger *m, gc_status_change_cb *function
     c->status_change = function;
 }
 
+void gc_callback_connection_status_change(const Messenger *m, gc_connection_status_change_cb *function)
+{
+    GC_Session *c = m->group_handler;
+    c->connection_status_change = function;
+}
+
 void gc_callback_topic_change(const Messenger *m, gc_topic_change_cb *function)
 {
     GC_Session *c = m->group_handler;
@@ -7163,6 +7169,12 @@ void do_gc(GC_Session *c, void *userdata)
 
         do_new_connection_cooldown(chat);
         do_peer_delete(c, chat, userdata);
+
+        if (chat->connection_state != state) {
+            if (c->connection_status_change != nullptr) {
+                c->connection_status_change(c->messenger, chat->group_number, chat->connection_state, userdata);
+            }
+        }
     }
 }
 

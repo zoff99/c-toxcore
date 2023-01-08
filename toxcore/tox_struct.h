@@ -46,6 +46,7 @@ struct Tox {
     tox_friend_lossless_packet_cb *friend_lossless_packet_callback_per_pktid[UINT8_MAX + 1];
     tox_group_peer_name_cb *group_peer_name_callback;
     tox_group_peer_status_cb *group_peer_status_callback;
+    tox_group_connection_status_cb *group_connection_status_callback;
     tox_group_topic_cb *group_topic_callback;
     tox_group_privacy_state_cb *group_privacy_state_callback;
     tox_group_topic_lock_cb *group_topic_lock_callback;

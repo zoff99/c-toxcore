@@ -440,6 +440,18 @@ static void tox_group_peer_status_handler(const Messenger *m, uint32_t group_num
     }
 }
 
+non_null(1) nullable(4)
+static void tox_group_connection_status_handler(const Messenger *m, uint32_t group_number, int32_t status, void *user_data)
+{
+    struct Tox_Userdata *tox_data = (struct Tox_Userdata *)user_data;
+
+    if (tox_data->tox->group_connection_status_callback != nullptr) {
+        tox_unlock(tox_data->tox);
+        tox_data->tox->group_connection_status_callback(tox_data->tox, group_number, status, tox_data->user_data);
+        tox_lock(tox_data->tox);
+    }
+}
+
 non_null(1, 4) nullable(6)
 static void tox_group_topic_handler(const Messenger *m, uint32_t group_number, uint32_t peer_id, const uint8_t *topic,
                                     size_t length, void *user_data)
@@ -984,6 +996,7 @@ Tox *tox_new(const struct Tox_Options *options, Tox_Err_New *error)
     gc_callback_moderation(tox->m, tox_group_moderation_handler);
     gc_callback_nick_change(tox->m, tox_group_peer_name_handler);
     gc_callback_status_change(tox->m, tox_group_peer_status_handler);
+    gc_callback_connection_status_change(tox->m, tox_group_connection_status_handler);
     gc_callback_topic_change(tox->m, tox_group_topic_handler);
     gc_callback_peer_limit(tox->m, tox_group_peer_limit_handler);
     gc_callback_privacy_state(tox->m, tox_group_privacy_state_handler);
@@ -2994,6 +3007,12 @@ void tox_callback_group_peer_status(Tox *tox, tox_group_peer_status_cb *callback
     tox->group_peer_status_callback = callback;
 }
 
+void tox_callback_group_connection_status(Tox *tox, tox_group_connection_status_cb *callback)
+{
+    assert(tox != nullptr);
+    tox->group_connection_status_callback = callback;
+}
+
 void tox_callback_group_topic(Tox *tox, tox_group_topic_cb *callback)
 {
     assert(tox != nullptr);
@@ -3154,7 +3173,7 @@ uint32_t tox_group_join(Tox *tox, const uint8_t *chat_id, const uint8_t *name, s
     return UINT32_MAX;
 }
 
-bool tox_group_is_connected(const Tox *tox, uint32_t group_number, Tox_Err_Group_Is_Connected *error)
+int32_t tox_group_is_connected(const Tox *tox, uint32_t group_number, Tox_Err_Group_Is_Connected *error)
 {
     assert(tox != nullptr);
 
@@ -3164,12 +3183,17 @@ bool tox_group_is_connected(const Tox *tox, uint32_t group_number, Tox_Err_Group
     if (chat == nullptr) {
         SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_IS_CONNECTED_GROUP_NOT_FOUND);
         tox_unlock(tox);
-        return false;
+        return -1;
     }
 
     SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_IS_CONNECTED_OK);
 
-    const bool ret = chat->connection_state == CS_CONNECTED;
+    int32_t ret = -1;
+    if (chat->connection_state == CS_CONNECTING) {
+        ret = 0;
+    } else if (chat->connection_state == CS_CONNECTED) {
+        ret = 1;
+    }
     tox_unlock(tox);
 
     return ret;

@@ -335,6 +335,7 @@ typedef void gc_nick_change_cb(const Messenger *m, uint32_t group_number, uint32
                                size_t length, void *user_data);
 typedef void gc_status_change_cb(const Messenger *m, uint32_t group_number, uint32_t peer_id, unsigned int status,
                                  void *user_data);
+typedef void gc_connection_status_change_cb(const Messenger *m, uint32_t group_number, int32_t status, void *user_data);
 typedef void gc_topic_change_cb(const Messenger *m, uint32_t group_number, uint32_t peer_id, const uint8_t *data,
                                 size_t length, void *user_data);
 typedef void gc_topic_lock_cb(const Messenger *m, uint32_t group_number, unsigned int topic_lock, void *user_data);
@@ -363,6 +364,7 @@ typedef struct GC_Session {
     gc_moderation_cb *moderation;
     gc_nick_change_cb *nick_change;
     gc_status_change_cb *status_change;
+    gc_connection_status_change_cb *connection_status_change;
     gc_topic_change_cb *topic_change;
     gc_topic_lock_cb *topic_lock;
     gc_voice_state_cb *voice_state;

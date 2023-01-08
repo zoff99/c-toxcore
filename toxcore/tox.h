@@ -3764,12 +3764,12 @@ typedef enum Tox_Err_Group_Is_Connected {
 
 
 /**
- * Returns true if the group chat is currently connected or attempting to connect to other peers
- * in the group.
+ * Returns 1 if the group chat is currently connected or 0 when attempting to connect to other peers
+ * in the group. Otherwise returns -1.
  *
  * @param group_number The group number of the designated group.
  */
-bool tox_group_is_connected(const Tox *tox, uint32_t group_number, Tox_Err_Group_Is_Connected *error);
+int32_t tox_group_is_connected(const Tox *tox, uint32_t group_number, Tox_Err_Group_Is_Connected *error);
 
 typedef enum Tox_Err_Group_Disconnect {
 
@@ -4206,6 +4206,19 @@ typedef void tox_group_peer_status_cb(Tox *tox, uint32_t group_number, uint32_t 
  */
 void tox_callback_group_peer_status(Tox *tox, tox_group_peer_status_cb *callback);
 
+/**
+ * @param group_number The group number of the group the status change is intended for.
+ * @param status The connection status of the group.
+ */
+typedef void tox_group_connection_status_cb(Tox *tox, uint32_t group_number, int32_t status,
+                                            void *user_data);
+
+
+/**
+ *
+ * This event is triggered when a group changes it's status.
+ */
+void tox_callback_group_connection_status(Tox *tox, tox_group_connection_status_cb *callback);
 
 /*******************************************************************************
  *

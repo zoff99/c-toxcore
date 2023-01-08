@@ -560,6 +560,7 @@ non_null(1) nullable(2) void gc_callback_custom_private_packet(const Messenger *
 non_null(1) nullable(2) void gc_callback_moderation(const Messenger *m, gc_moderation_cb *function);
 non_null(1) nullable(2) void gc_callback_nick_change(const Messenger *m, gc_nick_change_cb *function);
 non_null(1) nullable(2) void gc_callback_status_change(const Messenger *m, gc_status_change_cb *function);
+non_null(1) nullable(2) void gc_callback_connection_status_change(const Messenger *m, gc_connection_status_change_cb *function);
 non_null(1) nullable(2) void gc_callback_topic_change(const Messenger *m, gc_topic_change_cb *function);
 non_null(1) nullable(2) void gc_callback_peer_limit(const Messenger *m, gc_peer_limit_cb *function);
 non_null(1) nullable(2) void gc_callback_privacy_state(const Messenger *m, gc_privacy_state_cb *function);
