@@ -10,8 +10,8 @@ some of the subjects we are teaching here are:<br><br>
 - [x] Audio enchancements
 - [x] H264 Codec
 - [x] HW accelerated de-/en-coding on Raspberry Pi
-- [x] HW accelerated de-/en-coding on Android (with TRIfA)
-- [x] HW accelerated de-/en-coding on Linux (with uTox)
+- [x] HW accelerated de-/en-coding on Android (with [TRIfA](https://github.com/zoff99/ToxAndroidRefImpl))
+- [x] HW accelerated de-/en-coding on Linux (with uTox and [qTox_enhanced](https://github.com/Zoxcore/qTox_enhanced))
 - [x] Message V2 (see: https://github.com/TokTok/c-toxcore/issues/735)
 - [x] Message V3 (see: https://github.com/zoff99/c-toxcore/blob/zoff99/zoxcore_local_fork/docs/msgv3_addon.patch)
 - [x] automatic Video bandwith control
@@ -21,6 +21,6 @@ some of the subjects we are teaching here are:<br><br>
 - [x] make ToxAV use only public Tox API functions (see: https://github.com/TokTok/c-toxcore/pull/1431)
 - [ ] ~~resumable Filetransfers, even across restarts (inside c-toxcore)~~ [was removed in favor of Filetransfers V2]
 - [x] Filetransfers V2, resumeable when connection is lost. does not survive client restarts (see: https://github.com/zoff99/c-toxcore/pull/52 and https://github.com/zoff99/c-toxcore/commit/22498763d468e71444fb103f208261e62e2c25bf)
-- [x] Push Message Support (with TRIfA on Android, Antidote on iPhone and with a pachted version of qTox)
+- [x] Push Message Support (with TRIfA on Android, Antidote on iPhone and with [qTox_enhanced](https://github.com/Zoxcore/qTox_enhanced))
 - [x] New Group Chats - NGC. with IRC like features (see: https://github.com/TokTok/c-toxcore/pull/2269)
 
