@@ -29,7 +29,7 @@ jobs:
         languages: ${{ matrix.language }}
 
     - name: install deps
-      run: apt-get install -y --force-yes --no-install-recommends cmake  libconfig-dev libgtest-dev libopus-dev libsodium-dev libvpx-dev pkg-config binutils libavutil-dev libavcodec-dev    libavformat-dev    libavfilter-dev    libx264-dev
+      run: sudo apt-get update ; sudo apt-get install -y --force-yes --no-install-recommends cmake  libconfig-dev libgtest-dev libopus-dev libsodium-dev libvpx-dev pkg-config binutils libavutil-dev libavcodec-dev    libavformat-dev    libavfilter-dev    libx264-dev
     - name: Autobuild
       uses: github/codeql-action/autobuild@v2
 
