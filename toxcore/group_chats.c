@@ -4925,6 +4925,10 @@ int gc_send_custom_private_packet(const GC_Chat *chat, bool lossless, uint32_t p
         return -1;
     }
 
+    if ((!lossless) && (length > MAX_GC_PACKET_CHUNK_SIZE)) {
+        return -1;
+    }
+
     if (message == nullptr || length == 0) {
         return -2;
     }
@@ -4978,6 +4982,10 @@ static int handle_gc_custom_private_packet(const GC_Session *c, const GC_Chat *c
 int gc_send_custom_packet(const GC_Chat *chat, bool lossless, const uint8_t *data, uint16_t length)
 {
     if (length > MAX_GC_CUSTOM_PACKET_SIZE) {
+        return -1;
+    }
+
+    if ((!lossless) && (length > MAX_GC_PACKET_CHUNK_SIZE)) {
         return -1;
     }
 
