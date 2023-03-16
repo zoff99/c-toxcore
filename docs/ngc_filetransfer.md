@@ -14,7 +14,7 @@
 | create ts |       4        |  uint32_t unixtimestamp in UTC of local wall clock |
 | filename  |     255        |  len TOX_MAX_FILENAME_LENGTH                       |
 |           |                |      data first, then pad with NULL bytes          |
-| data      |[1, 1334]       |  bytes of file data, zero length files not allowed!|
+| data      |[1, 36701]      |  bytes of file data, zero length files not allowed!|
 
 
 header size: 299 bytes
