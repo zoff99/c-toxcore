@@ -24,4 +24,4 @@ some of the subjects we are teaching here are:<br><br>
 - [x] Push Message Support (with TRIfA on Android, Antidote on iPhone and with [qTox_enhanced](https://github.com/Zoxcore/qTox_enhanced))
 - [x] New Group Chats - NGC. with IRC like features (see: https://github.com/TokTok/c-toxcore/pull/2269)
 - [x] Filetransfers in NGC Groups (see: https://github.com/zoff99/c-toxcore/blob/zoff99/zoxcore_local_fork/docs/ngc_filetransfer.md)
-
+- [ ] Sync History in NGC Groups (see: https://gist.github.com/zoff99/81917ddb2e55b2ce602cac4772a7b68c)
