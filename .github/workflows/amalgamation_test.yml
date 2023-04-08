@@ -25,12 +25,13 @@ jobs:
           libavcodec-dev \
           libavformat-dev \
           libavfilter-dev \
-          libx264-dev
+          libx264-dev \
+          libasan4
 
       - name: compile test without ToxAV
         run: |
           cd amalgamation
-          gcc -O3 -fPIC amalgamation_test.c $(pkg-config --cflags --libs libsodium) -pthread -o amalgamation_test
+          gcc -O3 -fPIC -g -fsanitize=address -fno-omit-frame-pointer amalgamation_test.c $(pkg-config --cflags --libs libsodium) -pthread -o amalgamation_test
 
       - name: Run the test without ToxAV
         run: |
@@ -40,7 +41,7 @@ jobs:
       - name: compile test with ToxAV
         run: |
           cd amalgamation
-          gcc -O3 -fPIC amalgamation_test.c -DTEST_WITH_TOXAV $(pkg-config --cflags --libs libsodium opus vpx libavcodec libavutil x264) -pthread -o amalgamation_test_av
+          gcc -O3 -fPIC -g -fsanitize=address -fno-omit-frame-pointer amalgamation_test.c -DTEST_WITH_TOXAV $(pkg-config --cflags --libs libsodium opus vpx libavcodec libavutil x264) -pthread -o amalgamation_test_av
 
       - name: Run the test wit ToxAV
         run: |
