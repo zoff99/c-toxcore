@@ -2,7 +2,7 @@
  * compile a simple tox program with toxcore amalgamation (on a linux system):
  *
  * with ToxAV:
- * gcc -O3 -fPIC amalgamation_test.c $(pkg-config --cflags --libs libsodium opus vpx libavcodec libavutil x264) -pthread -o amalgamation_test
+ * gcc -O3 -fPIC amalgamation_test.c -DTEST_WITH_TOXAV $(pkg-config --cflags --libs libsodium opus vpx libavcodec libavutil x264) -pthread -o amalgamation_test_av
  *
  * without ToxAV:
  * gcc -O3 -fPIC amalgamation_test.c $(pkg-config --cflags --libs libsodium) -pthread -o amalgamation_test
@@ -22,11 +22,15 @@
 #include <sodium.h>
 
 // include toxcore amalgamation no ToxAV --------
+#ifndef TEST_WITH_TOXAV
 #include "toxcore_amalgamation_no_toxav.c"
+#endif
 // include toxcore amalgamation no ToxAV --------
 
 // include toxcore amalgamation with ToxAV --------
-// #include "toxcore_amalgamation.c"
+#ifdef TEST_WITH_TOXAV
+#include "toxcore_amalgamation.c"
+#endif
 // include toxcore amalgamation with ToxAV --------
 
 static int self_online = 0;
@@ -93,6 +97,12 @@ static void self_connection_change_callback(Tox *tox, TOX_CONNECTION status, voi
     }
 }
 
+#ifdef TEST_WITH_TOXAV
+static void call_state_callback(ToxAV *av, uint32_t friend_number, uint32_t state, void *user_data)
+{
+}
+#endif
+
 static void hex_string_to_bin2(const char *hex_string, uint8_t *output)
 {
     size_t len = strlen(hex_string) / 2;
@@ -120,9 +130,17 @@ int main(void)
     options.udp_enabled = true;
     options.tcp_port = 0; // disable tcp relay function!
     // ----- set options ------
+    printf("init Tox\n");
     Tox *tox = tox_new(&options, NULL);
+#ifdef TEST_WITH_TOXAV
+    printf("init ToxAV\n");
+    ToxAV *toxav = toxav_new(tox, NULL);
+#endif
     // ----- CALLBACKS -----
     tox_callback_self_connection_status(tox, self_connection_change_callback);
+#ifdef TEST_WITH_TOXAV
+    toxav_callback_call_state(toxav, call_state_callback, NULL);
+#endif
     // ----- CALLBACKS -----
     // ----- bootstrap -----
     printf("Tox bootstrapping\n");
@@ -143,6 +161,9 @@ int main(void)
     }
     // ----- bootstrap -----
     tox_iterate(tox, NULL);
+#ifdef TEST_WITH_TOXAV
+    toxav_iterate(toxav);
+#endif
     // ----------- wait for Tox to come online -----------
     while (1 == 1)
     {
@@ -155,6 +176,11 @@ int main(void)
     }
     printf("Tox online\n");
     // ----------- wait for Tox to come online -----------
+#ifdef TEST_WITH_TOXAV
+    toxav_kill(toxav);
+    printf("killed ToxAV\n");
+#endif
     tox_kill(tox);
+    printf("killed Tox\n");
     printf("--END--\n");
 } 
