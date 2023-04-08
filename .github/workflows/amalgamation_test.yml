@@ -1,11 +1,11 @@
-name: github_tcc
+name: amalgamation_test
 
 on:
   push:
   pull_request:
 
 jobs:
-  tcc:
+  amalgamation_test:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
