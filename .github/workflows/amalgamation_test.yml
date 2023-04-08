@@ -1,0 +1,37 @@
+name: github_tcc
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tcc:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - run: |
+          sudo apt-get update && \
+          sudo DEBIAN_FRONTEND=noninteractive \
+          apt-get install -y --no-install-recommends \
+          ca-certificates \
+          libconfig-dev \
+          libgtest-dev \
+          libopus-dev \
+          libsodium-dev \
+          libvpx-dev \
+          pkg-config \
+          libavutil-dev \
+          libavcodec-dev \
+          libavformat-dev \
+          libavfilter-dev \
+          libx264-dev
+      - run: |
+          cd amalgamation/ \
+          gcc -O3 -fPIC amalgamation_test.c -DTEST_WITH_TOXAV $(pkg-config --cflags --libs libsodium opus vpx libavcodec libavutil x264) -pthread -o amalgamation_test_av \
+          gcc -O3 -fPIC amalgamation_test.c $(pkg-config --cflags --libs libsodium) -pthread -o amalgamation_test
+
+      - name: Run the test without ToxAV
+        run: "cd amalgamation/ ; ./amalgamation_test"
+
+      - name: Run the test wit ToxAV
+        run: "cd amalgamation/ ; ./amalgamation_test_av"
