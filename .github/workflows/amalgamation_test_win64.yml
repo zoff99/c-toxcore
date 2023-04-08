@@ -34,8 +34,8 @@ jobs:
                    wine \
                    g++-mingw-w64-${ARCH//_/-} \
                    gcc-mingw-w64-${ARCH//_/-}
-          update-alternatives --set ${ARCH}-w64-mingw32-gcc /usr/bin/${ARCH}-w64-mingw32-gcc-posix && \
-          update-alternatives --set ${ARCH}-w64-mingw32-g++ /usr/bin/${ARCH}-w64-mingw32-g++-posix
+          sudo update-alternatives --set ${ARCH}-w64-mingw32-gcc /usr/bin/${ARCH}-w64-mingw32-gcc-posix
+          sudo update-alternatives --set ${ARCH}-w64-mingw32-g++ /usr/bin/${ARCH}-w64-mingw32-g++-posix
 
       - name: compile static libsodium
         run: |
