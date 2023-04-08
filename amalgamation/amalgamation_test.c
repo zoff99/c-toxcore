@@ -125,8 +125,8 @@ int main(void)
     struct Tox_Options options;
     tox_options_default(&options);
     // ----- set options ------
-    options.ipv6_enabled = false;
-    options.local_discovery_enabled = false;
+    options.ipv6_enabled = true;
+    options.local_discovery_enabled = true;
     options.hole_punching_enabled = true;
     options.udp_enabled = true;
     options.tcp_port = 0; // disable tcp relay function!
