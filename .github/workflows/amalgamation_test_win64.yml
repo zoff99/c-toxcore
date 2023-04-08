@@ -72,7 +72,7 @@ jobs:
           export WINEARCH=win64
           HOME=$(pwd)
           export PKG_CONFIG_PATH="$HOME/inst/lib/pkgconfig"
-          cd $HOME"/amalgamation
+          cd "$HOME"/amalgamation/
           ${ARCH}-w64-mingw32-gcc -static -O3 amalgamation_test.c $(pkg-config --cflags --libs libsodium) -lwinpthread -lwsock32 -lws2_32 -liphlpapi -o amalgamation_test
           ls -al amalgamation_test.exe
 
@@ -80,5 +80,5 @@ jobs:
         run: |
           export ARCH=x86_64
           export WINEARCH=win64
-          cd $HOME"/amalgamation
+          cd "$HOME"/amalgamation/
           wine ./amalgamation_test.exe
