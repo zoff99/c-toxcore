@@ -25,7 +25,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stropts.h>
 #include <sys/epoll.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -3949,10 +3948,10 @@ void sanctions_list_cleanup(Moderation *moderation);
 #define GC_SAVED_PEER_SIZE (ENC_PUBLIC_KEY_SIZE + sizeof(Node_format) + sizeof(IP_Port))
 
 /* Max size of a packet chunk. Packets larger than this must be split up. */
-#define MAX_GC_PACKET_CHUNK_SIZE 500
+#define MAX_GC_PACKET_CHUNK_SIZE 1372 // 500
 
 /* Max size of a complete encrypted packet including headers. */
-#define MAX_GC_PACKET_SIZE (MAX_GC_PACKET_CHUNK_SIZE * 100)
+#define MAX_GC_PACKET_SIZE (500 * 100) // (MAX_GC_PACKET_CHUNK_SIZE * 100)
 
 /* Max number of messages to store in the send/recv arrays */
 #define GCC_BUFFER_SIZE 8192
