@@ -111,14 +111,24 @@ int main(void)
     options.tcp_port = 0; // disable tcp relay function!
     options.log_callback = tox_log_cb__custom;
     // ----- set options ------
+#ifndef TOX_HAVE_TOXUTIL
     printf("init Tox\n");
     Tox *tox = tox_new(&options, NULL);
+#else
+    printf("init Tox [TOXUTIL]\n");
+    Tox *tox = tox_utils_new(&options, NULL);
+#endif
 #ifdef TEST_WITH_TOXAV
     printf("init ToxAV\n");
     ToxAV *toxav = toxav_new(tox, NULL);
 #endif
     // ----- CALLBACKS -----
+#ifdef TOX_HAVE_TOXUTIL
+    tox_utils_callback_self_connection_status(tox, self_connection_change_callback);
+    tox_callback_self_connection_status(tox, tox_utils_self_connection_status_cb);
+#else
     tox_callback_self_connection_status(tox, self_connection_change_callback);
+#endif
 #ifdef TEST_WITH_TOXAV
     toxav_callback_call_state(toxav, call_state_callback, NULL);
 #endif
@@ -161,7 +171,12 @@ int main(void)
     toxav_kill(toxav);
     printf("killed ToxAV\n");
 #endif
+#ifndef TOX_HAVE_TOXUTIL
     tox_kill(tox);
     printf("killed Tox\n");
+#else
+    tox_utils_kill(tox);
+    printf("killed Tox [TOXUTIL]\n");
+#endif
     printf("--END--\n");
 } 

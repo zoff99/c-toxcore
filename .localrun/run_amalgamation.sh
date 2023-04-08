@@ -118,6 +118,7 @@ toxcore/tox_struct.h \
 toxcore/tox_unpack.h \
 toxcore/util.h \
 \
+toxutil/toxutil.h \
 \
 toxav/ring_buffer.h \
 toxav/bwcontroller.h \
@@ -134,6 +135,7 @@ toxav/codecs/toxav_codecs.h \
 \
     toxcore/*.c toxcore/*/*.c toxencryptsave/*.c \
     toxav/*.c toxav/codecs/*/*.c third_party/cmp/*.c \
+    toxutil/toxutil.c \
     |grep -v '#include "' >> amalgamation/toxcore_amalgamation.c
 #
 #
@@ -234,9 +236,11 @@ toxcore/tox_struct.h \
 toxcore/tox_unpack.h \
 toxcore/util.h \
 \
+toxutil/toxutil.h \
 \
     toxcore/*.c toxcore/*/*.c toxencryptsave/*.c \
     third_party/cmp/*.c \
+    toxutil/toxutil.c \
     |grep -v '#include "' >> amalgamation/toxcore_amalgamation_no_toxav.c
 #
 #
