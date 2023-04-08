@@ -31,7 +31,11 @@ jobs:
           gcc -O3 -fPIC amalgamation_test.c $(pkg-config --cflags --libs libsodium) -pthread -o amalgamation_test
 
       - name: Run the test without ToxAV
-        run: "cd amalgamation/ ; ./amalgamation_test"
+        run: |
+          cd amalgamation
+          ./amalgamation_test
 
       - name: Run the test wit ToxAV
-        run: "cd amalgamation/ ; ./amalgamation_test_av"
+        run: |
+          cd amalgamation
+          ./amalgamation_test_av
