@@ -9,7 +9,8 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
-      - run: |
+      - name: install dependencies
+        run: |
           sudo apt-get update && \
           sudo DEBIAN_FRONTEND=noninteractive \
           apt-get install -y --no-install-recommends \
@@ -26,11 +27,6 @@ jobs:
           libavfilter-dev \
           libx264-dev
 
-      - name: compile test with ToxAV
-        run: |
-          cd amalgamation
-          gcc -O3 -fPIC amalgamation_test.c -DTEST_WITH_TOXAV $(pkg-config --cflags --libs libsodium opus vpx libavcodec libavutil x264) -pthread -o amalgamation_test_av
-
       - name: compile test without ToxAV
         run: |
           cd amalgamation
@@ -41,7 +37,13 @@ jobs:
           cd amalgamation
           ./amalgamation_test
 
+      - name: compile test with ToxAV
+        run: |
+          cd amalgamation
+          gcc -O3 -fPIC amalgamation_test.c -DTEST_WITH_TOXAV $(pkg-config --cflags --libs libsodium opus vpx libavcodec libavutil x264) -pthread -o amalgamation_test_av
+
       - name: Run the test wit ToxAV
         run: |
           cd amalgamation
           ./amalgamation_test_av
+
