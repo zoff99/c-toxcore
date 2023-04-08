@@ -9,7 +9,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
-      - run: |
+      - name: install dependencies
+        run: |
           export ARCH=x86_64
           export WINEARCH=win64
           sudo apt-get update && \
