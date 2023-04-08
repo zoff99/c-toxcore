@@ -80,5 +80,6 @@ jobs:
         run: |
           export ARCH=x86_64
           export WINEARCH=win64
+          HOME=$(pwd)
           cd "$HOME"/amalgamation/
           wine ./amalgamation_test.exe
