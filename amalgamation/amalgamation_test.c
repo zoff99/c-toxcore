@@ -6,6 +6,13 @@
  *
  * without ToxAV:
  * gcc -O3 -fPIC amalgamation_test.c $(pkg-config --cflags --libs libsodium) -pthread -o amalgamation_test
+ *
+ * ==========================================================================================================
+ * 
+ * cross compile a simple tox program with toxcore amalgamation (on a linux system) for win64:
+ * 
+ * without ToxAV (you will need to cross compile or get libsodium for windows yourself):
+ * x86_64-w64-mingw32-gcc -static -O3 amalgamation_test.c $(pkg-config --cflags --libs libsodium) -lwinpthread -lwsock32 -lws2_32 -liphlpapi -o amalgamation_test
  * 
  */
 
