@@ -33,6 +33,13 @@ jobs:
           cd amalgamation
           gcc -O3 -fPIC -g -fsanitize=address -fno-omit-frame-pointer amalgamation_test.c $(pkg-config --cflags --libs libsodium) -pthread -o amalgamation_test
 
+      - name: check binary without ToxAV
+        run: |
+          cd amalgamation
+          ldd amalgamation_test
+          ls -al amalgamation_test
+          ls -hal amalgamation_test
+
       - name: Run the test without ToxAV
         run: |
           cd amalgamation
@@ -43,7 +50,14 @@ jobs:
           cd amalgamation
           gcc -O3 -fPIC -g -fsanitize=address -fno-omit-frame-pointer amalgamation_test.c -DTEST_WITH_TOXAV $(pkg-config --cflags --libs libsodium opus vpx libavcodec libavutil x264) -pthread -o amalgamation_test_av
 
-      - name: Run the test wit ToxAV
+      - name: check binary with ToxAV
+        run: |
+          cd amalgamation
+          ldd amalgamation_test_av
+          ls -al amalgamation_test_av
+          ls -hal amalgamation_test_av
+
+      - name: Run the test with ToxAV
         run: |
           cd amalgamation
           ./amalgamation_test_av

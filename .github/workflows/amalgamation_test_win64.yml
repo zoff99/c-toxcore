@@ -76,7 +76,14 @@ jobs:
           export PKG_CONFIG_PATH="$HOME/inst/lib/pkgconfig"
           cd "$HOME"/amalgamation/
           ${ARCH}-w64-mingw32-gcc -static -O3 amalgamation_test.c $(pkg-config --cflags --libs libsodium) -lwinpthread -lwsock32 -lws2_32 -liphlpapi -o amalgamation_test
+
+      - name: check binary without ToxAV
+        run: |
+          HOME=$(pwd)
+          cd "$HOME"/amalgamation/
+          file amalgamation_test.exe
           ls -al amalgamation_test.exe
+          ls -hal amalgamation_test.exe
 
       - name: Run the test without ToxAV
         run: |
