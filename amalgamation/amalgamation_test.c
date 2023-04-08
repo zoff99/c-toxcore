@@ -120,6 +120,7 @@ static void hex_string_to_bin2(const char *hex_string, uint8_t *output)
 
 int main(void)
 {
+    setvbuf(stdout, NULL, _IOLBF, 0);
     printf("--START--\n");
     struct Tox_Options options;
     tox_options_default(&options);
