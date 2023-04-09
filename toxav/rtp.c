@@ -32,11 +32,15 @@ Mono_Time *toxav_get_av_mono_time(ToxAV *toxav);
 int rtp_send_custom_lossy_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length);
 int rtp_send_custom_lossless_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uint32_t length);
 
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 // for H264 ----------
 #include <libavcodec/avcodec.h>
 // for H264 ----------
-
+#ifdef __cplusplus
+}
+#endif
 
 #define DISABLE_H264_ENCODER_FEATURE    0
 

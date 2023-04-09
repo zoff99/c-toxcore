@@ -17,6 +17,7 @@
  * along with Tox.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+
 #include <assert.h>
 
 #include "../../../toxcore/ccompat.h"
@@ -29,11 +30,16 @@
 #include "../../../toxcore/mono_time.h"
 #include "../toxav_codecs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 // for H264 ----------
 #include <libavcodec/avcodec.h>
 #include <libavutil/opt.h>
 // for H264 ----------
-
+#ifdef __cplusplus
+}
+#endif
 
 int global_h264_enc_profile_high_enabled = 0;
 int global_h264_enc_profile_high_enabled_switch = 0;

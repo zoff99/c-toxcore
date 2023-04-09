@@ -23,11 +23,17 @@
 #include <vpx/vp8dx.h>
 // for VPX ----------
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 // for H264 ----------
 #include <x264.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/common.h>
 // for H264 ----------
+#ifdef __cplusplus
+}
+#endif
 
 // TODO: don't hardcode this, let the application choose it
 // VPX Info: Time to spend encoding, in microseconds (it's a *soft* deadline)
