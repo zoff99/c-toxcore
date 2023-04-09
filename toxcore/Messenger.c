@@ -1608,7 +1608,7 @@ int send_file_data(const Messenger *m, int32_t friendnumber, uint32_t filenumber
         }
 
         uint16_t length_send = length + FILE_OFFSET_LENGTH;
-        uint8_t *data_send = calloc(1, length_send);
+        uint8_t *data_send = (uint8_t *)calloc(1, length_send);
         if (data_send)
         {
             net_pack_u64(data_send, position);
