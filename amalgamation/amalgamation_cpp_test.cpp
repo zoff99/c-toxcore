@@ -28,9 +28,10 @@
  * 
  */
 
-#include <iostream>
-
 #include <unistd.h>
+
+#include <iostream>
+#include <thread>
 
 // define this before including toxcore amalgamation -------
 #define MIN_LOGGER_LEVEL LOGGER_LEVEL_DEBUG
@@ -108,6 +109,8 @@ static void tox_log_cb__custom(Tox *tox, TOX_LOG_LEVEL level, const char *file, 
     printf("C-TOXCORE:1:%d:%s:%d:%s:%s\n", (int)level, file, (int)line, func, message);
 }
 
+
+
 int main()
 {
     setvbuf(stdout, NULL, _IOLBF, 0);
@@ -133,6 +136,8 @@ int main()
     std::cout << "init ToxAV\n";
     ToxAV *toxav = toxav_new(tox, nullptr);
 #endif
+
+
     // ----- CALLBACKS -----
 #ifdef TOX_HAVE_TOXUTIL
     tox_utils_callback_self_connection_status(tox, self_connection_change_callback);
@@ -144,6 +149,7 @@ int main()
     toxav_callback_call_state(toxav, call_state_callback, nullptr);
 #endif
     // ----- CALLBACKS -----
+
 
     // ----- bootstrap -----
     std::cout << "Tox bootstrapping\n";
@@ -167,19 +173,53 @@ int main()
 #ifdef TEST_WITH_TOXAV
     toxav_iterate(toxav);
 #endif
-    // ----------- wait for Tox to come online -----------
-    while (1 == 1)
+
+
+    // ----- tox iterate thread -----
+    auto t_it = [](Tox *tox)
     {
-        tox_iterate(tox, nullptr);
-        usleep(tox_iteration_interval(tox));
-        if (self_online > 0)
+        while (1 == 1)
         {
-            break;
+            tox_iterate(tox, nullptr);
+            usleep(tox_iteration_interval(tox));
+            if (self_online > 0)
+            {
+                break;
+            }
         }
-    }
+    };
+    std::thread t_it_thread(t_it, tox);
+    // ----- tox iterate thread -----
+
+
+#ifdef TEST_WITH_TOXAV
+    // ----- toxav iterate thread -----
+    auto av_it = [](ToxAV *toxav)
+    {
+        while (1 == 1)
+        {
+            toxav_iterate(toxav);
+            usleep(50);
+            if (self_online > 0)
+            {
+                break;
+            }
+        }
+    };
+    std::thread av_it_thread(av_it, toxav);
+    // ----- toxav iterate thread -----
+#endif
+
+
+    // ----------- wait for Tox to come online -----------
+    t_it_thread.join();
+#ifdef TEST_WITH_TOXAV
+    av_it_thread.join();
+#endif
     std::cout << "Tox online\n";
     // ----------- wait for Tox to come online -----------
 
+    // ----------- shutdown clean -----------
 #ifdef TEST_WITH_TOXAV
     toxav_kill(toxav);
     std::cout << "killed ToxAV\n";
@@ -191,5 +231,7 @@ int main()
     tox_utils_kill(tox);
     std::cout << "killed Tox [TOXUTIL]\n";
 #endif
+    // ----------- shutdown clean -----------
+
     std::cout << "--END--\n";
 }
