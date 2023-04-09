@@ -17,18 +17,20 @@
 
  *
  * without ToxAV:
- * g++ -O3 -fPIC amalgamation_cpp_test.cpp $(pkg-config --cflags --libs libsodium) -pthread -o amalgamation_cpp_test
+ * g++ -O3 -fPIC -fpermissive amalgamation_cpp_test.cpp $(pkg-config --cflags --libs libsodium) -pthread -o amalgamation_cpp_test
  *
  * ==========================================================================================================
  * 
  * cross compile a simple C++ tox program with toxcore amalgamation (on a linux system) for win64:
  * 
  * without ToxAV (you will need to cross compile or get libsodium for windows yourself):
- * x86_64-w64-mingw32-gcc -static -O3 amalgamation_cpp_test.cpp $(pkg-config --cflags --libs libsodium) -lwinpthread -lwsock32 -lws2_32 -liphlpapi -o amalgamation_cpp_test
+ * x86_64-w64-mingw32-g++ -static -O3 -fpermissive amalgamation_cpp_test.cpp $(pkg-config --cflags --libs libsodium) -lwinpthread -lwsock32 -lws2_32 -liphlpapi -o amalgamation_cpp_test
  * 
  */
 
 #include <iostream>
+
+#include <unistd.h>
 
 // define this before including toxcore amalgamation -------
 #define MIN_LOGGER_LEVEL LOGGER_LEVEL_DEBUG
@@ -54,11 +56,11 @@ struct Node1 {
     uint16_t udp_port;
     uint16_t tcp_port;
 } nodes1[] = {
-{ "2604:a880:1:20::32f:1001", "BEF0CFB37AF874BD17B9A8F9FE64C75521DB95A37D33C5BDB00E9CF58659C04F", 33445, 33445 },
-{ "tox.kurnevsky.net", "82EF82BA33445A1F91A7DB27189ECFC0C013E06E3DA71F588ED692BED625EC23", 33445, 33445 },
-{ "tox1.mf-net.eu","B3E5FA80DC8EBD1149AD2AB35ED8B85BD546DEDE261CA593234C619249419506",33445,33445},
-{ "tox3.plastiras.org","4B031C96673B6FF123269FF18F2847E1909A8A04642BBECD0189AC8AEEADAF64",33445,3389},
-    { NULL, NULL, 0, 0 }
+  { "2604:a880:1:20::32f:1001", "BEF0CFB37AF874BD17B9A8F9FE64C75521DB95A37D33C5BDB00E9CF58659C04F", 33445, 33445 },
+  { "tox.kurnevsky.net", "82EF82BA33445A1F91A7DB27189ECFC0C013E06E3DA71F588ED692BED625EC23", 33445, 33445 },
+  { "tox1.mf-net.eu", "B3E5FA80DC8EBD1149AD2AB35ED8B85BD546DEDE261CA593234C619249419506", 33445, 33445 },
+  { "tox3.plastiras.org", "4B031C96673B6FF123269FF18F2847E1909A8A04642BBECD0189AC8AEEADAF64", 33445, 3389 },
+  { nullptr, nullptr, 0, 0 }
 };
 
 static void self_connection_change_callback(Tox *tox, TOX_CONNECTION status, void *userdata)
@@ -122,14 +124,14 @@ int main()
     // ----- set options ------
 #ifndef TOX_HAVE_TOXUTIL
     std::cout << "init Tox\n";
-    Tox *tox = tox_new(&options, NULL);
+    Tox *tox = tox_new(&options, nullptr);
 #else
     std::cout << "init Tox [TOXUTIL]\n";
-    Tox *tox = tox_utils_new(&options, NULL);
+    Tox *tox = tox_utils_new(&options, nullptr);
 #endif
 #ifdef TEST_WITH_TOXAV
     std::cout << "init ToxAV\n";
-    ToxAV *toxav = toxav_new(tox, NULL);
+    ToxAV *toxav = toxav_new(tox, nullptr);
 #endif
     // ----- CALLBACKS -----
 #ifdef TOX_HAVE_TOXUTIL
@@ -139,7 +141,7 @@ int main()
     tox_callback_self_connection_status(tox, self_connection_change_callback);
 #endif
 #ifdef TEST_WITH_TOXAV
-    toxav_callback_call_state(toxav, call_state_callback, NULL);
+    toxav_callback_call_state(toxav, call_state_callback, nullptr);
 #endif
     // ----- CALLBACKS -----
 
@@ -153,22 +155,22 @@ int main()
         {
             continue;
         }
-        tox_bootstrap(tox, nodes1[i].ip, nodes1[i].udp_port, key, NULL);
+        tox_bootstrap(tox, nodes1[i].ip, nodes1[i].udp_port, key, nullptr);
         if (nodes1[i].tcp_port != 0)
         {
-            tox_add_tcp_relay(tox, nodes1[i].ip, nodes1[i].tcp_port, key, NULL);
+            tox_add_tcp_relay(tox, nodes1[i].ip, nodes1[i].tcp_port, key, nullptr);
         }
         free(key);
     }
     // ----- bootstrap -----
-    tox_iterate(tox, NULL);
+    tox_iterate(tox, nullptr);
 #ifdef TEST_WITH_TOXAV
     toxav_iterate(toxav);
 #endif
     // ----------- wait for Tox to come online -----------
     while (1 == 1)
     {
-        tox_iterate(tox, NULL);
+        tox_iterate(tox, nullptr);
         usleep(tox_iteration_interval(tox));
         if (self_online > 0)
         {
