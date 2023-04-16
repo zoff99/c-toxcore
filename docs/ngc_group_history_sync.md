@@ -1,5 +1,5 @@
  
-## Spec for NGC group history sync
+# Spec for NGC group history sync
 
 ## Send history sync request
 
@@ -41,7 +41,7 @@ wait `n` milliseconds seconds before sending the next message.
 
 * `ngch_syncmsg` packet data:
 
-for text messages:
+#### for text messages:
 
 MAX_GC_CUSTOM_PACKET_SIZE 40000<br>
 header_size = 6 + 1 + 1 + 4 + 32 + 4 + 25 = 73<br>
@@ -58,7 +58,10 @@ max sync message text bytes = MAX_GC_CUSTOM_PACKET_SIZE - header_size = 39927<br
 | name        |      25        |  sender name 25 bytes (cut off if longer, or right padded with 0x0 bytes)     |
 | message     | [1, 39927]     |  message text, zero length message not allowed!                               | 
 
-for files:
+send the data to the peer with:
+`tox_group_send_custom_private_packet()` and specifiy `lossless` paramter as `true`
+
+#### for files:
 
 MAX_GC_CUSTOM_PACKET_SIZE 40000<br>
 header_size = 6 + 1 + 1 + 32 + 32 + 4 + 25 = 356<br>
