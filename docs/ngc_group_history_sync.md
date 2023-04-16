@@ -1,7 +1,7 @@
  
-# NGC group history sync
+## Spec for NGC group history sync
 
-## specification and workflow
+## Send history sync request
 
 * trigger: `tox_group_peer_join_cb()`
 
@@ -21,6 +21,10 @@ to make sure that peer is actually really online (tox has a bit of an issue ther
 | pkt id    |       1        |  0x01            |
 | sync delta|       1        |  how many minutes back from now() to get messages <br> allowed values from 5 to 130 minutes (both inclusive)         |
 
+send the data to the peer with:
+`tox_group_send_custom_private_packet()` and specifiy `lossless` paramter as `true`
+
+## Respond to history sync request
 
 * trigger: `tox_group_custom_private_packet_cb()` and it's the `ngch_request` packet
 
@@ -49,8 +53,8 @@ max sync message text bytes = MAX_GC_CUSTOM_PACKET_SIZE - header_size = 39927<br
 | version     |       1        |  0x01                                                                         |
 | pkt id      |       1        |  0x02 <-- text                                                                |
 | msg id      |       4        |  4 bytes message id for this group message                                    |
-| sender      |      32        |  32 bytes pubkey of the sender in the ngc group                               |
-| timestamp   |       4        |  date/time when the orig. message was sent in unix timestamp format           |
+| sender      |      32        |  32 bytes pubkey of the original sender in the ngc group                      |
+| timestamp   |       4        |  uint32_t unixtimestamp in UTC of local wall clock (in bigendian) when the message was originally sent   |
 | name        |      25        |  sender name 25 bytes (cut off if longer, or right padded with 0x0 bytes)     |
 | message     | [1, 39927]     |  message text, zero length message not allowed!                               | 
 
@@ -66,14 +70,18 @@ max group file bytes is 36701<br>
 | magic       |       6        |  0x667788113435                                                               |
 | version     |       1        |  0x01                                                                         |
 | pkt id      |       1        |  0x03 <-- file                                                                |
-| msg id      |      32        |  *uint8_t to uniquely identify the message                                    |
-| sender      |      32        |  32 bytes pubkey of the sender in the ngc group                               |
-| timestamp   |       4        |  date/time when the orig message was sent in unix timestamp format            |
+| msg id      |      32        |  *uint8_t to uniquely identify the message (the original value that is saved in history) |
+| sender      |      32        |  32 bytes pubkey of the original sender in the ngc group                      |
+| timestamp   |       4        |  uint32_t unixtimestamp in UTC of local wall clock (in bigendian) when the message was originally sent   |
 | name        |      25        |  sender name 25 bytes (cut off if longer, or right padded with 0x0 bytes)     |
-| filename    |     255        |  len TOX_MAX_FILENAME_LENGTH                                                  |
-|             |                |      data first, then pad with NULL bytes                                     |
+| filename    |     255        |  len TOX_MAX_FILENAME_LENGTH   data first, then pad with NULL bytes           |
 | data        | [1, 36701]     |  bytes of file data, zero length files not allowed!                           |
 
+
+send the data to the peer with:
+`tox_group_send_custom_private_packet()` and specifiy `lossless` paramter as `true`
+
+## Receive history sync data
 
 * trigger: `tox_group_custom_private_packet_cb()` and it's the `ngch_syncmsg` packet
 
