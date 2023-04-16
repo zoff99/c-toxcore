@@ -1,5 +1,7 @@
 
-## Spec for NGC Group Files
+# Spec for NGC Group Files
+
+## Packet Data
 
    40000 max bytes length for custom lossless NGC packets.
 
