@@ -10,7 +10,7 @@ from 130 minutes ago up to now.
 
 to make sure that peer is actually really online (tox has a bit of an issue there), wait `n` seconds before sending `ngch_request`
 
-`n` = 9 + random(0 .. 7)
+`n` = 5 + random(0 .. 6)
 
 * `ngch_request` packet data:
 
