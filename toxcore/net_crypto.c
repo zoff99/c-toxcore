@@ -19,6 +19,7 @@
 #include "mono_time.h"
 #include "util.h"
 
+static const uint8_t NOISE_PROTOCOL_NAME[34] = "Noise_IK_25519_XChaChaPoly_SHA512";
 typedef struct Packet_Data {
     uint64_t sent_time;
     uint16_t length;

@@ -285,6 +285,116 @@ int32_t encrypt_precompute(const uint8_t *public_key, const uint8_t *secret_key,
 #endif
 }
 
+int32_t encrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *nonce,
+                               const uint8_t *plain, size_t plain_length, uint8_t *encrypted,
+                               size_t encrypted_length, const uint8_t *ad, size_t ad_length)
+{
+    //TODO: add ad? and new length?
+    if (length == 0 || shared_key == nullptr || nonce == nullptr || plain == nullptr || encrypted == nullptr) {
+        return -1;
+    }
+
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    // Don't encrypt anything.
+    memcpy(encrypted, plain, length);
+    // Zero MAC to avoid uninitialized memory reads.
+    memset(encrypted + length, 0, crypto_box_MACBYTES);
+#else
+
+    const size_t size_temp_plain = length + crypto_box_ZEROBYTES;
+    const size_t size_temp_encrypted = length + crypto_box_MACBYTES + crypto_box_BOXZEROBYTES;
+
+    uint8_t *temp_plain = crypto_malloc(size_temp_plain);
+    uint8_t *temp_encrypted = crypto_malloc(size_temp_encrypted);
+
+    if (temp_plain == nullptr || temp_encrypted == nullptr) {
+        crypto_free(temp_plain, size_temp_plain);
+        crypto_free(temp_encrypted, size_temp_encrypted);
+        return -1;
+    }
+
+    // crypto_box_afternm requires the entire range of the output array be
+    // initialised with something. It doesn't matter what it's initialised with,
+    // so we'll pick 0x00.
+    memset(temp_encrypted, 0, size_temp_encrypted);
+
+    memset(temp_plain, 0, crypto_box_ZEROBYTES);
+    // Pad the message with 32 0 bytes.
+    memcpy(temp_plain + crypto_box_ZEROBYTES, plain, length);
+
+    //TODO: Continue here
+    //TODO: change to crypto_aead_xchacha20poly1305_ietf_encrypt()
+    //TODO: const unsigned char *nsec param = always NULL
+
+    if (crypto_box_afternm(temp_encrypted, temp_plain, length + crypto_box_ZEROBYTES, nonce,
+                           shared_key) != 0) {
+        crypto_free(temp_plain, size_temp_plain);
+        crypto_free(temp_encrypted, size_temp_encrypted);
+        return -1;
+    }
+
+    // Unpad the encrypted message.
+    memcpy(encrypted, temp_encrypted + crypto_box_BOXZEROBYTES, length + crypto_box_MACBYTES);
+
+    crypto_free(temp_plain, size_temp_plain);
+    crypto_free(temp_encrypted, size_temp_encrypted);
+#endif
+    assert(length < INT32_MAX - crypto_box_MACBYTES);
+    return (int32_t)(length + crypto_box_MACBYTES);
+}
+
+int32_t decrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *nonce,
+                               const uint8_t *encrypted, size_t encrypted_length, uint8_t *plain,
+                               size_t plain_length, const uint8_t *ad, size_t ad_length)
+{
+    if (length <= crypto_box_BOXZEROBYTES || shared_key == nullptr || nonce == nullptr || encrypted == nullptr
+            || plain == nullptr) {
+        return -1;
+    }
+
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    assert(length >= crypto_box_MACBYTES);
+    memcpy(plain, encrypted, length - crypto_box_MACBYTES);  // Don't encrypt anything
+#else
+
+    const size_t size_temp_plain = length + crypto_box_ZEROBYTES;
+    const size_t size_temp_encrypted = length + crypto_box_BOXZEROBYTES;
+
+    uint8_t *temp_plain = crypto_malloc(size_temp_plain);
+    uint8_t *temp_encrypted = crypto_malloc(size_temp_encrypted);
+
+    if (temp_plain == nullptr || temp_encrypted == nullptr) {
+        crypto_free(temp_plain, size_temp_plain);
+        crypto_free(temp_encrypted, size_temp_encrypted);
+        return -1;
+    }
+
+    // crypto_box_open_afternm requires the entire range of the output array be
+    // initialised with something. It doesn't matter what it's initialised with,
+    // so we'll pick 0x00.
+    memset(temp_plain, 0, size_temp_plain);
+
+    memset(temp_encrypted, 0, crypto_box_BOXZEROBYTES);
+    // Pad the message with 16 0 bytes.
+    memcpy(temp_encrypted + crypto_box_BOXZEROBYTES, encrypted, length);
+
+    if (crypto_box_open_afternm(temp_plain, temp_encrypted, length + crypto_box_BOXZEROBYTES, nonce,
+                                shared_key) != 0) {
+        crypto_free(temp_plain, size_temp_plain);
+        crypto_free(temp_encrypted, size_temp_encrypted);
+        return -1;
+    }
+
+    memcpy(plain, temp_plain + crypto_box_ZEROBYTES, length - crypto_box_MACBYTES);
+
+    crypto_free(temp_plain, size_temp_plain);
+    crypto_free(temp_encrypted, size_temp_encrypted);
+#endif
+    assert(length > crypto_box_MACBYTES);
+    assert(length < INT32_MAX);
+    return (int32_t)(length - crypto_box_MACBYTES);
+}
+
 int32_t encrypt_data_symmetric(const uint8_t *shared_key, const uint8_t *nonce,
                                const uint8_t *plain, size_t length, uint8_t *encrypted)
 {

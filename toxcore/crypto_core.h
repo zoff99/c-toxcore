@@ -366,6 +366,35 @@ non_null()
 int32_t encrypt_precompute(const uint8_t *public_key, const uint8_t *secret_key, uint8_t *shared_key);
 
 /**
+ * @brief Encrypt message with precomputed shared key using XChaCha20-Poly1305.
+ *
+ * Encrypts plain of length length to encrypted of length + @ref CRYPTO_MAC_SIZE
+ * using a shared key @ref CRYPTO_SYMMETRIC_KEY_SIZE big and a @ref CRYPTO_NONCE_SIZE
+ * byte nonce. The encrypted message, as well as a tag authenticating both the confidential 
+ * message m and adlen bytes of non-confidential data ad, are put into encrypted.
+ *
+ * @retval -1 if there was a problem.
+ * @return length of encrypted data if everything was fine.
+ */
+non_null()
+int32_t encrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *nonce, const uint8_t *plain, size_t plain_length,
+                               uint8_t *encrypted), size_t encrypted_length, const uint8_t *ad, size_t ad_length);
+
+/**
+ * @brief Decrypt message with precomputed shared key using XChaCha20-Poly1305.
+ *
+ * Decrypts encrypted of length encrypted_length to plain of plain_length
+ * `length - CRYPTO_MAC_SIZE` using a shared key @ref CRYPTO_SHARED_KEY_SIZE
+ * big and a @ref CRYPTO_NONCE_SIZE byte nonce.
+ *
+ * @retval -1 if there was a problem (decryption failed).
+ * @return length of plain data if everything was fine.
+ */
+non_null()
+int32_t decrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *nonce, const uint8_t *encrypted, size_t encrypted_length,
+                               uint8_t *plain, size_t plain_length, const uint8_t *ad, size_t ad_length);
+
+/**
  * @brief Encrypt message with precomputed shared key.
  *
  * Encrypts plain of length length to encrypted of length + @ref CRYPTO_MAC_SIZE
