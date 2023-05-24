@@ -770,10 +770,11 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     vc->h264_decoder = avcodec_alloc_context3(codec);
 
     if (codec) {
+#if LIBAVCODEC_VERSION_MAJOR < 60
         if (codec->capabilities & AV_CODEC_CAP_TRUNCATED) {
             vc->h264_decoder->flags |= AV_CODEC_FLAG_TRUNCATED; /* we do not send complete frames */
         }
-
+#endif
         if (codec->capabilities & AV_CODEC_FLAG_LOW_DELAY) {
             vc->h264_decoder->flags |= AV_CODEC_FLAG_LOW_DELAY;
         }
