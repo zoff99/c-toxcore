@@ -175,7 +175,7 @@ int global_h264_enc_profile_high_enabled_switch = 0;
 #define H264_WANT_DECODER_NAME "h264_mmal"
 //#define H264_WANT_DECODER_NAME "h264"
 #define X264_ENCODE_USED 1
-// #define RAPI_HWACCEL_DEC 1
+#define RAPI_HWACCEL_DEC 1
 #define H264_DECODER_THREADS 0
 #define H264_DECODER_THREAD_FRAME_ACTIVE 0
 #define X264_ENCODER_THREADS 0
@@ -758,7 +758,6 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
 #else
     codec = avcodec_find_decoder(AV_CODEC_ID_H264);
-    LOGGER_API_WARNING(av->tox, "FOUND: *Software* H264 decoder");
 #endif
 
 
@@ -1532,15 +1531,8 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                     // since we do NOT have any idea how long the decoder delays frames,
                     // and the decoder will lie to us, we just assume some random value
                     // that works for our use cases (decoding on andriod via MediaCodec)
-
-#if defined HW_CODEC_CONFIG_RPI3_TBW_TV
-                    // we hard code the value here, it's based on trial and error with the raspi
-                    vc->video_decoder_caused_delay_ms = 2;
-                    LOGGER_API_DEBUG(vc->av->tox, "dec:2r:delta_value=%d", vc->video_decoder_caused_delay_ms);
-#else
                     vc->video_decoder_caused_delay_ms = 1;
                     LOGGER_API_DEBUG(vc->av->tox, "dec:2:delta_value=%d", vc->video_decoder_caused_delay_ms);
-#endif
                 }
 
                 // calc mean value
