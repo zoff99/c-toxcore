@@ -11,7 +11,9 @@ brew install \
   libconfig \
   libsodium \
   libvpx \
-  opus
+  opus \
+  ffmpeg \
+  x264
 
 . ".github/scripts/flags-clang.sh"
 
