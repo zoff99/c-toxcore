@@ -1,0 +1,19 @@
+name: github_build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+      - name: Build and test
+        run: .github/scripts/cmake-osx
+
+
+
+
