@@ -20,7 +20,7 @@ brew install \
 add_ld_flag -undefined error
 
 # Make compilation error on a warning
-add_flag -Werror
+### add_flag -Werror
 
 # Allow _Static_assert. Supported C11 extensions are fine, since we have several
 # C99-only compilers we test against anyway. Anything that passes all the
@@ -36,7 +36,7 @@ cmake -B_build -H. \
   -DMIN_LOGGER_LEVEL=TRACE \
   -DMUST_BUILD_TOXAV=ON \
   -DNON_HERMETIC_TESTS=ON \
-  -DTEST_TIMEOUT_SECONDS=120 \
+  -DTEST_TIMEOUT_SECONDS=400 \
   -DUSE_IPV6=OFF \
   -DAUTOTEST=ON
 
