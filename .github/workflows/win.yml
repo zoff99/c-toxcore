@@ -1,0 +1,14 @@
+name: windows_build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - run: choco install gh
+      - run: gh version
+
+
