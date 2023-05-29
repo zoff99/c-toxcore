@@ -1,4 +1,4 @@
-name: github_build
+name: osx_build
 
 on:
   push:
