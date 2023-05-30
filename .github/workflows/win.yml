@@ -8,7 +8,8 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - run: choco install microsoft-visual-cpp-build-tools
+      - run: cmake --version
+      - run: cmake -G
 
 
 
