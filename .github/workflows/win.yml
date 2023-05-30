@@ -16,12 +16,12 @@ jobs:
       - run: git clone https://github.com/Microsoft/vcpkg.git
       - run: |
           cd vcpkg
-          ./bootstrap-vcpkg.bat
-          ./vcpkg install libsodium
-          ./vcpkg integrate install
+          ./bootstrap-vcpkg.bat -disableMetrics
+          ./vcpkg --disable-metrics install libsodium
+          ./vcpkg --disable-metrics integrate install
 
       - run: cmake --version
-      - run: cmake -G "Visual Studio 17 2022"
+      - run: cmake -G "Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE="D:/a/c-toxcore/c-toxcore/vcpkg/scripts/buildsystems/vcpkg.cmake"
 
 
 
