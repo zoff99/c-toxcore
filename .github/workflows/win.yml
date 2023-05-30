@@ -11,13 +11,17 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-      - run: choco install ffmpeg -y
+#      - run: choco install ffmpeg -y
 
       - run: git clone https://github.com/Microsoft/vcpkg.git
       - run: |
           cd vcpkg
           ./bootstrap-vcpkg.bat -disableMetrics
           ./vcpkg --disable-metrics install libsodium
+          ./vcpkg --disable-metrics install opus
+          ./vcpkg --disable-metrics install libvpx
+          ./vcpkg --disable-metrics install x264
+          ./vcpkg --disable-metrics install ffmpeg
           ./vcpkg --disable-metrics integrate install
 
       - run: cmake --version
