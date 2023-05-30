@@ -8,10 +8,11 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - run: choco install ffmpeg -y
+      - run: choco install libsodium -y
       - run: cmake --version
       - run: cmake -G "Visual Studio 17 2022"
 
