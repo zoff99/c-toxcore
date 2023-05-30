@@ -12,7 +12,14 @@ jobs:
         with:
           submodules: recursive
       - run: choco install ffmpeg -y
-      - run: choco install libsodium -y
+
+      - run: git clone https://github.com/Microsoft/vcpkg.git
+      - run: |
+          cd vcpkg
+          ./bootstrap-vcpkg.bat
+          ./vcpkg install libsodium
+          ./vcpkg integrate install
+
       - run: cmake --version
       - run: cmake -G "Visual Studio 17 2022"
 
