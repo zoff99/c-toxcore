@@ -79610,7 +79610,7 @@ static int works_encoder_codec_by_name(char *codec_name)
             av_opt_set(avctx->priv_data, "preset", "ultrafast", 0);
         }
 
-        // HINT: needed for newser 264_nvenc versions
+        // HINT: needed for newer 264_nvenc versions
         av_opt_set(avctx->priv_data, "2pass", "false", 0);
 
         av_opt_set_int(avctx->priv_data, "bf", 0, 0);
@@ -79912,7 +79912,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         av_opt_set(vc->h264_encoder2->priv_data, "no-scenecut", "true", 0);
         av_opt_set(vc->h264_encoder2->priv_data, "strict_gop", "true", 0);
 
-        // HINT: needed for newser 264_nvenc versions
+        // HINT: needed for newer 264_nvenc versions
         av_opt_set(vc->h264_encoder2->priv_data, "2pass", "false", 0);
 
         av_opt_set_int(vc->h264_encoder2->priv_data, "threads", X264_ENCODER_THREADS, 0);
@@ -80425,7 +80425,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
                 av_opt_set(vc->h264_encoder2->priv_data, "no-scenecut", "true", 0);
                 av_opt_set(vc->h264_encoder2->priv_data, "strict_gop", "true", 0);
 
-                // HINT: needed for newser 264_nvenc versions
+                // HINT: needed for newer 264_nvenc versions
                 av_opt_set(vc->h264_encoder2->priv_data, "2pass", "false", 0);
 
                 av_opt_set_int(vc->h264_encoder2->priv_data, "threads", X264_ENCODER_THREADS, 0);
