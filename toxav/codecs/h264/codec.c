@@ -361,12 +361,19 @@ static int works_encoder_codec_by_name(char *codec_name)
 
         if (strncmp(codec_name, "h264_nvenc", strlen("h264_nvenc")) == 0)
         {
-            av_opt_set(avctx->priv_data, "preset", "llhq", 0);
+            // av_opt_set(avctx->priv_data, "preset", "llhq", 0);
+            av_opt_set(avctx->priv_data, "preset", "p3", 0);
+            av_opt_set(avctx->priv_data, "rc", "cbr", 0);
+            av_opt_set(avctx->priv_data, "tune", "ll", 0);
+            av_opt_set(avctx->priv_data, "zerolatency", "true", 0);
         }
         else
         {
             av_opt_set(avctx->priv_data, "preset", "ultrafast", 0);
         }
+
+        // HINT: needed for newer 264_nvenc versions
+        av_opt_set(avctx->priv_data, "2pass", "false", 0);
 
         av_opt_set_int(avctx->priv_data, "bf", 0, 0);
         av_opt_set_int(avctx->priv_data, "qmin", 3, 0);
@@ -647,7 +654,11 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
         if (strncmp(vc->encoder_codec_used_name, "h264_nvenc", strlen("h264_nvenc")) == 0)
         {
-            av_opt_set(vc->h264_encoder2->priv_data, "preset", "llhq", 0);
+            // av_opt_set(vc->h264_encoder2->priv_data, "preset", "llhq", 0);
+            av_opt_set(vc->h264_encoder2->priv_data, "preset", "p3", 0);
+            av_opt_set(vc->h264_encoder2->priv_data, "rc", "cbr", 0);
+            av_opt_set(vc->h264_encoder2->priv_data, "tune", "ll", 0);
+            av_opt_set(vc->h264_encoder2->priv_data, "zerolatency", "true", 0);
         }
         else
         {
@@ -662,6 +673,9 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         //y// av_opt_set_int(vc->h264_encoder2->priv_data, "refs", 0, 0);
         av_opt_set(vc->h264_encoder2->priv_data, "no-scenecut", "true", 0);
         av_opt_set(vc->h264_encoder2->priv_data, "strict_gop", "true", 0);
+
+        // HINT: needed for newsr 264_nvenc versions
+        av_opt_set(vc->h264_encoder2->priv_data, "2pass", "false", 0);
 
         av_opt_set_int(vc->h264_encoder2->priv_data, "threads", X264_ENCODER_THREADS, 0);
 
@@ -1153,7 +1167,11 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
                 if (strncmp(vc->encoder_codec_used_name, "h264_nvenc", strlen("h264_nvenc")) == 0)
                 {
-                    av_opt_set(vc->h264_encoder2->priv_data, "preset", "llhq", 0);
+                    // av_opt_set(vc->h264_encoder2->priv_data, "preset", "llhq", 0);
+                    av_opt_set(vc->h264_encoder2->priv_data, "preset", "p3", 0);
+                    av_opt_set(vc->h264_encoder2->priv_data, "rc", "cbr", 0);
+                    av_opt_set(vc->h264_encoder2->priv_data, "tune", "ll", 0);
+                    av_opt_set(vc->h264_encoder2->priv_data, "zerolatency", "true", 0);
                 }
                 else
                 {
@@ -1168,6 +1186,9 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
                 //y// av_opt_set_int(vc->h264_encoder2->priv_data, "refs", 1, 0);
                 av_opt_set(vc->h264_encoder2->priv_data, "no-scenecut", "true", 0);
                 av_opt_set(vc->h264_encoder2->priv_data, "strict_gop", "true", 0);
+
+                // HINT: needed for newsr 264_nvenc versions
+                av_opt_set(vc->h264_encoder2->priv_data, "2pass", "false", 0);
 
                 av_opt_set_int(vc->h264_encoder2->priv_data, "threads", X264_ENCODER_THREADS, 0);
 
