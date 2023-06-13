@@ -51,6 +51,7 @@ typedef struct Crypto_Connection {
     uint8_t public_key[CRYPTO_PUBLIC_KEY_SIZE]; /* The real public key of the peer. */
     uint8_t recv_nonce[CRYPTO_NONCE_SIZE]; /* Nonce of received packets. */
     uint8_t sent_nonce[CRYPTO_NONCE_SIZE]; /* Nonce of sent packets. */
+    // Necessary for non-Noise handshake
     uint8_t sessionpublic_key[CRYPTO_PUBLIC_KEY_SIZE]; /* Our public key for this session. */
     uint8_t sessionsecret_key[CRYPTO_SECRET_KEY_SIZE]; /* Our private key for this session. */
     uint8_t peersessionpublic_key[CRYPTO_PUBLIC_KEY_SIZE]; /* The public key of the peer. */
@@ -58,6 +59,8 @@ typedef struct Crypto_Connection {
     Crypto_Conn_State status; /* See Crypto_Conn_State documentation */
     uint64_t cookie_request_number; /* number used in the cookie request packets for this connection */
     uint8_t dht_public_key[CRYPTO_PUBLIC_KEY_SIZE]; /* The dht public key of the peer */
+
+    noise_handshake *handshake;
 
     uint8_t *temp_packet; /* Where the cookie request/handshake packet is stored while it is being sent. */
     uint16_t temp_packet_length;
@@ -2070,6 +2073,57 @@ int accept_crypto_connection(Net_Crypto *c, const New_Connection *n_c)
     return crypt_connection_id;
 }
 
+/*
+ * Initializes a Noise HandshakeState with TODO:
+ *
+ * return -1 on failure
+ * return 0 on success
+ */
+static int initialize_handshake
+(noise_handshake *handshake, const uint8_t *self_secret_key, const uint8_t *peer_public_key, bool initiator)
+{
+
+    //TODO: NOISE_PROTOCOL_NAME
+
+    // crypto_new_keypair(c->rng, conn->sessionpublic_key, conn->sessionsecret_key);
+
+    if (self_secret_key) {
+        
+    } else {
+        fprintf(stderr, "Client private key required, but not provided.\n");
+        return -1;
+    }
+
+    //TODO: initiator?
+
+    if (role == NOISE_ROLE_INITIATOR) {
+        if (peer_public_key) {
+            
+        } else {
+            fprintf(stderr, "Server public key required, but not provided.\n");
+            return -1;
+        }
+    }
+
+    /* Ready to go */
+    return 0;
+}
+
+//TODO: Continue here
+static bool mix_dh(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
+				uint8_t key[CRYPTO_SHARED_KEY_SIZE],
+				const uint8_t private[CRYPTO_PUBLIC_KEY_SIZE],
+				const uint8_t public[CRYPTO_PUBLIC_KEY_SIZE])
+{
+	uint8_t dh_calculation[CRYPTO_PUBLIC_KEY_SIZE];
+
+
+	crypto_hkdf(chaining_key, key, NULL, dh_calculation, CRYPTO_SHA512_SIZE,
+	    CRYPTO_SHARED_KEY_SIZE, 0, CRYPTO_PUBLIC_KEY_SIZE, chaining_key);
+	crypto_memzero(dh_calculation, CRYPTO_PUBLIC_KEY_SIZE);
+	return true;
+}
+
 /** @brief Create a crypto connection.
  * If one to that real public key already exists, return it.
  *
@@ -3183,6 +3237,9 @@ void do_net_crypto(Net_Crypto *c, void *userdata)
     do_tcp(c, userdata);
     send_crypto_packets(c);
 }
+
+//TODO: implement
+//static void handshake_zero(struct noise_handshake *handshake)
 
 void kill_net_crypto(Net_Crypto *c)
 {
