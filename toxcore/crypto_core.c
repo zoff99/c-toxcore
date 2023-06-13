@@ -289,110 +289,39 @@ int32_t encrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *n
                                const uint8_t *plain, size_t plain_length, uint8_t *encrypted,
                                size_t encrypted_length, const uint8_t *ad, size_t ad_length)
 {
-    //TODO: add ad? and new length?
-    if (length == 0 || shared_key == nullptr || nonce == nullptr || plain == nullptr || encrypted == nullptr) {
+    // Additional data ad can be a NULL pointer with ad_length equal to 0; encrypted_length is calculated by libsodium
+    if (plain_length == 0 || shared_key == nullptr || nonce == nullptr || plain == nullptr || encrypted == nullptr) {
         return -1;
     }
 
-#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
-    // Don't encrypt anything.
-    memcpy(encrypted, plain, length);
-    // Zero MAC to avoid uninitialized memory reads.
-    memset(encrypted + length, 0, crypto_box_MACBYTES);
-#else
-
-    const size_t size_temp_plain = length + crypto_box_ZEROBYTES;
-    const size_t size_temp_encrypted = length + crypto_box_MACBYTES + crypto_box_BOXZEROBYTES;
-
-    uint8_t *temp_plain = crypto_malloc(size_temp_plain);
-    uint8_t *temp_encrypted = crypto_malloc(size_temp_encrypted);
-
-    if (temp_plain == nullptr || temp_encrypted == nullptr) {
-        crypto_free(temp_plain, size_temp_plain);
-        crypto_free(temp_encrypted, size_temp_encrypted);
+    // nsec is not used by this particular construction and should always be NULL.
+    if (crypto_aead_xchacha20poly1305_ietf_encrypt(encrypted, encrypted_length, plain, plain_length,
+                           ad, ad_length, NULL, nonce, shared_key) != 0) {
         return -1;
     }
 
-    // crypto_box_afternm requires the entire range of the output array be
-    // initialised with something. It doesn't matter what it's initialised with,
-    // so we'll pick 0x00.
-    memset(temp_encrypted, 0, size_temp_encrypted);
-
-    memset(temp_plain, 0, crypto_box_ZEROBYTES);
-    // Pad the message with 32 0 bytes.
-    memcpy(temp_plain + crypto_box_ZEROBYTES, plain, length);
-
-    //TODO: Continue here
-    //TODO: change to crypto_aead_xchacha20poly1305_ietf_encrypt()
-    //TODO: const unsigned char *nsec param = always NULL
-
-    if (crypto_box_afternm(temp_encrypted, temp_plain, length + crypto_box_ZEROBYTES, nonce,
-                           shared_key) != 0) {
-        crypto_free(temp_plain, size_temp_plain);
-        crypto_free(temp_encrypted, size_temp_encrypted);
-        return -1;
-    }
-
-    // Unpad the encrypted message.
-    memcpy(encrypted, temp_encrypted + crypto_box_BOXZEROBYTES, length + crypto_box_MACBYTES);
-
-    crypto_free(temp_plain, size_temp_plain);
-    crypto_free(temp_encrypted, size_temp_encrypted);
-#endif
-    assert(length < INT32_MAX - crypto_box_MACBYTES);
-    return (int32_t)(length + crypto_box_MACBYTES);
+    //assert(length < INT32_MAX - crypto_box_MACBYTES);
+    return (int32_t)(encrypted_length);
 }
 
 int32_t decrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *nonce,
                                const uint8_t *encrypted, size_t encrypted_length, uint8_t *plain,
                                size_t plain_length, const uint8_t *ad, size_t ad_length)
 {
-    if (length <= crypto_box_BOXZEROBYTES || shared_key == nullptr || nonce == nullptr || encrypted == nullptr
+    // plain_length is calculated by libsodium
+    if (encrypted_length <= crypto_box_BOXZEROBYTES || shared_key == nullptr || nonce == nullptr || encrypted == nullptr
             || plain == nullptr) {
         return -1;
     }
 
-#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
-    assert(length >= crypto_box_MACBYTES);
-    memcpy(plain, encrypted, length - crypto_box_MACBYTES);  // Don't encrypt anything
-#else
-
-    const size_t size_temp_plain = length + crypto_box_ZEROBYTES;
-    const size_t size_temp_encrypted = length + crypto_box_BOXZEROBYTES;
-
-    uint8_t *temp_plain = crypto_malloc(size_temp_plain);
-    uint8_t *temp_encrypted = crypto_malloc(size_temp_encrypted);
-
-    if (temp_plain == nullptr || temp_encrypted == nullptr) {
-        crypto_free(temp_plain, size_temp_plain);
-        crypto_free(temp_encrypted, size_temp_encrypted);
+    if (crypto_aead_xchacha20poly1305_ietf_decrypt(plain, plain_length, NULL, encrypted,
+                                encrypted_length, ad, ad_length, nonce, shared_key) != 0) {
         return -1;
     }
 
-    // crypto_box_open_afternm requires the entire range of the output array be
-    // initialised with something. It doesn't matter what it's initialised with,
-    // so we'll pick 0x00.
-    memset(temp_plain, 0, size_temp_plain);
-
-    memset(temp_encrypted, 0, crypto_box_BOXZEROBYTES);
-    // Pad the message with 16 0 bytes.
-    memcpy(temp_encrypted + crypto_box_BOXZEROBYTES, encrypted, length);
-
-    if (crypto_box_open_afternm(temp_plain, temp_encrypted, length + crypto_box_BOXZEROBYTES, nonce,
-                                shared_key) != 0) {
-        crypto_free(temp_plain, size_temp_plain);
-        crypto_free(temp_encrypted, size_temp_encrypted);
-        return -1;
-    }
-
-    memcpy(plain, temp_plain + crypto_box_ZEROBYTES, length - crypto_box_MACBYTES);
-
-    crypto_free(temp_plain, size_temp_plain);
-    crypto_free(temp_encrypted, size_temp_encrypted);
-#endif
-    assert(length > crypto_box_MACBYTES);
-    assert(length < INT32_MAX);
-    return (int32_t)(length - crypto_box_MACBYTES);
+    // assert(length > crypto_box_MACBYTES);
+    // assert(length < INT32_MAX);
+    return (int32_t)(plain_length);
 }
 
 int32_t encrypt_data_symmetric(const uint8_t *shared_key, const uint8_t *nonce,
@@ -618,6 +547,74 @@ bool crypto_hmac_verify(const uint8_t auth[CRYPTO_HMAC_SIZE], const uint8_t key[
 #else
     return crypto_auth_verify(auth, data, length, key) == 0;
 #endif
+}
+
+/*
+* HMAC-SHA-512 instead of HMAC-SHA512-256 as used by `crypto_auth_*()` (libsodium) which is underlying function of
+* `crypto_hmac*() in crypto_core. Necessary for Noise (cf. section 4.3) to return 64 bytes (SHA512 HASHLEN) instead of 
+* of 32 bytes (SHA512-256 HASHLEN).
+*/
+void crypto_hmac512(uint8_t auth[CRYPTO_SHA512_SIZE], const uint8_t key[CRYPTO_SHA512_SIZE], const uint8_t *data,
+                 size_t length)
+{
+    crypto_auth_hmacsha512(auth, data, length, key);
+}
+//TODO: verify needed?
+bool crypto_hmac512_verify(const uint8_t auth[CRYPTO_SHA512_SIZE], const uint8_t key[CRYPTO_SHA512_SIZE],
+                        const uint8_t *data, size_t length)
+{
+    return crypto_auth_hmacsha512_verify(auth, data, length, key) == 0;
+}
+
+/* This is Hugo Krawczyk's HKDF:
+ *  - https://eprint.iacr.org/2010/264.pdf
+ *  - https://tools.ietf.org/html/rfc5869
+ * HKDF(chaining_key, input_key_material, num_outputs): Takes a
+chaining_key byte sequence of length HASHLEN, and an input_key_material
+byte sequence with length either zero bytes, 32 bytes, or DHLEN bytes.
+Returns a pair or triple of byte sequences each of length HASHLEN,
+depending on whether num_outputs is two or three:
+– Sets temp_key = HMAC-HASH(chaining_key, input_key_material).
+– Sets output1 = HMAC-HASH(temp_key, byte(0x01)).
+– Sets output2 = HMAC-HASH(temp_key, output1 || byte(0x02)).
+– If num_outputs == 2 then returns the pair (output1, output2).
+– Sets output3 = HMAC-HASH(temp_key, output2 || byte(0x03)).
+– Returns the triple (output1, output2, output3).
+
+Note that temp_key, output1, output2, and output3 are all HASHLEN bytes in
+length. Also note that the HKDF() function is simply HKDF from [4] with the
+chaining_key as HKDF salt, and zero-length HKDF info.
+ */
+void crypto_hkdf(uint8_t *output1, uint8_t *output2, uint8_t *output3, const uint8_t *data,
+		size_t first_len, size_t second_len, size_t third_len,
+		size_t data_len, const uint8_t chaining_key[CRYPTO_SHA512_SIZE])
+{
+	uint8_t output[CRYPTO_SHA512_SIZE + 1];
+    // temp_key = secret in WG
+    uint8_t temp_key[CRYPTO_SHA512_SIZE];
+
+	/* Extract entropy from data into temp_key */
+    // data => input_key_material => DH result in Noise
+	crypto_hmac512(temp_key, chaining_key, data, data_len);
+
+	/* Expand first key: key = temp_key, data = 0x1 */
+	output[0] = 1;
+	crypto_hmac512(output, temp_key, output, 1);
+	memcpy(output1, output, first_len);
+
+	/* Expand second key: key = secret, data = first-key || 0x2 */
+	output[CRYPTO_SHA512_SIZE] = 2;
+	crypto_hmac512(output, temp_key, output, CRYPTO_SHA512_SIZE + 1);
+	memcpy(output2, output, second_len);
+
+	/* Expand third key: key = temp_key, data = second-key || 0x3 */
+	output[CRYPTO_SHA512_SIZE] = 3;
+	crypto_hmac512(output, temp_key, output, CRYPTO_SHA512_SIZE + 1);
+	memcpy(output3, output, third_len);
+
+	/* Clear sensitive data from stack */
+	crypto_memzero(temp_key, CRYPTO_SHA512_SIZE);
+	crypto_memzero(output, CRYPTO_SHA512_SIZE + 1);
 }
 
 void crypto_sha256(uint8_t *hash, const uint8_t *data, size_t length)
