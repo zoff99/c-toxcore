@@ -1,7 +1,7 @@
  
 # Spec for NGC group peer name selection
 
-set the own peername on joing or creating an NGC group according to thise schema.
+set the own peername on joing or creating an NGC group according to this spec.
 it avoids leaking the tox client you are using and also avoids leaking
 your language and character set.
 
