@@ -34,6 +34,7 @@ then use: `<firstname><SPACE><lastname>` as your own peername
 do this for every group to get a new name for each group you join or create.
 
 <br>
+
 ### Java implementation:
 
 String newname = RandomNameGenerator.getFullName(new Random());
@@ -41,6 +42,7 @@ String newname = RandomNameGenerator.getFullName(new Random());
 [RandomNameGenerator.java](https://github.com/zoff99/ToxAndroidRefImpl/blob/zoff99/dev003/android-refimpl-app/app/src/main/java/com/zoffcc/applications/trifa/RandomNameGenerator.java)
 
 <br>
+
 ### C++/Qt implementation:
 
 auto newname = Core::GetRandomGroupusername();
