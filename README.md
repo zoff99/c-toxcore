@@ -25,6 +25,7 @@ some of the subjects we are teaching here are:<br><br>
 - [x] New Group Chats - NGC. with IRC like features (see: https://github.com/TokTok/c-toxcore/pull/2269)
 - [x] Filetransfers in NGC Groups (see: https://github.com/zoff99/c-toxcore/blob/zoff99/zoxcore_local_fork/docs/ngc_filetransfer.md)
 - [x] Sync History in NGC Groups (see: https://github.com/zoff99/c-toxcore/blob/zoff99/zoxcore_local_fork/docs/ngc_group_history_sync.md)
+- [x] own default perrname in NGC Groups (see: https://github.com/zoff99/c-toxcore/blob/zoff99/zoxcore_local_fork/docs/ngc_usernames_spec.md)
 
 Any use of this project's code by GitHub Copilot, past or present, is done
 without our permission.  We do not consent to GitHub's use of this project's
