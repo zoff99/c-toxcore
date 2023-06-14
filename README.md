@@ -16,6 +16,7 @@ some of the subjects we are teaching here are:<br><br>
 - [x] Message V3 (see: https://github.com/zoff99/c-toxcore/blob/zoff99/zoxcore_local_fork/docs/msgv3_addon.patch)
 - [x] automatic Video bandwith control
 - [x] additional threads for A/V
+- [x] Tox - Custom Packets Registry (see: https://github.com/zoff99/toxcore_custom_packets_registry)
 - [x] fix some thread safety issues (see: https://github.com/TokTok/c-toxcore/issues/956) (https://github.com/TokTok/c-toxcore/issues/854) (https://github.com/TokTok/c-toxcore/issues/871) (https://github.com/TokTok/c-toxcore/issues/1257)
 - [x] make Toxcore API thread safe (see: https://github.com/TokTok/c-toxcore/pull/1382)
 - [x] make ToxAV use only public Tox API functions (see: https://github.com/TokTok/c-toxcore/pull/1431)
