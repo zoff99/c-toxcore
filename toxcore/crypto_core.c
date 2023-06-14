@@ -293,9 +293,9 @@ int32_t encrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *n
     if (plain_length == 0 || shared_key == nullptr || nonce == nullptr || plain == nullptr || encrypted == nullptr) {
         return -1;
     }
-
+    
     // nsec is not used by this particular construction and should always be NULL.
-    if (crypto_aead_xchacha20poly1305_ietf_encrypt(encrypted, encrypted_length, plain, plain_length,
+    if (crypto_aead_xchacha20poly1305_ietf_encrypt(encrypted, &encrypted_length, plain, plain_length,
                            ad, ad_length, NULL, nonce, shared_key) != 0) {
         return -1;
     }
@@ -314,7 +314,7 @@ int32_t decrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *n
         return -1;
     }
 
-    if (crypto_aead_xchacha20poly1305_ietf_decrypt(plain, plain_length, NULL, encrypted,
+    if (crypto_aead_xchacha20poly1305_ietf_decrypt(plain, &plain_length, NULL, encrypted,
                                 encrypted_length, ad, ad_length, nonce, shared_key) != 0) {
         return -1;
     }
@@ -553,14 +553,15 @@ bool crypto_hmac_verify(const uint8_t auth[CRYPTO_HMAC_SIZE], const uint8_t key[
 * HMAC-SHA-512 instead of HMAC-SHA512-256 as used by `crypto_auth_*()` (libsodium) which is underlying function of
 * `crypto_hmac*() in crypto_core. Necessary for Noise (cf. section 4.3) to return 64 bytes (SHA512 HASHLEN) instead of 
 * of 32 bytes (SHA512-256 HASHLEN).
+* TODO: key size correct?
 */
 void crypto_hmac512(uint8_t auth[CRYPTO_SHA512_SIZE], const uint8_t key[CRYPTO_SHA512_SIZE], const uint8_t *data,
                  size_t length)
 {
     crypto_auth_hmacsha512(auth, data, length, key);
 }
-//TODO: verify needed?
-bool crypto_hmac512_verify(const uint8_t auth[CRYPTO_SHA512_SIZE], const uint8_t key[CRYPTO_SHA512_SIZE],
+//TODO: verify needed? TODO: key size correct?
+bool crypto_hmac512_verify(uint8_t auth[CRYPTO_SHA512_SIZE], const uint8_t key[CRYPTO_SHA512_SIZE],
                         const uint8_t *data, size_t length)
 {
     return crypto_auth_hmacsha512_verify(auth, data, length, key) == 0;

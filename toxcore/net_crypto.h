@@ -121,9 +121,10 @@ non_null() TCP_Connections *nc_get_tcp_c(const Net_Crypto *c);
 non_null() DHT *nc_get_dht(const Net_Crypto *c);
 
 //TODO: correct?
-struct noise_handshake {
+typedef struct noise_handshake {
     //TODO: static_private?
 	uint8_t ephemeral_private[CRYPTO_PUBLIC_KEY_SIZE];
+    uint8_t ephemeral_public[CRYPTO_PUBLIC_KEY_SIZE];
 	uint8_t remote_static[CRYPTO_PUBLIC_KEY_SIZE];
 	uint8_t remote_ephemeral[CRYPTO_PUBLIC_KEY_SIZE];
 	uint8_t precomputed_static_static[CRYPTO_PUBLIC_KEY_SIZE];
@@ -132,7 +133,7 @@ struct noise_handshake {
 	uint8_t chaining_key[CRYPTO_SHA512_SIZE];
 
     bool initiator;
-};
+} noise_handshake;
 
 typedef struct New_Connection {
     IP_Port source;
