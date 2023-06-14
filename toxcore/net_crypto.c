@@ -14,6 +14,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+//TODO: remove
+#include <stdio.h>
 
 #include "ccompat.h"
 #include "list.h"
@@ -48,6 +50,7 @@ typedef enum Crypto_Conn_State {
 } Crypto_Conn_State;
 
 typedef struct Crypto_Connection {
+    //TODO: necessary here?
     uint8_t public_key[CRYPTO_PUBLIC_KEY_SIZE]; /* The real public key of the peer. */
     uint8_t recv_nonce[CRYPTO_NONCE_SIZE]; /* Nonce of received packets. */
     uint8_t sent_nonce[CRYPTO_NONCE_SIZE]; /* Nonce of sent packets. */
@@ -60,7 +63,10 @@ typedef struct Crypto_Connection {
     uint64_t cookie_request_number; /* number used in the cookie request packets for this connection */
     uint8_t dht_public_key[CRYPTO_PUBLIC_KEY_SIZE]; /* The dht public key of the peer */
 
+    // For Noise
     noise_handshake *handshake;
+    uint8_t send_key[CRYPTO_PUBLIC_KEY_SIZE];
+    uint8_t recv_key[CRYPTO_PUBLIC_KEY_SIZE];
 
     uint8_t *temp_packet; /* Where the cookie request/handshake packet is stored while it is being sent. */
     uint16_t temp_packet_length;
@@ -460,6 +466,8 @@ static int handle_cookie_response(uint8_t *cookie, uint64_t *number,
 }
 
 #define HANDSHAKE_PACKET_LENGTH (1 + COOKIE_LENGTH + CRYPTO_NONCE_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_SHA512_SIZE + COOKIE_LENGTH + CRYPTO_MAC_SIZE)
+#define NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR (1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_MAC_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_SHA512_SIZE + COOKIE_LENGTH + CRYPTO_MAC_SIZE)
+#define NOISE_HANDSHAKE_PACKET_LENGTH_RESPONDER (1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_SHA512_SIZE + COOKIE_LENGTH + CRYPTO_MAC_SIZE)
 
 /** @brief Create a handshake packet and put it in packet.
  * @param cookie must be COOKIE_LENGTH bytes.
@@ -2079,13 +2087,38 @@ int accept_crypto_connection(Net_Crypto *c, const New_Connection *n_c)
  * return -1 on failure
  * return 0 on success
  */
-static int initialize_handshake
-(noise_handshake *handshake, const uint8_t *self_secret_key, const uint8_t *peer_public_key, bool initiator)
+static int noise_handshake_init
+(struct noise_handshake *handshake, const uint8_t *self_secret_key, const uint8_t *peer_public_key, bool initiator)
 {
+    //TODO: ? memset(handshake, 0, sizeof(*handshake));
 
-    //TODO: NOISE_PROTOCOL_NAME
+    // IntializeSymmetric(protocol_name) => set h to NOISE_PROTOCOL_NAME and append zero bytes to make 64 bytes, sets ck = h
+    uint8_t temp_hash[CRYPTO_SHA512_SIZE];
+    memset(temp_hash, '\0', CRYPTO_SHA512_SIZE);
+    memcpy(temp_hash, NOISE_PROTOCOL_NAME, sizeof(NOISE_PROTOCOL_NAME));
+    memcpy(handshake->hash, temp_hash, CRYPTO_SHA512_SIZE);
+    memcpy(handshake->chaining_key, temp_hash, CRYPTO_SHA512_SIZE);
 
-    // crypto_new_keypair(c->rng, conn->sessionpublic_key, conn->sessionsecret_key);
+    // Sets the initiator, s, e, rs, and re variables to the corresponding arguments.
+    handshake->initiator = initiator;
+    memcpy(handshake->remote_static, peer_public_key, CRYPTO_PUBLIC_KEY_SIZE);
+    //TODO: Continue here
+    //TODO: precompute_static_static ?
+
+    //TODO: crypto_new_keypair(c->rng, conn->sessionpublic_key, conn->sessionsecret_key);
+
+//     void wg_noise_handshake_init(struct noise_handshake *handshake,
+// 			     struct noise_static_identity *static_identity,
+// 			     const u8 peer_public_key[NOISE_PUBLIC_KEY_LEN],
+// 			     const u8 peer_preshared_key[NOISE_SYMMETRIC_KEY_LEN],
+// 			     struct wg_peer *peer)
+// {
+// 	memset(handshake, 0, sizeof(*handshake));
+// 	memcpy(handshake->remote_static, peer_public_key, NOISE_PUBLIC_KEY_LEN);
+// 	handshake->static_identity = static_identity;
+// 	handshake->state = HANDSHAKE_ZEROED;
+// 	wg_noise_precompute_static_static(peer);
+// }
 
     if (self_secret_key) {
         
@@ -2096,32 +2129,74 @@ static int initialize_handshake
 
     //TODO: initiator?
 
-    if (role == NOISE_ROLE_INITIATOR) {
-        if (peer_public_key) {
+    // if (role == NOISE_ROLE_INITIATOR) {
+    //     if (peer_public_key) {
             
-        } else {
-            fprintf(stderr, "Server public key required, but not provided.\n");
-            return -1;
-        }
-    }
+    //     } else {
+    //         fprintf(stderr, "Server public key required, but not provided.\n");
+    //         return -1;
+    //     }
+    // }
 
     /* Ready to go */
     return 0;
 }
 
-//TODO: Continue here
-static bool mix_dh(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
+//TODO: MixKey(input_key_material), CURRENTLY NOT as defined in Noise spec
+static bool noise_mix_key_dh(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
 				uint8_t key[CRYPTO_SHARED_KEY_SIZE],
 				const uint8_t private[CRYPTO_PUBLIC_KEY_SIZE],
 				const uint8_t public[CRYPTO_PUBLIC_KEY_SIZE])
 {
 	uint8_t dh_calculation[CRYPTO_PUBLIC_KEY_SIZE];
 
-
+    //TODO: DH CALC - returns plain DH result, afterwards hashed with HKDF
+    // if (unlikely(!curve25519(dh_calculation, private, public)))
+		// return false;
 	crypto_hkdf(chaining_key, key, NULL, dh_calculation, CRYPTO_SHA512_SIZE,
 	    CRYPTO_SHARED_KEY_SIZE, 0, CRYPTO_PUBLIC_KEY_SIZE, chaining_key);
+    //TODO: truncate temp_k to 32 bytes
+    //TODO: where to InitializeKey(temp_k)?
+
 	crypto_memzero(dh_calculation, CRYPTO_PUBLIC_KEY_SIZE);
 	return true;
+}
+
+// MixHash(data) as defined in Noise spec
+static void noise_mix_hash(uint8_t hash[CRYPTO_SHA512_SIZE], const uint8_t *data, size_t data_len)
+{
+	uint8_t to_hash[CRYPTO_SHA512_SIZE + data_len];
+    memcpy(to_hash, hash, CRYPTO_SHA512_SIZE);
+    memcpy(to_hash + CRYPTO_SHA512_SIZE, data, data_len);
+    crypto_sha512(hash, to_hash, CRYPTO_SHA512_SIZE + data_len);
+}
+
+// EncryptAndHash(plaintext) as defined in Noise spec
+static void noise_encrypt_and_hash(uint8_t *ciphertext, const uint8_t *plaintext,
+			    size_t plain_length, uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE],
+			    uint8_t hash[CRYPTO_SHA512_SIZE], uint8_t nonce[CRYPTO_NONCE_SIZE])
+{
+    //TODO: Noise spec: Note that if k is empty, the EncryptWithAd() call will set ciphertext equal to plaintext.
+    int32_t encrypted_length = encrypt_data_symmetric_xaead(shared_key, nonce,
+                               plaintext, plain_length, ciphertext,
+                               plain_length + CRYPTO_MAC_SIZE, hash, CRYPTO_SHA512_SIZE);
+	noise_mix_hash(hash, ciphertext, encrypted_length);
+}
+
+static int noise_decrypt_and_hash(uint8_t *plaintext, const uint8_t *ciphertext,
+			    size_t encrypted_length, uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE],
+			    uint8_t hash[CRYPTO_SHA512_SIZE], uint8_t nonce[CRYPTO_NONCE_SIZE])
+{
+    //TODO: Note that if k is empty, the DecryptWithAd() call will set plaintext equal to ciphertext
+    int32_t plaintext_length = decrypt_data_symmetric_xaead(shared_key, nonce,
+                               ciphertext, encrypted_length, plaintext,
+                               encrypted_length - CRYPTO_MAC_SIZE, hash, CRYPTO_SHA512_SIZE);
+	if (plaintext_length != (encrypted_length - CRYPTO_MAC_SIZE))
+    {
+		return -1;
+    }
+	noise_mix_hash(hash, ciphertext, encrypted_length);
+	return 0;
 }
 
 /** @brief Create a crypto connection.
@@ -3238,8 +3313,16 @@ void do_net_crypto(Net_Crypto *c, void *userdata)
     send_crypto_packets(c);
 }
 
-//TODO: implement
-//static void handshake_zero(struct noise_handshake *handshake)
+//TODO: adapt and implement
+// static void noise_handshake_zero(struct noise_handshake *handshake)
+// {
+// 	memset(&handshake->ephemeral_private, 0, CRYPTO_PUBLIC_KEY_SIZE);
+// 	memset(&handshake->remote_ephemeral, 0, CRYPTO_PUBLIC_KEY_SIZE);
+// 	memset(&handshake->hash, 0, CRYPTO_SHA512_SIZE);
+// 	memset(&handshake->chaining_key, 0, CRYPTO_SHA512_SIZE);
+// 	handshake->remote_index = 0;
+// 	handshake->state = HANDSHAKE_ZEROED;
+// }
 
 void kill_net_crypto(Net_Crypto *c)
 {

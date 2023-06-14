@@ -175,6 +175,47 @@ bool crypto_hmac_verify(const uint8_t auth[CRYPTO_HMAC_SIZE], const uint8_t key[
                         const uint8_t *data, size_t length);
 
 /**
+ * @brief Compute an HMAC authenticator (32 bytes).
+ *
+ * @param auth Resulting authenticator.
+ * @param key Secret key
+ */
+non_null()
+void crypto_hmac512(uint8_t auth[CRYPTO_SHA512_SIZE], const uint8_t key[CRYPTO_SHA512_SIZE], const uint8_t *data,
+                 size_t length);
+
+/**
+ * @brief Verify an HMAC authenticator.
+ * TODO: verify needed?
+ */
+non_null()
+bool crypto_hmac512_verify(uint8_t auth[CRYPTO_SHA512_SIZE], const uint8_t key[CRYPTO_SHA512_SIZE],
+                        const uint8_t *data, size_t length);
+
+/* This is Hugo Krawczyk's HKDF:
+ *  - https://eprint.iacr.org/2010/264.pdf
+ *  - https://tools.ietf.org/html/rfc5869
+ * HKDF(chaining_key, input_key_material, num_outputs): Takes a
+chaining_key byte sequence of length HASHLEN, and an input_key_material
+byte sequence with length either zero bytes, 32 bytes, or DHLEN bytes.
+Returns a pair or triple of byte sequences each of length HASHLEN,
+depending on whether num_outputs is two or three:
+– Sets temp_key = HMAC-HASH(chaining_key, input_key_material).
+– Sets output1 = HMAC-HASH(temp_key, byte(0x01)).
+– Sets output2 = HMAC-HASH(temp_key, output1 || byte(0x02)).
+– If num_outputs == 2 then returns the pair (output1, output2).
+– Sets output3 = HMAC-HASH(temp_key, output2 || byte(0x03)).
+– Returns the triple (output1, output2, output3).
+
+Note that temp_key, output1, output2, and output3 are all HASHLEN bytes in
+length. Also note that the HKDF() function is simply HKDF from [4] with the
+chaining_key as HKDF salt, and zero-length HKDF info.
+ */
+void crypto_hkdf(uint8_t *output1, uint8_t *output2, uint8_t *output3, const uint8_t *data,
+		size_t first_len, size_t second_len, size_t third_len,
+		size_t data_len, const uint8_t chaining_key[CRYPTO_SHA512_SIZE]);
+
+/**
  * @brief Compare 2 public keys of length @ref CRYPTO_PUBLIC_KEY_SIZE, not vulnerable to
  * timing attacks.
  *
@@ -378,7 +419,7 @@ int32_t encrypt_precompute(const uint8_t *public_key, const uint8_t *secret_key,
  */
 non_null()
 int32_t encrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *nonce, const uint8_t *plain, size_t plain_length,
-                               uint8_t *encrypted), size_t encrypted_length, const uint8_t *ad, size_t ad_length);
+                               uint8_t *encrypted, size_t encrypted_length, const uint8_t *ad, size_t ad_length);
 
 /**
  * @brief Decrypt message with precomputed shared key using XChaCha20-Poly1305.
