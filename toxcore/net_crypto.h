@@ -121,13 +121,16 @@ non_null() const uint8_t *nc_get_self_secret_key(const Net_Crypto *c);
 non_null() TCP_Connections *nc_get_tcp_c(const Net_Crypto *c);
 non_null() DHT *nc_get_dht(const Net_Crypto *c);
 
-//TODO: correct?
+//TODO: struct necessary?
 typedef struct noise_handshake {
     //TODO: static_private?
+    uint8_t static_private[CRYPTO_PUBLIC_KEY_SIZE];
+    uint8_t static_public[CRYPTO_PUBLIC_KEY_SIZE];
 	uint8_t ephemeral_private[CRYPTO_PUBLIC_KEY_SIZE];
     uint8_t ephemeral_public[CRYPTO_PUBLIC_KEY_SIZE];
 	uint8_t remote_static[CRYPTO_PUBLIC_KEY_SIZE];
 	uint8_t remote_ephemeral[CRYPTO_PUBLIC_KEY_SIZE];
+    //TODO: necessary?
 	uint8_t precomputed_static_static[CRYPTO_PUBLIC_KEY_SIZE];
 
 	uint8_t hash[CRYPTO_SHA512_SIZE];
@@ -142,9 +145,15 @@ typedef struct New_Connection {
     uint8_t public_key[CRYPTO_PUBLIC_KEY_SIZE]; /* The real public key of the peer. */
     uint8_t dht_public_key[CRYPTO_PUBLIC_KEY_SIZE]; /* The dht public key of the peer. */
     uint8_t recv_nonce[CRYPTO_NONCE_SIZE]; /* Nonce of received packets. */
-    // Necessary for non-Noise handshake
     uint8_t peersessionpublic_key[CRYPTO_PUBLIC_KEY_SIZE]; /* The public key of the peer. */
     noise_handshake *handshake;
+    // Necessary for Noise
+    // uint8_t noise_hash[CRYPTO_SHA512_SIZE];
+	// uint8_t noise_chaining_key[CRYPTO_SHA512_SIZE];
+    // uint8_t niose_send_key[CRYPTO_PUBLIC_KEY_SIZE];
+    // uint8_t noise_recv_key[CRYPTO_PUBLIC_KEY_SIZE];
+    // bool initiator;
+
     uint8_t *cookie;
     uint8_t cookie_length;
 } New_Connection;
