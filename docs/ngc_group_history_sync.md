@@ -1,5 +1,7 @@
  
 # Spec for NGC group history sync
+### use only for public groups, not for private groups!
+
 
 ## Send history sync request
 
