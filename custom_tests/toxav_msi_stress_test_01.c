@@ -919,6 +919,7 @@ int main(void)
     pthread_t tid[8];
     toxav_video_thread_stop = 0;
     toxav_audioiterate_thread_stop = 0;
+
     if (pthread_create(&(tid[0]), NULL, thread_video_av, (void *)toxav1) != 0)
     {
     }
@@ -1013,6 +1014,17 @@ int main(void)
 
     toxav_video_thread_stop = 1;
     toxav_audioiterate_thread_stop = 1;
+
+    // wait for all threads to stop ---------
+    pthread_join(tid[0], NULL);
+    pthread_join(tid[1], NULL);
+    pthread_join(tid[2], NULL);
+    pthread_join(tid[3], NULL);
+    pthread_join(tid[4], NULL);
+    pthread_join(tid[5], NULL);
+    pthread_join(tid[6], NULL);
+    pthread_join(tid[7], NULL);
+    // wait for all threads to stop ---------
 
     usleep(1000 * 1000);
 
