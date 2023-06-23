@@ -130,7 +130,7 @@ typedef struct noise_handshake {
 	uint8_t remote_static[CRYPTO_PUBLIC_KEY_SIZE];
 	uint8_t remote_ephemeral[CRYPTO_PUBLIC_KEY_SIZE];
     //TODO: necessary?
-	uint8_t precomputed_static_static[CRYPTO_PUBLIC_KEY_SIZE];
+	//uint8_t precomputed_static_static[CRYPTO_PUBLIC_KEY_SIZE];
 
 	uint8_t hash[CRYPTO_SHA512_SIZE];
 	uint8_t chaining_key[CRYPTO_SHA512_SIZE];
@@ -145,7 +145,7 @@ typedef struct New_Connection {
     uint8_t dht_public_key[CRYPTO_PUBLIC_KEY_SIZE]; /* The dht public key of the peer. */
     uint8_t recv_nonce[CRYPTO_NONCE_SIZE]; /* Nonce of received packets. */
     uint8_t peersessionpublic_key[CRYPTO_PUBLIC_KEY_SIZE]; /* The public key of the peer. */
-    noise_handshake *handshake;
+    noise_handshake *noise_handshake;
     // Necessary for Noise
     // uint8_t noise_hash[CRYPTO_SHA512_SIZE];
 	// uint8_t noise_chaining_key[CRYPTO_SHA512_SIZE];
@@ -439,7 +439,7 @@ nullable(1)
 void kill_net_crypto(Net_Crypto *c);
 
 //TODO: comment
-static void handshake_zero(struct noise_handshake *handshake);
+//static void handshake_zero(struct noise_handshake *handshake);
 
 
 #endif
