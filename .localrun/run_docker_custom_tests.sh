@@ -107,6 +107,7 @@ rm -Rf /workspace/_build/
 rm -Rf /workspace/auto_tests/
 rm -Rf /workspace/cmake/
 rm -f  /workspace/CMakeLists.txt
+rm -Rfv /workspace/custom_tests/
 
 echo "make a local copy ..."
 redirect_cmd rsync -avz --exclude=".localrun" ./ /workspace/
