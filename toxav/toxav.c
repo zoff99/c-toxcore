@@ -1410,20 +1410,28 @@ bool toxav_video_send_frame(ToxAV *av, uint32_t friend_number, uint16_t width, u
 }
 
 bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height, const uint8_t *y,
-                                const uint8_t *u, const uint8_t *v, TOXAV_ERR_SEND_FRAME *error, uint32_t age_ms)
+                                const uint8_t *u, const uint8_t *v, TOXAV_ERR_SEND_FRAME *error, int32_t age_ms)
 {
     TOXAV_ERR_SEND_FRAME rc = TOXAV_ERR_SEND_FRAME_OK;
     ToxAVCall *call;
 
     // add the time the data has already aged (in the client)
     uint64_t video_frame_record_timestamp = 0;
-    if (current_time_monotonic(av->toxav_mono_time) <= (uint64_t)age_ms)
+    uint64_t mono_now = current_time_monotonic(av->toxav_mono_time);
+    if (age_ms <= 0)
     {
-        video_frame_record_timestamp = current_time_monotonic(av->toxav_mono_time);
+        video_frame_record_timestamp = mono_now - age_ms;
     }
     else
     {
-        video_frame_record_timestamp = current_time_monotonic(av->toxav_mono_time) - age_ms;
+        if (mono_now <= age_ms)
+        {
+            video_frame_record_timestamp = mono_now;
+        }
+        else
+        {
+            video_frame_record_timestamp = mono_now - age_ms;
+        }
     }
 
     if (toxav_friend_exists(av->tox, friend_number) == 0) {
@@ -1724,23 +1732,30 @@ bool toxav_video_send_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t wid
 
 bool toxav_video_send_frame_h264_age(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height,
                                      const uint8_t *buf,
-                                     uint32_t data_len, TOXAV_ERR_SEND_FRAME *error, uint32_t age_ms)
+                                     uint32_t data_len, TOXAV_ERR_SEND_FRAME *error, int32_t age_ms)
 {
     TOXAV_ERR_SEND_FRAME rc = TOXAV_ERR_SEND_FRAME_OK;
     ToxAVCall *call;
 
     // add the time the data has already aged (in the client)
     uint64_t video_frame_record_timestamp;
-    if (current_time_monotonic(av->toxav_mono_time) <= (uint64_t)age_ms)
+    uint64_t mono_now = current_time_monotonic(av->toxav_mono_time);
+    if (age_ms < 0)
     {
-        video_frame_record_timestamp = current_time_monotonic(av->toxav_mono_time);
+        video_frame_record_timestamp = mono_now - age_ms;
     }
     else
     {
-        video_frame_record_timestamp = current_time_monotonic(av->toxav_mono_time) - age_ms;
-        LOGGER_API_DEBUG(av->tox, "toxav_video_send_frame_h264_age:age_ms=%d", age_ms);
+        if (mono_now <= age_ms)
+        {
+            video_frame_record_timestamp = mono_now;
+        }
+        else
+        {
+            video_frame_record_timestamp = mono_now - age_ms;
+            LOGGER_API_DEBUG(av->tox, "toxav_video_send_frame_h264_age:age_ms=%d", age_ms);
+        }
     }
-
 
     if (toxav_friend_exists(av->tox, friend_number) == 0) {
         rc = TOXAV_ERR_SEND_FRAME_FRIEND_NOT_FOUND;
