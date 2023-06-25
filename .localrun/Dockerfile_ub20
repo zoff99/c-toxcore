@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+        apt-get -y --force-yes install \
+        ca-certificates \
+        rsync \
+        nano \
+        clang \
+        cmake \
+        git \
+        libconfig-dev \
+        libgtest-dev \
+        libopus-dev \
+        libsodium-dev \
+        libvpx-dev \
+        ninja-build \
+        pkg-config \
+        binutils \
+        llvm-dev \
+        libavutil-dev \
+        libavcodec-dev \
+        libavformat-dev \
+        libavfilter-dev \
+        libx264-dev
+RUN apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
