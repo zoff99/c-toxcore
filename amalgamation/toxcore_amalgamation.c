@@ -74328,6 +74328,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                 pkg_buf[13] = tmp       & 0xFF;
 
                 int result = rtp_send_custom_lossless_packet(tox, friendnumber, pkg_buf, pkg_buf_len);
+                LOGGER_API_DEBUG(tox, "TTTTTR:002:result=%d pkg_buf_len=%d", result, pkg_buf_len);
 
             } else if ((data[1] == PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_ANSWER) && (length == 14)) {
 
@@ -74362,6 +74363,12 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
 #define NETWORK_ROUND_TRIP_MAX_VALID_MS 800
 
+                LOGGER_API_DEBUG(tox, "TTTTTR:data:le:%d ls:%d delta=%d",
+                    (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_end,
+                    (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_start,
+                    ( (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_end - (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_start )
+                    );
+
                 if (
                     (( (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_end - (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_start ) > NETWORK_ROUND_TRIP_MAX_VALID_MS)
                      ||
@@ -74372,7 +74379,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                                           ((VCSession *)(session->cs))->dummy_ntp_remote_end,
                                           ((VCSession *)(session->cs))->dummy_ntp_local_start,
                                           ((VCSession *)(session->cs))->dummy_ntp_local_end);
-
+                    LOGGER_API_DEBUG(tox, "TTTTTR:too long");
                 }
                 else
                 {
@@ -74405,6 +74412,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                     }
 
                     ((VCSession *)(session->cs))->has_rountrip_time_ms = 1;
+                    LOGGER_API_DEBUG(tox, "TTTTTR:ok__:value=%d", (int)(((VCSession *)(session->cs))->has_rountrip_time_ms));
                     int64_t *ptmp = &(((VCSession *)(session->cs))->timestamp_difference_to_sender__for_video);
                     bool res4 = dntp_drift(ptmp, offset_, (int64_t)NETWORK_NTP_JUMP_MS, (int)NETWORK_ROUND_TRIP_CHANGE_THRESHOLD_MS);
                 }
