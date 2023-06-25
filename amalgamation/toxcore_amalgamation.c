@@ -74305,7 +74305,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                         ((VCSession *)(session->cs))->h264_video_capabilities_received = 1;
                     }
                 }
-            } else if ((data[1] == PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_REQUEST) && (length == 6)) {
+            } else if ((data[1] == PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_REQUEST) && (length == 14)) {
 
                 uint32_t pkg_buf_len = (sizeof(uint32_t) * 3) + 2;
                 uint8_t pkg_buf[pkg_buf_len];
@@ -78685,7 +78685,13 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         tsb_range_ms_used = UINT32_MAX;
         timestamp_want_get_used = UINT32_MAX;
         use_range_all = 1;
-        LOGGER_API_DEBUG(tox,"first_frame:001:timestamp_want_get_used:002=%d", (int)timestamp_want_get_used);
+        LOGGER_API_DEBUG(tox,"first_frame:001a: %d %d %d %d",
+                (int)global_do_not_sync_av,
+                (int)vc->video_received_first_frame,
+                (int)vc->has_rountrip_time_ms,
+                (int)video_frame_diff
+                );
+        LOGGER_API_DEBUG(tox,"first_frame:001b:timestamp_want_get_used:002=%d", (int)timestamp_want_get_used);
     }
 
     if (use_range_all == 1)
