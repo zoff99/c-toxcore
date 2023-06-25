@@ -560,7 +560,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                         ((VCSession *)(session->cs))->h264_video_capabilities_received = 1;
                     }
                 }
-            } else if ((data[1] == PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_REQUEST) && (length == 6)) {
+            } else if ((data[1] == PACKET_TOXAV_COMM_CHANNEL_DUMMY_NTP_REQUEST) && (length == 14)) {
 
                 uint32_t pkg_buf_len = (sizeof(uint32_t) * 3) + 2;
                 uint8_t pkg_buf[pkg_buf_len];
