@@ -228,6 +228,9 @@ non_null()
 static int create_cookie_request(const Net_Crypto *c, uint8_t *packet, const uint8_t *dht_public_key,
                                  uint64_t number, uint8_t *shared_key)
 {
+    FILE *fp;
+    fp  = fopen ("data.log", "a");
+    fprintf(fp, "ENTERING: create_cookie_request()\n");
     fprintf(stderr, "ENTERING: create_cookie_request()\n");
     uint8_t plain[COOKIE_REQUEST_PLAIN_LENGTH];
     uint8_t padding[CRYPTO_PUBLIC_KEY_SIZE] = {0};
@@ -249,7 +252,9 @@ static int create_cookie_request(const Net_Crypto *c, uint8_t *packet, const uin
         return -1;
     }
 
+    fprintf(fp, "END: create_cookie_request()\n");
     fprintf(stderr, "END: create_cookie_request()\n");
+    fclose(fp);
     return 1 + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + len;
 }
 
@@ -317,9 +322,12 @@ non_null()
 static int create_cookie_response(const Net_Crypto *c, uint8_t *packet, const uint8_t *request_plain,
                                   const uint8_t *shared_key, const uint8_t *dht_public_key)
 {
+    FILE *fp;
+    fp  = fopen ("data.log", "a");
+    fprintf(fp, "ENTERING: create_cookie_response()\n");
     fprintf(stderr, "ENTERING: create_cookie_response()\n");
+    fclose(fp);
     uint8_t cookie_plain[COOKIE_DATA_LENGTH];
-    fprintf(stderr, "ENTERING: create_cookie_response()\n");
     memcpy(cookie_plain, request_plain, CRYPTO_PUBLIC_KEY_SIZE);
     memcpy(cookie_plain + CRYPTO_PUBLIC_KEY_SIZE, dht_public_key, CRYPTO_PUBLIC_KEY_SIZE);
     uint8_t plain[COOKIE_LENGTH + sizeof(uint64_t)];
@@ -351,7 +359,11 @@ non_null()
 static int handle_cookie_request(const Net_Crypto *c, uint8_t *request_plain, uint8_t *shared_key,
                                  uint8_t *dht_public_key, const uint8_t *packet, uint16_t length)
 {
+    FILE *fp;
+    fp  = fopen ("data.log", "a");
+    fprintf(fp, "ENTERING: handle_cookie_request()\n");
     fprintf(stderr, "ENTERING: handle_cookie_request()\n");
+    fclose(fp);
     if (length != COOKIE_REQUEST_LENGTH) {
         return -1;
     }
@@ -460,7 +472,11 @@ static int handle_cookie_response(uint8_t *cookie, uint64_t *number,
                                   const uint8_t *packet, uint16_t length,
                                   const uint8_t *shared_key)
 {
+    FILE *fp;
+    fp  = fopen ("data.log", "a");
+    fprintf(fp, "ENTERING: handle_cookie_response()\n");
     fprintf(stderr, "ENTERING: handle_cookie_response()\n");
+    fclose(fp);
 
     if (length != COOKIE_RESPONSE_LENGTH) {
         return -1;
@@ -549,7 +565,11 @@ non_null()
 static int create_crypto_handshake(const Net_Crypto *c, uint8_t *packet, const uint8_t *cookie, const uint8_t *nonce, const uint8_t *ephemeral_private,
                                    const uint8_t *ephemeral_public, const uint8_t *peer_real_pk, const uint8_t *peer_dht_pubkey, noise_handshake *noise_handshake)
 {
+    FILE *fp;
+    fp  = fopen ("data.log", "a");
+    fprintf(fp, "ENTERING: create_crypto_handshake()\n");
     fprintf(stderr, "ENTERING: create_crypto_handshake()\n");
+    fclose(fp);
     // Noise-based handshake
     if (noise_handshake != nullptr) {
             /* Initiator: Handshake packet structure
@@ -877,7 +897,11 @@ static bool handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t
                                     uint8_t *dht_public_key, uint8_t *cookie, const uint8_t *packet, uint16_t length, const uint8_t *expected_real_pk,
                                     noise_handshake *noise_handshake)
 {
+    FILE *fp;
+    fp  = fopen ("data.log", "a");
+    fprintf(fp, "ENTERING: handle_crypto_handshake()\n");
     fprintf(stderr, "ENTERING: handle_crypto_handshake()\n");
+    fclose(fp);
     if (noise_handshake != nullptr) {
         if (!noise_handshake->initiator) {
             if (length != NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR) {
@@ -1038,6 +1062,8 @@ static bool handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t
         memcpy(cookie, plain + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_SHA512_SIZE, COOKIE_LENGTH);
         memcpy(peer_real_pk, cookie_plain, CRYPTO_PUBLIC_KEY_SIZE);
         memcpy(dht_public_key, cookie_plain + CRYPTO_PUBLIC_KEY_SIZE, CRYPTO_PUBLIC_KEY_SIZE);
+        
+
         return true;
     }
 }
@@ -1312,7 +1338,10 @@ static int send_packet_to(Net_Crypto *c, int crypt_connection_id, const uint8_t 
         return -1;
     }
 
-    fprintf(stderr, "ENTERING: send_packet_to()");
+    FILE *fp;
+    fp  = fopen ("data.log", "a");
+    fprintf(fp, "ENTERING: send_packet_to()\n");
+    fprintf(stderr, "ENTERING: send_packet_to()\n");
 
     bool direct_send_attempt = false;
 
@@ -1331,7 +1360,8 @@ static int send_packet_to(Net_Crypto *c, int crypt_connection_id, const uint8_t 
             }
 
             LOGGER_WARNING(c->log, "sending packet of length %d failed", length);
-            fprintf(stderr, "send_packet_to(); sending packet of length %d failed", length);
+            fprintf(fp, "send_packet_to(); sending packet of length %d failed\n", length);
+            fprintf(stderr, "send_packet_to(); sending packet of length %d failed\n", length);
             return -1;
         }
 
@@ -2062,27 +2092,35 @@ static int clear_temp_packet(const Net_Crypto *c, int crypt_connection_id)
 non_null()
 static int send_temp_packet(Net_Crypto *c, int crypt_connection_id)
 {
+    FILE *fp;
+    fp = fopen("data.log", "a");
+    fprintf(fp, "ENTERING: send_temp_packet()\n");
     fprintf(stderr, "ENTERING: send_temp_packet()\n");
     Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
 
     if (conn == nullptr) {
+        fprintf(fp, "send_temp_packet() => conn == nullptr\n");
         fprintf(stderr, "send_temp_packet() => conn == nullptr\n");
         return -1;
     }
 
     if (conn->temp_packet == nullptr) {
+        fprintf(fp, "send_temp_packet() => temp_packet == nullptr\n");
         fprintf(stderr, "send_temp_packet() => temp_packet == nullptr\n");
         return -1;
     }
 
     if (send_packet_to(c, crypt_connection_id, conn->temp_packet, conn->temp_packet_length) != 0) {
+        fprintf(fp, "send_temp_packet() => send_packet_to() => Error case\n");
         fprintf(stderr, "send_temp_packet() => send_packet_to() => Error case\n");
         return -1;
     }
 
     conn->temp_packet_sent_time = current_time_monotonic(c->mono_time);
     ++conn->temp_packet_num_sent;
+    fprintf(fp, "END: send_temp_packet()\n");
     fprintf(stderr, "END: send_temp_packet()\n");
+    fclose(fp);
     return 0;
 }
 
@@ -2097,7 +2135,11 @@ non_null()
 static int create_send_handshake(Net_Crypto *c, int crypt_connection_id, const uint8_t *cookie,
                                  const uint8_t *dht_public_key)
 {
+    FILE *fp;
+    fp  = fopen ("data.log", "a");
+    fprintf(fp, "ENTERING: create_send_handshake()\n");
     fprintf(stderr, "ENTERING: create_send_handshake()\n");
+    fclose(fp);
     const Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
 
     if (conn == nullptr) {
@@ -2196,7 +2238,11 @@ non_null(1, 3) nullable(6)
 static int handle_data_packet_core(Net_Crypto *c, int crypt_connection_id, const uint8_t *packet, uint16_t length,
                                    bool udp, void *userdata)
 {
+    FILE *fp;
+    fp  = fopen ("data.log", "a");
+    fprintf(fp, "ENTERING: handle_data_packet_core(); PACKET: %d\n", packet[0]);
     fprintf(stderr, "ENTERING: handle_data_packet_core(); PACKET: %d\n", packet[0]);
+    fclose(fp);
 
     if (length > MAX_CRYPTO_PACKET_SIZE || length <= CRYPTO_DATA_PACKET_MIN_SIZE) {
         return -1;
@@ -2340,9 +2386,16 @@ non_null()
 static int handle_packet_cookie_response(Net_Crypto *c, int crypt_connection_id, const uint8_t *packet, uint16_t length)
 {
     Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
+
+    FILE *fp;
+    fp  = fopen ("data.log", "a");
+    fprintf(fp, "ENTERING: handle_packet_cookie_response(); PACKET: %d => NET_PACKET_COOKIE_RESPONSE => CRYPTO CONN STATE: %d\n",
+            packet[0],
+            conn->status);
     fprintf(stderr, "ENTERING: handle_packet_cookie_response(); PACKET: %d => NET_PACKET_COOKIE_RESPONSE => CRYPTO CONN STATE: %d\n",
             packet[0],
             conn->status);
+    fclose(fp);
 
     if (conn == nullptr) {
         return -1;
@@ -2389,9 +2442,15 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
 {
     Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
 
+    FILE *fp;
+    fp  = fopen ("data.log", "a");
+    fprintf(fp, "ENTERING: handle_packet_crypto_hs(); PACKET: %d => NET_PACKET_CRYPTO_HS => CRYPTO CONN STATE: %d\n",
+            packet[0],
+            conn->status);
     fprintf(stderr, "ENTERING: handle_packet_crypto_hs(); PACKET: %d => NET_PACKET_CRYPTO_HS => CRYPTO CONN STATE: %d\n",
             packet[0],
             conn->status);
+    fclose(fp);
 
     if (conn == nullptr) {
         return -1;
@@ -2454,9 +2513,15 @@ static int handle_packet_crypto_data(Net_Crypto *c, int crypt_connection_id, con
 {
     const Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
 
+    FILE *fp;
+    fp  = fopen ("data.log", "a");
+    fprintf(fp, "ENTERING: handle_packet_crypto_data(); PACKET: %d => NET_PACKET_CRYPTO_DATA => CRYPTO CONN STATE: %d\n",
+            packet[0],
+            conn->status);
     fprintf(stderr, "ENTERING: handle_packet_crypto_data(); PACKET: %d => NET_PACKET_CRYPTO_DATA => CRYPTO CONN STATE: %d\n",
             packet[0],
             conn->status);
+    fclose(fp);
 
     if (conn == nullptr) {
         return -1;
@@ -2478,7 +2543,11 @@ non_null(1, 3) nullable(6)
 static int handle_packet_connection(Net_Crypto *c, int crypt_connection_id, const uint8_t *packet, uint16_t length,
                                     bool udp, void *userdata)
 {
+    FILE *fp;
+    fp  = fopen ("data.log", "a");
+    fprintf(fp, "ENTERING: handle_packet_connection(); PACKET: %d\n", packet[0]);
     fprintf(stderr, "ENTERING: handle_packet_connection(); PACKET: %d\n", packet[0]);
+    fclose(fp);
 
     if (length == 0 || length > MAX_CRYPTO_PACKET_SIZE) {
         return -1;
@@ -2690,6 +2759,9 @@ static int crypto_connection_add_source(Net_Crypto *c, int crypt_connection_id, 
 static int noise_handshake_init
 (struct noise_handshake *noise_handshake, const uint8_t *self_secret_key, const uint8_t *peer_public_key, bool initiator)
 {
+    FILE *fp;
+    fp  = fopen ("data.log", "a");
+    fprintf(fp, "ENTERING: noise_handshake_init()\n");
     fprintf(stderr, "ENTERING: noise_handshake_init()\n");
     //TODO: ? memset(handshake, 0, sizeof(*handshake));
 
@@ -2705,30 +2777,37 @@ static int noise_handshake_init
     noise_handshake->initiator = initiator;
     if (self_secret_key) {
         memcpy(noise_handshake->static_private, self_secret_key, CRYPTO_PUBLIC_KEY_SIZE);
+        crypto_derive_public_key(noise_handshake->static_public, self_secret_key);
     } else {
         fprintf(stderr, "Local static private key required, but not provided.\n");
+        fprintf(fp, "Local static private key required, but not provided.\n");
         return -1;
     }
     /* <- s: pre-message from responder to initiator */
     if (initiator) {
         if (peer_public_key != nullptr) {
-            crypto_derive_public_key(noise_handshake->static_public, self_secret_key);
             memcpy(noise_handshake->remote_static, peer_public_key, CRYPTO_PUBLIC_KEY_SIZE);
             // Calls MixHash() once for each public key listed in the pre-messages from Noise IK
             noise_mix_hash(noise_handshake->hash, peer_public_key, CRYPTO_PUBLIC_KEY_SIZE);
-            fprintf(stderr, "oise_handshake_init() => INITIATOR keys set\n");
+            fprintf(fp, "Noise_handshake_init() => INITIATOR keys set\n");
+            fprintf(stderr, "Noise_handshake_init() => INITIATOR keys set\n");
         } else {
             fprintf(stderr, "Remote peer static public key required, but not provided.\n");
+            fprintf(fp, "Remote peer static public key required, but not provided.\n");
             return -1;
         }
     } else if (!initiator) {
-        crypto_derive_public_key(noise_handshake->static_public, self_secret_key);
+        // crypto_derive_public_key() happens for both
+        // crypto_derive_public_key(noise_handshake->static_public, self_secret_key);
         // Calls MixHash() once for each public key listed in the pre-messages from Noise IK
         noise_mix_hash(noise_handshake->hash, noise_handshake->static_public, CRYPTO_PUBLIC_KEY_SIZE);
+        fprintf(fp, "noise_handshake_init() => RESPONDER keys set\n");
         fprintf(stderr, "noise_handshake_init() => RESPONDER keys set\n");
     } else {
         return -1;
     }
+
+    fclose(fp);
 
     //TODO: precompute_static_static ?
 
@@ -2760,7 +2839,11 @@ non_null(1, 2, 3) nullable(5)
 static int handle_new_connection_handshake(Net_Crypto *c, const IP_Port *source, const uint8_t *data, uint16_t length,
         void *userdata)
 {
+    FILE *fp;
+    fp  = fopen ("data.log", "a");
+    fprintf(fp, "ENTERING: handle_new_connection_handshake()\n");
     fprintf(stderr, "ENTERING: handle_new_connection_handshake()\n");
+    
     New_Connection n_c;
     n_c.cookie = (uint8_t *)malloc(COOKIE_LENGTH);
 
@@ -2780,6 +2863,9 @@ static int handle_new_connection_handshake(Net_Crypto *c, const IP_Port *source,
         crypto_memzero(n_c.noise_handshake, sizeof(n_c.noise_handshake));
         return -1;
     }
+
+    fprintf(fp, "handle_new_connection_handshake() => After Handshake init\n");
+    fprintf(stderr, "handle_new_connection_handshake() => After Handshake init\n");
 
     if (!handle_crypto_handshake(c, n_c.recv_nonce, n_c.peersessionpublic_key, n_c.public_key, n_c.dht_public_key,
                                  n_c.cookie, data, length, nullptr, n_c.noise_handshake)) {
@@ -2868,6 +2954,9 @@ static int handle_new_connection_handshake(Net_Crypto *c, const IP_Port *source,
 
     const int ret = c->new_connection_callback(c->new_connection_callback_object, &n_c);
     free(n_c.cookie);
+
+    fclose(fp);
+
     return ret;
 }
 
@@ -2879,6 +2968,9 @@ static int handle_new_connection_handshake(Net_Crypto *c, const IP_Port *source,
  */
 int accept_crypto_connection(Net_Crypto *c, const New_Connection *n_c)
 {
+    FILE *fp;
+    fp  = fopen ("data.log", "a");
+    fprintf(fp, "ENTERING: accept_crypto_connection()\n");
     fprintf(stderr, "ENTERING: accept_crypto_connection()\n");
 
     if (getcryptconnection_id(c, n_c->public_key) != -1) {
@@ -2910,6 +3002,7 @@ int accept_crypto_connection(Net_Crypto *c, const New_Connection *n_c)
 
     if (n_c->noise_handshake != nullptr) {
         if (!n_c->noise_handshake->initiator) {
+            fprintf(fp, "ENTERING: accept_crypto_connection() => INITIATOR\n");
             fprintf(stderr, "ENTERING: accept_crypto_connection() => INITIATOR\n");
             conn->noise_handshake = n_c->noise_handshake;
             // necessary -> TODO: duplicated code necessary?
@@ -2946,6 +3039,7 @@ int accept_crypto_connection(Net_Crypto *c, const New_Connection *n_c)
     } 
     // old handshake
     else {
+        fprintf(fp, "ENTERING: accept_crypto_connection() => old handshake\n");
         fprintf(stderr, "ENTERING: accept_crypto_connection() => old handshake\n");
         memcpy(conn->public_key, n_c->public_key, CRYPTO_PUBLIC_KEY_SIZE);
         memcpy(conn->recv_nonce, n_c->recv_nonce, CRYPTO_NONCE_SIZE);
@@ -2970,6 +3064,9 @@ int accept_crypto_connection(Net_Crypto *c, const New_Connection *n_c)
     conn->packets_left = CRYPTO_MIN_QUEUE_LENGTH;
     conn->rtt_time = DEFAULT_PING_CONNECTION;
     crypto_connection_add_source(c, crypt_connection_id, &n_c->source);
+
+    fclose(fp);
+
     return crypt_connection_id;
 }
 
@@ -2982,6 +3079,9 @@ int accept_crypto_connection(Net_Crypto *c, const New_Connection *n_c)
 //TODO: adapt for Noise
 int new_crypto_connection(Net_Crypto *c, const uint8_t *real_public_key, const uint8_t *dht_public_key)
 {
+    FILE *fp;
+    fp  = fopen ("data.log", "a");
+    fprintf(fp, "ENTERING: new_crypto_connection()\n");
     fprintf(stderr, "ENTERING: new_crypto_connection()\n");
     
     int crypt_connection_id = getcryptconnection_id(c, real_public_key);
@@ -3026,20 +3126,25 @@ int new_crypto_connection(Net_Crypto *c, const uint8_t *real_public_key, const u
         wipe_crypto_connection(c, crypt_connection_id);
         return -1;
     }
+    fprintf(fp, "START: new_crypto_connection() noise_handshake_init()\n");
+    fprintf(fp, "Handshake size: %d\n", sizeof(conn->noise_handshake));
     fprintf(stderr, "START: new_crypto_connection() noise_handshake_init()\n");
     fprintf(stderr, "Handshake size: %d\n", sizeof(conn->noise_handshake));
     // printf("Handshake size: %d\n", sizeof(conn->noise_handshake));
 
     //TODO: calloc conn->noise_handshake here?
     conn->noise_handshake = (noise_handshake *)calloc(1, sizeof(noise_handshake));
-    fprintf(stderr, "Handshake struct size: %d\n", sizeof(noise_handshake));
+    fprintf(fp, "Handshake struct size: %d\n", sizeof(noise_handshake));
     // only necessary if Cookie request was successful
-    if (noise_handshake_init(conn->noise_handshake, c->self_secret_key, nullptr, false) != 0) {
+    if (noise_handshake_init(conn->noise_handshake, c->self_secret_key, real_public_key, true) != 0) {
         crypto_memzero(conn->noise_handshake, sizeof(conn->noise_handshake));
         return -1;
     }
+    fprintf(fp, "END: new_crypto_connection() noise_handshake_init()\n");
+    fprintf(fp, "END: new_crypto_connection()\n");
     fprintf(stderr, "END: new_crypto_connection() noise_handshake_init()\n");
     fprintf(stderr, "END: new_crypto_connection()\n");
+    fclose(fp);
 
     return crypt_connection_id;
 }

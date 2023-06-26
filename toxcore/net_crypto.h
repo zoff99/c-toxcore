@@ -86,7 +86,7 @@
 #define MAX_CRYPTO_DATA_SIZE (uint16_t)(MAX_CRYPTO_PACKET_SIZE - CRYPTO_DATA_PACKET_MIN_SIZE)
 
 /** Interval in ms between sending cookie request/handshake packets. */
-#define CRYPTO_SEND_PACKET_INTERVAL 1000
+#define CRYPTO_SEND_PACKET_INTERVAL 2000
 
 /**
  * The maximum number of times we try to send the cookie request and handshake
@@ -130,8 +130,6 @@ typedef struct noise_handshake {
     uint8_t ephemeral_public[CRYPTO_PUBLIC_KEY_SIZE];
 	uint8_t remote_static[CRYPTO_PUBLIC_KEY_SIZE];
 	uint8_t remote_ephemeral[CRYPTO_PUBLIC_KEY_SIZE];
-    //TODO: necessary?
-	//uint8_t precomputed_static_static[CRYPTO_PUBLIC_KEY_SIZE];
 
 	uint8_t hash[CRYPTO_SHA512_SIZE];
 	uint8_t chaining_key[CRYPTO_SHA512_SIZE];
