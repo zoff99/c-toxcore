@@ -45,6 +45,10 @@ FILE *logfile = NULL;
 
 uint8_t s_num1 = 1;
 uint8_t s_num2 = 2;
+long a_frames_rvcd = 0;
+long v_frames_rvcd = 0;
+long a_frames_sent = 0;
+long v_frames_sent = 0;
 
 int s_online[3] = { 0, 0, 0};
 int f_online[3] = { 0, 0, 0};
@@ -534,6 +538,7 @@ static void t_toxav_receive_video_frame_cb(ToxAV *av, uint32_t friend_number,
         int32_t ystride, int32_t ustride, int32_t vstride,
         void *user_data)
 {
+    v_frames_rvcd++;
 }
 
 static void t_toxav_receive_video_frame_pts_cb(ToxAV *av, uint32_t friend_number,
@@ -546,6 +551,7 @@ static void t_toxav_receive_video_frame_pts_cb(ToxAV *av, uint32_t friend_number
     uint8_t* unum = (uint8_t *)user_data;
     uint8_t num = *unum;
 
+    v_frames_rvcd++;
     usleep(4 * 1000);
     uint8_t chk1 = *(y + (ystride * height) - 1);
     uint8_t chk2 = *(u + 1);
@@ -560,6 +566,7 @@ static void t_toxav_receive_audio_frame_cb(ToxAV *av, uint32_t friend_number,
         uint32_t sampling_rate,
         void *user_data)
 {
+    a_frames_rvcd++;
 }
 
 static void t_toxav_receive_audio_frame_pts_cb(ToxAV *av, uint32_t friend_number,
@@ -573,6 +580,7 @@ static void t_toxav_receive_audio_frame_pts_cb(ToxAV *av, uint32_t friend_number
     av;
     uint8_t* unum = (uint8_t *)user_data;
     uint8_t num = *unum;
+    a_frames_rvcd++;
     dbg(9, "[%d]:t_toxav_receive_audio_frame_pts_cb\n", num);
 
 }
@@ -811,7 +819,11 @@ void *thread_send_av_1(void *data)
         rvbuf(u, u_size);
         rvbuf(v, v_size);
         usleep((generate_random_uint32() % 10) * 1000);
-        toxav_video_send_frame(av, 0, w, h, y, u, v, &err);
+        bool v_sent = toxav_video_send_frame(av, 0, w, h, y, u, v, &err);
+        if (v_sent)
+        {
+            v_frames_sent++;
+        }
     }
 
     free(y);
@@ -841,7 +853,11 @@ void *thread_send_av_2(void *data)
     {
         memset(y, (generate_random_uint32() % 253) + 1, (w * h));
         usleep((generate_random_uint32() % 100) * 1000);
-        toxav_video_send_frame(av, 0, w, h, y, u, v, &err);
+        bool v_sent = toxav_video_send_frame(av, 0, w, h, y, u, v, &err);
+        if (v_sent)
+        {
+            v_frames_sent++;
+        }
     }
 
     free(y);
@@ -1033,6 +1049,17 @@ int main(void)
 
     tox_kill(tox1);
     tox_kill(tox2);
+
+    dbg(9, "\n");
+    dbg(9, "\n");
+    dbg(9, "\n");
+    dbg(9, "\n");
+    dbg(9, "===============================================\n");
+    dbg(9, "a_frames_rvcd: %ld v_frames_rvcd: %ld a_frames_sent: %ld v_frames_sent: %ld\n",
+        a_frames_rvcd, v_frames_rvcd, a_frames_sent, v_frames_sent);
+    dbg(9, "===============================================\n");
+    dbg(9, "\n");
+    dbg(9, "\n");
 
     dbg(9, "--END--\n");
     fclose(logfile);
