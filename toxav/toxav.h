@@ -699,6 +699,10 @@ void toxav_callback_audio_bit_rate(ToxAV *av, toxav_audio_bit_rate_cb *callback,
 bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pcm, size_t sample_count,
                             uint8_t channels, uint32_t sampling_rate, TOXAV_ERR_SEND_FRAME *error);
 
+bool toxav_audio_send_frame_age(ToxAV *av, uint32_t friend_number, const int16_t *pcm, size_t sample_count,
+                            uint8_t channels, uint32_t sampling_rate, TOXAV_ERR_SEND_FRAME *error, int32_t age_ms);
+
+
 /**
  * Send a video frame to a friend.
  *

@@ -1276,10 +1276,33 @@ void toxav_callback_video_bit_rate(ToxAV *av, toxav_video_bit_rate_cb *callback,
 bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pcm, size_t sample_count,
                             uint8_t channels, uint32_t sampling_rate, Toxav_Err_Send_Frame *error)
 {
+    return toxav_audio_send_frame_age(av, friend_number, pcm, sample_count, channels, sampling_rate, error, 0);
+}
+
+bool toxav_audio_send_frame_age(ToxAV *av, uint32_t friend_number, const int16_t *pcm, size_t sample_count,
+                            uint8_t channels, uint32_t sampling_rate, Toxav_Err_Send_Frame *error, int32_t age_ms)
+{
     Toxav_Err_Send_Frame rc = TOXAV_ERR_SEND_FRAME_OK;
     ToxAVCall *call;
 
-    uint64_t audio_frame_record_timestamp = current_time_monotonic(av->toxav_mono_time);
+    // add the time the data has already aged (in the client)
+    uint64_t audio_frame_record_timestamp = 0;
+    uint64_t mono_now = current_time_monotonic(av->toxav_mono_time);
+    if (age_ms <= 0)
+    {
+        audio_frame_record_timestamp = mono_now - age_ms;
+    }
+    else
+    {
+        if (mono_now <= age_ms)
+        {
+            audio_frame_record_timestamp = mono_now;
+        }
+        else
+        {
+            audio_frame_record_timestamp = mono_now - age_ms;
+        }
+    }
 
     if (toxav_friend_exists(av->tox, friend_number) == 0) {
         rc = TOXAV_ERR_SEND_FRAME_FRIEND_NOT_FOUND;
