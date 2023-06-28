@@ -418,8 +418,11 @@ int32_t encrypt_precompute(const uint8_t *public_key, const uint8_t *secret_key,
  * @return length of encrypted data if everything was fine.
  */
 non_null()
-int32_t encrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *nonce, const uint8_t *plain, size_t plain_length,
-                               uint8_t *encrypted, size_t encrypted_length, const uint8_t *ad, size_t ad_length);
+//TODO: which is the final one?
+// int32_t encrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *nonce, const uint8_t *plain, size_t plain_length,
+                            //    uint8_t *encrypted, size_t encrypted_length, const uint8_t *ad, size_t ad_length);
+size_t encrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *nonce, const uint8_t *plain, size_t plain_length,
+                               uint8_t *encrypted, const uint8_t *ad, size_t ad_length);
 
 /**
  * @brief Decrypt message with precomputed shared key using XChaCha20-Poly1305.
@@ -432,8 +435,11 @@ int32_t encrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *n
  * @return length of plain data if everything was fine.
  */
 non_null()
-int32_t decrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *nonce, const uint8_t *encrypted, size_t encrypted_length,
-                               uint8_t *plain, size_t plain_length, const uint8_t *ad, size_t ad_length);
+//TODO: which is the final one?
+// int32_t decrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *nonce, const uint8_t *encrypted, size_t encrypted_length,
+//                                uint8_t *plain, size_t plain_length, const uint8_t *ad, size_t ad_length);
+size_t decrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *nonce, const uint8_t *encrypted, size_t encrypted_length,
+                               uint8_t *plain, const uint8_t *ad, size_t ad_length);
 
 /**
  * @brief Encrypt message with precomputed shared key.

@@ -86,7 +86,7 @@
 #define MAX_CRYPTO_DATA_SIZE (uint16_t)(MAX_CRYPTO_PACKET_SIZE - CRYPTO_DATA_PACKET_MIN_SIZE)
 
 /** Interval in ms between sending cookie request/handshake packets. */
-#define CRYPTO_SEND_PACKET_INTERVAL 2000
+#define CRYPTO_SEND_PACKET_INTERVAL 1000
 
 /**
  * The maximum number of times we try to send the cookie request and handshake
