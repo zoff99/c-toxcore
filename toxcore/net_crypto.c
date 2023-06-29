@@ -503,7 +503,7 @@ static int handle_cookie_response(uint8_t *cookie, uint64_t *number,
 
 #define HANDSHAKE_PACKET_LENGTH (1 + COOKIE_LENGTH + CRYPTO_NONCE_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_SHA512_SIZE + COOKIE_LENGTH + CRYPTO_MAC_SIZE)
 // Necessary for Noise
-#define NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR (1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_MAC_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_SHA512_SIZE + COOKIE_LENGTH + CRYPTO_MAC_SIZE)
+#define NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR (1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_MAC_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_SHA512_SIZE + COOKIE_LENGTH + CRYPTO_MAC_SIZE)
 #define NOISE_HANDSHAKE_PACKET_LENGTH_RESPONDER (1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_SHA512_SIZE + COOKIE_LENGTH + CRYPTO_MAC_SIZE)
 // Implements MixKey(input_key_material)
 static bool noise_mix_key_dh(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
@@ -546,14 +546,14 @@ static void noise_encrypt_and_hash(uint8_t *ciphertext, const uint8_t *plaintext
     fp  = fopen ("data.log", "a");
     fprintf(fp, "noise_encrypt_and_hash() => NOISE HANDSHAKE\n");
     int i;
-    fprintf(fp, "Nonce: ");
+    fprintf(fp, "noise_encrypt_and_hash() => Nonce: ");
     for (i = 0; i < CRYPTO_NONCE_SIZE; i++)
     {
         if (i > 0) fprintf(fp, ":");
         fprintf(fp, "%02X", nonce[i]);
     }
     fprintf(fp, "\n");
-    fprintf(fp, "Shared Key: ");
+    fprintf(fp, "noise_encrypt_and_hash() => Shared Key: ");
     for (i = 0; i < CRYPTO_SHARED_KEY_SIZE; i++)
     {
         if (i > 0) fprintf(fp, ":");
@@ -566,10 +566,17 @@ static void noise_encrypt_and_hash(uint8_t *ciphertext, const uint8_t *plaintext
     //                            plaintext, plain_length, ciphertext,
     //                            encrypted_length, hash, CRYPTO_SHA512_SIZE);
     // fprintf(fp, "noise_encrypt_and_hash() => encrypted_length: %d\n", encrypted_length);
-    size_t encrypted_length = encrypt_data_symmetric_xaead(shared_key, nonce,
+    unsigned long long encrypted_length = encrypt_data_symmetric_xaead(shared_key, nonce,
                                plaintext, plain_length, ciphertext,
                                hash, CRYPTO_SHA512_SIZE);
     fprintf(fp, "noise_encrypt_and_hash() => encrypted_length: %d\n", encrypted_length);
+    fprintf(fp, "noise_encrypt_and_hash() => Ciphertext: ");
+    for (i = 0; i < encrypted_length; i++)
+    {
+        if (i > 0) fprintf(fp, ":");
+        fprintf(fp, "%02X", ciphertext[i]);
+    }
+    fprintf(fp, "\n");
 	noise_mix_hash(hash, ciphertext, encrypted_length);
     fclose(fp);
 }
@@ -583,18 +590,25 @@ static int noise_decrypt_and_hash(uint8_t *plaintext, const uint8_t *ciphertext,
     //TODO: Note that if k is empty, the DecryptWithAd() call will set plaintext equal to ciphertext
     fprintf(fp, "noise_decrypt_and_hash() => NOISE HANDSHAKE\n");
     int i;
-    fprintf(fp, "Nonce: ");
+    fprintf(fp, "noise_decrypt_and_hash() => Nonce: ");
     for (i = 0; i < CRYPTO_NONCE_SIZE; i++)
     {
         if (i > 0) fprintf(fp, ":");
         fprintf(fp, "%02X", nonce[i]);
     }
     fprintf(fp, "\n");
-    fprintf(fp, "Shared Key: ");
+    fprintf(fp, "noise_decrypt_and_hash() => Shared Key: ");
     for (i = 0; i < CRYPTO_SHARED_KEY_SIZE; i++)
     {
         if (i > 0) fprintf(fp, ":");
         fprintf(fp, "%02X", shared_key[i]);
+    }
+    fprintf(fp, "\n");
+    fprintf(fp, "noise_decrypt_and_hash() => Ciphertext (length: %d): ", encrypted_length);
+    for (i = 0; i < encrypted_length; i++)
+    {
+        if (i > 0) fprintf(fp, ":");
+        fprintf(fp, "%02X", ciphertext[i]);
     }
     fprintf(fp, "\n");
     fprintf(stderr, "noise_decrypt_and_hash() => NOISE HANDSHAKE\n");
@@ -603,7 +617,7 @@ static int noise_decrypt_and_hash(uint8_t *plaintext, const uint8_t *ciphertext,
     //                            ciphertext, encrypted_length, plaintext,
     //                            plaintext_length, hash, CRYPTO_SHA512_SIZE);
     // fprintf(fp, "noise_decrypt_and_hash() => plaintext_length: %d\n", plaintext_length);
-    size_t plaintext_length = decrypt_data_symmetric_xaead(shared_key, nonce,
+    unsigned long long plaintext_length = decrypt_data_symmetric_xaead(shared_key, nonce,
                                ciphertext, encrypted_length, plaintext,
                                hash, CRYPTO_SHA512_SIZE);
     fprintf(fp, "noise_decrypt_and_hash() => plaintext_length: %d\n", plaintext_length);
@@ -684,9 +698,6 @@ static int create_crypto_handshake(const Net_Crypto *c, uint8_t *packet, const u
             /* s */
             // Nonce provided as parameter is the base nonce! -> Add nonce for static pub key encryption to packet || TODO: or use 0?
             random_nonce(c->rng, packet + 1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE);
-            // fprintf(fp, "create_crypto_handshake() => NOISE HANDSHAKE => INITIATOR => NONCE1: %s, Handshake Key1: %s\n", packet + 1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE, noise_handshake_temp_key);
-            // fprintf(stderr, "create_crypto_handshake() => NOISE HANDSHAKE => INITIATOR => NONCE1: %s, Handshake Key1: %s\n", packet + 1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE, noise_handshake_temp_key);
-            //TODO: encryption and decryption ok
             noise_encrypt_and_hash(packet + 1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE, noise_handshake->static_public, CRYPTO_PUBLIC_KEY_SIZE, noise_handshake_temp_key, 
                             noise_handshake->hash, packet + 1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE);
             fprintf(fp, "hash2 INITIATOR: ");
@@ -716,15 +727,30 @@ static int create_crypto_handshake(const Net_Crypto *c, uint8_t *packet, const u
 
             // Add Handshake payload nonce
             random_nonce(c->rng, packet + 1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_MAC_SIZE);
-            // fprintf(fp, "create_crypto_handshake() => NOISE HANDSHAKE => INITIATOR => NONCE2: %s, Handshake Key2: %s\n", packet + 1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_MAC_SIZE, noise_handshake_temp_key);
-            // fprintf(stderr, "create_crypto_handshake() => NOISE HANDSHAKE => INITIATOR => NONCE2: %s, Handshake Key2: %s\n", packet + 1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_MAC_SIZE, noise_handshake_temp_key);
-            //TODO: decryption fails => same nonce, key and hash what is the Problem here?
+            
             noise_encrypt_and_hash(packet + 1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_MAC_SIZE + CRYPTO_NONCE_SIZE, 
                             handshake_payload_plain, sizeof(handshake_payload_plain), noise_handshake_temp_key, 
                             noise_handshake->hash, packet + 1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_MAC_SIZE);
 
+            fprintf(fp, "AFTER noise_encrypt_and_hash()");
+            fprintf(fp, "AFTER noise_encrypt_and_hash() => Ciphertext: ");
+            for (i = 0; i < (sizeof(handshake_payload_plain)+CRYPTO_MAC_SIZE); i++)
+            {
+                if (i > 0) fprintf(fp, ":");
+                fprintf(fp, "%02X", (packet + 1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_MAC_SIZE + CRYPTO_NONCE_SIZE)[i]);
+            }
+            fprintf(fp, "\n");
+
             packet[0] = NET_PACKET_CRYPTO_HS;
             memcpy(packet + 1, cookie, COOKIE_LENGTH);
+
+            fprintf(fp, "INITIATOR WHOLE HANDSHAKE PACKET: ");
+            for (i = 0; i < NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR; i++)
+            {
+                if (i > 0) fprintf(fp, ":");
+                fprintf(fp, "%02X", packet[i]);
+            }
+            fprintf(fp, "\n");
 
             crypto_memzero(noise_handshake_temp_key, CRYPTO_SHARED_KEY_SIZE);
 
@@ -1026,7 +1052,6 @@ static bool handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t
             return false;
         }
 
-        //TODO: is this correct? => should be, if correct set in packet-creating function
         uint8_t cookie_hash[CRYPTO_SHA512_SIZE];
         crypto_sha512(cookie_hash, packet + 1, COOKIE_LENGTH);
 
@@ -1050,10 +1075,18 @@ static bool handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t
             [MAC 16 bytes]
             */
 
+            fprintf(fp, "RESPONDER WHOLE HANDSHAKE PACKET: ");
+            int i;
+            for (i = 0; i < NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR; i++)
+            {
+                if (i > 0) fprintf(fp, ":");
+                fprintf(fp, "%02X", packet[i]);
+            }
+            fprintf(fp, "\n");
+
             /* e */
             memcpy(noise_handshake->remote_ephemeral, packet + 1 + COOKIE_LENGTH, CRYPTO_PUBLIC_KEY_SIZE);
             noise_mix_hash(noise_handshake->hash, noise_handshake->remote_ephemeral, CRYPTO_PUBLIC_KEY_SIZE);
-            int i;
             fprintf(fp, "hash1 RESPONDER: ");
             for (i = 0; i < CRYPTO_SHA512_SIZE; i++)
             {
@@ -1068,8 +1101,7 @@ static bool handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t
             /* s */
             // Nonces contained in packet!
             memcpy(nonce, packet + 1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE, CRYPTO_NONCE_SIZE);
-            // fprintf(fp, "handle_crypto_handshake() => NOISE HANDSHAKE => RESPONDER => NONCE1: %s, Handshake Key1: %s\n", nonce, noise_handshake_temp_key);
-            // fprintf(stderr, "handle_crypto_handshake() => NOISE HANDSHAKE => RESPONDER => NONCE1: %s, Handshake Key1: %s\n", nonce, noise_handshake_temp_key);
+
             noise_decrypt_and_hash(noise_handshake->remote_static, packet + 1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE, CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_MAC_SIZE,
                             noise_handshake_temp_key, noise_handshake->hash, nonce);
             fprintf(fp, "hash2 RESPONDER: ");
@@ -1083,18 +1115,15 @@ static bool handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t
             noise_mix_key_dh(noise_handshake->chaining_key, noise_handshake_temp_key, noise_handshake->static_private, noise_handshake->remote_static);
             /* Payload decryption */
             uint8_t handshake_payload_plain[CRYPTO_NONCE_SIZE + CRYPTO_SHA512_SIZE + COOKIE_LENGTH];
+            // get Handshake payload nonce
             memcpy(nonce, packet + 1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_MAC_SIZE, CRYPTO_NONCE_SIZE);
-            // fprintf(fp, "handle_crypto_handshake() => NOISE HANDSHAKE => RESPONDER => NONCE2: %s, Handshake Key2: %s\n", nonce, noise_handshake_temp_key);
-            // fprintf(stderr, "handle_crypto_handshake() => NOISE HANDSHAKE => RESPONDER => NONCE2: %s, Handshake Key2: %s\n", nonce, noise_handshake_temp_key);
-            //TODO: Error handling
-            //TODO: currently fails, but same key+nonce+hash => decrypt func should be ok (otherwise first dec would fail), so where is the problem here?
+            //TODO: Error handling?
             noise_decrypt_and_hash(handshake_payload_plain, packet + 1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_MAC_SIZE + CRYPTO_NONCE_SIZE, 
                             sizeof(handshake_payload_plain) + CRYPTO_MAC_SIZE, noise_handshake_temp_key, 
                             noise_handshake->hash, nonce);
 
             crypto_memzero(noise_handshake_temp_key, CRYPTO_SHARED_KEY_SIZE);
 
-            //TODO: currently this fails => decryption fails
             if (!crypto_sha512_eq(cookie_hash, handshake_payload_plain + CRYPTO_NONCE_SIZE)) {
                 fprintf(fp, "ERROR: handle_crypto_handshake() => NOISE HANDSHAKE => RESPONDER => COOKIE HASH WRONG\n");
                 fprintf(stderr, "ERROR: handle_crypto_handshake() => NOISE HANDSHAKE => RESPONDER => COOKIE HASH WRONG\n");
@@ -1167,7 +1196,6 @@ static bool handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t
         }
     }
     // old handshake
-    //TODO: is this called?
     else {
         FILE *fp;
         fp  = fopen ("data.log", "a");
@@ -1899,9 +1927,8 @@ static int send_data_packet(Net_Crypto *c, int crypt_connection_id, const uint8_
     //TODO: need information in crypto conn if this is a Noise connection!
     //TODO: enable backwards compatiblity
     // const int len = encrypt_data_symmetric(conn->shared_key, conn->sent_nonce, data, length, packet + 1 + sizeof(uint16_t));
+
     //TODO: add ad?
-    //TODO: correct call?
-    // const int len = encrypt_data_symmetric_xaead(conn->send_key, conn->sent_nonce, data, length, packet + 1 + sizeof(uint16_t), length + CRYPTO_MAC_SIZE, nullptr, 0);
     const int len = encrypt_data_symmetric_xaead(conn->send_key, conn->sent_nonce, data, length, packet + 1 + sizeof(uint16_t), nullptr, 0);
 
     if (len + 1 + sizeof(uint16_t) != packet_size) {
@@ -2077,10 +2104,8 @@ static int handle_data_packet(const Net_Crypto *c, int crypt_connection_id, uint
     //TODO: enable backwards compatiblity
     // const int len = decrypt_data_symmetric(conn->shared_key, nonce, packet + 1 + sizeof(uint16_t),
     //                                        length - (1 + sizeof(uint16_t)), data);
+    
     //TODO: add ad?
-    //TODO: correct call?
-    // const int len = decrypt_data_symmetric_xaead(conn->recv_key, nonce, packet + 1 + sizeof(uint16_t), length - (1 + sizeof(uint16_t)), data, 
-    //                                         length - length - (1 + sizeof(uint16_t)) - CRYPTO_MAC_SIZE, nullptr, 0);
     const int len = decrypt_data_symmetric_xaead(conn->recv_key, nonce, packet + 1 + sizeof(uint16_t), length - (1 + sizeof(uint16_t)), data, 
                                             nullptr, 0);
 
@@ -2253,18 +2278,21 @@ static int send_temp_packet(Net_Crypto *c, int crypt_connection_id)
     if (conn == nullptr) {
         fprintf(fp, "send_temp_packet() => conn == nullptr\n");
         fprintf(stderr, "send_temp_packet() => conn == nullptr\n");
+        fclose(fp);
         return -1;
     }
 
     if (conn->temp_packet == nullptr) {
         fprintf(fp, "send_temp_packet() => temp_packet == nullptr\n");
         fprintf(stderr, "send_temp_packet() => temp_packet == nullptr\n");
+        fclose(fp);
         return -1;
     }
 
     if (send_packet_to(c, crypt_connection_id, conn->temp_packet, conn->temp_packet_length) != 0) {
         fprintf(fp, "send_temp_packet() => send_packet_to() => Error case\n");
         fprintf(stderr, "send_temp_packet() => send_packet_to() => Error case\n");
+        fclose(fp);
         return -1;
     }
 
