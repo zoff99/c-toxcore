@@ -17071,6 +17071,10 @@ void toxav_callback_audio_bit_rate(ToxAV *av, toxav_audio_bit_rate_cb *callback,
 bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pcm, size_t sample_count,
                             uint8_t channels, uint32_t sampling_rate, TOXAV_ERR_SEND_FRAME *error);
 
+bool toxav_audio_send_frame_age(ToxAV *av, uint32_t friend_number, const int16_t *pcm, size_t sample_count,
+                            uint8_t channels, uint32_t sampling_rate, TOXAV_ERR_SEND_FRAME *error, int32_t age_ms);
+
+
 /**
  * Send a video frame to a friend.
  *
@@ -74361,7 +74365,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
                 ((VCSession *)(session->cs))->dummy_ntp_local_end = current_time_monotonic(rtp_get_mono_time_from_rtpsession(session));
 
-#define NETWORK_ROUND_TRIP_MAX_VALID_MS 800
+#define NETWORK_ROUND_TRIP_MAX_VALID_MS 2000
 
                 LOGGER_API_DEBUG(tox, "TTTTTR:data:le:%d ls:%d delta=%d",
                     (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_end,
@@ -74379,7 +74383,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                                           ((VCSession *)(session->cs))->dummy_ntp_remote_end,
                                           ((VCSession *)(session->cs))->dummy_ntp_local_start,
                                           ((VCSession *)(session->cs))->dummy_ntp_local_end);
-                    LOGGER_API_DEBUG(tox, "TTTTTR:too long");
+                    LOGGER_API_DEBUG(tox, "TTTTTR:too long: %d", roundtrip_too_long);
                 }
                 else
                 {
@@ -74510,6 +74514,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
             pkg_buf[5] = tmp       & 0xFF;
 
             int result = rtp_send_custom_lossless_packet(tox, friendnumber, pkg_buf, pkg_buf_len);
+            LOGGER_API_DEBUG(tox, "TTTTTR:DUMMY_NTP_REQUEST sent: res=%d", result);
         }
     }
     // HINT: ask sender for dummy ntp values -------------
@@ -76247,10 +76252,33 @@ void toxav_callback_video_bit_rate(ToxAV *av, toxav_video_bit_rate_cb *callback,
 bool toxav_audio_send_frame(ToxAV *av, uint32_t friend_number, const int16_t *pcm, size_t sample_count,
                             uint8_t channels, uint32_t sampling_rate, Toxav_Err_Send_Frame *error)
 {
+    return toxav_audio_send_frame_age(av, friend_number, pcm, sample_count, channels, sampling_rate, error, 0);
+}
+
+bool toxav_audio_send_frame_age(ToxAV *av, uint32_t friend_number, const int16_t *pcm, size_t sample_count,
+                            uint8_t channels, uint32_t sampling_rate, Toxav_Err_Send_Frame *error, int32_t age_ms)
+{
     Toxav_Err_Send_Frame rc = TOXAV_ERR_SEND_FRAME_OK;
     ToxAVCall *call;
 
-    uint64_t audio_frame_record_timestamp = current_time_monotonic(av->toxav_mono_time);
+    // add the time the data has already aged (in the client)
+    uint64_t audio_frame_record_timestamp = 0;
+    uint64_t mono_now = current_time_monotonic(av->toxav_mono_time);
+    if (age_ms <= 0)
+    {
+        audio_frame_record_timestamp = mono_now - age_ms;
+    }
+    else
+    {
+        if (mono_now <= age_ms)
+        {
+            audio_frame_record_timestamp = mono_now;
+        }
+        else
+        {
+            audio_frame_record_timestamp = mono_now - age_ms;
+        }
+    }
 
     if (toxav_friend_exists(av->tox, friend_number) == 0) {
         rc = TOXAV_ERR_SEND_FRAME_FRIEND_NOT_FOUND;
@@ -79821,6 +79849,9 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         param.rc.b_stat_read = 0;
         param.rc.b_stat_write = 0;
 
+#if MIN_LOGGER_LEVEL >= LOGGER_LEVEL_INFO
+        param.i_log_level = X264_LOG_ERROR; // X264_LOG_NONE;
+#endif
 
         /* Apply profile restrictions. */
 
@@ -80332,6 +80363,10 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
                     param.rc.b_stat_read = 0;
                     param.rc.b_stat_write = 0;
+
+#if MIN_LOGGER_LEVEL >= LOGGER_LEVEL_INFO
+                    param.i_log_level = X264_LOG_ERROR; // X264_LOG_NONE;
+#endif
 
                     /* Apply profile restrictions. */
                     if (global_h264_enc_profile_high_enabled == 1) {
