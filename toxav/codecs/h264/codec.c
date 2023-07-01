@@ -44,6 +44,24 @@ extern "C" {
 int global_h264_enc_profile_high_enabled = 0;
 int global_h264_enc_profile_high_enabled_switch = 0;
 
+// HINT: cant get the loglevel enum here for some reason. so here is the workaround.
+#ifndef LOGGER_LEVEL_TRACE
+#define LOGGER_LEVEL_TRACE 0
+#endif
+#ifndef LOGGER_LEVEL_DEBUG
+#define LOGGER_LEVEL_DEBUG 1
+#endif
+#ifndef LOGGER_LEVEL_INFO
+#define LOGGER_LEVEL_INFO 2
+#endif
+#ifndef LOGGER_LEVEL_WARNING
+#define LOGGER_LEVEL_WARNING 3
+#endif
+#ifndef LOGGER_LEVEL_ERROR
+#define LOGGER_LEVEL_ERROR 4
+#endif
+// HINT: cant get the loglevel enum here for some reason. so here is the workaround.
+
 /* ---------------------------------------------------
  *
  * Hardware specific defines for encoders and decoder
