@@ -46,7 +46,7 @@ FILE *logfile = NULL;
 uint8_t s_num1 = 1;
 uint8_t s_num2 = 2;
 
-#define USE_TOR 1
+// #define USE_TOR 1
 #define PROXY_PORT_TOR_DEFAULT 9050
 
 int s_online[3] = { 0, 0, 0};
