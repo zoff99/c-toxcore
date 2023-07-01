@@ -554,6 +554,9 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         param.rc.b_stat_read = 0;
         param.rc.b_stat_write = 0;
 
+#if MIN_LOGGER_LEVEL >= LOGGER_LEVEL_INFO
+        param.i_log_level = X264_LOG_ERROR; // X264_LOG_NONE;
+#endif
 
         /* Apply profile restrictions. */
 
@@ -1065,6 +1068,10 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
                     param.rc.b_stat_read = 0;
                     param.rc.b_stat_write = 0;
+
+#if MIN_LOGGER_LEVEL >= LOGGER_LEVEL_INFO
+                    param.i_log_level = X264_LOG_ERROR; // X264_LOG_NONE;
+#endif
 
                     /* Apply profile restrictions. */
                     if (global_h264_enc_profile_high_enabled == 1) {
