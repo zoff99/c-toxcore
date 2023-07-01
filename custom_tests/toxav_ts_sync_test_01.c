@@ -46,6 +46,9 @@ FILE *logfile = NULL;
 uint8_t s_num1 = 1;
 uint8_t s_num2 = 2;
 
+#define USE_TOR 1
+#define PROXY_PORT_TOR_DEFAULT 9050
+
 int s_online[3] = { 0, 0, 0};
 int f_online[3] = { 0, 0, 0};
 int f_join_other[3] = { 0, 0, 0};
@@ -69,7 +72,7 @@ struct Node1 {
     uint16_t udp_port;
     uint16_t tcp_port;
 } nodes1[] = {
-{ "tox.novg.net", "D527E5847F8330D628DAB1814F0A422F6DC9D0A300E6C357634EE2DA88C35463", 33445, 33445 },
+{ "tox1.mf-net.eu", "B3E5FA80DC8EBD1149AD2AB35ED8B85BD546DEDE261CA593234C619249419506", 33445, 3389 },
 { "bg.tox.dcntrlzd.network", "20AD2A54D70E827302CDF5F11D7C43FA0EC987042C36628E64B2B721A1426E36", 33445, 33445 },
 {"91.219.59.156","8E7D0B859922EF569298B4D261A8CCB5FEA14FB91ED412A7603A585A25698832",33445,33445},
 {"85.143.221.42","DA4E4ED4B697F2E9B000EEFE3A34B554ACD3F45F5C96EAEA2516DD7FF9AF7B43",33445,33445},
@@ -313,6 +316,19 @@ static Tox* tox_init(int num)
     options.tcp_port = 0; // disable tcp relay function!
     // ----- set options ------
 
+#ifdef USE_TOR
+    // ------ use TOR ------
+    dbg(9, "[%d]:using TOR\n", 0);
+    options.udp_enabled = false;
+    options.local_discovery_enabled = false;
+    const char *proxy_host = "localhost";
+    uint16_t proxy_port = PROXY_PORT_TOR_DEFAULT;
+    options.proxy_type = TOX_PROXY_TYPE_SOCKS5;
+    options.proxy_host = proxy_host;
+    options.proxy_port = proxy_port;
+    // ------ use TOR ------
+#endif
+
     FILE *f = NULL;
     if (num == 1)
     {
@@ -364,10 +380,6 @@ static bool tox_connect(Tox *tox, int num) {
         for (int i = 0; nodes1[i].ip; i++) {
             uint8_t *key = (uint8_t *)calloc(1, 100);
             hex_string_to_bin2(nodes1[i].key, key);
-            if (!key) {
-                return false; // Return because it will most likely fail again
-            }
-
             tox_bootstrap(tox, nodes1[i].ip, nodes1[i].udp_port, key, NULL);
             if (nodes1[i].tcp_port != 0) {
                 tox_add_tcp_relay(tox, nodes1[i].ip, nodes1[i].tcp_port, key, NULL);
@@ -380,10 +392,6 @@ static bool tox_connect(Tox *tox, int num) {
         for (int i = 0; nodes2[i].ip; i++) {
             uint8_t *key = (uint8_t *)calloc(1, 100);
             hex_string_to_bin2(nodes2[i].key, key);
-            if (!key) {
-                return false; // Return because it will most likely fail again
-            }
-
             tox_bootstrap(tox, nodes2[i].ip, nodes2[i].udp_port, key, NULL);
             if (nodes2[i].tcp_port != 0) {
                 tox_add_tcp_relay(tox, nodes2[i].ip, nodes2[i].tcp_port, key, NULL);
@@ -931,11 +939,11 @@ int main(void)
         }
     }
 
-    for (long looper=0;looper<(10*60);looper++) {
+    for (long looper=0;looper<(50*60);looper++) {
         tox_iterate(tox1, (void *)&num1);
-        usleep(4 * 1000);
+        usleep(5 * 1000);
         tox_iterate(tox2, (void *)&num2);
-        usleep(4 * 1000);
+        usleep(25 * 1000);
         send_av(toxav1);
     }
 
