@@ -616,7 +616,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
                 ((VCSession *)(session->cs))->dummy_ntp_local_end = current_time_monotonic(rtp_get_mono_time_from_rtpsession(session));
 
-#define NETWORK_ROUND_TRIP_MAX_VALID_MS 800
+#define NETWORK_ROUND_TRIP_MAX_VALID_MS 2000
 
                 LOGGER_API_DEBUG(tox, "TTTTTR:data:le:%d ls:%d delta=%d",
                     (int32_t)((VCSession *)(session->cs))->dummy_ntp_local_end,
@@ -634,7 +634,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                                           ((VCSession *)(session->cs))->dummy_ntp_remote_end,
                                           ((VCSession *)(session->cs))->dummy_ntp_local_start,
                                           ((VCSession *)(session->cs))->dummy_ntp_local_end);
-                    LOGGER_API_DEBUG(tox, "TTTTTR:too long");
+                    LOGGER_API_DEBUG(tox, "TTTTTR:too long: %d", roundtrip_too_long);
                 }
                 else
                 {
@@ -765,6 +765,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
             pkg_buf[5] = tmp       & 0xFF;
 
             int result = rtp_send_custom_lossless_packet(tox, friendnumber, pkg_buf, pkg_buf_len);
+            LOGGER_API_DEBUG(tox, "TTTTTR:DUMMY_NTP_REQUEST sent: res=%d", result);
         }
     }
     // HINT: ask sender for dummy ntp values -------------
