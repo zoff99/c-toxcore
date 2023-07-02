@@ -784,7 +784,7 @@ void send_av(ToxAV *av)
     rvbuf(y, y_size);
     rvbuf(u, u_size);
     rvbuf(v, v_size);
-    uint32_t age_v = -100;
+    uint32_t age_v = 0;
     bool v_sent = toxav_video_send_frame_age(av, 0, w, h, y, u, v, &err, age_v);
     if (v_sent)
     {
@@ -943,7 +943,7 @@ int main(void)
         tox_iterate(tox1, (void *)&num1);
         usleep(5 * 1000);
         tox_iterate(tox2, (void *)&num2);
-        usleep(25 * 1000);
+        usleep(35 * 1000);
         send_av(toxav1);
     }
 
