@@ -67,8 +67,8 @@ cd /workspace/
 
 /etc/init.d/tor restart
 ps -ef|grep tor
-cat /usr/share/tor/tor-service-defaults-torrc
-curl -x socks5h://localhost:9050 -s https://check.torproject.org/api/ip
+# cat /usr/share/tor/tor-service-defaults-torrc
+# curl -x socks5h://localhost:9050 -s https://check.torproject.org/api/ip
 
 CC=clang cmake -B_build -H. -GNinja \
     -DCMAKE_INSTALL_PREFIX:PATH="$PWD/_install" \
