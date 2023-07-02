@@ -667,7 +667,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                     }
 
                     ((VCSession *)(session->cs))->has_rountrip_time_ms = 1;
-                    LOGGER_API_DEBUG(tox, "TTTTTR:ok__:value=%d", (int)(((VCSession *)(session->cs))->has_rountrip_time_ms));
+                    LOGGER_API_DEBUG(tox, "TTTTTR:ok__:value=%d", (int)((VCSession *)(session->cs))->rountrip_time_ms);
                     int64_t *ptmp = &(((VCSession *)(session->cs))->timestamp_difference_to_sender__for_video);
                     bool res4 = dntp_drift(ptmp, offset_, (int64_t)NETWORK_NTP_JUMP_MS, (int)NETWORK_ROUND_TRIP_CHANGE_THRESHOLD_MS);
                 }
