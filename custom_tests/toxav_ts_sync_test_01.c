@@ -582,11 +582,11 @@ static void t_toxav_receive_video_frame_pts_cb(ToxAV *av, uint32_t friend_number
     uint64_t cur_ts = current_time_monotonic_default2();
     last_vframe_recv_ts = cur_ts;
     last_vframe_recv_pts = pts;
-    int delta_audio_to_video_ts = -(int)(last_aframe_recv_pts - pts) - (int)(cur_ts - last_aframe_recv_ts);
+    int delta_audio_to_video_ts = (int)(pts - last_aframe_recv_pts) - (int)(cur_ts - last_aframe_recv_ts);
     dbg(9, "[%d]:t_toxav_receive_video_frame_pts_cb %lu %lu (%d) delta_audio_to_video_ts:%d\n",
         num, cur_ts, pts, (int)(cur_ts - pts), delta_audio_to_video_ts);
     dbg(9, "[%d]:t_toxav_receive_video_frame_pts_cb %d %d\n",
-        num, (int)(last_aframe_recv_pts - pts), (int)(cur_ts - last_aframe_recv_ts));
+        num, (int)(pts - last_aframe_recv_pts), (int)(cur_ts - last_aframe_recv_ts));
 }
 
 static void t_toxav_receive_audio_frame_cb(ToxAV *av, uint32_t friend_number,
@@ -616,11 +616,11 @@ static void t_toxav_receive_audio_frame_pts_cb(ToxAV *av, uint32_t friend_number
     uint64_t cur_ts = current_time_monotonic_default2();
     last_aframe_recv_ts = cur_ts;
     last_aframe_recv_pts = pts;
-    int delta_audio_to_video_ts = (int)(last_vframe_recv_pts - pts) - (int)(cur_ts - last_vframe_recv_ts);
+    int delta_audio_to_video_ts = -(int)(pts - last_vframe_recv_pts) + (int)(cur_ts - last_vframe_recv_ts);
     dbg(9, "[%d]:t_toxav_receive_audio_frame_pts_cb %lu %lu (%d) delta_audio_to_video_ts:%d\n",
         num, cur_ts, pts, (int)(cur_ts - pts), delta_audio_to_video_ts);
     dbg(9, "[%d]:t_toxav_receive_audio_frame_pts_cb %d %d\n",
-        num, (int)(last_vframe_recv_pts - pts), (int)(cur_ts - last_vframe_recv_ts));
+        num, (int)(pts - last_vframe_recv_pts), (int)(cur_ts - last_vframe_recv_ts));
 
 }
 
@@ -784,7 +784,7 @@ void send_av(ToxAV *av)
     rvbuf(y, y_size);
     rvbuf(u, u_size);
     rvbuf(v, v_size);
-    uint32_t age_v = -300;
+    uint32_t age_v = -100;
     bool v_sent = toxav_video_send_frame_age(av, 0, w, h, y, u, v, &err, age_v);
     if (v_sent)
     {
@@ -939,7 +939,7 @@ int main(void)
         }
     }
 
-    for (long looper=0;looper<(50*60);looper++) {
+    for (long looper=0;looper<(10*60);looper++) {
         tox_iterate(tox1, (void *)&num1);
         usleep(5 * 1000);
         tox_iterate(tox2, (void *)&num2);
