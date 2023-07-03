@@ -622,8 +622,6 @@ static int noise_decrypt_and_hash(uint8_t *plaintext, const uint8_t *ciphertext,
 //TODO: helper function, TODO: remove from production code
 static void bytes2string(char *string, size_t string_size, const uint8_t *bytes, size_t bytes_size, const Logger *log)
 {
-    LOGGER_DEBUG(log, "string_size: %d", string_size);
-    LOGGER_DEBUG(log, "bytes_size: %d", bytes_size);
     int i;
     uint8_t *log_buf = string;
     uint8_t *log_buf_endofbuf = log_buf + string_size;
@@ -637,8 +635,6 @@ static void bytes2string(char *string, size_t string_size, const uint8_t *bytes,
             log_buf += sprintf(log_buf, "%02X", bytes[i]);
         }
     }
-    LOGGER_DEBUG(log, "i after for: %d, %d", i);
-    LOGGER_DEBUG(log, "log_buf after for: %s", log_buf);
 }
 
 /**  TODO: adapt, cf. Noise WriteMessage()  @brief Create a handshake packet and put it in packet.
@@ -738,10 +734,10 @@ static int create_crypto_handshake(const Net_Crypto *c, uint8_t *packet, const u
             packet[0] = NET_PACKET_CRYPTO_HS;
             memcpy(packet + 1, cookie, COOKIE_LENGTH);
 
-            //TODO: remove from production code, TODO: not printing everything -> LOGGER_DEBUG() limited to 749 bytes?
+            //TODO: remove from production code
             uint8_t log_packet[NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR*3+1];
             bytes2string(log_packet, sizeof(log_packet), packet, NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR, c->log);
-            LOGGER_DEBUG(c->log, "Handshake Packet INITIATOR: %s", log_packet);
+            LOGGER_DEBUG(c->log, "HS Packet I: %s", log_packet);
             //fprintf(stderr, "Handshake Packet INITIATOR: %s", log_packet);
 
             //TODO: remove
@@ -1066,10 +1062,10 @@ static bool handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t
             [112 bytes Other Cookie (used by the other to respond to the handshake packet)]
             [MAC 16 bytes]
             */
-            //TODO: remove from production code, TODO: not printing everything -> LOGGER_DEBUG() limited to 1076 bytes?
+            //TODO: remove from production code
             uint8_t log_packet[NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR*3+1];
             bytes2string(log_packet, sizeof(log_packet), packet, NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR, c->log);
-            LOGGER_DEBUG(c->log, "Handshake Packet Initiator (received by RESPONDER): %s", log_packet);
+            LOGGER_DEBUG(c->log, "HS Packet I (R): %s", log_packet);
 
             //TODO: remove
             // FILE *fp;
