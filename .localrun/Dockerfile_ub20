@@ -27,6 +27,7 @@ RUN apt-get update && \
         libx264-dev \
         net-tools \
         curl \
+        iproute2 \
         tor
 RUN apt-get clean && \
     rm -rf /var/lib/apt/lists/*
