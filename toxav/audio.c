@@ -326,7 +326,7 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
             || rc == AUDIO_LOST_FRAME_INDICATOR) {
         pthread_mutex_unlock(ac->queue_mutex);
 
-
+        LOGGER_API_DEBUG(ac->tox, "A:TSB:%d", (int)tsb_size(jbuffer));
         LOGGER_API_DEBUG(ac->tox, "TOXAV:A2V_DELAY:(pos==audio-before-video)%d", (int)(*a_r_timestamp - *v_r_timestamp));
 
 
