@@ -544,6 +544,8 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         //#// param.i_sync_lookahead = 0;
         //#// param.i_lookahead_threads = 0;
         param.b_intra_refresh = 16;
+        param.rc.i_lookahead = 0;
+        // param.b_cabac = 0;
         param.i_bframe = 0;
         // param.b_open_gop = 4;
         param.i_keyint_max = VIDEO_MAX_KF_H264;
@@ -1050,6 +1052,8 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
                     //#// param.i_sync_lookahead = 0;
                     //#// param.i_lookahead_threads = 0;
                     param.b_intra_refresh = 16;
+                    param.rc.i_lookahead = 0;
+                    // param.b_cabac = 0;
                     param.i_bframe = 0;
                     // param.b_open_gop = 4;
                     param.i_keyint_max = VIDEO_MAX_KF_H264;
