@@ -2806,7 +2806,7 @@ static void do_friends(Messenger *m, void *userdata)
 non_null(1) nullable(2)
 static void m_connection_status_callback(Messenger *m, void *userdata)
 {
-    const Onion_Connection_Status conn_status = onion_connection_status(m->onion_c);
+    const Onion_Connection_Status conn_status = onion_connection_status(m->onion_c, true);
 
     if (conn_status != m->last_connection_status) {
         if (m->core_connection_change != nullptr) {

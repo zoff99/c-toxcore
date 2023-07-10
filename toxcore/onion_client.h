@@ -224,7 +224,7 @@ typedef enum Onion_Connection_Status {
 } Onion_Connection_Status;
 
 non_null()
-Onion_Connection_Status onion_connection_status(const Onion_Client *onion_c);
+Onion_Connection_Status onion_connection_status(const Onion_Client *onion_c, bool lan_only_is_online);
 
 typedef struct Onion_Friend Onion_Friend;
 

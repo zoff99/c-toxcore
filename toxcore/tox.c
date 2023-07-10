@@ -1218,7 +1218,7 @@ Tox_Connection tox_self_get_connection_status(const Tox *tox)
 {
     assert(tox != nullptr);
     tox_lock(tox);
-    const Onion_Connection_Status ret = onion_connection_status(tox->m->onion_c);
+    const Onion_Connection_Status ret = onion_connection_status(tox->m->onion_c, true);
     tox_unlock(tox);
 
     switch (ret) {
