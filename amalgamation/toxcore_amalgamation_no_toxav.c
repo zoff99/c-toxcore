@@ -3421,7 +3421,7 @@ typedef enum Onion_Connection_Status {
 } Onion_Connection_Status;
 
 non_null()
-Onion_Connection_Status onion_connection_status(const Onion_Client *onion_c);
+Onion_Connection_Status onion_connection_status(const Onion_Client *onion_c, bool lan_only_is_online);
 
 typedef struct Onion_Friend Onion_Friend;
 
@@ -40703,7 +40703,7 @@ static void do_friends(Messenger *m, void *userdata)
 non_null(1) nullable(2)
 static void m_connection_status_callback(Messenger *m, void *userdata)
 {
-    const Onion_Connection_Status conn_status = onion_connection_status(m->onion_c);
+    const Onion_Connection_Status conn_status = onion_connection_status(m->onion_c, true);
 
     if (conn_status != m->last_connection_status) {
         if (m->core_connection_change != nullptr) {
@@ -49214,6 +49214,7 @@ struct Onion_Client {
 
     unsigned int onion_connected;
     bool udp_connected;
+    bool udp_connected_lan_only_is_ok;
 
     onion_group_announce_cb *group_announce_response;
     void *group_announce_response_user_data;
@@ -51085,13 +51086,18 @@ static void reset_friend_run_counts(Onion_Client *onion_c)
 #define ONION_CONNECTION_SECONDS 3
 #define ONION_CONNECTED_TIMEOUT 10
 
-Onion_Connection_Status onion_connection_status(const Onion_Client *onion_c)
+Onion_Connection_Status onion_connection_status(const Onion_Client *onion_c, bool lan_only_is_online)
 {
     if (onion_c->onion_connected >= ONION_CONNECTION_SECONDS) {
-        if (onion_c->udp_connected) {
-            return ONION_CONNECTION_STATUS_UDP;
+        if (lan_only_is_online) {
+            if (onion_c->udp_connected_lan_only_is_ok) {
+                return ONION_CONNECTION_STATUS_UDP;
+            }
+        } else {
+            if (onion_c->udp_connected) {
+                return ONION_CONNECTION_STATUS_UDP;
+            }
         }
-
         return ONION_CONNECTION_STATUS_TCP;
     }
 
@@ -51126,12 +51132,13 @@ void do_onion_client(Onion_Client *onion_c)
     }
 
     onion_c->udp_connected = dht_non_lan_connected(onion_c->dht);
+    onion_c->udp_connected_lan_only_is_ok = dht_isconnected(onion_c->dht);
 
     if (mono_time_is_timeout(onion_c->mono_time, onion_c->first_run, ONION_CONNECTION_SECONDS * 2)) {
         set_tcp_onion_status(nc_get_tcp_c(onion_c->c), !onion_c->udp_connected);
     }
 
-    if (onion_connection_status(onion_c) != ONION_CONNECTION_STATUS_NONE) {
+    if (onion_connection_status(onion_c, false) != ONION_CONNECTION_STATUS_NONE) {
         for (unsigned i = 0; i < onion_c->num_friends; ++i) {
             do_friend(onion_c, i);
         }
@@ -57922,7 +57929,7 @@ Tox_Connection tox_self_get_connection_status(const Tox *tox)
 {
     assert(tox != nullptr);
     tox_lock(tox);
-    const Onion_Connection_Status ret = onion_connection_status(tox->m->onion_c);
+    const Onion_Connection_Status ret = onion_connection_status(tox->m->onion_c, true);
     tox_unlock(tox);
 
     switch (ret) {
