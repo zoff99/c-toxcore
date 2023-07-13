@@ -74475,7 +74475,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         }
     }
 
-    LOGGER_API_DEBUG(tox, "header.pt %d, video %d", (uint8_t)header.pt, (RTP_TYPE_VIDEO % 128));
+    LOGGER_API_DEBUG(tox, "header.pt %d, video %d sequnum %d", (uint8_t)header.pt, (RTP_TYPE_VIDEO % 128), (int)header.sequnum);
     LOGGER_API_DEBUG(tox, "rtp packet record time: %lu", (unsigned long)header.frame_record_timestamp);
     LOGGER_API_DEBUG(tox, "RTP_ENCODER_HAS_RECORD_TIMESTAMP:fl=%d %d", (int)header.flags, (int)RTP_ENCODER_HAS_RECORD_TIMESTAMP);
 
@@ -74891,12 +74891,15 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
     header.cc = 0;
     header.ma = 0;
     header.pt = session->payload_type % 128;
+    LOGGER_API_DEBUG(session->tox, "session->sequnum:%d send", (int)session->sequnum);
     header.sequnum = session->sequnum;
     header.timestamp = frame_record_timestamp; // current_time_monotonic(session->m->mono_time);
     header.ssrc = session->ssrc;
     header.offset_lower = 0;
     header.data_length_lower = length;
     header.flags = RTP_LARGE_FRAME | RTP_ENCODER_HAS_RECORD_TIMESTAMP;
+
+    LOGGER_API_DEBUG(session->tox, "RTP:send_ts:%lu %d", (unsigned long)frame_record_timestamp, (int)session->sequnum);
 
     if ((codec_used == TOXAV_ENCODER_CODEC_USED_H264) &&
             (is_video_payload == 1)) {
@@ -74993,6 +74996,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
     }
 
     ++session->sequnum;
+    LOGGER_API_DEBUG(session->tox, "session->sequnum:%d", (int)session->sequnum);
     return 0;
 }
 /* SPDX-License-Identifier: GPL-3.0-or-later
@@ -75749,6 +75753,7 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
     LOGGER_API_DEBUG(av->tox, "toxav_option_set:1 %d %d", (int)option, (int)value);
 
     if (toxav_friend_exists(av->tox, friend_number) == 0) {
+        LOGGER_API_DEBUG(av->tox, "toxav_friend_exists:NO");
         rc = TOXAV_ERR_OPTION_SET_OTHER_ERROR;
         goto END;
     }
@@ -75758,12 +75763,14 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
 
     if (call == NULL || !call->active || call->msi_call->state != MSI_CALL_ACTIVE) {
         pthread_mutex_unlock(av->mutex);
+        LOGGER_API_DEBUG(av->tox, "NO active call");
         rc = TOXAV_ERR_OPTION_SET_OTHER_ERROR;
         goto END;
     }
 
     if (pthread_mutex_trylock(call->toxav_call_mutex) != 0) {
         pthread_mutex_unlock(av->mutex);
+        LOGGER_API_DEBUG(av->tox, "pthread_mutex_trylock failed");
         rc = TOXAV_ERR_OPTION_SET_OTHER_ERROR;
         goto END;
     }
@@ -79046,7 +79053,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                 pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO;
 
                 int result = video_send_custom_lossless_packet(tox, vc->friend_number, pkg_buf, pkg_buf_len);
-                LOGGER_API_WARNING(tox, "PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO=%d\n", (int)result);
+                LOGGER_API_WARNING(tox, "PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO=%d", (int)result);
                 // HINT: tell friend that we have H264 decoder capabilities -------
 
             }
@@ -80033,10 +80040,10 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
         // without these it won't work !! ---------------------
         vc->h264_encoder2->time_base = (AVRational) {
-            25, 1000
+            1, 30
         };
         vc->h264_encoder2->framerate = (AVRational) {
-            1000, 25
+            30, 1
         };
         // without these it won't work !! ---------------------
 
@@ -80141,8 +80148,8 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
 #if (defined (HW_CODEC_CONFIG_RPI3_TBW_TV) || defined (HW_CODEC_CONFIG_RPI3_TBW_BIDI)) && defined (RAPI_HWACCEL_DEC)
         LOGGER_API_WARNING(av->tox, "setting up h264_mmal decoder ...");
-        av_opt_set_int(vc->h264_decoder->priv_data, "extra_buffers)", 1, AV_OPT_SEARCH_CHILDREN);
-        av_opt_set_int(vc->h264_decoder->priv_data, "extra_decoder_buffers)", 1, AV_OPT_SEARCH_CHILDREN);
+        av_opt_set_int(vc->h264_decoder->priv_data, "extra_buffers", 1, AV_OPT_SEARCH_CHILDREN);
+        av_opt_set_int(vc->h264_decoder->priv_data, "extra_decoder_buffers", 1, AV_OPT_SEARCH_CHILDREN);
         LOGGER_API_WARNING(av->tox, "extra_buffers, extra_decoder_buffers");
 #endif
 
@@ -80162,10 +80169,10 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         av_opt_set_int(vc->h264_decoder->priv_data, "delay", 0, AV_OPT_SEARCH_CHILDREN);
 
         vc->h264_decoder->time_base = (AVRational) {
-            25, 1000
+            1, 30
         };
         vc->h264_decoder->framerate = (AVRational) {
-            1000, 25
+            30, 1
         };
 
 
@@ -80450,11 +80457,11 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
                 AVCodec *codec2 = NULL;
                 vc->h264_encoder2 = NULL;
 
-    // https://github.com/FFmpeg/FFmpeg/blob/70d25268c21cbee5f08304da95be1f647c630c15/doc/APIchanges#L86
-    // Deprecate use of av_register_all()
-    #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
+// https://github.com/FFmpeg/FFmpeg/blob/70d25268c21cbee5f08304da95be1f647c630c15/doc/APIchanges#L86
+// Deprecate use of av_register_all()
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
                 avcodec_register_all();
-    #endif
+#endif
 
                 codec2 = NULL;
                 codec2 = avcodec_find_encoder_by_name(vc->encoder_codec_used_name); //(H264_WANT_ENCODER_NAME);
@@ -80552,10 +80559,10 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
                 // without these it won't work !! ---------------------
                 vc->h264_encoder2->time_base = (AVRational) {
-                    25, 1000
+                    1, 30
                 };
                 vc->h264_encoder2->framerate = (AVRational) {
-                    1000, 25
+                    30, 1
                 };
                 // without these it won't work !! ---------------------
 
@@ -80752,8 +80759,9 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
     compr_data->size = (int)full_data_len; // hmm, "int" again
 
     if (header_v3->frame_record_timestamp > 0) {
-        compr_data->dts = (int64_t)(header_v3->frame_record_timestamp) + 0;
-        compr_data->pts = (int64_t)(header_v3->frame_record_timestamp) + 1;
+        LOGGER_API_DEBUG(vc->av->tox, "in_pts:%lu", header_v3->frame_record_timestamp);
+        compr_data->dts = (int64_t)(header_v3->frame_record_timestamp) - 1;
+        compr_data->pts = (int64_t)(header_v3->frame_record_timestamp);
         compr_data->duration = 0; // (int64_t)(header_v3->frame_record_timestamp) + 1; // 0;
     }
 
@@ -80858,6 +80866,8 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
 #else
                 int32_t delta_value = (int32_t)(h_frame_record_timestamp - frame->pkt_pts);
 #endif
+                LOGGER_API_DEBUG(vc->av->tox, "out_pts:%lu %lu %ld %ld",
+                        frame->pts, frame->pkt_dts, frame->best_effort_timestamp, frame->pkt_pos);
 
                 LOGGER_API_DEBUG(vc->av->tox, "dec:XX:03:%d %d %d %d %d",
                         delta_value,
@@ -80933,7 +80943,7 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                     int32_t delta_check = (int32_t)(h_frame_record_timestamp - frame->pkt_pts);
 #endif
 
-                    if ((delta_check >= 0) && (delta_check <= 100))
+                    if ((delta_check >= 0) && (delta_check <= 600))
                     {
 
 #if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 0, 0)
@@ -80941,10 +80951,10 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
 #else
                         pts_for_client = frame->pkt_pts;
 #endif
-
                     }
 #pragma GCC diagnostic pop
 
+                    LOGGER_API_DEBUG(vc->av->tox, "DDDDDDDDDD:%lu", pts_for_client);
                     vc->vcb_pts(vc->av, vc->friend_number, frame->width, frame->height,
                             (const uint8_t *)frame->data[0],
                             (const uint8_t *)frame->data[1],
@@ -80993,6 +81003,7 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
         int i_nal;
 
         call->video->h264_in_pic.i_pts = (int64_t)(*video_frame_record_timestamp);
+        LOGGER_API_DEBUG(av->tox, "X264:in_ts:%lu", (*video_frame_record_timestamp));
 
         if ((vpx_encode_flags & VPX_EFLAG_FORCE_KF) > 0) {
             call->video->h264_in_pic.i_type = X264_TYPE_IDR; // real full i-frame
@@ -81011,6 +81022,7 @@ uint32_t encode_frame_h264(ToxAV *av, uint32_t friend_number, uint16_t width, ui
 
 
         *video_frame_record_timestamp = (uint64_t)call->video->h264_out_pic.i_pts;
+        LOGGER_API_DEBUG(av->tox, "X264:out_ts:%lu", (*video_frame_record_timestamp));
 
 
 
@@ -81118,7 +81130,7 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
     if (call->video->x264_software_encoder_used == 1) {
         if (*i_frame_size > 0) {
 
-            *video_frame_record_timestamp = (uint64_t)call->video->h264_in_pic.i_pts; // TODO: --> is this wrong?
+            LOGGER_API_DEBUG(av->tox, "X264:send_ts:%lu", (*video_frame_record_timestamp));
             const uint32_t frame_length_in_bytes = *i_frame_size;
             const int keyframe = (int)call->video->h264_out_pic.b_keyframe;
 
