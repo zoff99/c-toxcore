@@ -719,7 +719,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         }
     }
 
-    LOGGER_API_DEBUG(tox, "header.pt %d, video %d", (uint8_t)header.pt, (RTP_TYPE_VIDEO % 128));
+    LOGGER_API_DEBUG(tox, "header.pt %d, video %d sequnum %d", (uint8_t)header.pt, (RTP_TYPE_VIDEO % 128), (int)header.sequnum);
     LOGGER_API_DEBUG(tox, "rtp packet record time: %lu", (unsigned long)header.frame_record_timestamp);
     LOGGER_API_DEBUG(tox, "RTP_ENCODER_HAS_RECORD_TIMESTAMP:fl=%d %d", (int)header.flags, (int)RTP_ENCODER_HAS_RECORD_TIMESTAMP);
 
@@ -1135,12 +1135,15 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
     header.cc = 0;
     header.ma = 0;
     header.pt = session->payload_type % 128;
+    LOGGER_API_DEBUG(session->tox, "session->sequnum:%d send", (int)session->sequnum);
     header.sequnum = session->sequnum;
     header.timestamp = frame_record_timestamp; // current_time_monotonic(session->m->mono_time);
     header.ssrc = session->ssrc;
     header.offset_lower = 0;
     header.data_length_lower = length;
     header.flags = RTP_LARGE_FRAME | RTP_ENCODER_HAS_RECORD_TIMESTAMP;
+
+    LOGGER_API_DEBUG(session->tox, "RTP:send_ts:%lu %d", (unsigned long)frame_record_timestamp, (int)session->sequnum);
 
     if ((codec_used == TOXAV_ENCODER_CODEC_USED_H264) &&
             (is_video_payload == 1)) {
@@ -1237,5 +1240,6 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
     }
 
     ++session->sequnum;
+    LOGGER_API_DEBUG(session->tox, "session->sequnum:%d", (int)session->sequnum);
     return 0;
 }
