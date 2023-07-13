@@ -766,6 +766,7 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
     LOGGER_API_DEBUG(av->tox, "toxav_option_set:1 %d %d", (int)option, (int)value);
 
     if (toxav_friend_exists(av->tox, friend_number) == 0) {
+        LOGGER_API_DEBUG(av->tox, "toxav_friend_exists:NO");
         rc = TOXAV_ERR_OPTION_SET_OTHER_ERROR;
         goto END;
     }
@@ -775,12 +776,14 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
 
     if (call == NULL || !call->active || call->msi_call->state != MSI_CALL_ACTIVE) {
         pthread_mutex_unlock(av->mutex);
+        LOGGER_API_DEBUG(av->tox, "NO active call");
         rc = TOXAV_ERR_OPTION_SET_OTHER_ERROR;
         goto END;
     }
 
     if (pthread_mutex_trylock(call->toxav_call_mutex) != 0) {
         pthread_mutex_unlock(av->mutex);
+        LOGGER_API_DEBUG(av->tox, "pthread_mutex_trylock failed");
         rc = TOXAV_ERR_OPTION_SET_OTHER_ERROR;
         goto END;
     }
