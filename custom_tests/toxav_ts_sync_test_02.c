@@ -619,7 +619,15 @@ static void t_toxav_receive_video_frame_pts_cb(ToxAV *av, uint32_t friend_number
 #endif
 
     uint64_t tt = readUint64FromYUVFrame(y);
-    dbg(9, "[%d]: TT=%lu outdecoder=%lu delta=%d\n", num, (unsigned long)tt, (unsigned long)pts, (int)((long)pts - (long)tt));
+    int delta_ = (int)((long)pts - (long)tt);
+    dbg(9, "[%d]: TT=%lu outdecoder=%lu delta=%d\n", num, (unsigned long)tt, (unsigned long)pts, delta_);
+
+    if (delta_ != 0)
+    {
+        // HINT: this can happen, but should actually never happen. need more investigation.
+        dbg(9, "[%d]: ERROR: video frame PTS and reported PTS do not agree\n", num);
+        // exit(1);
+    }
 
     usleep(4 * 1000);
     //uint8_t chk1 = *(y + (ystride * height) - 1);
