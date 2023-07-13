@@ -31,7 +31,7 @@
 #include "../toxencryptsave/defines.h"
 
 #pragma clang diagnostic push
-#pragma clang diagnostic warning "-Wmissing-variable-declarations"
+#pragma clang diagnostic warning "-Wno-missing-variable-declarations"
 bool global_filetransfer_is_resumable = false;
 bool global_force_udp_only_mode = false;
 bool global_do_not_sync_av = false;
