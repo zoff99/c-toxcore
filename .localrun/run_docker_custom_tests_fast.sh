@@ -92,7 +92,7 @@ CC=clang cmake -B_build -H. -GNinja \
     -DBUILD_MISC_TESTS=OFF \
     -DBUILD_FUN_UTILS=OFF
 cd _build
-ninja install -j"$(nproc)"
+ninja install -j"$(nproc)" || exit 1
 
 cd /workspace/
 pwd
