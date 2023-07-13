@@ -773,7 +773,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                 pkg_buf[1] = PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO;
 
                 int result = video_send_custom_lossless_packet(tox, vc->friend_number, pkg_buf, pkg_buf_len);
-                LOGGER_API_WARNING(tox, "PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO=%d\n", (int)result);
+                LOGGER_API_WARNING(tox, "PACKET_TOXAV_COMM_CHANNEL_HAVE_H264_VIDEO=%d", (int)result);
                 // HINT: tell friend that we have H264 decoder capabilities -------
 
             }
