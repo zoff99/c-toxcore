@@ -578,8 +578,31 @@ int main(void)
             break;
         }
     }
-    dbg(9, "[%d]:friends online\n", 0);
+    dbg(9, "[%d]:OOOOOOOOOOOOOOOOO friends online\n", 0);
     // ----------- wait for friends to come online -----------
+
+    usleep(120000 * 1000);
+    dbg(9, "[%d]:sleep done\n", 0);
+    dbg(9, "[%d]:FFFFFFFFFFFFFF friends should be offline\n", 0);
+    dbg(9, "[%d]:f conn status: %d %d\n", 0, f_online[1], f_online[2]);
+
+    // ----------- wait for friends to come online again -----------
+    while (1 == 1) {
+        tox_iterate(tox1, (void *)&num1);
+        usleep(tox_iteration_interval(tox1) * 1000);
+        tox_iterate(tox2, (void *)&num2);
+        usleep(tox_iteration_interval(tox2) * 1000);
+        if ((f_online[1] > 0) && (f_online[2] > 0))
+        {
+            break;
+        }
+    }
+    dbg(9, "[%d]:22222222222222222 friends online again\n", 0);
+    // ----------- wait for friends to come online again -----------
+
+
+
+
 
     tox_kill(tox1);
     tox_kill(tox2);
