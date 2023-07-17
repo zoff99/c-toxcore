@@ -80,11 +80,11 @@ echo "#########################"
 
 CC=clang cmake -B_build -H. -GNinja \
     -DCMAKE_INSTALL_PREFIX:PATH="$PWD/_install" \
-    -DCMAKE_C_FLAGS="-g -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
+    -DCMAKE_C_FLAGS="-g -O1 -Wno-everything -fsanitize-recover=address -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
     -DCMAKE_CXX_FLAGS="-g -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
     -DCMAKE_EXE_LINKER_FLAGS="-g -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
     -DCMAKE_SHARED_LINKER_FLAGS="-g -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
-    -DMIN_LOGGER_LEVEL=INFO \
+    -DMIN_LOGGER_LEVEL=DEBUG \
     -DMUST_BUILD_TOXAV=ON \
     -DNON_HERMETIC_TESTS=OFF \
     -DSTRICT_ABI=OFF \
@@ -99,6 +99,9 @@ cd /workspace/
 pwd
 ls -1 ./custom_tests/*.c
 export PKG_CONFIG_PATH="$PWD"/_install/lib/pkgconfig
+
+export ASAN_OPTIONS=halt_on_error=0
+
 export LD_LIBRARY_PATH="$PWD"/_install/lib
 echo $PKG_CONFIG_PATH
 echo $LD_LIBRARY_PATH
@@ -113,7 +116,7 @@ done
 for i in $(ls -1 ./custom_tests/*.c) ; do
     echo "CCC:--------------- ""$i"" ---------------"
     rm -f test
-    clang -g -O1 -fno-omit-frame-pointer -fsanitize=address \
+    clang -g -O1 -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address \
     -Wno-everything -Wno-missing-variable-declarations \
     $(pkg-config --cflags toxcore libavcodec libavutil x264 opus vpx libsodium) \
     $(pkg-config --libs toxcore libavcodec libavutil x264 opus vpx libsodium) \

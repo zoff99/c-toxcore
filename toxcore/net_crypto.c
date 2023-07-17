@@ -1220,7 +1220,7 @@ static int send_packet_to(Net_Crypto *c, int crypt_connection_id, const uint8_t 
         return -1;
     }
 
-    LOGGER_DEBUG(c->log, "ENTERING: send_packet_to()");
+    // LOGGER_DEBUG(c->log, "ENTERING: send_packet_to()");
 
     bool direct_send_attempt = false;
 
@@ -2468,18 +2468,7 @@ static int create_crypto_connection(Net_Crypto *c)
         c->crypto_connections[id].last_packets_left_rem = 0;
         c->crypto_connections[id].packet_send_rate_requested = 0;
         c->crypto_connections[id].last_packets_left_requested_rem = 0;
-        c->crypto_connections[id].mutex = (pthread_mutex_t *)calloc(1, sizeof(pthread_mutex_t));
 
-        if (c->crypto_connections[id].mutex == nullptr) {
-            pthread_mutex_unlock(&c->connections_mutex);
-            return -1;
-        }
-
-        if (pthread_mutex_init(c->crypto_connections[id].mutex, nullptr) != 0) {
-            free(c->crypto_connections[id].mutex);
-            pthread_mutex_unlock(&c->connections_mutex);
-            return -1;
-        }
         c->crypto_connections[id].status = CRYPTO_CONN_NO_CONNECTION;
     }
 
@@ -2865,9 +2854,7 @@ int accept_crypto_connection(Net_Crypto *c, const New_Connection *n_c)
             conn->status = CRYPTO_CONN_NOT_CONFIRMED;
 
             if (create_send_handshake(c, crypt_connection_id, n_c->cookie, n_c->dht_public_key) != 0) {
-                pthread_mutex_lock(&c->tcp_mutex);
                 kill_tcp_connection_to(c->tcp_c, conn->connection_number_tcp);
-                pthread_mutex_unlock(&c->tcp_mutex);
                 wipe_crypto_connection(c, crypt_connection_id);
                 return -1;
             }
@@ -2878,9 +2865,7 @@ int accept_crypto_connection(Net_Crypto *c, const New_Connection *n_c)
             //TODO: memzero stuff from old handshake, also not necessary anymore
         }
         else {
-            pthread_mutex_lock(&c->tcp_mutex);
             kill_tcp_connection_to(c->tcp_c, conn->connection_number_tcp);
-            pthread_mutex_unlock(&c->tcp_mutex);
             wipe_crypto_connection(c, crypt_connection_id);
             return -1;
         }
@@ -2899,9 +2884,7 @@ int accept_crypto_connection(Net_Crypto *c, const New_Connection *n_c)
         conn->status = CRYPTO_CONN_NOT_CONFIRMED;
 
         if (create_send_handshake(c, crypt_connection_id, n_c->cookie, n_c->dht_public_key) != 0) {
-            pthread_mutex_lock(&c->tcp_mutex);
             kill_tcp_connection_to(c->tcp_c, conn->connection_number_tcp);
-            pthread_mutex_unlock(&c->tcp_mutex);
             wipe_crypto_connection(c, crypt_connection_id);
             return -1;
         }
@@ -3428,7 +3411,7 @@ static int udp_handle_packet(void *object, const IP_Port *source, const uint8_t 
     //TODO: add logger?
     // FILE *fp;
     // fp = fopen ("data.log", "a");
-    // fprintf(fp, "ENTERING: udp_handle_packet() => PACKET %d\n", packet[0]);
+    fprintf(stderr, "ENTERING: udp_handle_packet() => PACKET %d\n", packet[0]);
     
     Net_Crypto *c = (Net_Crypto *)object;
 
@@ -3444,7 +3427,7 @@ static int udp_handle_packet(void *object, const IP_Port *source, const uint8_t 
             return 1;
         }
         //TODO: remove
-        // fprintf(fp, "ENTERING: udp_handle_packet() => NO CRYPTO CONN YET -> RESPONDER\n");
+        fprintf(stderr, "ENTERING: udp_handle_packet() => NO CRYPTO CONN YET -> RESPONDER\n");
 
         if (handle_new_connection_handshake(c, source, packet, length, userdata) != 0) {
             return 1;
@@ -3456,7 +3439,7 @@ static int udp_handle_packet(void *object, const IP_Port *source, const uint8_t 
     //TODO: return -1 if RESPONDER?
 
     //TODO: remove
-    // fprintf(fp, "ENTERING: udp_handle_packet() => CRYPTO CONN EXISTING\n");
+    fprintf(stderr, "ENTERING: udp_handle_packet() => CRYPTO CONN EXISTING\n");
     if (handle_packet_connection(c, crypt_connection_id, packet, length, true, userdata) != 0) {
         return 1;
     }
@@ -3472,8 +3455,6 @@ static int udp_handle_packet(void *object, const IP_Port *source, const uint8_t 
     } else {
         conn->direct_lastrecv_timev6 = mono_time_get(c->mono_time);
     }
-
-    pthread_mutex_unlock(conn->mutex);
 
     //TODO: remove
     // fclose(fp);
