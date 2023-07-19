@@ -22,6 +22,9 @@
 #include "mono_time.h"
 #include "util.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpointer-sign"
+
 static const uint8_t NOISE_PROTOCOL_NAME[34] = "Noise_IK_25519_XChaChaPoly_SHA512";
 typedef struct Packet_Data {
     uint64_t sent_time;
@@ -4069,3 +4072,5 @@ void kill_net_crypto(Net_Crypto *c)
     crypto_memzero(c, sizeof(Net_Crypto));
     free(c);
 }
+
+#pragma GCC diagnostic pop
