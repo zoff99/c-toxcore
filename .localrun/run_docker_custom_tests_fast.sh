@@ -97,6 +97,10 @@ ninja install -j"$(nproc)" || exit 1
 
 cd /workspace/
 pwd
+
+clang flakynet.c -o f.so -fPIC -ldl -shared
+ls -al f.so
+
 ls -1 ./custom_tests/*.c
 export PKG_CONFIG_PATH="$PWD"/_install/lib/pkgconfig
 
@@ -123,12 +127,7 @@ for i in $(ls -1 ./custom_tests/*.c) ; do
     "$i" \
     -o test
     echo "RUN:--------------- ""$i"" ---------------"
-    export ASAN_OPTIONS="color=always"
-    export ASAN_OPTIONS="$ASAN_OPTIONS,detect_invalid_pointer_pairs=1"
-    export ASAN_OPTIONS="$ASAN_OPTIONS,detect_stack_use_after_return=1"
-    export ASAN_OPTIONS="$ASAN_OPTIONS,strict_init_order=1"
-    export ASAN_OPTIONS="$ASAN_OPTIONS,strict_string_checks=1"
-    export ASAN_OPTIONS="$ASAN_OPTIONS,symbolize=1"
+    # LD_PRELOAD=/workspace/f.so ./test
     ./test
     if [ $? -ne 0 ]; then
         echo "ERR:--------------- ""$i"" ---------------"

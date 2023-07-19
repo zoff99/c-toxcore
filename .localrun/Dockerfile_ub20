@@ -30,6 +30,10 @@ RUN apt-get update && \
         curl \
         iproute2 \
         tor
+
+RUN apt-get update && \
+        apt-get -y --force-yes install wget
+
 RUN apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
