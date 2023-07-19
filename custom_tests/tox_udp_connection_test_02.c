@@ -570,9 +570,9 @@ int main(void)
     dbg(9, "[%d]:add friend res=%d\n", 1, err1);
     while (1 == 1) {
         tox_iterate(tox1, (void *)&num1);
-        usleep(tox_iteration_interval(tox1));
+        usleep(tox_iteration_interval(tox1) * 1000);
         tox_iterate(tox2, (void *)&num2);
-        usleep(tox_iteration_interval(tox2));
+        usleep(tox_iteration_interval(tox2) * 1000);
         int cs = tox_self_get_connection_status(tox1);
         // dbg(9, "[%d]:self conn status: %d\n", 0, cs);
         if ((f_online[1] > 1) && (f_online[2] > 1) && (s_online[1] > 1) && (s_online[2] > 1))

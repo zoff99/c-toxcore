@@ -972,9 +972,9 @@ int main(void)
     dbg(9, "[%d]:add friend res=%d\n", 1, err1);
     while (1 == 1) {
         tox_iterate(tox1, (void *)&num1);
-        usleep(tox_iteration_interval(tox1));
+        usleep(tox_iteration_interval(tox1) * 1000);
         tox_iterate(tox2, (void *)&num2);
-        usleep(tox_iteration_interval(tox2));
+        usleep(tox_iteration_interval(tox2) * 1000);
         if ((f_online[1] > 0) && (f_online[2] > 0))
         {
             break;
