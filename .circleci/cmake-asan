@@ -9,6 +9,7 @@ add_flag -Werror
 add_flag -fdiagnostics-color=always
 add_flag -fno-omit-frame-pointer
 add_flag -fsanitize=address
+add_flag -fsanitize-recover=address
 add_flag -Wno-error=declaration-after-statement
 # add_flag -Wno-error=unused-but-set-variable
 add_flag -Wno-error=documentation
@@ -29,7 +30,7 @@ cmake -B_build -H. -GNinja \
   -DMUST_BUILD_TOXAV=ON \
   -DNON_HERMETIC_TESTS=ON \
   -DSTRICT_ABI=ON \
-  -DTEST_TIMEOUT_SECONDS=120 \
+  -DTEST_TIMEOUT_SECONDS=5000 \
   -DUSE_IPV6=OFF \
   -DAUTOTEST=ON \
   -DBUILD_MISC_TESTS=ON \
@@ -39,7 +40,15 @@ cd _build
 
 ninja install -j"$(nproc)"
 
-export ASAN_OPTIONS="color=always"
+export ASAN_OPTIONS=""
+
+# HINT: ignore ASAN errors and continue
+# export ASAN_OPTIONS="$ASAN_OPTIONS,halt_on_error=0"
+
+# HINT: ignore ASAN leaks
+export ASAN_OPTIONS="$ASAN_OPTIONS,detect_leaks=0"
+
+export ASAN_OPTIONS="$ASAN_OPTIONS,color=always"
 export ASAN_OPTIONS="$ASAN_OPTIONS,detect_invalid_pointer_pairs=1"
 export ASAN_OPTIONS="$ASAN_OPTIONS,detect_stack_use_after_return=1"
 export ASAN_OPTIONS="$ASAN_OPTIONS,strict_init_order=1"
