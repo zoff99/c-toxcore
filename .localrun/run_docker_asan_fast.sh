@@ -13,6 +13,8 @@ if [ "$1""x" == "buildx" ]; then
     exit 0
 fi
 
+### ** ### cat aa.log |grep --line-buffered -v ' DEBUG '|grep --line-buffered -v 'udp_handle_packet' |grep --line-buffered -v 'network.c:'|more
+
 # docker info
 
 mkdir -p $_HOME_/artefacts
