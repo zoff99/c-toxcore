@@ -632,7 +632,7 @@ int main(void)
     set_cb(tox1, tox2);
 
     tox_iterate(tox1, (void *)&num1);
-    tox_iterate(tox2, (void *)&num1);
+    tox_iterate(tox2, (void *)&num2);
 
     // ----------- wait for friends to come online -----------
     Tox_Err_Friend_Add err1;

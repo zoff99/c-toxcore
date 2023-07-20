@@ -1160,7 +1160,7 @@ int main(void)
     set_cb(tox1, tox2, toxav1, toxav2);
 
     tox_iterate(tox1, (void *)&num1);
-    tox_iterate(tox2, (void *)&num1);
+    tox_iterate(tox2, (void *)&num2);
 
     pthread_t tid[8];
     toxav_video_thread_stop = 0;
