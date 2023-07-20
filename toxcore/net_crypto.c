@@ -891,9 +891,9 @@ static bool handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t
                                     uint8_t *dht_public_key, uint8_t *cookie, const uint8_t *packet, uint16_t length, const uint8_t *expected_real_pk,
                                     noise_handshake *noise_handshake)
 {
-    LOGGER_DEBUG(c->log, "ENTERING: handle_crypto_handshake()");
+    // LOGGER_DEBUG(c->log, "ENTERING: handle_crypto_handshake()");
     if (noise_handshake != nullptr) {
-        LOGGER_DEBUG(c->log, "NOISE handshake");
+        // LOGGER_DEBUG(c->log, "NOISE handshake");
         
         if (!noise_handshake->initiator) {
             if (length != NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR) {
@@ -2317,7 +2317,7 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
 
     //TODO: There should also be a case for RESPONDER?
     if (conn->noise_handshake != nullptr) {
-        LOGGER_DEBUG(c->log, "handle_packet_crypto_hs() => NOISE HANDHSHAKE");
+        // LOGGER_DEBUG(c->log, "handle_packet_crypto_hs() => NOISE HANDHSHAKE");
         if (conn->noise_handshake->initiator) {
             if (!handle_crypto_handshake(c, conn->recv_nonce, conn->peersessionpublic_key, peer_real_pk, dht_public_key, cookie,
                                     packet, length, conn->public_key, conn->noise_handshake)) {
