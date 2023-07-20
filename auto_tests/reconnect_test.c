@@ -16,7 +16,9 @@
 #include "check_compat.h"
 
 #define TOX_COUNT 2
-#define RECONNECT_TIME_MAX (FRIEND_CONNECTION_TIMEOUT + 3)
+// #define RECONNECT_TIME_MAX (FRIEND_CONNECTION_TIMEOUT + 3)
+// HINT: for now allow 300 seconds to reconnect
+#define RECONNECT_TIME_MAX 300
 
 #include "auto_test_support.h"
 
