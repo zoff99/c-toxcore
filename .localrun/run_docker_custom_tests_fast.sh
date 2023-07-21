@@ -99,6 +99,11 @@ pwd
 ls -1 ./custom_tests/*.c
 export PKG_CONFIG_PATH="$PWD"/_install/lib/pkgconfig
 export LD_LIBRARY_PATH="$PWD"/_install/lib
+echo $PKG_CONFIG_PATH
+echo $LD_LIBRARY_PATH
+pkg-config --cflags toxcore libavcodec libavutil x264 opus vpx libsodium
+pkg-config --libs toxcore libavcodec libavutil x264 opus vpx libsodium
+
 for i in $(ls -1 ./custom_tests/*.c) ; do
     echo "CCC:--------------- ""$i"" ---------------"
     rm -f test
@@ -109,6 +114,12 @@ for i in $(ls -1 ./custom_tests/*.c) ; do
     "$i" \
     -o test
     echo "RUN:--------------- ""$i"" ---------------"
+    export ASAN_OPTIONS="color=always"
+    export ASAN_OPTIONS="$ASAN_OPTIONS,detect_invalid_pointer_pairs=1"
+    export ASAN_OPTIONS="$ASAN_OPTIONS,detect_stack_use_after_return=1"
+    export ASAN_OPTIONS="$ASAN_OPTIONS,strict_init_order=1"
+    export ASAN_OPTIONS="$ASAN_OPTIONS,strict_string_checks=1"
+    export ASAN_OPTIONS="$ASAN_OPTIONS,symbolize=1"
     ./test
     if [ $? -ne 0 ]; then
         echo "ERR:--------------- ""$i"" ---------------"
@@ -137,5 +148,5 @@ docker run -ti --rm \
   -v $_HOME_/workspace:/workspace \
   -e DISPLAY=$DISPLAY \
   "$system_to_build_for" \
-  /bin/sh -c "apk add bash >/dev/null 2>/dev/null; /bin/bash /script/do_it___external.sh"
+  /bin/sh -c "/bin/bash /script/do_it___external.sh"
 
