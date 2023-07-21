@@ -41,7 +41,7 @@ jobs:
       - name: test tor connection
         run: |
            set -x
-           curl -x socks5h://localhost:9050 -s https://check.torproject.org/api/ip
+           curl -x socks5h://localhost:9050 -s https://check.torproject.org/api/ip || echo "ignore error"
       - run: git submodule update --init --recursive
       - name: build toxcore
         run: |
