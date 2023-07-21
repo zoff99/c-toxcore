@@ -18,6 +18,7 @@ jobs:
           clang \
           cmake \
           git \
+          tor \
           libconfig-dev \
           libgtest-dev \
           libopus-dev \
@@ -31,6 +32,12 @@ jobs:
           libavformat-dev \
           libavfilter-dev \
           libx264-dev
+      - name: setup tor
+        run: |
+           /etc/init.d/tor restart
+           ps -ef|grep tor
+           cat /usr/share/tor/tor-service-defaults-torrc
+           curl -x socks5h://localhost:9050 -s https://check.torproject.org/api/ip
       - run: git submodule update --init --recursive
       - name: build toxcore
         run: |
