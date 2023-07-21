@@ -39,17 +39,18 @@ const char *log_filename = "output.log";
 const char *savedata_filename1 = "savedata1.tox";
 const char *savedata_filename2 = "savedata2.tox";
 FILE *logfile = NULL;
-uint8_t *key_bin_rec[131073];
+#define PARALLEL_FILES 5
+uint8_t *key_bin_rec[PARALLEL_FILES];
 
 const uint64_t totalf_size = 30L * 1024L * 1024L;
 uint64_t cur_recv_pos = 0;
 uint64_t cur_send_pos = 0;
 uint32_t print_counter = 0;
-uint8_t *send_file = NULL;
-uint8_t *recv_file = NULL;
+uint8_t *send_file[PARALLEL_FILES];
+uint8_t *recv_file[PARALLEL_FILES];
 
 int f_online[3] = { 0, 0, 0};
-int ft_fin[3] = { 0, 0, 0 };
+int ft_fin[PARALLEL_FILES];
 
 struct Node1 {
     char *ip;
@@ -240,6 +241,11 @@ void tox_log_cb__custom2(Tox *tox, TOX_LOG_LEVEL level, const char *file, uint32
                         const char *message, void *user_data)
 {
     dbg(9, "C-TOXCORE:2:%d:%s:%d:%s:%s\n", (int)level, file, (int)line, func, message);
+}
+
+static uint32_t receive_filenum_to_filenum(uint32_t file_number)
+{
+    return (uint32_t)((file_number >> 16) - 1);
 }
 
 static void hex_string_to_bin2(const char *hex_string, uint8_t *output) {
@@ -462,11 +468,11 @@ static void file_recv_chunk(Tox *tox, uint32_t friendnumber, uint32_t filenumber
         tox_file_get_file_id(tox, 0, filenumber, key_bin_chunk, &gfierr);
         to_hex(key_str_chunk, key_bin_chunk, TOX_FILE_ID_LENGTH);
         dbg(9, "[%d]:ID:F: %.*s\n", num, TOX_FILE_ID_LENGTH * 2, key_str_chunk);
-        dbg(9, "[%d]: -> file_recv_chunk FINISHED:RECEIVER filenum=%d pos=%lu length=%d\n", num, filenumber, position, (int)length);
+        dbg(9, "[%d]: -> file_recv_chunk FINISHED:RECEIVER filenum=%d pos=%lu length=%d\n", num, receive_filenum_to_filenum(filenumber), position, (int)length);
         
         dbg(9, "[%d]: -> file_recv_chunk FINISHED:RECEIVER:comparing files ...\n", num);
-        uint8_t *send_file_tmp = send_file;
-        uint8_t *recv_file_tmp = recv_file;
+        uint8_t *send_file_tmp = send_file[receive_filenum_to_filenum(filenumber)];
+        uint8_t *recv_file_tmp = recv_file[receive_filenum_to_filenum(filenumber)];
         uint64_t i = 0;
         while(i++ < totalf_size)
         {
@@ -485,7 +491,7 @@ static void file_recv_chunk(Tox *tox, uint32_t friendnumber, uint32_t filenumber
         print_counter++;
         if ((print_counter % 770) == 0) // (770 * 1363) =~ 1MiB
         {
-            dbg(9, "[%d]: -> file_recv_chunk filenum=%d pos=%lu length=%d\n", num, filenumber, position, (int)length);
+            dbg(9, "[%d]: -> file_recv_chunk filenum=%d pos=%lu length=%d\n", num, receive_filenum_to_filenum(filenumber), position, (int)length);
         }
 
         uint8_t key_bin_chunk[TOX_FILE_ID_LENGTH];
@@ -496,7 +502,7 @@ static void file_recv_chunk(Tox *tox, uint32_t friendnumber, uint32_t filenumber
 
         cur_recv_pos = position;
 
-        memcpy((recv_file + position), (data + TOX_FILE_ID_LENGTH), (length - TOX_FILE_ID_LENGTH));
+        memcpy((recv_file[receive_filenum_to_filenum(filenumber)] + position), (data + TOX_FILE_ID_LENGTH), (length - TOX_FILE_ID_LENGTH));
     }
 
 }
@@ -527,13 +533,13 @@ static void file_chunk_request(Tox *tox, uint32_t friend_number, uint32_t file_n
 
     // dbg(9, "[%d]:file_chunk_request SENDER filenum=%d\n", num, file_number);
 
-    char    key_str_rec[TOX_FILE_ID_LENGTH * 2];
+    char key_str_rec[TOX_FILE_ID_LENGTH * 2];
     to_hex(key_str_rec, key_bin_rec[file_number], TOX_FILE_ID_LENGTH);
     // dbg(9, "[%d]:ID:Sdr: %.*s\n", num, TOX_FILE_ID_LENGTH * 2, key_str_rec);
 
 
     uint8_t *f_data = calloc(1, length + TOX_FILE_ID_LENGTH);
-    memcpy((f_data + TOX_FILE_ID_LENGTH), (send_file + position), length);
+    memcpy((f_data + TOX_FILE_ID_LENGTH), (send_file[file_number] + position), length);
     memcpy(f_data, key_bin_rec[file_number], TOX_FILE_ID_LENGTH);
 
     cur_send_pos = position;
@@ -551,12 +557,12 @@ static void file_receive(Tox *tox, uint32_t friend_number, uint32_t file_number,
     uint8_t* unum = (uint8_t *)userdata;
     uint8_t num = *unum;
 
-    dbg(9, "[%d]:file_receive:file_number=%d fnum2=%d\n", num, file_number, ((file_number>>16)-1));
+    dbg(9, "[%d]:file_receive:file_number=%d fnum2=%d\n", num, file_number, receive_filenum_to_filenum(file_number));
 
     char    key_str_rec[TOX_FILE_ID_LENGTH * 2];
     Tox_Err_File_Get gfierr;
-    tox_file_get_file_id(tox, 0, file_number, key_bin_rec[((file_number>>16)-1)], &gfierr);
-    to_hex(key_str_rec, key_bin_rec[((file_number>>16)-1)], TOX_FILE_ID_LENGTH);
+    tox_file_get_file_id(tox, 0, file_number, key_bin_rec[receive_filenum_to_filenum(file_number)], &gfierr);
+    to_hex(key_str_rec, key_bin_rec[receive_filenum_to_filenum(file_number)], TOX_FILE_ID_LENGTH);
     dbg(9, "[%d]:ID:R: %.*s\n", num, TOX_FILE_ID_LENGTH * 2, key_str_rec);
 
     dbg(9, "[%d]:file_receive:%s size=%lu kind=%d\n", num, filename, filesize, kind);
@@ -571,9 +577,9 @@ static void file_receive(Tox *tox, uint32_t friend_number, uint32_t file_number,
         dbg(9, "[%d]:file_receive:%s size=%lu kind=%d DOES match send size=%lu\n", num, filename, filesize, kind, (uint64_t)totalf_size);
     }
 
-    if (!recv_file)
+    if (!recv_file[receive_filenum_to_filenum(file_number)])
     {
-        recv_file = calloc(1, filesize);
+        recv_file[receive_filenum_to_filenum(file_number)] = calloc(1, filesize);
     }
 
     Tox_Err_File_Control error;
@@ -634,15 +640,11 @@ int main(void)
     del_savefile(1);
     del_savefile(2);
 
-    key_bin_rec[0] = calloc(1, TOX_FILE_ID_LENGTH);
-    key_bin_rec[1] = calloc(1, TOX_FILE_ID_LENGTH);
-    key_bin_rec[2] = calloc(1, TOX_FILE_ID_LENGTH);
-    key_bin_rec[3] = calloc(1, TOX_FILE_ID_LENGTH);
-    key_bin_rec[65534] = calloc(1, TOX_FILE_ID_LENGTH);
-    key_bin_rec[65535] = calloc(1, TOX_FILE_ID_LENGTH);
-    key_bin_rec[65536] = calloc(1, TOX_FILE_ID_LENGTH);
-    key_bin_rec[131071] = calloc(1, TOX_FILE_ID_LENGTH);
-    key_bin_rec[131072] = calloc(1, TOX_FILE_ID_LENGTH);
+    for (int k=0;k<PARALLEL_FILES;k++)
+    {
+        key_bin_rec[k] = calloc(1, TOX_FILE_ID_LENGTH);
+        ft_fin[k] = 0;
+    }
 
     uint8_t num1 = 1;
     uint8_t num2 = 2;
@@ -652,13 +654,13 @@ int main(void)
     Tox *tox2 = tox_init(2);
 
     uint8_t public_key_bin1[TOX_ADDRESS_SIZE];
-    char    public_key_str1[TOX_ADDRESS_SIZE * 2];
+    char public_key_str1[TOX_ADDRESS_SIZE * 2];
     tox_self_get_address(tox1, public_key_bin1);
     to_hex(public_key_str1, public_key_bin1, TOX_ADDRESS_SIZE);
     dbg(9, "[%d]:ID:1: %.*s\n", 1, TOX_ADDRESS_SIZE * 2, public_key_str1);
 
     uint8_t public_key_bin2[TOX_ADDRESS_SIZE];
-    char    public_key_str2[TOX_ADDRESS_SIZE * 2];
+    char public_key_str2[TOX_ADDRESS_SIZE * 2];
     tox_self_get_address(tox2, public_key_bin2);
     to_hex(public_key_str2, public_key_bin2, TOX_ADDRESS_SIZE);
     dbg(9, "[%d]:ID:2: %.*s\n", 2, TOX_ADDRESS_SIZE * 2, public_key_str2);
@@ -694,54 +696,65 @@ int main(void)
 
     dbg(9, "[%d]:friends online\n", 0);
 
-    send_file = calloc(1, (size_t)totalf_size);
+    for (int k=0;k<PARALLEL_FILES;k++)
+    {
+        send_file[k] = calloc(1, (size_t)totalf_size);
+    }
 
     dbg(9, "[%d]:generating random mem ...\n", 0);
-    uint8_t *send_file_tmp = send_file;
-    uint64_t i = 0;
-    while(i++ < totalf_size)
+    for (int k=0;k<PARALLEL_FILES;k++)
     {
-        uint8_t random_byte = (uint8_t)(rand() % 255);
-        *send_file_tmp = random_byte;
-        send_file_tmp++;
+        uint8_t *send_file_tmp = send_file[k];
+        uint64_t i = 0;
+        while(i++ < totalf_size)
+        {
+            uint8_t random_byte = (uint8_t)(rand() % 255);
+            *send_file_tmp = random_byte;
+            send_file_tmp++;
+        }
     }
     dbg(9, "[%d]:generating random mem ... DONE\n", 0);
 
-    uint32_t fnum = tox_file_send(tox2, 0, TOX_FILE_KIND_FTV2, totalf_size, NULL, (const uint8_t *)"Gentoo1.exe",
-                                  sizeof("Gentoo1.exe"), NULL);
+    for (int k=0;k<PARALLEL_FILES;k++)
+    {
+        char this_filename[300];
+        snprintf(this_filename, 299, "Gentoo%d.exe", k);
 
-    dbg(9, "[%d]:tox_file_send:file_number=%d\n", 0, fnum);
+        uint32_t fnum = tox_file_send(tox2, 0, TOX_FILE_KIND_FTV2, totalf_size, NULL, this_filename,
+                                      strlen(this_filename), NULL);
+        dbg(9, "[%d]:tox_file_send:file_number=%d\n", 0, fnum);
 
-    uint32_t fnum2 = tox_file_send(tox2, 0, TOX_FILE_KIND_FTV2, totalf_size, NULL, (const uint8_t *)"Gentoo2.exe",
-                                  sizeof("Gentoo2.exe"), NULL);
+        uint8_t key_bin1[TOX_FILE_ID_LENGTH];
+        char    key_str1[TOX_FILE_ID_LENGTH * 2];
+        Tox_Err_File_Get gfierr1;
+        tox_file_get_file_id(tox2, 0, fnum, key_bin1, &gfierr1);
+        to_hex(key_str1, key_bin1, TOX_FILE_ID_LENGTH);
+        dbg(9, "[%d]:ID:S: %.*s\n", 2, TOX_FILE_ID_LENGTH * 2, key_str1);
+    }
 
-    dbg(9, "[%d]:tox_file_send:file_number=%d\n", 0, fnum2);
-
-
-    uint8_t key_bin1[TOX_FILE_ID_LENGTH];
-    char    key_str1[TOX_FILE_ID_LENGTH * 2];
-    Tox_Err_File_Get gfierr1;
-    tox_file_get_file_id(tox2, 0, fnum, key_bin1, &gfierr1);
-    to_hex(key_str1, key_bin1, TOX_FILE_ID_LENGTH);
-    dbg(9, "[%d]:ID:S: %.*s\n", 2, TOX_FILE_ID_LENGTH * 2, key_str1);
-
-    uint8_t key_bin2[TOX_FILE_ID_LENGTH];
-    char    key_str2[TOX_FILE_ID_LENGTH * 2];
-    Tox_Err_File_Get gfierr2;
-    tox_file_get_file_id(tox2, 0, fnum2, key_bin2, &gfierr2);
-    to_hex(key_str2, key_bin2, TOX_FILE_ID_LENGTH);
-    dbg(9, "[%d]:ID:S: %.*s\n", 2, TOX_FILE_ID_LENGTH * 2, key_str2);
-
-    for (int i=0;i<10;i++) { tox_iterate(tox1, (void *)&num1); usleep(tox_iteration_interval(tox1)*1000); tox_iterate(tox2, (void *)&num2); usleep(tox_iteration_interval(tox2)*1000); }
+    for (int i=0;i<10;i++) {
+        tox_iterate(tox1, (void *)&num1);
+        usleep(tox_iteration_interval(tox1)*1000);
+        tox_iterate(tox2, (void *)&num2);
+        usleep(tox_iteration_interval(tox2)*1000);
+    }
 
     while (1 == 1) {
         tox_iterate(tox1, (void *)&num1);
         // usleep(tox_iteration_interval(tox1) * 1000);
-        usleep(1*10*1000);
+        usleep(1*1000);
         tox_iterate(tox2, (void *)&num2);
         // usleep(tox_iteration_interval(tox2) * 1000);
-        usleep(1*10*1000);
-        if ((ft_fin[0] == 1) && (ft_fin[1] == 1))
+        usleep(1*1000);
+        int finished_fts = 0;
+        for (int k=0;k<PARALLEL_FILES;k++)
+        {
+            if (ft_fin[k] == 1)
+            {
+                finished_fts++;
+            }
+        }
+        if (finished_fts >= PARALLEL_FILES)
         {
             break;
         }
@@ -753,8 +766,13 @@ int main(void)
     tox_kill(tox2);
     dbg(9, "[%d]:killed tox\n", 0);
 
-    free(send_file);
-    free(recv_file);
+    for (int k=0;k<PARALLEL_FILES;k++)
+    {
+        dbg(9, "[%d]:freeing buffers #%d\n", 0, k);
+        free(send_file[k]);
+        free(recv_file[k]);
+        free(key_bin_rec[k]);
+    }
 
     fclose(logfile);
     dbg(9, "[%d]:END\n", 0);
