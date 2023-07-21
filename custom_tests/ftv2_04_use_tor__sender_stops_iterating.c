@@ -295,7 +295,7 @@ static Tox* tox_init(int num)
     dbg(0, "setting Tor Relay mode\n");
     options.udp_enabled = false; // TCP mode
     dbg(0, "setting TCP mode\n");
-    const char *proxy_host = "127.0.0.1";
+    const char *proxy_host = "localhost";
     dbg(0, "setting proxy_host %s\n", proxy_host);
     uint16_t proxy_port = PROXY_PORT_TOR_DEFAULT;
     dbg(0, "setting proxy_port %d\n", (int)proxy_port);
