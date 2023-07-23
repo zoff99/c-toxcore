@@ -714,7 +714,7 @@ int main(void)
 
     dbg(9, "[%d]:sender stops iterating\n", 0);
 
-    const int secs = 65;
+    const int secs = 90;
     for (int i=0;i<(20*secs);i++) {
         tox_iterate(tox2, (void *)&num2);
         usleep(50*1000);
