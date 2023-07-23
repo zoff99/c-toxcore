@@ -8,6 +8,7 @@ RUN apt-get update && \
         ca-certificates \
         rsync \
         nano \
+        coreutils \
         clang \
         cmake \
         git \

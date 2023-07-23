@@ -29,6 +29,7 @@ quiet_=1
 echo "hello"
 
 export qqq=""
+export TEST_MAX_TIME=$[10*60] # 10 minutes
 
 if [ "$quiet_""x" == "1x" ]; then
 	export qqq=" -qq "

@@ -15,6 +15,7 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive \
           apt-get install -y --no-install-recommends \
           ca-certificates \
+          coreutils \
           clang \
           cmake \
           git \
@@ -64,6 +65,7 @@ jobs:
       - name: run custom tests
         run: |
           pwd
+          export TEST_MAX_TIME=$[10*60] # 10 minutes
           ls -1 ./custom_tests/*.c
           export PKG_CONFIG_PATH="$PWD"/_install/lib/pkgconfig
           export LD_LIBRARY_PATH="$PWD"/_install/lib
@@ -77,7 +79,7 @@ jobs:
           "$i" \
           -o test
           echo "RUN:--------------- ""$i"" ---------------"
-          ./test
+          timeout -v -k ${TEST_MAX_TIME} $[${TEST_MAX_TIME}+1] ./test
           if [ $? -ne 0 ]; then
             echo "ERR:--------------- ""$i"" ---------------"
             exit $?
