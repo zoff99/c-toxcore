@@ -329,7 +329,7 @@ static Tox* tox_init(int num)
     tox_options_default(&options);
 
     // ----- set options ------
-    options.ipv6_enabled = false;
+    options.ipv6_enabled = true;
     options.local_discovery_enabled = false;
     options.hole_punching_enabled = false;
     options.udp_enabled = false;
