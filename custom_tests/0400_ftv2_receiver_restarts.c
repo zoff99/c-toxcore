@@ -49,6 +49,7 @@ uint8_t *recv_file;
 
 int f_online[3] = { 0, 0, 0};
 int ft_fin = 0;
+int ft_cancel[3] = { 0, 0, 0};
 
 struct Node1 {
     char *ip;
@@ -507,12 +508,12 @@ static void file_recv_control(Tox *tox, uint32_t friend_number, uint32_t file_nu
     uint8_t* unum = (uint8_t *)userdata;
     uint8_t num = *unum;
     dbg(9, "[%d]:file_recv_control. control=%d\n", num, control); // control "0" == "TOX_FILE_CONTROL_RESUME"
-
+    
     if (control == 2)
     {
         // control "2" == TOX_FILE_CONTROL_CANCEL
         dbg(9, "[%d]:ERR:file_recv_control. stop sending FT\n", num);
-        exit(4);
+        ft_cancel[num] = 1;
     }
 }
 
@@ -584,8 +585,8 @@ static void set_cb(Tox *tox1, Tox *tox2)
     tox_callback_friend_request(tox2, friend_request_callback);
 
 
-    tox_callback_file_recv_chunk(tox1, file_recv_chunk);
     tox_callback_file_recv_control(tox1, file_recv_control);
+    tox_callback_file_recv_chunk(tox1, file_recv_chunk);
     tox_callback_file_recv(tox1, file_receive);
 
     tox_callback_file_recv_control(tox2, file_recv_control);
@@ -632,6 +633,8 @@ int main(void)
     f_online[2] = 0;
     Tox *tox1 = tox_init(1);
     Tox *tox2 = tox_init(2);
+    ft_cancel[1] = 0;
+    ft_cancel[2] = 0;
 
     uint8_t public_key_bin1[TOX_ADDRESS_SIZE];
     char    public_key_str1[TOX_ADDRESS_SIZE * 2];
@@ -699,7 +702,12 @@ int main(void)
     to_hex(key_str1, key_bin1, TOX_FILE_ID_LENGTH);
     dbg(9, "[%d]:ID:S: %.*s\n", 2, TOX_FILE_ID_LENGTH * 2, key_str1);
 
-    for (int i=0;i<10;i++) { tox_iterate(tox1, (void *)&num1); usleep(tox_iteration_interval(tox1)*1000); tox_iterate(tox2, (void *)&num2); usleep(tox_iteration_interval(tox2)*1000); }
+    for (int i=0;i<10;i++) {
+        tox_iterate(tox1, (void *)&num1);
+        usleep(tox_iteration_interval(tox1)*1000);
+        tox_iterate(tox2, (void *)&num2);
+        usleep(tox_iteration_interval(tox2)*1000);
+    }
 
     while (1 == 1) {
         tox_iterate(tox1, (void *)&num1);
@@ -713,18 +721,18 @@ int main(void)
         }
     }
 
-    dbg(9, "[%d]:sender restarts tox node\n", 0);
+    dbg(9, "[%d]:receiver restarts tox node\n", 0);
 
 
     dbg(9, "[%d]:save data\n", 0);
-    update_savedata_file(tox2, 2);
+    update_savedata_file(tox1, 1);
     dbg(9, "[%d]:kill tox\n", 0);
-    tox_kill(tox2);
-    tox2 = NULL;
-    dbg(9, "[%d]:sender starts up again\n", 0);
-    tox2 = tox_init(2);
+    tox_kill(tox1);
+    tox1 = NULL;
+    dbg(9, "[%d]:receiver starts up again\n", 0);
+    tox1 = tox_init(1);
     dbg(9, "[%d]:connect\n", 0);
-    tox_connect(tox2, 2);
+    tox_connect(tox1, 1);
     dbg(9, "[%d]:set callbacks\n", 0);
     set_cb(tox1, tox2);
 
@@ -735,6 +743,14 @@ int main(void)
         usleep(tox_iteration_interval(tox2) * 1000);
         if (ft_fin == 1)
         {
+            // HINT: in this test the FT should NOT finish ok!
+            exit(99);
+        }
+        
+        if (ft_cancel[2] == 1)
+        {
+            // HINT: both parties know that the FT was canceled. this is the expected result.
+            //       the sender got the signal to cancel the non existing FTv2.
             break;
         }
     }
