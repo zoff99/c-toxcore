@@ -56,7 +56,7 @@ jobs:
           -DMUST_BUILD_TOXAV=ON \
           -DNON_HERMETIC_TESTS=OFF \
           -DSTRICT_ABI=OFF \
-          -DUSE_IPV6=OFF \
+          -DUSE_IPV6=ON \
           -DAUTOTEST=OFF \
           -DBUILD_MISC_TESTS=OFF \
           -DBUILD_FUN_UTILS=OFF
