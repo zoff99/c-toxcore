@@ -104,7 +104,8 @@ echo $LD_LIBRARY_PATH
 pkg-config --cflags toxcore libavcodec libavutil x264 opus vpx libsodium
 pkg-config --libs toxcore libavcodec libavutil x264 opus vpx libsodium
 
-for i in $(ls -1 ./custom_tests/*.c) ; do
+# HINT: for local runs use *.c and *.l as source files
+for i in $(ls -1 ./custom_tests/*.[cl]) ; do
     echo "CCC:--------------- ""$i"" ---------------"
     rm -f test
     clang -g -O1 -fno-omit-frame-pointer -fsanitize=address \

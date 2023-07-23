@@ -41,8 +41,9 @@ const char *savedata_filename2 = "savedata2.tox";
 FILE *logfile = NULL;
 uint8_t key_bin_rec[TOX_FILE_ID_LENGTH];
 
-const uint64_t totalf_size = 100 * 1024 * 1024;
+const uint64_t totalf_size = 20 * 1024 * 1024;
 uint64_t cur_recv_pos = 0;
+uint64_t cur_send_pos = 0;
 uint32_t print_counter = 0;
 uint8_t *send_file;
 uint8_t *recv_file;
@@ -295,7 +296,7 @@ static Tox* tox_init(int num)
     dbg(0, "setting Tor Relay mode\n");
     options.udp_enabled = false; // TCP mode
     dbg(0, "setting TCP mode\n");
-    const char *proxy_host = "localhost";
+    const char *proxy_host = "127.0.0.1";
     dbg(0, "setting proxy_host %s\n", proxy_host);
     uint16_t proxy_port = PROXY_PORT_TOR_DEFAULT;
     dbg(0, "setting proxy_port %d\n", (int)proxy_port);
@@ -542,6 +543,13 @@ static void file_chunk_request(Tox *tox, uint32_t friend_number, uint32_t file_n
     memcpy((f_data + TOX_FILE_ID_LENGTH), (send_file + position), length);
     memcpy(f_data, key_bin_rec, TOX_FILE_ID_LENGTH);
 
+    if ((position != 0) && ((cur_send_pos + length) != position))
+    {
+        dbg(9, "[%d]:file_chunk_request SENDER received SEEK filenum=%d cur_pos=%lu request_pos=%lu length=%d\n",
+            num, file_number, cur_send_pos, position, (int)length);
+    }
+
+    cur_send_pos = position;
     Tox_Err_File_Send_Chunk error;
     tox_file_send_chunk(tox, friend_number, file_number, position, f_data, (length + TOX_FILE_ID_LENGTH), &error);
 
@@ -716,13 +724,14 @@ int main(void)
         if (cur_recv_pos > ((totalf_size / 2) + 1))
         {
             dbg(9, "[%d]:receiving position at %lu\n", 0, cur_recv_pos);
+            dbg(9, "[%d]:sending   position at %lu\n", 0, cur_send_pos);
             break;
         }
     }
 
     dbg(9, "[%d]:sender stops iterating\n", 0);
 
-    const int secs = 65;
+    const int secs = 90;
     for (int i=0;i<(20*secs);i++) {
         tox_iterate(tox2, (void *)&num2);
         usleep(50*1000);
