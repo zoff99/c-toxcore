@@ -529,6 +529,11 @@ static void file_chunk_request(Tox *tox, uint32_t friend_number, uint32_t file_n
     memcpy((f_data + TOX_FILE_ID_LENGTH), (send_file + position), length);
     memcpy(f_data, key_bin_rec, TOX_FILE_ID_LENGTH);
 
+    if ((position != 0) && ((cur_send_pos + length) != position))
+    {
+        dbg(9, "[%d]:file_chunk_request SENDER received SEEK filenum=%d cur_pos=%lu request_pos=%lu length=%d\n",
+            num, file_number, cur_send_pos, position, (int)length);
+    }
     cur_send_pos = position;
 
     Tox_Err_File_Send_Chunk error;
