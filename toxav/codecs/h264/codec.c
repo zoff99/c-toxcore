@@ -816,7 +816,12 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         }
 
         // vc->h264_decoder->flags |= AV_CODEC_FLAG_OUTPUT_CORRUPT;
+
+#ifdef AV_CODEC_FLAG2_SHOW_ALL
         vc->h264_decoder->flags |= AV_CODEC_FLAG2_SHOW_ALL;
+#else
+        LOGGER_API_WARNING(av->tox, "!! AV_CODEC_FLAG2_SHOW_ALL not defined by ffmpeg version !!");
+#endif
         // vc->h264_decoder->flags2 |= AV_CODEC_FLAG2_FAST;
         // vc->h264_decoder->flags |= AV_CODEC_FLAG_TRUNCATED;
         // vc->h264_decoder->flags2 |= AV_CODEC_FLAG2_CHUNKS;
