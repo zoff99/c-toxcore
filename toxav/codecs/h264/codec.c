@@ -1557,8 +1557,11 @@ void decode_frame_h264(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
 #else
                 int32_t delta_value = (int32_t)(h_frame_record_timestamp - frame->pkt_pts);
 #endif
+
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 0, 0)
                 LOGGER_API_DEBUG(vc->av->tox, "out_pts:%lu %lu %ld %ld",
                         frame->pts, frame->pkt_dts, frame->best_effort_timestamp, frame->pkt_pos);
+#endif
 
                 LOGGER_API_DEBUG(vc->av->tox, "dec:XX:03:%d %d %d %d %d",
                         delta_value,
