@@ -18,6 +18,9 @@ add_flag -Wno-error=missing-variable-declarations
 add_flag -Wno-error=missing-prototypes
 add_flag -Wno-error=embedded-directive
 add_flag -Wno-error=unused-macros
+# for newest LLVM
+add_flag -Wno-error=unsafe-buffer-usage
+add_flag -Wno-error=cast-function-type-strict
 
 cmake -B_build -H. -GNinja \
   -DCMAKE_C_FLAGS="$C_FLAGS" \
