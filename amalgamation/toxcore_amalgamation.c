@@ -76496,6 +76496,15 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
 
     pthread_mutex_lock(call->toxav_call_mutex);
     // HINT: auto switch encoder, if we got capabilities packet from friend ------
+    if (call->video->video_encoder_coded_used != TOXAV_ENCODER_CODEC_USED_H264) {
+        const uint64_t friend_caps = tox_friend_get_capabilities(av->tox, friend_number);
+        LOGGER_API_DEBUG(av->tox, "-------> CCCCCC:%ld", (long)friend_caps);
+        if ((friend_caps & TOX_CAPABILITY_TOXAV_H264) != 0) {
+            LOGGER_API_DEBUG(av->tox, "-------> HHH___: * set *");
+            call->video->h264_video_capabilities_received = 1;
+        }
+    }
+
     if ((call->video->h264_video_capabilities_received == 1)
             &&
             (call->video->video_encoder_coded_used != TOXAV_ENCODER_CODEC_USED_H264)) {
@@ -76818,6 +76827,15 @@ bool toxav_video_send_frame_h264_age(ToxAV *av, uint32_t friend_number, uint16_t
     int16_t force_reinit_encoder = -1;
 
     // HINT: auto switch encoder, if we got capabilities packet from friend ------
+    if (call->video->video_encoder_coded_used != TOXAV_ENCODER_CODEC_USED_H264) {
+        const uint64_t friend_caps = tox_friend_get_capabilities(av->tox, friend_number);
+        LOGGER_API_DEBUG(av->tox, "-------> CCCCCC:%ld", (long)friend_caps);
+        if ((friend_caps & TOX_CAPABILITY_TOXAV_H264) != 0) {
+            LOGGER_API_DEBUG(av->tox, "-------> HHH___: * set *");
+            call->video->h264_video_capabilities_received = 1;
+        }
+    }
+
     if ((call->video->h264_video_capabilities_received == 1)
             &&
             (call->video->video_encoder_coded_used != TOXAV_ENCODER_CODEC_USED_H264)) {
