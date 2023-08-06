@@ -6600,7 +6600,6 @@ static bool peer_delete(const GC_Session *c, GC_Chat *chat, uint32_t peer_number
     gcc_peer_cleanup(&peer->gconn);
 
     --chat->numpeers;
-    LOGGER_DEBUG(chat->log, "chat->numpeers-- %d", chat->numpeers);
 
     if (chat->numpeers != peer_number) {
         chat->group[peer_number] = chat->group[chat->numpeers];
@@ -6716,7 +6715,6 @@ int peer_add(GC_Chat *chat, const IP_Port *ipp, const uint8_t *public_key)
     }
 
     ++chat->numpeers;
-    LOGGER_DEBUG(chat->log, "chat->numpeers++ %d", chat->numpeers);
     chat->group = tmp_group;
 
     chat->group[peer_number] = (GC_Peer) {
@@ -6832,7 +6830,6 @@ static void do_peer_connections(const GC_Session *c, GC_Chat *chat, void *userda
         }
 
         if (peer_timed_out(chat->mono_time, gconn)) {
-            // HINT(zoff): this one kicks out all the offline peers, all the time. and later they get loaded again
             gcc_mark_for_deletion(gconn, chat->tcp_conn, GC_EXIT_TYPE_TIMEOUT, nullptr, 0);
             continue;
         }
@@ -6898,7 +6895,6 @@ static void add_gc_peer_timeout_list(GC_Chat *chat, const GC_Connection *gconn)
 non_null(1, 2) nullable(3)
 static void do_peer_delete(const GC_Session *c, GC_Chat *chat, void *userdata)
 {
-    bool need_load_saved_peers = false;
     for (uint32_t i = 1; i < chat->numpeers; ++i) {
         const GC_Connection *gconn = get_gc_connection(chat, i);
         assert(gconn != nullptr);
@@ -6913,20 +6909,11 @@ static void do_peer_delete(const GC_Session *c, GC_Chat *chat, void *userdata)
             if (!peer_delete(c, chat, i, userdata)) {
                 LOGGER_ERROR(chat->log, "Failed to delete peer %u", i);
             }
-            need_load_saved_peers = true;
 
             if (i >= chat->numpeers) {
                 break;
             }
         }
-    }
-
-    if (need_load_saved_peers) {
-        // HINT: load peers that were removed above
-        LOGGER_DEBUG(chat->log, "do_peer_delete....load_gc_peers_______");
-        load_gc_peers(chat, chat->saved_peers, GC_MAX_SAVED_PEERS);
-        // const uint64_t tm = mono_time_get(chat->mono_time);
-        // chat->last_time_peers_loaded = tm;
     }
 }
 
