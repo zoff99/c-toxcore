@@ -398,6 +398,9 @@ int64_t get_gc_peer_id_by_public_key(const GC_Chat *chat, const uint8_t *public_
 non_null(1) nullable(3)
 int gc_get_peer_public_key_by_peer_id(const GC_Chat *chat, uint32_t peer_id, uint8_t *public_key);
 
+non_null(1) nullable(3)
+int gc_get_savedpeer_public_key_by_slot_number(const GC_Chat *chat, uint32_t slot_number, uint8_t *public_key);
+
 /** @brief Gets the connection status for peer associated with `peer_id`.
  *
  * Returns 2 if we have a direct (UDP) connection with a peer.
@@ -727,9 +730,6 @@ uint32_t get_group_offline_peercount(const GC_Chat *chat);
 
 non_null()
 void copy_peerlist(const GC_Chat *chat, uint32_t *out_list);
-
-non_null()
-void copy_offline_peerlist(const GC_Chat *chat, uint32_t *out_list);
 
 /** @brief Returns true if peer_number exists */
 non_null()
