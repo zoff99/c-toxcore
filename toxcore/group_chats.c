@@ -3502,7 +3502,7 @@ int64_t get_gc_peer_id_by_public_key(const GC_Chat *chat, const uint8_t *public_
 
 int gc_get_savedpeer_public_key_by_slot_number(const GC_Chat *chat, uint32_t slot_number, uint8_t *public_key)
 {
-    if ((slot_number < 0) || (slot_number > GC_MAX_SAVED_PEERS))
+    if (((int)slot_number < 0) || (slot_number > GC_MAX_SAVED_PEERS))
     {
         return -1;
     }
