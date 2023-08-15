@@ -41,9 +41,6 @@ extern "C" {
 }
 #endif
 
-int global_h264_enc_profile_high_enabled = 0;
-int global_h264_enc_profile_high_enabled_switch = 0;
-
 // HINT: cant get the loglevel enum here for some reason. so here is the workaround.
 #ifndef LOGGER_LEVEL_TRACE
 #define LOGGER_LEVEL_TRACE 0
@@ -513,7 +510,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         x264_param_t param;
 
         // -- set inital value for H264 encoder profile --
-        global_h264_enc_profile_high_enabled = H264_ENCODER_STARTWITH_PROFILE_HIGH;
+        int global_h264_enc_profile_high_enabled = H264_ENCODER_STARTWITH_PROFILE_HIGH;
         // -- set inital value for H264 encoder profile --
 
         // "ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo"
@@ -647,7 +644,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         vc->h264_out_pic2 = av_packet_alloc();
 
         // -- set inital value for H264 encoder profile --
-        global_h264_enc_profile_high_enabled = H264_ENCODER_STARTWITH_PROFILE_HIGH;
+        int global_h264_enc_profile_high_enabled = H264_ENCODER_STARTWITH_PROFILE_HIGH;
         // -- set inital value for H264 encoder profile --
 
         if (global_h264_enc_profile_high_enabled == 1) {
@@ -971,12 +968,6 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
         return -1;
     }
 
-    if (global_h264_enc_profile_high_enabled_switch == 1) {
-        global_h264_enc_profile_high_enabled_switch = 0;
-        kf_max_dist = -2;
-        // LOGGER_WARNING(log, "switching H264 encoder profile ...");
-    }
-
     if ((vc->h264_enc_width == width) &&
             (vc->h264_enc_height == height) &&
             (vc->video_rc_max_quantizer == vc->video_rc_max_quantizer_prev) &&
@@ -1032,6 +1023,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
                     x264_param_t param;
 
+                    int global_h264_enc_profile_high_enabled = H264_ENCODER_STARTWITH_PROFILE_HIGH;
                     if (global_h264_enc_profile_high_enabled == 1) {
                         if (x264_param_default_preset(&param, "superfast", "zerolatency,fastdecode") < 0) {
                             // goto fail;
@@ -1171,6 +1163,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
                 vc->h264_encoder2 = avcodec_alloc_context3(codec2);
 
+                int global_h264_enc_profile_high_enabled = H264_ENCODER_STARTWITH_PROFILE_HIGH;
                 if (global_h264_enc_profile_high_enabled == 1) {
                     av_opt_set(vc->h264_encoder2->priv_data, "profile", "high", 0);
                     vc->h264_encoder2->profile               = FF_PROFILE_H264_HIGH; // FF_PROFILE_H264_HIGH;
