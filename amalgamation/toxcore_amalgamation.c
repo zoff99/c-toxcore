@@ -10020,7 +10020,6 @@ uint32_t tox_group_peer_count(const Tox *tox, uint32_t group_number, Tox_Err_Gro
 uint32_t tox_group_offline_peer_count(const Tox *tox, uint32_t group_number, Tox_Err_Group_Peer_Query *error);
 
 void tox_group_get_peerlist(const Tox *tox, uint32_t group_number, uint32_t *peerlist, Tox_Err_Group_Peer_Query *error);
-void tox_group_get_offline_peerlist(const Tox *tox, uint32_t group_number, uint32_t *peerlist, Tox_Err_Group_Peer_Query *error);
 
 /**
  * Return the length of the peer's name. If the group number or ID is invalid, the
@@ -10107,6 +10106,9 @@ Tox_Connection tox_group_peer_get_connection_status(const Tox *tox, uint32_t gro
  * @return true on success.
  */
 bool tox_group_peer_get_public_key(const Tox *tox, uint32_t group_number, uint32_t peer_id, uint8_t *public_key,
+                                   Tox_Err_Group_Peer_Query *error);
+
+bool tox_group_savedpeer_get_public_key(const Tox *tox, uint32_t group_number, uint32_t slot_number, uint8_t *public_key,
                                    Tox_Err_Group_Peer_Query *error);
 
 /**
@@ -12950,6 +12952,9 @@ int64_t get_gc_peer_id_by_public_key(const GC_Chat *chat, const uint8_t *public_
 non_null(1) nullable(3)
 int gc_get_peer_public_key_by_peer_id(const GC_Chat *chat, uint32_t peer_id, uint8_t *public_key);
 
+non_null(1) nullable(3)
+int gc_get_savedpeer_public_key_by_slot_number(const GC_Chat *chat, uint32_t slot_number, uint8_t *public_key);
+
 /** @brief Gets the connection status for peer associated with `peer_id`.
  *
  * Returns 2 if we have a direct (UDP) connection with a peer.
@@ -13279,9 +13284,6 @@ uint32_t get_group_offline_peercount(const GC_Chat *chat);
 
 non_null()
 void copy_peerlist(const GC_Chat *chat, uint32_t *out_list);
-
-non_null()
-void copy_offline_peerlist(const GC_Chat *chat, uint32_t *out_list);
 
 /** @brief Returns true if peer_number exists */
 non_null()
@@ -32291,6 +32293,28 @@ int64_t get_gc_peer_id_by_public_key(const GC_Chat *chat, const uint8_t *public_
     return (chat->group[target_peer_number].peer_id);
 }
 
+int gc_get_savedpeer_public_key_by_slot_number(const GC_Chat *chat, uint32_t slot_number, uint8_t *public_key)
+{
+    if (((int)slot_number < 0) || (slot_number > GC_MAX_SAVED_PEERS))
+    {
+        return -1;
+    }
+
+    if (public_key == nullptr) {
+        return -1;
+    }
+
+    const GC_SavedPeerInfo *saved_peer = &chat->saved_peers[slot_number];
+    if (saved_peer_is_valid(saved_peer)) {
+        const int peernumber = get_peer_number_of_enc_pk(chat, saved_peer->public_key, true);
+        if (peernumber < 0) {
+            memcpy(public_key, saved_peer->public_key, ENC_PUBLIC_KEY_SIZE);
+            return 0;
+        }
+    }
+    return -1;
+}
+
 int gc_get_peer_public_key_by_peer_id(const GC_Chat *chat, uint32_t peer_id, uint8_t *public_key)
 {
     const int peer_number = get_peer_number_of_peer_id(chat, peer_id);
@@ -37084,19 +37108,14 @@ uint32_t get_group_offline_peercount(const GC_Chat *chat)
         return 0;
     }
 
-    if (chat->numpeers == 0) {
-        return 0;
-    }
-
     uint32_t sum = 0;
-
-    for (uint32_t i = 0; i < chat->numpeers; ++i) {
-        const GC_Connection *gconn = get_gc_connection(chat, i);
-
-        assert(gconn != nullptr);
-
-        if (!gconn->confirmed) {
-            ++sum;
+    for (uint16_t i = 0; i < GC_MAX_SAVED_PEERS; ++i) {
+        const GC_SavedPeerInfo *saved_peer = &chat->saved_peers[i];
+        if (saved_peer_is_valid(saved_peer)) {
+            const int peernumber = get_peer_number_of_enc_pk(chat, saved_peer->public_key, true);
+            if (peernumber < 0) {
+                ++sum;
+            }
         }
     }
 
@@ -37125,34 +37144,6 @@ void copy_peerlist(const GC_Chat *chat, uint32_t *out_list)
         assert(gconn != nullptr);
 
         if (gconn->confirmed) {
-            out_list[index] = chat->group[i].peer_id;
-            ++index;
-        }
-    }
-}
-
-void copy_offline_peerlist(const GC_Chat *chat, uint32_t *out_list)
-{
-    if (out_list == nullptr) {
-        return;
-    }
-
-    if (chat == nullptr) {
-        return;
-    }
-
-    if (chat->numpeers == 0) {
-        return;
-    }
-
-    uint32_t index = 0;
-
-    for (uint32_t i = 0; i < chat->numpeers; ++i) {
-        const GC_Connection *gconn = get_gc_connection(chat, i);
-
-        assert(gconn != nullptr);
-
-        if (!gconn->confirmed) {
             out_list[index] = chat->group[i].peer_id;
             ++index;
         }
@@ -62695,32 +62686,6 @@ void tox_group_get_peerlist(const Tox *tox, uint32_t group_number, uint32_t *pee
     return;
 }
 
-void tox_group_get_offline_peerlist(const Tox *tox, uint32_t group_number, uint32_t *peerlist, Tox_Err_Group_Peer_Query *error)
-{
-    assert(tox != nullptr);
-
-    tox_lock(tox);
-    const GC_Chat *chat = gc_get_group(tox->m->group_handler, group_number);
-
-    if (chat == nullptr) {
-        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_GROUP_NOT_FOUND);
-        tox_unlock(tox);
-        return;
-    }
-
-    if (peerlist == nullptr) {
-        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_GROUP_NOT_FOUND);
-        tox_unlock(tox);
-        return;
-    }
-
-    copy_offline_peerlist(chat, peerlist);
-    tox_unlock(tox);
-
-    SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_OK);
-    return;
-}
-
 size_t tox_group_peer_get_name_size(const Tox *tox, uint32_t group_number, uint32_t peer_id,
                                     Tox_Err_Group_Peer_Query *error)
 {
@@ -62823,6 +62788,32 @@ Tox_Group_Role tox_group_peer_get_role(const Tox *tox, uint32_t group_number, ui
 
     SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_OK);
     return (Tox_Group_Role)ret;
+}
+
+bool tox_group_savedpeer_get_public_key(const Tox *tox, uint32_t group_number, uint32_t slot_number, uint8_t *public_key,
+                                   Tox_Err_Group_Peer_Query *error)
+{
+    assert(tox != nullptr);
+
+    tox_lock(tox);
+    const GC_Chat *chat = gc_get_group(tox->m->group_handler, group_number);
+
+    if (chat == nullptr) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_GROUP_NOT_FOUND);
+        tox_unlock(tox);
+        return false;
+    }
+
+    const int ret = gc_get_savedpeer_public_key_by_slot_number(chat, slot_number, public_key);
+    tox_unlock(tox);
+
+    if (ret == -1) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_PEER_NOT_FOUND);
+        return false;
+    }
+
+    SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_OK);
+    return true;
 }
 
 bool tox_group_peer_get_public_key(const Tox *tox, uint32_t group_number, uint32_t peer_id, uint8_t *public_key,
@@ -79368,9 +79359,6 @@ extern "C" {
 }
 #endif
 
-int global_h264_enc_profile_high_enabled = 0;
-int global_h264_enc_profile_high_enabled_switch = 0;
-
 // HINT: cant get the loglevel enum here for some reason. so here is the workaround.
 #ifndef LOGGER_LEVEL_TRACE
 #define LOGGER_LEVEL_TRACE 0
@@ -79840,7 +79828,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         x264_param_t param;
 
         // -- set inital value for H264 encoder profile --
-        global_h264_enc_profile_high_enabled = H264_ENCODER_STARTWITH_PROFILE_HIGH;
+        int global_h264_enc_profile_high_enabled = H264_ENCODER_STARTWITH_PROFILE_HIGH;
         // -- set inital value for H264 encoder profile --
 
         // "ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo"
@@ -79974,7 +79962,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         vc->h264_out_pic2 = av_packet_alloc();
 
         // -- set inital value for H264 encoder profile --
-        global_h264_enc_profile_high_enabled = H264_ENCODER_STARTWITH_PROFILE_HIGH;
+        int global_h264_enc_profile_high_enabled = H264_ENCODER_STARTWITH_PROFILE_HIGH;
         // -- set inital value for H264 encoder profile --
 
         if (global_h264_enc_profile_high_enabled == 1) {
@@ -80298,12 +80286,6 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
         return -1;
     }
 
-    if (global_h264_enc_profile_high_enabled_switch == 1) {
-        global_h264_enc_profile_high_enabled_switch = 0;
-        kf_max_dist = -2;
-        // LOGGER_WARNING(log, "switching H264 encoder profile ...");
-    }
-
     if ((vc->h264_enc_width == width) &&
             (vc->h264_enc_height == height) &&
             (vc->video_rc_max_quantizer == vc->video_rc_max_quantizer_prev) &&
@@ -80359,6 +80341,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
                     x264_param_t param;
 
+                    int global_h264_enc_profile_high_enabled = H264_ENCODER_STARTWITH_PROFILE_HIGH;
                     if (global_h264_enc_profile_high_enabled == 1) {
                         if (x264_param_default_preset(&param, "superfast", "zerolatency,fastdecode") < 0) {
                             // goto fail;
@@ -80498,6 +80481,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
                 vc->h264_encoder2 = avcodec_alloc_context3(codec2);
 
+                int global_h264_enc_profile_high_enabled = H264_ENCODER_STARTWITH_PROFILE_HIGH;
                 if (global_h264_enc_profile_high_enabled == 1) {
                     av_opt_set(vc->h264_encoder2->priv_data, "profile", "high", 0);
                     vc->h264_encoder2->profile               = FF_PROFILE_H264_HIGH; // FF_PROFILE_H264_HIGH;
