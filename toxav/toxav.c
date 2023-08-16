@@ -2667,3 +2667,343 @@ Mono_Time *toxav_get_av_mono_time(ToxAV *toxav)
 
     return toxav->toxav_mono_time;
 }
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+// for H264 ----------
+#include <libavutil/opt.h>
+// for H264 ----------
+#ifdef __cplusplus
+}
+#endif
+
+struct ToxAV_NGC_vcoders {
+    x264_picture_t ngc__h264_in_pic;
+    x264_picture_t ngc__h264_out_pic;
+    x264_t *ngc__h264_encoder;
+    uint32_t ngc__v_encoder_bitrate;
+    uint16_t ngc__v_width;
+    uint16_t ngc__v_height;
+    AVCodecContext *ngc__h264_decoder;
+};
+
+void* toxav_ngc_video_init()
+{
+    struct ToxAV_NGC_vcoders *ngc_video_coders = calloc(1, sizeof(struct ToxAV_NGC_vcoders));
+
+
+    // ENCODER -------
+    x264_param_t param;
+    if (x264_param_default_preset(&param, "ultrafast", "zerolatency,fastdecode") < 0) {
+        // log warning
+    }
+
+#define NGC__H264_DECODER_THREADS 4
+#define NGC__H264_DECODER_THREAD_FRAME_ACTIVE 1
+#define NGC__X264_ENCODER_THREADS 4
+#define NGC__X264_ENCODER_SLICES 4
+#define NGC__VIDEO_F_RATE_TOLERANCE_H264 1.3
+#define NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 500
+#define NGC__VIDEO_BUF_FACTOR_H264 1
+#define NGC__VIDEO_MAX_KF_H264 30 // 60 index frame every x frames, sadly also SPS and PPS gets sent only every x frames :-(
+
+    /* Configure non-default params */
+    param.i_csp = X264_CSP_I420;
+    param.i_width  = 480; // 240;
+    param.i_height = 640; // 320;
+
+    ngc_video_coders->ngc__v_width = param.i_width;
+    ngc_video_coders->ngc__v_height = param.i_height;
+
+    param.i_threads = NGC__X264_ENCODER_THREADS;
+    param.b_sliced_threads = true;
+    param.i_slice_count = NGC__X264_ENCODER_SLICES;
+
+    param.b_deterministic = false;
+    param.b_intra_refresh = 16;
+    param.rc.i_lookahead = 0;
+    param.i_bframe = 0;
+    param.i_keyint_max = NGC__VIDEO_MAX_KF_H264;
+    param.b_vfr_input = 1; /* VFR input.  If 1, use timebase and timestamps for ratecontrol purposes.
+                            * If 0, use fps only. */
+    param.i_timebase_num = 1;       // 1 ms = timebase units = (1/1000)s
+    param.i_timebase_den = 1000;   // 1 ms = timebase units = (1/1000)s
+    param.b_repeat_headers = 1;
+    param.b_annexb = 1;
+
+    param.rc.f_rate_tolerance = NGC__VIDEO_BITRATE_INITIAL_VALUE_H264;
+    param.rc.i_vbv_buffer_size = NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 * NGC__VIDEO_BUF_FACTOR_H264;
+    param.rc.i_vbv_max_bitrate = NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 * 1;
+
+    param.rc.i_qp_min = 3;
+    param.rc.i_qp_max = 51; // max quantizer for x264
+
+    ngc_video_coders->ngc__v_encoder_bitrate = NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 * 1000;
+
+    param.rc.b_stat_read = 0;
+    param.rc.b_stat_write = 0;
+
+    param.i_log_level = X264_LOG_ERROR; // X264_LOG_NONE;
+
+    if (x264_param_apply_profile(&param, "baseline") < 0) { // "baseline", "main", "high", "high10", "high422", "high444"
+        // log warning
+    }
+
+    if (x264_picture_alloc(&(ngc_video_coders->ngc__h264_in_pic), param.i_csp, param.i_width, param.i_height) < 0) {
+        // log error
+    }
+
+    // vc->h264_in_pic.img.plane[0] --> Y
+    // vc->h264_in_pic.img.plane[1] --> U
+    // vc->h264_in_pic.img.plane[2] --> V
+
+    ngc_video_coders->ngc__h264_encoder = x264_encoder_open(&param);
+
+    // ENCODER -------
+
+
+
+
+    // DECODER -------
+
+    const AVCodec *codec = NULL;
+    ngc_video_coders->ngc__h264_decoder = NULL;
+
+// https://github.com/FFmpeg/FFmpeg/blob/70d25268c21cbee5f08304da95be1f647c630c15/doc/APIchanges#L86
+// Deprecate use of av_register_all()
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
+    avcodec_register_all();
+#endif
+
+    codec = avcodec_find_decoder(AV_CODEC_ID_H264);
+
+    if (!codec) {
+        // log error: codec not found H264 on decoder
+    }
+
+    ngc_video_coders->ngc__h264_decoder = avcodec_alloc_context3(codec);
+
+#if LIBAVCODEC_VERSION_MAJOR < 60
+    if (codec->capabilities & AV_CODEC_CAP_TRUNCATED) {
+        ngc_video_coders->ngc__h264_decoder->flags |= AV_CODEC_FLAG_TRUNCATED; /* we do not send complete frames */
+    }
+#endif
+    if (codec->capabilities & AV_CODEC_FLAG_LOW_DELAY) {
+        ngc_video_coders->ngc__h264_decoder->flags |= AV_CODEC_FLAG_LOW_DELAY;
+    }
+
+#ifdef AV_CODEC_FLAG2_SHOW_ALL
+    ngc_video_coders->ngc__h264_decoder->flags |= AV_CODEC_FLAG2_SHOW_ALL;
+#endif
+
+    if (NGC__H264_DECODER_THREADS > 0) {
+        if (codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
+            ngc_video_coders->ngc__h264_decoder->thread_count = NGC__H264_DECODER_THREADS;
+            ngc_video_coders->ngc__h264_decoder->thread_type = FF_THREAD_SLICE;
+            ngc_video_coders->ngc__h264_decoder->active_thread_type = FF_THREAD_SLICE;
+        }
+
+        if (NGC__H264_DECODER_THREAD_FRAME_ACTIVE == 1) {
+            if (codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) {
+                ngc_video_coders->ngc__h264_decoder->thread_count = NGC__H264_DECODER_THREADS;
+                ngc_video_coders->ngc__h264_decoder->thread_type |= FF_THREAD_FRAME;
+                ngc_video_coders->ngc__h264_decoder->active_thread_type |= FF_THREAD_FRAME;
+            }
+        }
+    }
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59, 0, 0)
+    ngc_video_coders->ngc__h264_decoder->refcounted_frames = 0;
+#endif
+    /*   When AVCodecContext.refcounted_frames is set to 0, the returned
+    *             reference belongs to the decoder and is valid only until the
+    *             next call to this function or until closing or flushing the
+    *             decoder. The caller may not write to it.
+    */
+#pragma GCC diagnostic pop
+
+
+    ngc_video_coders->ngc__h264_decoder->delay = 0;
+#define NGC__AV_OPT_SEARCH_CHILDREN   (1 << 0)
+    av_opt_set_int(ngc_video_coders->ngc__h264_decoder->priv_data, "delay", 0, NGC__AV_OPT_SEARCH_CHILDREN);
+
+    ngc_video_coders->ngc__h264_decoder->time_base = (AVRational) {
+        1, 30
+    };
+    ngc_video_coders->ngc__h264_decoder->framerate = (AVRational) {
+        30, 1
+    };
+
+    if (avcodec_open2(ngc_video_coders->ngc__h264_decoder, codec, NULL) < 0) {
+        // log error: could not open codec H264 on decoder
+    }
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59, 0, 0)
+    ngc_video_coders->ngc__h264_decoder->refcounted_frames = 0;
+#endif
+#pragma GCC diagnostic pop
+    /*   When AVCodecContext.refcounted_frames is set to 0, the returned
+    *             reference belongs to the decoder and is valid only until the
+    *             next call to this function or until closing or flushing the
+    *             decoder. The caller may not write to it.
+    */
+
+    // DECODER -------
+
+    return (void*)ngc_video_coders;
+}
+
+void toxav_ngc_video_kill(void *vngc)
+{
+    struct ToxAV_NGC_vcoders *ngc_video_coders = (struct ToxAV_NGC_vcoders*)vngc;
+    // encoder
+    if (ngc_video_coders->ngc__h264_encoder) {
+        x264_encoder_close(ngc_video_coders->ngc__h264_encoder);
+        x264_picture_clean(&(ngc_video_coders->ngc__h264_in_pic));
+    }
+    // decoder
+    if (ngc_video_coders->ngc__h264_decoder->extradata) {
+        av_free(ngc_video_coders->ngc__h264_decoder->extradata);
+        ngc_video_coders->ngc__h264_decoder->extradata = NULL;
+    }
+    avcodec_free_context(&ngc_video_coders->ngc__h264_decoder);
+    free(ngc_video_coders);
+}
+
+bool toxav_ngc_video_encode(void *vngc, const uint16_t vbitrate, const uint16_t width, const uint16_t height,
+                            const uint8_t *y, const uint8_t *u, const uint8_t *v,
+                            uint8_t *encoded_frame_bytes, uint32_t *encoded_frame_size_bytes)
+{
+    if ((vngc == nullptr) || (encoded_frame_size_bytes == nullptr)) {
+        return false;
+    }
+
+    struct ToxAV_NGC_vcoders *ngc_video_coders = (struct ToxAV_NGC_vcoders*)vngc;
+
+    memcpy(ngc_video_coders->ngc__h264_in_pic.img.plane[0], y, width * height);
+    memcpy(ngc_video_coders->ngc__h264_in_pic.img.plane[1], u, (width / 2) * (height / 2));
+    memcpy(ngc_video_coders->ngc__h264_in_pic.img.plane[2], v, (width / 2) * (height / 2));
+
+    ngc_video_coders->ngc__h264_in_pic.i_type = X264_TYPE_AUTO;
+
+    x264_nal_t *nal = nullptr;
+    int i_nal;
+    int i_frame_size = x264_encoder_encode(ngc_video_coders->ngc__h264_encoder,
+                                        &nal,
+                                        &i_nal,
+                                        &(ngc_video_coders->ngc__h264_in_pic),
+                                        &(ngc_video_coders->ngc__h264_out_pic));
+
+    if (i_frame_size < 0) {
+        return false;
+    } else if (i_frame_size == 0) {
+        return false;
+    }
+    if (nal == NULL) {
+        return false;
+    }
+    if (nal->p_payload == nullptr) {
+        return false;
+    }
+
+    if (i_frame_size > 36989) {
+        // log error: encoded frame does not fit in NGC custom packet
+        return false;
+    }
+
+    *encoded_frame_size_bytes = i_frame_size;
+    memcpy(encoded_frame_bytes, (const uint8_t *)(nal->p_payload), i_frame_size);
+    return true;
+}
+
+bool toxav_ngc_video_decode(void *vngc, const uint8_t *encoded_frame_bytes, uint32_t encoded_frame_size_bytes,
+                            uint16_t width, uint16_t height,
+                            const uint8_t *y, const uint8_t *u, const uint8_t *v,
+                            int32_t *ystride, int32_t *ustride, int32_t *vstride)
+{
+    if (vngc == nullptr) {
+        return false;
+    }
+
+    struct ToxAV_NGC_vcoders *ngc_video_coders = (struct ToxAV_NGC_vcoders*)vngc;
+
+    if ((y == nullptr) || (u == nullptr) || (v == nullptr)) {
+        return false;
+    }
+    if ((ystride == nullptr) || (ustride == nullptr) || (vstride == nullptr)) {
+        return false;
+    }
+    if (encoded_frame_bytes == nullptr) {
+        return false;
+    }
+    if (encoded_frame_size_bytes < 1) {
+        return false;
+    }
+
+    AVPacket *compr_data = av_packet_alloc();
+    if (compr_data == NULL) {
+        return false;
+    }
+
+    compr_data->data = encoded_frame_bytes;
+    compr_data->size = (int)encoded_frame_size_bytes; // hmm, "int" again
+
+    int result_send_packet = avcodec_send_packet(ngc_video_coders->ngc__h264_decoder, compr_data);
+    if (result_send_packet != 0) {
+        av_packet_free(&compr_data);
+        return false;
+    }
+
+    int ret_ = 0;
+    int result = false;
+    while (ret_ >= 0) {
+        AVFrame *frame = av_frame_alloc();
+        if (frame == NULL) {
+            break;
+        }
+        ret_ = avcodec_receive_frame(ngc_video_coders->ngc__h264_decoder, frame);
+        if (ret_ == AVERROR(EAGAIN) || ret_ == AVERROR_EOF) {
+            av_frame_free(&frame);
+            continue;
+        } else if (ret_ < 0) {
+            av_frame_free(&frame);
+            continue;
+        } else if (ret_ == 0) {
+            if ((frame->data[0] != NULL) && (frame->data[1] != NULL) && (frame->data[2] != NULL)) {
+                // ------ GOT a VIDEO FRAME ------
+                if ((width < frame->linesize[0]) || (height != frame->height)) {
+                    // log error: video frame stride and height do no match input buffer stride and height
+                    av_frame_free(&frame);
+                    break;
+                } else {
+                    *ystride = frame->linesize[0];
+                    *ustride = frame->linesize[1];
+                    *vstride = frame->linesize[2];
+                    memcpy(y, (const uint8_t *)frame->data[0], frame->height * frame->linesize[0]);
+                    memcpy(u, (const uint8_t *)frame->data[1], (frame->height / 2) * frame->linesize[1]);
+                    memcpy(v, (const uint8_t *)frame->data[2], (frame->height / 2) * frame->linesize[2]);
+                    result = true;
+                    av_frame_free(&frame);
+                    break;
+                }
+                // ------ GOT a VIDEO FRAME ------
+            } else {
+                // log error: no frame data
+            }
+        } else {
+            // log error: some other error
+        }
+        av_frame_free(&frame);
+    }
+    av_packet_free(&compr_data);
+
+    return result;
+}
+
+
