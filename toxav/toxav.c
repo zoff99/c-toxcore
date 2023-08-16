@@ -2689,7 +2689,7 @@ struct ToxAV_NGC_vcoders {
     AVCodecContext *ngc__h264_decoder;
 };
 
-void* toxav_ngc_video_init(const uint16_t v_bitrate)
+void* toxav_ngc_video_init(const uint16_t v_bitrate, const uint16_t max_quantizer)
 {
     struct ToxAV_NGC_vcoders *ngc_video_coders = calloc(1, sizeof(struct ToxAV_NGC_vcoders));
 
@@ -2699,6 +2699,10 @@ void* toxav_ngc_video_init(const uint16_t v_bitrate)
     if (x264_param_default_preset(&param, "ultrafast", "zerolatency,fastdecode") < 0) {
         // log warning
     }
+
+    //if (x264_param_default_preset(&param, "superfast", "zerolatency,fastdecode") < 0) {
+    //    // log warning
+    //}
 
 #define NGC__H264_DECODER_THREADS 4
 #define NGC__H264_DECODER_THREAD_FRAME_ACTIVE 1
@@ -2743,16 +2747,29 @@ void* toxav_ngc_video_init(const uint16_t v_bitrate)
     param.rc.i_vbv_max_bitrate = NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 * 1;
 
     param.rc.i_qp_min = 3;
-    param.rc.i_qp_max = 51; // max quantizer for x264
+
+    // max quantizer for x264
+    if ((max_quantizer < 30) || (max_quantizer > 51))
+    {
+        param.rc.i_qp_max = 49;
+    }
+    else
+    {
+        param.rc.i_qp_max = max_quantizer;
+    }
 
     ngc_video_coders->ngc__v_encoder_bitrate = NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 * 1000;
 
     param.rc.b_stat_read = 0;
     param.rc.b_stat_write = 0;
 
-    param.i_log_level = X264_LOG_ERROR; // X264_LOG_NONE;
+    param.i_log_level = X264_LOG_NONE; // X264_LOG_ERROR; // X264_LOG_NONE;
 
-    if (x264_param_apply_profile(&param, "baseline") < 0) { // "baseline", "main", "high", "high10", "high422", "high444"
+    //if (x264_param_apply_profile(&param, "baseline") < 0) { // "baseline", "main", "high", "high10", "high422", "high444"
+        // log warning
+    //}
+
+    if (x264_param_apply_profile(&param, "high") < 0) {
         // log warning
     }
 
