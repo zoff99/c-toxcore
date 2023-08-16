@@ -1033,7 +1033,7 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
 /**
  * NGC Group Video.
  */
-void* toxav_ngc_video_init(void);
+void* toxav_ngc_video_init(const uint16_t v_bitrate);
 void toxav_ngc_video_kill(void *vngc);
 bool toxav_ngc_video_encode(void *vngc, const uint16_t vbitrate, const uint16_t width, const uint16_t height,
                             const uint8_t *y, const uint8_t *u, const uint8_t *v,

@@ -17407,14 +17407,14 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
 /**
  * NGC Group Video.
  */
-void* toxav_ngc_video_init();
+void* toxav_ngc_video_init(const uint16_t v_bitrate);
 void toxav_ngc_video_kill(void *vngc);
 bool toxav_ngc_video_encode(void *vngc, const uint16_t vbitrate, const uint16_t width, const uint16_t height,
                             const uint8_t *y, const uint8_t *u, const uint8_t *v,
                             uint8_t *encoded_frame_bytes, uint32_t *encoded_frame_size_bytes);
-bool toxav_ngc_video_decode(void *vngc, const uint8_t *encoded_frame_bytes, uint32_t encoded_frame_size_bytes,
+bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t encoded_frame_size_bytes,
                             uint16_t width, uint16_t height,
-                            const uint8_t *y, const uint8_t *u, const uint8_t *v,
+                            uint8_t *y, uint8_t *u, uint8_t *v,
                             int32_t *ystride, int32_t *ustride, int32_t *vstride);
 
 
@@ -77681,7 +77681,7 @@ struct ToxAV_NGC_vcoders {
     AVCodecContext *ngc__h264_decoder;
 };
 
-void* toxav_ngc_video_init()
+void* toxav_ngc_video_init(const uint16_t v_bitrate)
 {
     struct ToxAV_NGC_vcoders *ngc_video_coders = calloc(1, sizeof(struct ToxAV_NGC_vcoders));
 
@@ -77697,7 +77697,6 @@ void* toxav_ngc_video_init()
 #define NGC__X264_ENCODER_THREADS 4
 #define NGC__X264_ENCODER_SLICES 4
 #define NGC__VIDEO_F_RATE_TOLERANCE_H264 1.3
-#define NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 500
 #define NGC__VIDEO_BUF_FACTOR_H264 1
 #define NGC__VIDEO_MAX_KF_H264 30 // 60 index frame every x frames, sadly also SPS and PPS gets sent only every x frames :-(
 
@@ -77724,6 +77723,12 @@ void* toxav_ngc_video_init()
     param.i_timebase_den = 1000;   // 1 ms = timebase units = (1/1000)s
     param.b_repeat_headers = 1;
     param.b_annexb = 1;
+
+    uint16_t NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 = v_bitrate;
+    if ((v_bitrate < 100) || (v_bitrate > 2000))
+    {
+        NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 = 500;
+    }
 
     param.rc.f_rate_tolerance = NGC__VIDEO_BITRATE_INITIAL_VALUE_H264;
     param.rc.i_vbv_buffer_size = NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 * NGC__VIDEO_BUF_FACTOR_H264;
@@ -77914,9 +77919,9 @@ bool toxav_ngc_video_encode(void *vngc, const uint16_t vbitrate, const uint16_t 
     return true;
 }
 
-bool toxav_ngc_video_decode(void *vngc, const uint8_t *encoded_frame_bytes, uint32_t encoded_frame_size_bytes,
+bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t encoded_frame_size_bytes,
                             uint16_t width, uint16_t height,
-                            const uint8_t *y, const uint8_t *u, const uint8_t *v,
+                            uint8_t *y, uint8_t *u, uint8_t *v,
                             int32_t *ystride, int32_t *ustride, int32_t *vstride)
 {
     if (vngc == nullptr) {
