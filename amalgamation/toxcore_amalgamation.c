@@ -77688,13 +77688,13 @@ void* toxav_ngc_video_init(const uint16_t v_bitrate, const uint16_t max_quantize
 
     // ENCODER -------
     x264_param_t param;
-    if (x264_param_default_preset(&param, "ultrafast", "zerolatency,fastdecode") < 0) {
+    //if (x264_param_default_preset(&param, "ultrafast", "zerolatency,fastdecode") < 0) {
         // log warning
-    }
-
-    //if (x264_param_default_preset(&param, "superfast", "zerolatency,fastdecode") < 0) {
-    //    // log warning
     //}
+
+    if (x264_param_default_preset(&param, "superfast", "zerolatency,fastdecode") < 0) {
+    //    // log warning
+    }
 
 #define NGC__H264_DECODER_THREADS 4
 #define NGC__H264_DECODER_THREAD_FRAME_ACTIVE 1
@@ -77702,7 +77702,7 @@ void* toxav_ngc_video_init(const uint16_t v_bitrate, const uint16_t max_quantize
 #define NGC__X264_ENCODER_SLICES 4
 #define NGC__VIDEO_F_RATE_TOLERANCE_H264 1.3
 #define NGC__VIDEO_BUF_FACTOR_H264 1
-#define NGC__VIDEO_MAX_KF_H264 30 // 60 index frame every x frames, sadly also SPS and PPS gets sent only every x frames :-(
+#define NGC__VIDEO_MAX_KF_H264 30 // index frame every x frames, sadly also SPS and PPS gets sent only every x frames :-(
 
     /* Configure non-default params */
     param.i_csp = X264_CSP_I420;
@@ -77725,7 +77725,7 @@ void* toxav_ngc_video_init(const uint16_t v_bitrate, const uint16_t max_quantize
                             * If 0, use fps only. */
     param.i_timebase_num = 1;       // 1 ms = timebase units = (1/1000)s
     param.i_timebase_den = 1000;   // 1 ms = timebase units = (1/1000)s
-    param.b_repeat_headers = 1;
+    param.b_repeat_headers = 1; // HINT: 0 and 1 here is reversed logic !!!
     param.b_annexb = 1;
 
     uint16_t NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 = v_bitrate;
