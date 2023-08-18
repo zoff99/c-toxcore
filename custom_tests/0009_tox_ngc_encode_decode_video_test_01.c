@@ -219,8 +219,8 @@ int main(void)
 
     bool res_enc;
     bool res_dec;
-    int vbitrate = 300;
-    int max_quantizer = 47;
+    int vbitrate = 101;
+    int max_quantizer = 50;
     int w = 480; // 240;
     int h = 640; // 320;
     int y_bytes = w * h;
@@ -250,18 +250,19 @@ int main(void)
         if (f == 0)
         {
             rvbuf(y_buf, y_bytes);
-            rvbuf(u_buf, u_bytes);
-            rvbuf(v_buf, v_bytes);
+            //rvbuf(u_buf, u_bytes);
+            //rvbuf(v_buf, v_bytes);
         }
 
-        if ((f % 100) == 0)
+        if (f == 100)
         {
-            vbitrate = 300 + n_r(200);
+            vbitrate = 1500;
+            max_quantizer = 21;
         }
 
         // dbg(9, "[%d]:false=%d true=%d\n", 0, (int)false, (int)true);
         res_enc = toxav_ngc_video_encode(tox_av_ngc_coders_global,
-                                          vbitrate,
+                                          vbitrate, max_quantizer,
                                           w, h,
                                           y_buf, u_buf, v_buf,
                                           encoded_vframe, &encoded_frame_size_bytes);
@@ -271,7 +272,7 @@ int main(void)
                         res_enc);
 
 
-        if ((f % 60) == 0)
+        if (((f % 60) == 0) && (f != 0))
         {
             flush_decoder = 1;
         }
