@@ -67,7 +67,6 @@ uint64_t last_aframe_recv_ts = 0;
 uint64_t last_aframe_recv_pts = 0;
 
 
-
 // gives a counter value that increaes every millisecond
 static uint64_t current_time_monotonic_default2()
 {
@@ -221,6 +220,7 @@ int main(void)
     bool res_enc;
     bool res_dec;
     int vbitrate = 300;
+    int max_quantizer = 47;
     int w = 480; // 240;
     int h = 640; // 320;
     int y_bytes = w * h;
@@ -240,37 +240,55 @@ int main(void)
     int32_t y_stride;
     int32_t u_stride;
     int32_t v_stride;
-    uint8_t *encoded_vframe = calloc(1, 40000);
+    uint8_t flush_decoder = 0;
+    uint8_t *encoded_vframe = calloc(1, 50000);
     uint32_t encoded_frame_size_bytes = 0;
-    void* tox_av_ngc_coders_global = toxav_ngc_video_init(500, 47);
+    void* tox_av_ngc_coders_global = toxav_ngc_video_init(vbitrate, max_quantizer);
 
     for(int f=0;f<200;f++)
     {
-        if (f==0)
+        if (f == 0)
         {
             rvbuf(y_buf, y_bytes);
             rvbuf(u_buf, u_bytes);
             rvbuf(v_buf, v_bytes);
         }
-        dbg(9, "[%d]:false=%d true=%d\n", 0, (int)false, (int)true);
+
+        if ((f % 100) == 0)
+        {
+            vbitrate = 300 + n_r(200);
+        }
+
+        // dbg(9, "[%d]:false=%d true=%d\n", 0, (int)false, (int)true);
         res_enc = toxav_ngc_video_encode(tox_av_ngc_coders_global,
                                           vbitrate,
                                           w, h,
                                           y_buf, u_buf, v_buf,
                                           encoded_vframe, &encoded_frame_size_bytes);
-        dbg(9, "[%d]:frame:%d encoded size=%d raw size=%d res=%d\n", 0, f,
+        dbg(9, "[%d]:frame:%d encoded vbitrate=%d size=%d raw size=%d res=%d\n", 0, f, vbitrate,
                         encoded_frame_size_bytes,
                         y_bytes + u_bytes + v_bytes,
                         res_enc);
+
+
+        if ((f % 60) == 0)
+        {
+            flush_decoder = 1;
+        }
+        else
+        {
+            flush_decoder = 0;
+        }
 
         res_dec = toxav_ngc_video_decode(tox_av_ngc_coders_global,
                                             encoded_vframe,
                                             encoded_frame_size_bytes,
                                             w2, h2,
                                             y_dec, u_dec, v_dec,
-                                            &y_stride, &u_stride, &v_stride);
+                                            &y_stride, &u_stride, &v_stride, flush_decoder);
         dbg(9, "[%d]:frame:%d decoded size=%d %d %d (%d) res=%d\n", 0, f, (y_stride * h2), (u_stride * h2), (v_stride * h2),
                         ((y_stride * h2) + (u_stride * h2) + (v_stride * h2)), res_dec);
+        dbg(9, "[%d]:frame:%d decoded ystride=%d ustride=%d vstride=%d\n", 0, f, y_stride, u_stride, v_stride);
     }
 
     toxav_ngc_video_kill(tox_av_ngc_coders_global);
@@ -285,6 +303,8 @@ int main(void)
 
     dbg(9, "--END--\n");
     fclose(logfile);
+
+    exit(1);
 
     return 0;
 } 

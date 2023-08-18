@@ -1041,7 +1041,8 @@ bool toxav_ngc_video_encode(void *vngc, const uint16_t vbitrate, const uint16_t 
 bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t encoded_frame_size_bytes,
                             uint16_t width, uint16_t height,
                             uint8_t *y, uint8_t *u, uint8_t *v,
-                            int32_t *ystride, int32_t *ustride, int32_t *vstride);
+                            int32_t *ystride, int32_t *ustride, int32_t *vstride,
+                            uint8_t flush_decoder);
 
 
 #ifdef __cplusplus

@@ -2679,6 +2679,14 @@ extern "C" {
 }
 #endif
 
+#define NGC__H264_DECODER_THREADS 4
+#define NGC__H264_DECODER_THREAD_FRAME_ACTIVE 1
+#define NGC__X264_ENCODER_THREADS 4
+#define NGC__X264_ENCODER_SLICES 4
+#define NGC__VIDEO_F_RATE_TOLERANCE_H264 1.3
+#define NGC__VIDEO_BUF_FACTOR_H264 1
+#define NGC__VIDEO_MAX_KF_H264 30 // index frame every x frames, sadly also SPS and PPS gets sent only every x frames :-(
+
 struct ToxAV_NGC_vcoders {
     x264_picture_t ngc__h264_in_pic;
     x264_picture_t ngc__h264_out_pic;
@@ -2703,14 +2711,6 @@ void* toxav_ngc_video_init(const uint16_t v_bitrate, const uint16_t max_quantize
     if (x264_param_default_preset(&param, "superfast", "zerolatency,fastdecode") < 0) {
     //    // log warning
     }
-
-#define NGC__H264_DECODER_THREADS 4
-#define NGC__H264_DECODER_THREAD_FRAME_ACTIVE 1
-#define NGC__X264_ENCODER_THREADS 4
-#define NGC__X264_ENCODER_SLICES 4
-#define NGC__VIDEO_F_RATE_TOLERANCE_H264 1.3
-#define NGC__VIDEO_BUF_FACTOR_H264 1
-#define NGC__VIDEO_MAX_KF_H264 30 // index frame every x frames, sadly also SPS and PPS gets sent only every x frames :-(
 
     /* Configure non-default params */
     param.i_csp = X264_CSP_I420;
@@ -2758,7 +2758,7 @@ void* toxav_ngc_video_init(const uint16_t v_bitrate, const uint16_t max_quantize
         param.rc.i_qp_max = max_quantizer;
     }
 
-    ngc_video_coders->ngc__v_encoder_bitrate = NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 * 1000;
+    ngc_video_coders->ngc__v_encoder_bitrate = NGC__VIDEO_BITRATE_INITIAL_VALUE_H264;
 
     param.rc.b_stat_read = 0;
     param.rc.b_stat_write = 0;
@@ -2881,6 +2881,18 @@ void* toxav_ngc_video_init(const uint16_t v_bitrate, const uint16_t max_quantize
     return (void*)ngc_video_coders;
 }
 
+static void toxav_ngc_video_reconfigure_encoder(struct ToxAV_NGC_vcoders *ngc_video_coders)
+{
+    if (ngc_video_coders->ngc__h264_encoder) {
+        x264_param_t param;
+        x264_encoder_parameters(ngc_video_coders->ngc__h264_encoder, &param);
+        param.rc.f_rate_tolerance = VIDEO_F_RATE_TOLERANCE_H264;
+        param.rc.i_vbv_buffer_size = ngc_video_coders->ngc__v_encoder_bitrate * VIDEO_BUF_FACTOR_H264;
+        param.rc.i_vbv_max_bitrate = ngc_video_coders->ngc__v_encoder_bitrate * 1;
+        int res = x264_encoder_reconfig(ngc_video_coders->ngc__h264_encoder, &param);
+    }
+}
+
 void toxav_ngc_video_kill(void *vngc)
 {
     struct ToxAV_NGC_vcoders *ngc_video_coders = (struct ToxAV_NGC_vcoders*)vngc;
@@ -2907,6 +2919,19 @@ bool toxav_ngc_video_encode(void *vngc, const uint16_t vbitrate, const uint16_t 
     }
 
     struct ToxAV_NGC_vcoders *ngc_video_coders = (struct ToxAV_NGC_vcoders*)vngc;
+
+    if (ngc_video_coders->ngc__v_encoder_bitrate != vbitrate)
+    {
+        if ((vbitrate < 100) || (vbitrate > 2000))
+        {
+            ngc_video_coders->ngc__v_encoder_bitrate = 500;
+        }
+        else
+        {
+            ngc_video_coders->ngc__v_encoder_bitrate = vbitrate;
+        }
+        toxav_ngc_video_reconfigure_encoder(ngc_video_coders);
+    }
 
     memcpy(ngc_video_coders->ngc__h264_in_pic.img.plane[0], y, width * height);
     memcpy(ngc_video_coders->ngc__h264_in_pic.img.plane[1], u, (width / 2) * (height / 2));
@@ -2944,10 +2969,25 @@ bool toxav_ngc_video_encode(void *vngc, const uint16_t vbitrate, const uint16_t 
     return true;
 }
 
+static void toxav_ngc_video_flush_decoder(struct ToxAV_NGC_vcoders *ngc_video_coders)
+{
+    if (ngc_video_coders->ngc__h264_decoder) {
+        // Receive and discard frames
+        AVFrame *frame = av_frame_alloc();
+        if (frame != nullptr) {
+            while (avcodec_receive_frame(ngc_video_coders->ngc__h264_decoder, frame) == 0) {
+                av_frame_unref(frame);
+            }
+            av_frame_free(&frame);
+        }
+    }
+}
+
 bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t encoded_frame_size_bytes,
                             uint16_t width, uint16_t height,
                             uint8_t *y, uint8_t *u, uint8_t *v,
-                            int32_t *ystride, int32_t *ustride, int32_t *vstride)
+                            int32_t *ystride, int32_t *ustride, int32_t *vstride,
+                            uint8_t flush_decoder)
 {
     if (vngc == nullptr) {
         return false;
@@ -2968,6 +3008,11 @@ bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t e
         return false;
     }
 
+    // flush decoder
+    if (flush_decoder == 1) {
+        toxav_ngc_video_flush_decoder(ngc_video_coders);
+    }
+
     AVPacket *compr_data = av_packet_alloc();
     if (compr_data == NULL) {
         return false;
@@ -2979,6 +3024,7 @@ bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t e
     int result_send_packet = avcodec_send_packet(ngc_video_coders->ngc__h264_decoder, compr_data);
     if (result_send_packet != 0) {
         av_packet_free(&compr_data);
+        // printf("EEEE:007:res=%d (%d) (%d) (%d) (%d)\n", result_send_packet, AVERROR(EAGAIN), AVERROR_EOF, AVERROR(EINVAL), AVERROR(ENOMEM));
         return false;
     }
 
@@ -2992,7 +3038,7 @@ bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t e
         ret_ = avcodec_receive_frame(ngc_video_coders->ngc__h264_decoder, frame);
         if (ret_ == AVERROR(EAGAIN) || ret_ == AVERROR_EOF) {
             av_frame_free(&frame);
-            continue;
+            break;
         } else if (ret_ < 0) {
             av_frame_free(&frame);
             continue;
@@ -3002,7 +3048,7 @@ bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t e
                 if ((width < frame->linesize[0]) || (height != frame->height)) {
                     // log error: video frame stride and height do no match input buffer stride and height
                     av_frame_free(&frame);
-                    break;
+                    continue;
                 } else {
                     *ystride = frame->linesize[0];
                     *ustride = frame->linesize[1];
@@ -3012,7 +3058,7 @@ bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t e
                     memcpy(v, (const uint8_t *)frame->data[2], (frame->height / 2) * frame->linesize[2]);
                     result = true;
                     av_frame_free(&frame);
-                    break;
+                    continue;
                 }
                 // ------ GOT a VIDEO FRAME ------
             } else {
@@ -3027,5 +3073,4 @@ bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t e
 
     return result;
 }
-
 
