@@ -304,7 +304,5 @@ int main(void)
     dbg(9, "--END--\n");
     fclose(logfile);
 
-    exit(1);
-
     return 0;
 } 
