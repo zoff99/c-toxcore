@@ -2733,7 +2733,7 @@ void* toxav_ngc_video_init(const uint16_t v_bitrate, const uint16_t max_quantize
                             * If 0, use fps only. */
     param.i_timebase_num = 1;       // 1 ms = timebase units = (1/1000)s
     param.i_timebase_den = 1000;   // 1 ms = timebase units = (1/1000)s
-    param.b_repeat_headers = 1; // HINT: 0 and 1 here is reversed logic !!!
+    param.b_repeat_headers = 1;
     param.b_annexb = 1;
 
     uint16_t NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 = v_bitrate;
