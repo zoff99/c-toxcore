@@ -2742,8 +2742,6 @@ static void toxav_ngc_video_init_encoder_only(struct ToxAV_NGC_vcoders *ngc_vide
     param.rc.i_vbv_buffer_size = NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 * NGC__VIDEO_BUF_FACTOR_H264;
     param.rc.i_vbv_max_bitrate = NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 * 1;
 
-    param.rc.i_qp_min = 3;
-
     // max quantizer for x264
     if ((max_quantizer < 20) || (max_quantizer > 51))
     {
@@ -2752,6 +2750,12 @@ static void toxav_ngc_video_init_encoder_only(struct ToxAV_NGC_vcoders *ngc_vide
     else
     {
         param.rc.i_qp_max = max_quantizer;
+    }
+
+    if (param.rc.i_qp_max == 51) {
+        param.rc.i_qp_min = 45;
+    } else {
+        param.rc.i_qp_min = 3;
     }
 
     ngc_video_coders->ngc__v_encoder_max_quantizer = param.rc.i_qp_max;
@@ -2831,8 +2835,6 @@ void* toxav_ngc_video_init(const uint16_t v_bitrate, const uint16_t max_quantize
     param.rc.i_vbv_buffer_size = NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 * NGC__VIDEO_BUF_FACTOR_H264;
     param.rc.i_vbv_max_bitrate = NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 * 1;
 
-    param.rc.i_qp_min = 3;
-
     // max quantizer for x264
     if ((max_quantizer < 20) || (max_quantizer > 51))
     {
@@ -2841,6 +2843,12 @@ void* toxav_ngc_video_init(const uint16_t v_bitrate, const uint16_t max_quantize
     else
     {
         param.rc.i_qp_max = max_quantizer;
+    }
+
+    if (param.rc.i_qp_max == 51) {
+        param.rc.i_qp_min = 45;
+    } else {
+        param.rc.i_qp_min = 3;
     }
 
     ngc_video_coders->ngc__v_encoder_max_quantizer = param.rc.i_qp_max;
@@ -2940,10 +2948,10 @@ void* toxav_ngc_video_init(const uint16_t v_bitrate, const uint16_t max_quantize
     av_opt_set_int(ngc_video_coders->ngc__h264_decoder->priv_data, "delay", 0, NGC__AV_OPT_SEARCH_CHILDREN);
 
     ngc_video_coders->ngc__h264_decoder->time_base = (AVRational) {
-        1, 30
+        1, 15
     };
     ngc_video_coders->ngc__h264_decoder->framerate = (AVRational) {
-        30, 1
+        15, 1
     };
 
     if (avcodec_open2(ngc_video_coders->ngc__h264_decoder, codec, NULL) < 0) {
