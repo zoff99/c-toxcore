@@ -3041,7 +3041,7 @@ bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t e
             break;
         } else if (ret_ < 0) {
             av_frame_free(&frame);
-            continue;
+            break;
         } else if (ret_ == 0) {
             if ((frame->data[0] != NULL) && (frame->data[1] != NULL) && (frame->data[2] != NULL)) {
                 // ------ GOT a VIDEO FRAME ------
