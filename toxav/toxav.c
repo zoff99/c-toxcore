@@ -2679,13 +2679,17 @@ extern "C" {
 }
 #endif
 
-#define NGC__H264_DECODER_THREADS 4
-#define NGC__H264_DECODER_THREAD_FRAME_ACTIVE 1
 #define NGC__X264_ENCODER_THREADS 4
 #define NGC__X264_ENCODER_SLICES 4
+
 #define NGC__VIDEO_F_RATE_TOLERANCE_H264 1.3
 #define NGC__VIDEO_BUF_FACTOR_H264 1
 #define NGC__VIDEO_MAX_KF_H264 30 // index frame every x frames, sadly also SPS and PPS gets sent only every x frames :-(
+
+#define NGC__H264_DECODER_THREADS 4
+#define NGC__H264_DECODER_THREAD_FRAME_ACTIVE 1
+
+
 
 struct ToxAV_NGC_vcoders {
     x264_picture_t ngc__h264_in_pic;
@@ -2792,94 +2796,10 @@ void* toxav_ngc_video_init(const uint16_t v_bitrate, const uint16_t max_quantize
     struct ToxAV_NGC_vcoders *ngc_video_coders = calloc(1, sizeof(struct ToxAV_NGC_vcoders));
 
     // ENCODER -------
-    x264_param_t param;
-    if (x264_param_default_preset(&param, "ultrafast", "zerolatency,fastdecode") < 0) {
-        // log warning
-    }
-
-    //if (x264_param_default_preset(&param, "superfast", "zerolatency,fastdecode") < 0) {
-    //    // log warning
-    //}
-
-    /* Configure non-default params */
-    param.i_csp = X264_CSP_I420;
-    param.i_width  = 480; // 240;
-    param.i_height = 640; // 320;
-
-    ngc_video_coders->ngc__v_width = param.i_width;
-    ngc_video_coders->ngc__v_height = param.i_height;
-
-    param.i_threads = NGC__X264_ENCODER_THREADS;
-    param.b_sliced_threads = true;
-    param.i_slice_count = NGC__X264_ENCODER_SLICES;
-
-    param.b_deterministic = false;
-    param.b_intra_refresh = 16;
-    param.rc.i_lookahead = 0;
-    param.i_bframe = 0;
-    param.i_keyint_max = NGC__VIDEO_MAX_KF_H264;
-    param.b_vfr_input = 1; /* VFR input.  If 1, use timebase and timestamps for ratecontrol purposes.
-                            * If 0, use fps only. */
-    param.i_timebase_num = 1;       // 1 ms = timebase units = (1/1000)s
-    param.i_timebase_den = 1000;   // 1 ms = timebase units = (1/1000)s
-    param.b_repeat_headers = 1;
-    param.b_annexb = 1;
-
-    uint16_t NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 = v_bitrate;
-    if ((v_bitrate < 90) || (v_bitrate > 2000))
-    {
-        NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 = 200;
-    }
-
-    param.rc.f_rate_tolerance = NGC__VIDEO_BITRATE_INITIAL_VALUE_H264;
-    param.rc.i_vbv_buffer_size = NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 * NGC__VIDEO_BUF_FACTOR_H264;
-    param.rc.i_vbv_max_bitrate = NGC__VIDEO_BITRATE_INITIAL_VALUE_H264 * 1;
-
-    // max quantizer for x264
-    if ((max_quantizer < 20) || (max_quantizer > 51))
-    {
-        param.rc.i_qp_max = 49;
-    }
-    else
-    {
-        param.rc.i_qp_max = max_quantizer;
-    }
-
-    if (param.rc.i_qp_max == 51) {
-        param.rc.i_qp_min = 45;
-    } else {
-        param.rc.i_qp_min = 3;
-    }
-
-    ngc_video_coders->ngc__v_encoder_max_quantizer = param.rc.i_qp_max;
-    ngc_video_coders->ngc__v_encoder_bitrate = NGC__VIDEO_BITRATE_INITIAL_VALUE_H264;
-
-    param.rc.b_stat_read = 0;
-    param.rc.b_stat_write = 0;
-
-    param.i_log_level = X264_LOG_ERROR; // X264_LOG_ERROR; // X264_LOG_NONE;
-
-    if (x264_param_apply_profile(&param, "baseline") < 0) { // "baseline", "main", "high", "high10", "high422", "high444"
-        // log warning
-    }
-
-    //if (x264_param_apply_profile(&param, "high") < 0) {
-        // log warning
-    //}
-
-    if (x264_picture_alloc(&(ngc_video_coders->ngc__h264_in_pic), param.i_csp, param.i_width, param.i_height) < 0) {
-        // log error
-    }
-
-    // vc->h264_in_pic.img.plane[0] --> Y
-    // vc->h264_in_pic.img.plane[1] --> U
-    // vc->h264_in_pic.img.plane[2] --> V
-
-    ngc_video_coders->ngc__h264_encoder = x264_encoder_open(&param);
-
+    toxav_ngc_video_init_encoder_only(ngc_video_coders,
+            ngc_video_coders->ngc__v_encoder_bitrate,
+            ngc_video_coders->ngc__v_encoder_max_quantizer);
     // ENCODER -------
-
-
 
 
     // DECODER -------
@@ -2942,7 +2862,6 @@ void* toxav_ngc_video_init(const uint16_t v_bitrate, const uint16_t max_quantize
     */
 #pragma GCC diagnostic pop
 
-
     ngc_video_coders->ngc__h264_decoder->delay = 0;
 #define NGC__AV_OPT_SEARCH_CHILDREN   (1 << 0)
     av_opt_set_int(ngc_video_coders->ngc__h264_decoder->priv_data, "delay", 0, NGC__AV_OPT_SEARCH_CHILDREN);
@@ -2978,14 +2897,6 @@ void* toxav_ngc_video_init(const uint16_t v_bitrate, const uint16_t max_quantize
 static void toxav_ngc_video_reconfigure_encoder(struct ToxAV_NGC_vcoders *ngc_video_coders)
 {
     if (ngc_video_coders->ngc__h264_encoder) {
-#if 0
-        x264_param_t param;
-        x264_encoder_parameters(ngc_video_coders->ngc__h264_encoder, &param);
-        param.rc.f_rate_tolerance = NGC__VIDEO_F_RATE_TOLERANCE_H264;
-        param.rc.i_vbv_buffer_size = ngc_video_coders->ngc__v_encoder_bitrate * NGC__VIDEO_BUF_FACTOR_H264;
-        param.rc.i_vbv_max_bitrate = ngc_video_coders->ngc__v_encoder_bitrate * 1;
-        int res = x264_encoder_reconfig(ngc_video_coders->ngc__h264_encoder, &param);
-#else
         x264_encoder_close(ngc_video_coders->ngc__h264_encoder);
         x264_picture_clean(&(ngc_video_coders->ngc__h264_in_pic));
         ngc_video_coders->ngc__h264_encoder = nullptr;
@@ -2993,7 +2904,6 @@ static void toxav_ngc_video_reconfigure_encoder(struct ToxAV_NGC_vcoders *ngc_vi
         toxav_ngc_video_init_encoder_only(ngc_video_coders,
                 ngc_video_coders->ngc__v_encoder_bitrate,
                 ngc_video_coders->ngc__v_encoder_max_quantizer);
-#endif
     }
 }
 
@@ -3004,6 +2914,7 @@ void toxav_ngc_video_kill(void *vngc)
     if (ngc_video_coders->ngc__h264_encoder) {
         x264_encoder_close(ngc_video_coders->ngc__h264_encoder);
         x264_picture_clean(&(ngc_video_coders->ngc__h264_in_pic));
+        ngc_video_coders->ngc__h264_encoder = nullptr;
     }
     // decoder
     if (ngc_video_coders->ngc__h264_decoder->extradata) {
@@ -3148,7 +3059,7 @@ bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t e
     int result_send_packet = avcodec_send_packet(ngc_video_coders->ngc__h264_decoder, compr_data);
     if (result_send_packet != 0) {
         av_packet_free(&compr_data);
-        // printf("EEEE:007:res=%d (%d) (%d) (%d) (%d)\n", result_send_packet, AVERROR(EAGAIN), AVERROR_EOF, AVERROR(EINVAL), AVERROR(ENOMEM));
+        // printf("toxav_ngc_video_decode:error:007:res=%d (%d) (%d) (%d) (%d)\n", result_send_packet, AVERROR(EAGAIN), AVERROR_EOF, AVERROR(EINVAL), AVERROR(ENOMEM));
         return false;
     }
 
