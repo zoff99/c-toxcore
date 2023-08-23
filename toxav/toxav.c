@@ -2689,7 +2689,8 @@ extern "C" {
 #define NGC__H264_DECODER_THREADS 4
 #define NGC__H264_DECODER_THREAD_FRAME_ACTIVE 1
 
-
+// #define NGC___TRIFA_CODEC_DECODER_ 1
+#define NGC__H264_WANT_DECODER_NAME "h264_mediacodec"
 
 struct ToxAV_NGC_vcoders {
     x264_picture_t ngc__h264_in_pic;
@@ -2813,7 +2814,18 @@ void* toxav_ngc_video_init(const uint16_t v_bitrate, const uint16_t max_quantize
     avcodec_register_all();
 #endif
 
+
+#ifdef NGC___TRIFA_CODEC_DECODER_
+    codec = avcodec_find_decoder_by_name(NGC__H264_WANT_DECODER_NAME);
+    if (!codec) {
+        printf("codec not found HW Accel H264 on decoder, trying software decoder ...\n");
+        codec = avcodec_find_decoder(AV_CODEC_ID_H264);
+    } else {
+        printf("FOUND: *HW Accel* H264 on decoder\n");
+    }
+#else
     codec = avcodec_find_decoder(AV_CODEC_ID_H264);
+#endif
 
     if (!codec) {
         // log error: codec not found H264 on decoder
@@ -2872,6 +2884,31 @@ void* toxav_ngc_video_init(const uint16_t v_bitrate, const uint16_t max_quantize
     ngc_video_coders->ngc__h264_decoder->framerate = (AVRational) {
         15, 1
     };
+
+#ifdef NGC___TRIFA_CODEC_DECODER_
+        printf("setting up h264_mediacodec decoder ...\n");
+        const uint8_t sps[] = {0x00, 0x00, 0x00, 0x01,      0x67, 0x42, 0xC0, 0x1E, 0xA6, 0x81, 0xE0, 0x51, 0xA1};
+        // const uint8_t sps[] = {0x00, 0x00, 0x00, 0x01,      0x67, 0x42, 0x80, 0x0C, 0xE4, 0x40, 0xA0, 0xFD, 0x00, 0xDA, 0x14, 0x26, 0xA0};
+        const uint8_t pps[] = {0x00, 0x00, 0x00, 0x01,      0x68, 0xCE, 0x38, 0x80};
+        const size_t sps_pps_size = sizeof(sps) + sizeof(pps);
+
+        ngc_video_coders->ngc__h264_decoder->extradata = (uint8_t *)av_mallocz(sps_pps_size + AV_INPUT_BUFFER_PADDING_SIZE);
+        ngc_video_coders->ngc__h264_decoder->extradata_size = sps_pps_size;
+        memset(&ngc_video_coders->ngc__h264_decoder->extradata[ngc_video_coders->ngc__h264_decoder->extradata_size],
+            0, AV_INPUT_BUFFER_PADDING_SIZE);
+        memcpy(ngc_video_coders->ngc__h264_decoder->extradata, sps, sizeof(sps));
+        memcpy(ngc_video_coders->ngc__h264_decoder->extradata + sizeof(sps), pps, sizeof(pps));
+
+        ngc_video_coders->ngc__h264_decoder->codec_type = AVMEDIA_TYPE_VIDEO;
+        ngc_video_coders->ngc__h264_decoder->codec_id   = AV_CODEC_ID_H264;
+
+        ngc_video_coders->ngc__h264_decoder->pix_fmt                = AV_PIX_FMT_YUV420P;
+        ngc_video_coders->ngc__h264_decoder->width                  = 480;
+        ngc_video_coders->ngc__h264_decoder->height                 = 640;
+        printf("setting up h264_mediacodec decoder ... DONE\n");
+        // av_log_set_level(AV_LOG_ERROR);
+        av_log_set_level(AV_LOG_TRACE);
+#endif
 
     if (avcodec_open2(ngc_video_coders->ngc__h264_decoder, codec, NULL) < 0) {
         // log error: could not open codec H264 on decoder
@@ -3018,6 +3055,78 @@ static void toxav_ngc_video_flush_decoder(struct ToxAV_NGC_vcoders *ngc_video_co
     }
 }
 
+bool is_h264_sps(const uint8_t *data, const uint32_t data_len)
+{
+    if (data_len > 7) {
+        //dbg(9, "SPS:len=%d bytes:%d %d %d %d %d %d %d %d\n", data_len, data[0], data[1], data[2], data[3], data[4],
+        //             data[5], data[6], data[7]);
+
+        if (
+            (data[0] == 0x00)
+            &&
+            (data[1] == 0x00)
+            &&
+            (data[2] == 0x00)
+            &&
+            (data[3] == 0x01)
+            &&
+            (((data[4] & 0x1F) == 7) || ((data[4] & 0x1F) == 8)) // only the lower 5bits of the 4th byte denote the NAL type
+            // 7 --> SPS
+            // 8 --> PPS
+            // (data[4] == 0x67)
+        ) {
+
+            // we found a NAL unit containing the SPS
+            if ((data[4] & 0x1F) == 7)
+            {
+                uint8_t h264_profile = data[5];
+                uint8_t h264_constraint_set0_flag = ((data[6] >> 3)  & 0x01);
+                uint8_t h264_constraint_set3_flag = (data[6]  & 0x01);
+                uint8_t h264_level = data[7];
+
+                if ((h264_profile == 66) && (h264_constraint_set3_flag = 0)) {
+                    printf("profile=%s level=%d\n", "baseline", h264_level);
+                } else if ((h264_profile == 66) && (h264_constraint_set3_flag = 1)) {
+                    printf("profile=%s level=%d\n", "contrained baseline", h264_level);
+                } else if ((h264_profile == 77) && (h264_constraint_set0_flag = 0)) {
+                    printf("profile=%s level=%d\n", "main", h264_level);
+                } else if ((h264_profile == 77) && (h264_constraint_set0_flag = 1)) {
+                    printf("profile=%s level=%d\n", "extended", h264_level);
+                } else if (h264_profile == 100) {
+                    printf("profile=%s level=%d\n", "high", h264_level);
+                } else if (h264_profile == 110) {
+                    printf("profile=%s level=%d\n", "high10", h264_level);
+                } else if (h264_profile == 122) {
+                    printf("profile=%s level=%d\n", "high422", h264_level);
+                } else if (h264_profile == 244) {
+                    printf("profile=%s level=%d\n", "high444", h264_level);
+                } else {
+                    printf("profile=%s level=%d\n", "unkwn", h264_level);
+                }
+            }
+
+            if ((data[4] & 0x1F) == 7)
+            {
+                printf("SPS:");
+            }
+            else
+            {
+                printf("PPS:");
+            }
+            printf(" len=%d", data_len);
+            for(int j=0;j<data_len;j++)
+            {
+                printf(" 0x%02hhX", data[j]);
+            }
+            printf("\n");
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t encoded_frame_size_bytes,
                             uint16_t width, uint16_t height,
                             uint8_t *y, uint8_t *u, uint8_t *v,
@@ -3056,10 +3165,16 @@ bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t e
     compr_data->data = encoded_frame_bytes;
     compr_data->size = (int)encoded_frame_size_bytes; // hmm, "int" again
 
+    // DEBUG // is_h264_sps(compr_data->data, compr_data->size);
+
+    compr_data->dts = 1;
+    compr_data->pts = 2;
+    compr_data->duration = 0;
+
     int result_send_packet = avcodec_send_packet(ngc_video_coders->ngc__h264_decoder, compr_data);
     if (result_send_packet != 0) {
         av_packet_free(&compr_data);
-        // printf("toxav_ngc_video_decode:error:007:res=%d (%d) (%d) (%d) (%d)\n", result_send_packet, AVERROR(EAGAIN), AVERROR_EOF, AVERROR(EINVAL), AVERROR(ENOMEM));
+        //printf("toxav_ngc_video_decode:error:007:res=%d (%d) (%d) (%d) (%d)\n", result_send_packet, AVERROR(EAGAIN), AVERROR_EOF, AVERROR(EINVAL), AVERROR(ENOMEM));
         return false;
     }
 
@@ -3068,20 +3183,25 @@ bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t e
     while (ret_ >= 0) {
         AVFrame *frame = av_frame_alloc();
         if (frame == NULL) {
+            //printf("toxav_ngc_video_decode:error:008\n");
             break;
         }
         ret_ = avcodec_receive_frame(ngc_video_coders->ngc__h264_decoder, frame);
         if (ret_ == AVERROR(EAGAIN) || ret_ == AVERROR_EOF) {
+            //printf("toxav_ngc_video_decode:error:009\n");
             av_frame_free(&frame);
             break;
         } else if (ret_ < 0) {
+            //printf("toxav_ngc_video_decode:error:010\n");
             av_frame_free(&frame);
             break;
         } else if (ret_ == 0) {
+            //printf("toxav_ngc_video_decode:FRAME:011\n");
             if ((frame->data[0] != NULL) && (frame->data[1] != NULL) && (frame->data[2] != NULL)) {
                 // ------ GOT a VIDEO FRAME ------
                 if ((width < frame->linesize[0]) || (height != frame->height)) {
                     // log error: video frame stride and height do no match input buffer stride and height
+                    //printf("toxav_ngc_video_decode:error:012\n");
                     av_frame_free(&frame);
                     continue;
                 } else {
@@ -3092,15 +3212,47 @@ bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t e
                     memcpy(u, (const uint8_t *)frame->data[1], (frame->height / 2) * frame->linesize[1]);
                     memcpy(v, (const uint8_t *)frame->data[2], (frame->height / 2) * frame->linesize[2]);
                     result = true;
+                    //printf("toxav_ngc_video_decode:FRAME:013a:OK\n");
                     av_frame_free(&frame);
                     continue;
                 }
                 // ------ GOT a VIDEO FRAME ------
+            } else if ((frame->format == 23) && (frame->linesize[0] > 1)
+                    && (frame->linesize[1] > 1) && (frame->data[0]) && (frame->data[1])) {
+                    *ystride = frame->linesize[0];
+                    *ustride = frame->linesize[1] / 2;
+                    *vstride = frame->linesize[1] / 2;
+                    memcpy(y, (const uint8_t *)frame->data[0], frame->height * frame->linesize[0]);
+                    const uint8_t *u_c = (const uint8_t *)frame->data[1];
+                    const uint8_t *v_c = (const uint8_t *)frame->data[1];
+                    uint8_t *u_p = u;
+                    uint8_t *v_p = v;
+                    v_p++;
+                    for (int yy=0;yy<(frame->height/2);yy++) {
+                        for (int x=0;x<(*ustride);x++) {
+                            *u_p=*u_c;
+                            *v_p=*v_c;
+                            u_c=u_c+2;
+                            v_c=v_c+2;
+                            u_p++;
+                            v_p++;
+                        }
+                    }
+                    result = true;
+                    //printf("toxav_ngc_video_decode:FRAME:013b:OK\n");
+                    av_frame_free(&frame);
+                    continue;
             } else {
                 // log error: no frame data
+                //printf("toxav_ngc_video_decode:error:014:frame:w=%d h=%d format=%d\n", frame->width, frame->height, frame->format);
+                //for (int i=0; i<AV_NUM_DATA_POINTERS; i++)
+                //{
+                //    printf("toxav_ngc_video_decode:error:014:i=%d:stride=%d p=%p\n", i, frame->linesize[i], frame->data[i]);
+                //}
             }
         } else {
             // log error: some other error
+            //printf("toxav_ngc_video_decode:error:015\n");
         }
         av_frame_free(&frame);
     }
