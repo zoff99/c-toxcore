@@ -3055,7 +3055,7 @@ static void toxav_ngc_video_flush_decoder(struct ToxAV_NGC_vcoders *ngc_video_co
     }
 }
 
-bool is_h264_sps(const uint8_t *data, const uint32_t data_len)
+static bool toxav_is_h264_sps(const uint8_t *data, const uint32_t data_len)
 {
     if (data_len > 7) {
         //dbg(9, "SPS:len=%d bytes:%d %d %d %d %d %d %d %d\n", data_len, data[0], data[1], data[2], data[3], data[4],
@@ -3165,7 +3165,7 @@ bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t e
     compr_data->data = encoded_frame_bytes;
     compr_data->size = (int)encoded_frame_size_bytes; // hmm, "int" again
 
-    // DEBUG // is_h264_sps(compr_data->data, compr_data->size);
+    // DEBUG // toxav_is_h264_sps(compr_data->data, compr_data->size);
 
     compr_data->dts = 1;
     compr_data->pts = 2;
