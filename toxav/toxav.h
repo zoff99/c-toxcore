@@ -1046,6 +1046,19 @@ bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t e
                             uint8_t flush_decoder);
 
 
+/**
+ * NGC Group Audio.
+ */
+void* toxav_ngc_audio_init(const int32_t bit_rate, const int32_t sampling_rate, const int32_t channel_count);
+void toxav_ngc_audio_kill(void *angc);
+bool toxav_ngc_audio_encode(void *angc, const int16_t *pcm, const int32_t sample_count_per_frame,
+                        uint8_t *encoded_frame_bytes, uint32_t *encoded_frame_size_bytes);
+int32_t toxav_ngc_audio_decode(void *angc, const uint8_t *encoded_frame_bytes,
+                        uint32_t encoded_frame_size_bytes,
+                        int16_t *pcm_decoded);
+
+
+
 #ifdef __cplusplus
 }
 #endif

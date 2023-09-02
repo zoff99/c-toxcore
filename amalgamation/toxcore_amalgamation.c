@@ -17420,6 +17420,19 @@ bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t e
                             uint8_t flush_decoder);
 
 
+/**
+ * NGC Group Audio.
+ */
+void* toxav_ngc_audio_init(const int32_t bit_rate, const int32_t sampling_rate, const int32_t channel_count);
+void toxav_ngc_audio_kill(void *angc);
+bool toxav_ngc_audio_encode(void *angc, const int16_t *pcm, const int32_t sample_count_per_frame,
+                        uint8_t *encoded_frame_bytes, uint32_t *encoded_frame_size_bytes);
+int32_t toxav_ngc_audio_decode(void *angc, const uint8_t *encoded_frame_bytes,
+                        uint32_t encoded_frame_size_bytes,
+                        int16_t *pcm_decoded);
+
+
+
 #ifdef __cplusplus
 }
 #endif
@@ -77941,19 +77954,21 @@ static void toxav_ngc_video_reconfigure_encoder(struct ToxAV_NGC_vcoders *ngc_vi
 void toxav_ngc_video_kill(void *vngc)
 {
     struct ToxAV_NGC_vcoders *ngc_video_coders = (struct ToxAV_NGC_vcoders*)vngc;
-    // encoder
-    if (ngc_video_coders->ngc__h264_encoder) {
-        x264_encoder_close(ngc_video_coders->ngc__h264_encoder);
-        x264_picture_clean(&(ngc_video_coders->ngc__h264_in_pic));
-        ngc_video_coders->ngc__h264_encoder = nullptr;
+    if (ngc_video_coders) {
+        // encoder
+        if (ngc_video_coders->ngc__h264_encoder) {
+            x264_encoder_close(ngc_video_coders->ngc__h264_encoder);
+            x264_picture_clean(&(ngc_video_coders->ngc__h264_in_pic));
+            ngc_video_coders->ngc__h264_encoder = nullptr;
+        }
+        // decoder
+        if (ngc_video_coders->ngc__h264_decoder->extradata) {
+            av_free(ngc_video_coders->ngc__h264_decoder->extradata);
+            ngc_video_coders->ngc__h264_decoder->extradata = NULL;
+        }
+        avcodec_free_context(&ngc_video_coders->ngc__h264_decoder);
+        free(ngc_video_coders);
     }
-    // decoder
-    if (ngc_video_coders->ngc__h264_decoder->extradata) {
-        av_free(ngc_video_coders->ngc__h264_decoder->extradata);
-        ngc_video_coders->ngc__h264_decoder->extradata = NULL;
-    }
-    avcodec_free_context(&ngc_video_coders->ngc__h264_decoder);
-    free(ngc_video_coders);
 }
 
 bool toxav_ngc_video_encode(void *vngc, const uint16_t vbitrate, const uint32_t max_quantizer,
@@ -78253,6 +78268,170 @@ bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t e
     av_packet_free(&compr_data);
 
     return result;
+}
+
+#define NGC__AUDIO_OPUS_COMPLEXITY (10)
+#define NGC__AUDIO_MAX_ENCODED_DATA_BYTES (TOX_MAX_CUSTOM_PACKET_SIZE - 10) // 10 bytes for NGC audio packet header
+#define NGC__AUDIO_MAX_PCM_DATA_BYTES (5760)
+
+struct ToxAV_NGC_acoders {
+    OpusEncoder *ngc__opus_encoder;
+    OpusDecoder *ngc__opus_decoder;
+    int32_t ngc__a_encoder_bitrate;
+    int32_t ngc__a_encoder_sampling_rate;
+    int32_t ngc__a_encoder_channel_count;
+};
+
+void* toxav_ngc_audio_init(const int32_t bit_rate, const int32_t sampling_rate, const int32_t channel_count)
+{
+    struct ToxAV_NGC_acoders *ngc_audio_coders = calloc(1, sizeof(struct ToxAV_NGC_acoders));
+
+    // ENCODER -------
+    int status_enc = OPUS_OK;
+    OpusEncoder *opus_encoder = opus_encoder_create(sampling_rate, channel_count, OPUS_APPLICATION_VOIP, &status_enc);
+
+    if (status_enc != OPUS_OK) {
+        printf("Error while starting audio encoder: %s\n", opus_strerror(status_enc));
+        ngc_audio_coders->ngc__opus_encoder = nullptr;
+    } else {
+        printf("starting audio encoder OK: %s\n", opus_strerror(status_enc));
+        ngc_audio_coders->ngc__opus_encoder = opus_encoder;
+    }
+
+    // bitrate in bits per second !!
+    // Rates from 500 to 512000 bits per second are meaningful
+    status_enc = opus_encoder_ctl(opus_encoder, OPUS_SET_BITRATE(bit_rate));
+    if (status_enc != OPUS_OK) {
+        printf("Error while setting encoder ctl: %s\n", opus_strerror(status_enc));
+        opus_encoder_destroy(opus_encoder);
+        ngc_audio_coders->ngc__opus_encoder = nullptr;
+    }
+
+    status_enc = opus_encoder_ctl(opus_encoder, OPUS_SET_VBR(1));
+    if (status_enc != OPUS_OK) {
+        printf("Error while setting encoder ctl: %s\n", opus_strerror(status_enc));
+        opus_encoder_destroy(opus_encoder);
+        ngc_audio_coders->ngc__opus_encoder = nullptr;
+    }
+
+    printf("starting audio encoder complexity: %d\n", (int)NGC__AUDIO_OPUS_COMPLEXITY);
+    status_enc = opus_encoder_ctl(opus_encoder, OPUS_SET_COMPLEXITY(NGC__AUDIO_OPUS_COMPLEXITY));
+
+    if (status_enc != OPUS_OK) {
+        printf("Error while setting encoder ctl: %s\n", opus_strerror(status_enc));
+        opus_encoder_destroy(opus_encoder);
+        ngc_audio_coders->ngc__opus_encoder = nullptr;
+    }
+    // ENCODER -------
+
+    // DECODER -------
+    int status_dec;
+    ngc_audio_coders->ngc__opus_decoder = opus_decoder_create(sampling_rate, channel_count, &status_dec);
+
+    if (status_dec != OPUS_OK) {
+        printf("Error while starting audio decoder: %s\n", opus_strerror(status_dec));
+        opus_decoder_destroy(ngc_audio_coders->ngc__opus_decoder);
+        ngc_audio_coders->ngc__opus_decoder = nullptr;
+    }
+    // DECODER -------
+
+    return (void*)ngc_audio_coders;
+}
+
+void toxav_ngc_audio_kill(void *angc)
+{
+    struct ToxAV_NGC_acoders *ngc_audio_coders = (struct ToxAV_NGC_acoders*)angc;
+    if (ngc_audio_coders) {
+        if (ngc_audio_coders->ngc__opus_encoder) {
+            opus_encoder_destroy(ngc_audio_coders->ngc__opus_encoder);
+            ngc_audio_coders->ngc__opus_encoder = nullptr;
+        }
+
+        if (ngc_audio_coders->ngc__opus_decoder) {
+            opus_decoder_destroy(ngc_audio_coders->ngc__opus_decoder);
+            ngc_audio_coders->ngc__opus_decoder = nullptr;
+        }
+        free(ngc_audio_coders);
+    }
+}
+
+bool toxav_ngc_audio_encode(void *angc, const int16_t *pcm, const int32_t sample_count_per_frame,
+                        uint8_t *encoded_frame_bytes, uint32_t *encoded_frame_size_bytes)
+{
+    if (!pcm) {
+        return false;
+    }
+
+    if (sample_count_per_frame <= 0) {
+        return false;
+    }
+
+    if (!encoded_frame_bytes) {
+        return false;
+    }
+
+    if (!encoded_frame_size_bytes) {
+        return false;
+    }
+
+    struct ToxAV_NGC_acoders *ngc_audio_coders = (struct ToxAV_NGC_acoders*)angc;
+    if ((ngc_audio_coders) && (ngc_audio_coders->ngc__opus_encoder)) {
+
+        const int max_data_bytes = NGC__AUDIO_MAX_ENCODED_DATA_BYTES;
+        const int encoded_bytes = opus_encode(ngc_audio_coders->ngc__opus_encoder,
+                pcm,
+                sample_count_per_frame,
+                encoded_frame_bytes,
+                max_data_bytes);
+
+        if (encoded_bytes <= 0) {
+            printf("Failed to encode frame %s\n", opus_strerror(encoded_bytes));
+        } else {
+            *encoded_frame_size_bytes = encoded_bytes;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+int32_t toxav_ngc_audio_decode(void *angc, const uint8_t *encoded_frame_bytes,
+                        const uint32_t encoded_frame_size_bytes,
+                        int16_t *pcm_decoded)
+{
+    if (!pcm_decoded) {
+        return -1;
+    }
+
+    if (!encoded_frame_bytes) {
+        return -1;
+    }
+
+    if (encoded_frame_size_bytes < 1) {
+        return -1;
+    }
+
+    struct ToxAV_NGC_acoders *ngc_audio_coders = (struct ToxAV_NGC_acoders*)angc;
+    if ((ngc_audio_coders) && (ngc_audio_coders->ngc__opus_decoder)) {
+        //
+        // Number of samples per channel of available space in *pcm, if less than
+        // the maximum frame size (120ms) some frames can not be decoded
+        const int max_frame_size = NGC__AUDIO_MAX_PCM_DATA_BYTES;
+        //
+        const int samples_decoded = opus_decode(ngc_audio_coders->ngc__opus_decoder,
+                encoded_frame_bytes, encoded_frame_size_bytes,
+                pcm_decoded, max_frame_size, 0);
+
+        if (samples_decoded <= 0) {
+            printf("Decoding error: %s\n", opus_strerror(samples_decoded));
+        } else {
+            const int frame_duration = (samples_decoded * 1000) / ngc_audio_coders->ngc__a_encoder_sampling_rate;
+            printf("Decoding frame_duration=%d samples_decoded=%d sampling_rate=%d\n",
+                frame_duration, samples_decoded, ngc_audio_coders->ngc__a_encoder_sampling_rate);
+            return samples_decoded;
+        }
+    }
+    return -1;
 }
 
 /* SPDX-License-Identifier: GPL-3.0-or-later
