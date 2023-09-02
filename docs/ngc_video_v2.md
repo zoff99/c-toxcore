@@ -1,5 +1,5 @@
 
-# Spec for NGC Video
+# Spec for NGC Video (Version 2)
 
 video size MUST be exactly 480x640 pixels, portait format, suited for cellphone cameras.
 video sending 1 frame per 100 milliseconds (~10 fps) (approximately), but NOT more often.
@@ -13,20 +13,22 @@ video sending 1 frame per 100 milliseconds (~10 fps) (approximately), but NOT mo
 
 
 
-| what          | Length in bytes| Contents                                           |
-|------         |--------        |------------------                                  |
-| magic         |       6        |  0x667788113435                                    |
-| version       |       1        |  0x01                                              |
-| pkt id        |       1        |  0x21                                              |
-| video width   |       1        |  uint8_t always 224 (8bit of 480)                  |
-| video height  |       1        |  uint8_t always 128 (8bit of 640)                  |
-| video codec   |       1        |  uint8_t always 1  (1 -> H264)                     |
-| data          |[1, 36989]      |  *uint8_t  bytes, zero not allowed!                |
+| what          | Length in bytes| Contents                                                            |
+|------         |--------        |------------------                                                   |
+| magic         |       6        |  0x667788113435                                                     |
+| version       |       1        |  0x02                                                               |
+| pkt id        |       1        |  0x21                                                               |
+| video width   |       1        |  uint8_t always 224 (8bit of 480)                                   |
+| video height  |       1        |  uint8_t always 128 (8bit of 640)                                   |
+| video codec   |       1        |  uint8_t always 1  (1 -> H264)                                      |
+| seq number    |       2        |  uint16_t video frame sequence number (rolls over) in little endian |
+| chksum        |       1        |  uint8_t 8 bit CRC checksum over data                               |
+| data          |[1, 36986]      |  *uint8_t  bytes, zero not allowed!                                 |
 
 
-header size: 11 bytes
+header size: 14 bytes
 
-data   size: 1 - 36989 bytes
+data   size: 1 - 36986 bytes
 
 ## Send Video to NGC Groups
 
