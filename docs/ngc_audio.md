@@ -1,7 +1,7 @@
 
 # Spec for NGC Audio
 
-audio MUST be PCM (signed) int16_t, MONO, @48kHz and framesize 120ms, audio bitrate MUST be 4000 bits/second
+audio MUST be PCM (signed) int16_t, MONO, @48kHz and framesize 120ms, audio bitrate MUST be 8000 bits/second
 
 ## Packet Data
 
