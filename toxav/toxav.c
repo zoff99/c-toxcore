@@ -3264,7 +3264,7 @@ bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t e
 }
 
 #define NGC__AUDIO_OPUS_COMPLEXITY (10)
-#define NGC__AUDIO_MAX_ENCODED_DATA_BYTES (TOX_MAX_CUSTOM_PACKET_SIZE - 10) // 10 bytes for NGC audio packet header
+#define NGC__AUDIO_MAX_ENCODED_DATA_BYTES (TOX_MAX_CUSTOM_PACKET_SIZE - 1 - 10) // 10 bytes for NGC audio packet header
 #define NGC__AUDIO_MAX_PCM_DATA_BYTES (5760)
 
 struct ToxAV_NGC_acoders {
