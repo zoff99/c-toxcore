@@ -17,8 +17,6 @@ CPPCHECK+=("--suppress=knownConditionTrueFalse")
 CPPCHECK+=("--suppress=missingIncludeSystem")
 # TODO(iphydf): Maybe fix?
 CPPCHECK+=("--suppress=signConversion")
-# TODO(iphydf): Fixed in the toxav refactor PR.
-CPPCHECK+=("--suppress=redundantAssignment")
 # We have some redundant nullptr checks in assertions
 CPPCHECK+=("--suppress=nullPointerRedundantCheck")
 # Triggers a false warning in group.c
