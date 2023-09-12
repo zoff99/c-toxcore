@@ -572,7 +572,7 @@ static int send_message(const Logger *log, Tox *tox, uint32_t friend_number, con
     *it = 0;
     ++size;
 
-    if (m_msi_packet(tox, friend_number, parsed, size)) {
+    if (m_msi_packet(tox, friend_number, parsed, size) == 1) {
         LOGGER_DEBUG(log, "Sent message");
         return 0;
     }
