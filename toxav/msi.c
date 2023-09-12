@@ -509,7 +509,7 @@ static int m_msi_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uin
     /* we need to prepend 1 byte (packet id) to data
      * do this without calloc, memcpy and free in the future
      */
-    size_t length_new = length + 1;
+    size_t length_new = (size_t)length + 1;
     uint8_t *data_new = (uint8_t *)calloc(length_new, sizeof(uint8_t));
 
     if (data_new == nullptr) {
