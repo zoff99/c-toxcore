@@ -1584,11 +1584,11 @@ static void call_kill_transmission(ToxAVCall *call)
     pthread_mutex_destroy(call->mutex_video);
 }
 
-Mono_Time *toxav_get_av_mono_time(ToxAV *toxav)
+Mono_Time *toxav_get_av_mono_time(ToxAV *av)
 {
-    if (toxav == nullptr) {
+    if (av == nullptr) {
         return nullptr;
     }
 
-    return toxav->toxav_mono_time;
+    return av->toxav_mono_time;
 }

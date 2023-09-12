@@ -174,7 +174,7 @@ typedef struct RTPSession {
 } RTPSession;
 
 
-void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_t length, void *object);
+void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_t pkt_length, void *object);
 
 /**
  * Serialise an RTPHeader to bytes to be sent over the network.

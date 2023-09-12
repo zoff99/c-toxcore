@@ -428,10 +428,10 @@ static int handle_video_packet(const Logger *log, RTPSession *session, const str
 /**
  * receive custom lossypackets and process them. they can be incoming audio or video packets
  */
-void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_t length2, void *dummy)
+void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_t pkt_length, void *object)
 {
     // TODO(Zoff): is this ok?
-    uint16_t length = (uint16_t)length2;
+    uint16_t length = (uint16_t)pkt_length;
 
     ToxAV *toxav = (ToxAV *)tox_get_av_object(tox);
 
