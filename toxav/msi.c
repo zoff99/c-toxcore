@@ -69,6 +69,7 @@ typedef struct MSIMessage {
 
 
 static void msg_init(MSIMessage *dest, MSIRequest request);
+static void kill_call(const Logger *log, MSICall *call);
 static int msg_parse_in(const Logger *log, MSIMessage *dest, const uint8_t *data, uint16_t length);
 static uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, uint8_t value_len,
                                      uint16_t *length);
@@ -710,7 +711,7 @@ static MSICall *new_call(MSISession *session, uint32_t friend_number)
     return rc;
 }
 
-void kill_call(const Logger *log, MSICall *call)
+static void kill_call(const Logger *log, MSICall *call)
 {
     /* Assume that session mutex is locked */
     if (call == nullptr) {
