@@ -379,7 +379,9 @@ static int handle_video_packet(const Logger *log, RTPSession *session, const str
                      (int)m_new->data[1]);
         update_bwc_values(session, m_new);
         // Pass ownership of m_new to the callback.
-        session->mcb(toxav_get_av_mono_time(session->toxav), session->cs, m_new);
+        Mono_Time *mt = toxav_get_av_mono_time(session->toxav);
+        assert(mt != nullptr);
+        session->mcb(mt, session->cs, m_new);
         // Now we no longer own m_new.
         m_new = nullptr;
 
@@ -417,7 +419,9 @@ static int handle_video_packet(const Logger *log, RTPSession *session, const str
         LOGGER_DEBUG(log, "-- handle_video_packet -- CALLBACK-003a b0=%d b1=%d", (int)m_new->data[0],
                      (int)m_new->data[1]);
         update_bwc_values(session, m_new);
-        session->mcb(toxav_get_av_mono_time(session->toxav), session->cs, m_new);
+        Mono_Time *mt = toxav_get_av_mono_time(session->toxav);
+        assert(mt != nullptr);
+        session->mcb(mt, session->cs, m_new);
 
         m_new = nullptr;
     }
@@ -520,7 +524,9 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
 
         /* Invoke processing of active multiparted message */
         if (session->mp != nullptr) {
-            session->mcb(toxav_get_av_mono_time(session->toxav), session->cs, session->mp);
+            Mono_Time *mt = toxav_get_av_mono_time(session->toxav);
+            assert(mt != nullptr);
+            session->mcb(mt, session->cs, session->mp);
             session->mp = nullptr;
         }
 
@@ -528,7 +534,9 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
          */
 
         session->mp = new_message(log, &header, length - RTP_HEADER_SIZE, data + RTP_HEADER_SIZE, length - RTP_HEADER_SIZE);
-        session->mcb(toxav_get_av_mono_time(session->toxav), session->cs, session->mp);
+        Mono_Time *mt = toxav_get_av_mono_time(session->toxav);
+        assert(mt != nullptr);
+        session->mcb(mt, session->cs, session->mp);
         session->mp = nullptr;
         return;
     }
@@ -565,7 +573,9 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
                 /* Received a full message; now push it for the further
                  * processing.
                  */
-                session->mcb(toxav_get_av_mono_time(session->toxav), session->cs, session->mp);
+                Mono_Time *mt = toxav_get_av_mono_time(session->toxav);
+                assert(mt != nullptr);
+                session->mcb(mt, session->cs, session->mp);
                 session->mp = nullptr;
             }
         } else {
@@ -578,7 +588,9 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
             }
 
             /* Push the previous message for processing */
-            session->mcb(toxav_get_av_mono_time(session->toxav), session->cs, session->mp);
+            Mono_Time *mt = toxav_get_av_mono_time(session->toxav);
+            assert(mt != nullptr);
+            session->mcb(mt, session->cs, session->mp);
 
             session->mp = nullptr;
             goto NEW_MULTIPARTED;
@@ -808,7 +820,12 @@ static struct RTPHeader rtp_default_header(const RTPSession *session, uint32_t l
     header.ma = 0;
     header.pt = session->payload_type % 128;
     header.sequnum = session->sequnum;
-    header.timestamp = current_time_monotonic(toxav_get_av_mono_time(session->toxav));
+    Mono_Time *mt = toxav_get_av_mono_time(session->toxav);
+    if (mt) {
+        header.timestamp = current_time_monotonic(mt);
+    } else {
+        header.timestamp = 0;
+    }
     header.ssrc = session->ssrc;
     header.offset_lower = 0;
     header.data_length_lower = length_safe;
