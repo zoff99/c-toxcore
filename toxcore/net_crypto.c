@@ -944,9 +944,9 @@ static bool handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t
             [MAC 16 bytes]
             */
             //TODO: remove from production code
-            char log_packet[NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR*3+1];
-            bytes2string(log_packet, sizeof(log_packet), packet, NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR, c->log);
-            LOGGER_DEBUG(c->log, "HS Packet I (R): %s", log_packet);
+            // char log_packet[NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR*3+1];
+            // bytes2string(log_packet, sizeof(log_packet), packet, NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR, c->log);
+            // LOGGER_DEBUG(c->log, "HS Packet I (R): %s", log_packet);
 
             //TODO: remove
             // FILE *fp;
@@ -964,9 +964,9 @@ static bool handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t
             memcpy(noise_handshake->remote_ephemeral, packet + 1 + COOKIE_LENGTH, CRYPTO_PUBLIC_KEY_SIZE);
             noise_mix_hash(noise_handshake->hash, noise_handshake->remote_ephemeral, CRYPTO_PUBLIC_KEY_SIZE);
             //TODO: remove from production code
-            char log_hash1[CRYPTO_SHA512_SIZE*3+1];
-            bytes2string(log_hash1, sizeof(log_hash1), noise_handshake->hash, CRYPTO_SHA512_SIZE, c->log);
-            LOGGER_DEBUG(c->log, "hash1 RESPONDER: %s", log_hash1);
+            // char log_hash1[CRYPTO_SHA512_SIZE*3+1];
+            // bytes2string(log_hash1, sizeof(log_hash1), noise_handshake->hash, CRYPTO_SHA512_SIZE, c->log);
+            // LOGGER_DEBUG(c->log, "hash1 RESPONDER: %s", log_hash1);
 
             /* es */
             uint8_t noise_handshake_temp_key[CRYPTO_SHARED_KEY_SIZE];
@@ -981,9 +981,9 @@ static bool handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t
             }
             
             //TODO: remove from production code
-            char log_hash2[CRYPTO_SHA512_SIZE*3+1];
-            bytes2string(log_hash2, sizeof(log_hash2), noise_handshake->hash, CRYPTO_SHA512_SIZE, c->log);
-            LOGGER_DEBUG(c->log, "hash1 RESPONDER: %s", log_hash2);
+            // char log_hash2[CRYPTO_SHA512_SIZE*3+1];
+            // bytes2string(log_hash2, sizeof(log_hash2), noise_handshake->hash, CRYPTO_SHA512_SIZE, c->log);
+            // LOGGER_DEBUG(c->log, "hash1 RESPONDER: %s", log_hash2);
 
             /* ss */
             noise_mix_key(noise_handshake->chaining_key, noise_handshake_temp_key, noise_handshake->static_private, noise_handshake->remote_static);
@@ -1238,7 +1238,7 @@ static int send_packet_to(Net_Crypto *c, int crypt_connection_id, const uint8_t 
     }
 
     //TODO: remove
-    LOGGER_DEBUG(c->log, "ENTERING: send_packet_to()");
+    // LOGGER_DEBUG(c->log, "ENTERING: send_packet_to()");
 
     bool direct_send_attempt = false;
 
@@ -1276,7 +1276,7 @@ static int send_packet_to(Net_Crypto *c, int crypt_connection_id, const uint8_t 
     }
 
     //TODO: remove
-    LOGGER_DEBUG(c->log, "send_packet_to() => TCP");
+    // LOGGER_DEBUG(c->log, "send_packet_to() => TCP");
 
     pthread_mutex_unlock(conn->mutex);
     pthread_mutex_lock(&c->tcp_mutex);
@@ -1639,7 +1639,7 @@ non_null()
 static int send_data_packet(Net_Crypto *c, int crypt_connection_id, const uint8_t *data, uint16_t length)
 {
     //TODO: remove
-    LOGGER_DEBUG(c->log, "ENTERING: send_data_packet()");
+    // LOGGER_DEBUG(c->log, "ENTERING: send_data_packet()");
 
     const uint16_t max_length = MAX_CRYPTO_PACKET_SIZE - (1 + sizeof(uint16_t) + CRYPTO_MAC_SIZE);
 
@@ -2009,7 +2009,7 @@ non_null()
 static int send_temp_packet(Net_Crypto *c, int crypt_connection_id)
 {
     //TODO: remove
-    LOGGER_DEBUG(c->log, "ENTERING: send_temp_packet()");
+    // LOGGER_DEBUG(c->log, "ENTERING: send_temp_packet()");
 
     Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
 
@@ -2350,7 +2350,8 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
                                    void *userdata)
 {
     Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
-    LOGGER_DEBUG(c->log, "ENTERING: handle_packet_crypto_hs(); PACKET: %d => NET_PACKET_CRYPTO_HS => CRYPTO CONN STATE: %d",
+    LOGGER_DEBUG(c->log, "ENTERING: handle_packet_crypto_hs(); crypt_connection_id: %D => PACKET: %d => NET_PACKET_CRYPTO_HS => CRYPTO CONN STATE: %d",
+            crypt_connection_id,
             packet[0],
             conn->status);
 
@@ -3549,7 +3550,7 @@ static void send_crypto_packets(Net_Crypto *c)
 
         if ((CRYPTO_SEND_PACKET_INTERVAL + conn->temp_packet_sent_time) < temp_time) {
             //TODO: remove
-            LOGGER_DEBUG(c->log, "ENTERING: send_crypto_packets() => call send_temp_packet()");
+            // LOGGER_DEBUG(c->log, "ENTERING: send_crypto_packets() => call send_temp_packet()");
             send_temp_packet(c, i);
         }
 
