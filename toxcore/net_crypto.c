@@ -2172,7 +2172,7 @@ static int tcp_data_callback(void *object, int crypt_connection_id, const uint8_
         return tcp_handle_cookie_request(c, conn->connection_number_tcp, data, length);
     }
 
-    const int ret = handle_packet_connection(c, crypt_connection_id, data, length, 0, userdata);
+    const int ret = handle_packet_connection(c, crypt_connection_id, data, length, false, userdata);
 
     if (ret != 0) {
         return -1;
