@@ -143,8 +143,9 @@ typedef struct New_Connection {
     uint8_t dht_public_key[CRYPTO_PUBLIC_KEY_SIZE]; /* The dht public key of the peer. */
     uint8_t recv_nonce[CRYPTO_NONCE_SIZE]; /* Nonce of received packets. */
     uint8_t peersessionpublic_key[CRYPTO_PUBLIC_KEY_SIZE]; /* The public key of the peer. */
-    noise_handshake *noise_handshake;
     // Necessary for Noise
+    noise_handshake noise_handshake_data;
+    noise_handshake *noise_handshake;
     // uint8_t noise_hash[CRYPTO_SHA512_SIZE];
 	// uint8_t noise_chaining_key[CRYPTO_SHA512_SIZE];
     // uint8_t niose_send_key[CRYPTO_PUBLIC_KEY_SIZE];
