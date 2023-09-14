@@ -2350,7 +2350,7 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
                                    void *userdata)
 {
     Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
-    LOGGER_DEBUG(c->log, "ENTERING: handle_packet_crypto_hs(); crypt_connection_id: %D => PACKET: %d => NET_PACKET_CRYPTO_HS => CRYPTO CONN STATE: %d",
+    LOGGER_DEBUG(c->log, "ENTERING: handle_packet_crypto_hs(); crypt_connection_id: %d => PACKET: %d => NET_PACKET_CRYPTO_HS => CRYPTO CONN STATE: %d",
             crypt_connection_id,
             packet[0],
             conn->status);
@@ -2476,9 +2476,14 @@ static int handle_packet_connection(Net_Crypto *c, int crypt_connection_id, cons
 non_null()
 static int realloc_cryptoconnection(Net_Crypto *c, uint32_t num)
 {
+    //TODO: remove
+    LOGGER_DEBUG(c->log, "ENTERING: realloc_cryptoconnection() => NUM: %d", num);
+
     if (num == 0) {
         free(c->crypto_connections);
         c->crypto_connections = nullptr;
+        //TODO: remove
+        LOGGER_DEBUG(c->log, "realloc_cryptoconnection() => FREE crypto_connections");
         return 0;
     }
 
@@ -2490,6 +2495,9 @@ static int realloc_cryptoconnection(Net_Crypto *c, uint32_t num)
     }
 
     c->crypto_connections = newcrypto_connections;
+
+    //TODO: remove
+    LOGGER_DEBUG(c->log, "END: realloc_cryptoconnection() => realloc done");
     return 0;
 }
 
@@ -2502,6 +2510,9 @@ static int realloc_cryptoconnection(Net_Crypto *c, uint32_t num)
 non_null()
 static int create_crypto_connection(Net_Crypto *c)
 {
+    //TODO: remove
+    LOGGER_DEBUG(c->log, "ENTERING: create_crypto_connection()");
+
     while (true) { /* TODO(irungentoo): is this really the best way to do this? */
         pthread_mutex_lock(&c->connections_mutex);
 
@@ -2517,6 +2528,8 @@ static int create_crypto_connection(Net_Crypto *c)
     for (uint32_t i = 0; i < c->crypto_connections_length; ++i) {
         if (c->crypto_connections[i].status == CRYPTO_CONN_FREE) {
             id = i;
+            //TODO: remove
+            LOGGER_DEBUG(c->log, "create_crypto_connection(): NO realloc");
             break;
         }
     }
@@ -2526,6 +2539,8 @@ static int create_crypto_connection(Net_Crypto *c)
             id = c->crypto_connections_length;
             ++c->crypto_connections_length;
             c->crypto_connections[id] = empty_crypto_connection;
+            //TODO: remove
+            LOGGER_DEBUG(c->log, "create_crypto_connection(): DONE realloc");
         }
     }
 
@@ -2551,10 +2566,11 @@ static int create_crypto_connection(Net_Crypto *c)
 
         //TODO: adapt static allocation?
         c->crypto_connections[id].noise_handshake = &c->crypto_connections[id].noise_handshake_data;
-
-        if (c->crypto_connections[id].noise_handshake == nullptr) {
-            return  -1;
-        }
+        //TODO: remove
+        LOGGER_DEBUG(c->log, "create_crypto_connection() => NEW noise_handshake set");
+        // if (c->crypto_connections[id].noise_handshake == nullptr) {
+        //     return  -1;
+        // }
 
         c->crypto_connections[id].status = CRYPTO_CONN_NO_CONNECTION;
     }
@@ -2571,6 +2587,9 @@ static int create_crypto_connection(Net_Crypto *c)
 non_null()
 static int wipe_crypto_connection(Net_Crypto *c, int crypt_connection_id)
 {
+    //TODO: remove
+    LOGGER_DEBUG(c->log, "ENTERING: wipe_crypto_connection()");
+
     if ((uint32_t)crypt_connection_id >= c->crypto_connections_length) {
         return -1;
     }
@@ -2602,6 +2621,8 @@ static int wipe_crypto_connection(Net_Crypto *c, int crypt_connection_id)
 
     if (c->crypto_connections_length != i) {
         c->crypto_connections_length = i;
+        //TODO: remove
+        LOGGER_DEBUG(c->log, "wipe_crypto_connection(): REALLOC");
         realloc_cryptoconnection(c, c->crypto_connections_length);
     }
 
@@ -2909,19 +2930,26 @@ static int handle_new_connection_handshake(Net_Crypto *c, const IP_Port *source,
  */
 int accept_crypto_connection(Net_Crypto *c, const New_Connection *n_c)
 {
+
+    //TODO: remove
+    LOGGER_DEBUG(c->log, "ENTERING: accept_crypto_connection()");
+
     if (getcryptconnection_id(c, n_c->public_key) != -1) {
+        //TODO: remove
+        LOGGER_DEBUG(c->log, "accept_crypto_connection() => Crypto Connection already exists");
         return -1;
     }
 
     const int crypt_connection_id = create_crypto_connection(c);
 
+    //TODO: remove
+    //TODO: Print pub key of peer?
+    LOGGER_DEBUG(c->log, "AFTER: accept_crypto_connection():create_crypto_connection() => crypt_connection_id: %d", crypt_connection_id);
+
     if (crypt_connection_id == -1) {
         LOGGER_ERROR(c->log, "Could not create new crypto connection");
         return -1;
     }
-
-    //TODO: remove
-    LOGGER_DEBUG(c->log, "ENTERING: accept_crypto_connection()");
 
     Crypto_Connection *conn = &c->crypto_connections[crypt_connection_id];
 
@@ -3019,16 +3047,23 @@ int accept_crypto_connection(Net_Crypto *c, const New_Connection *n_c)
  */
 int new_crypto_connection(Net_Crypto *c, const uint8_t *real_public_key, const uint8_t *dht_public_key)
 {   
+    //TODO: remove
+    //TODO: Print pub key?
+    LOGGER_DEBUG(c->log, "ENTERING()");
+
     int crypt_connection_id = getcryptconnection_id(c, real_public_key);
 
     if (crypt_connection_id != -1) {
+        //TODO: remove
+        //TODO: Print pub key?
+        LOGGER_DEBUG(c->log, "new_crypto_connection() => Crypto connection already exists => crypt_connection_id: %d", crypt_connection_id);
         return crypt_connection_id;
     }
 
     crypt_connection_id = create_crypto_connection(c);
 
     //TODO: remove
-    LOGGER_DEBUG(c->log, "ENTERING: new_crypto_connection() => crypt_connection_id: %d", crypt_connection_id);
+    LOGGER_DEBUG(c->log, "AFTER: new_crypto_connection():create_crypto_connection() => crypt_connection_id: %d", crypt_connection_id);
 
     if (crypt_connection_id == -1) {
         return -1;
@@ -3059,6 +3094,8 @@ int new_crypto_connection(Net_Crypto *c, const uint8_t *real_public_key, const u
     conn->cookie_request_number = random_u64(c->rng);
     uint8_t cookie_request[COOKIE_REQUEST_LENGTH];
 
+    //TODO: remove
+    LOGGER_DEBUG(c->log, "BEFORE: new_crypto_connection():create_cookie_request() => crypt_connection_id: %d", crypt_connection_id);
     if (create_cookie_request(c, cookie_request, conn->dht_public_key, conn->cookie_request_number,
                               conn->shared_key) != sizeof(cookie_request)
             || new_temp_packet(c, crypt_connection_id, cookie_request, sizeof(cookie_request)) != 0) {
@@ -3068,6 +3105,8 @@ int new_crypto_connection(Net_Crypto *c, const uint8_t *real_public_key, const u
         wipe_crypto_connection(c, crypt_connection_id);
         return -1;
     }
+    //TODO: remove
+    LOGGER_DEBUG(c->log, "AFTER: new_crypto_connection():create_cookie_request() => crypt_connection_id: %d", crypt_connection_id);
 
     // only necessary if Cookie request was successful
     if (noise_handshake_init(conn->noise_handshake, c->self_secret_key, real_public_key, true) != 0) {
