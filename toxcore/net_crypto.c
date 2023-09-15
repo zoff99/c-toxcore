@@ -62,13 +62,11 @@ typedef struct Crypto_Connection {
     uint8_t dht_public_key[CRYPTO_PUBLIC_KEY_SIZE]; /* The dht public key of the peer */
 
     // For Noise
-    //TODO: necessary?
-    noise_handshake noise_handshake_data;
     noise_handshake *noise_handshake;
     uint8_t send_key[CRYPTO_PUBLIC_KEY_SIZE];
     uint8_t recv_key[CRYPTO_PUBLIC_KEY_SIZE];
     // uint8_t noise_hash[CRYPTO_SHA512_SIZE];
-	// uint8_t noise_chaining_key[CRYPTO_SHA512_SIZE];
+    // uint8_t noise_chaining_key[CRYPTO_SHA512_SIZE];
     // uint8_t niose_send_key[CRYPTO_PUBLIC_KEY_SIZE];
     // uint8_t noise_recv_key[CRYPTO_PUBLIC_KEY_SIZE];
     //TODO: necessary?
@@ -2379,7 +2377,7 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
             }
             // Noise Split(), nonces already set in conn
             crypto_hkdf(conn->send_key, conn->recv_key, nullptr, nullptr, CRYPTO_SYMMETRIC_KEY_SIZE, CRYPTO_SYMMETRIC_KEY_SIZE, 0, 0, conn->noise_handshake->chaining_key);
-            crypto_memzero(conn->noise_handshake, sizeof(conn->noise_handshake_data));
+            crypto_memzero(conn->noise_handshake, sizeof(struct noise_handshake));
             // free(conn->noise_handshake);
         } else {
             return -1;
@@ -2541,39 +2539,45 @@ static int create_crypto_connection(Net_Crypto *c)
             c->crypto_connections[id] = empty_crypto_connection;
             //TODO: remove
             LOGGER_DEBUG(c->log, "create_crypto_connection(): DONE realloc");
-        }
-    }
-
-    if (id != -1) {
-        // Memsetting float/double to 0 is non-portable, so we explicitly set them to 0
-        c->crypto_connections[id].packet_recv_rate = 0;
-        c->crypto_connections[id].packet_send_rate = 0;
-        c->crypto_connections[id].last_packets_left_rem = 0;
-        c->crypto_connections[id].packet_send_rate_requested = 0;
-        c->crypto_connections[id].last_packets_left_requested_rem = 0;
-        c->crypto_connections[id].mutex = (pthread_mutex_t *)calloc(1, sizeof(pthread_mutex_t));
-
-        if (c->crypto_connections[id].mutex == nullptr) {
+        } else {
+            LOGGER_ERROR(c->log, "create_crypto_connection(): FAILED to realloc connections");
             pthread_mutex_unlock(&c->connections_mutex);
             return -1;
         }
-
-        if (pthread_mutex_init(c->crypto_connections[id].mutex, nullptr) != 0) {
-            free(c->crypto_connections[id].mutex);
-            pthread_mutex_unlock(&c->connections_mutex);
-            return -1;
-        }
-
-        //TODO: adapt static allocation?
-        c->crypto_connections[id].noise_handshake = &c->crypto_connections[id].noise_handshake_data;
-        //TODO: remove
-        LOGGER_DEBUG(c->log, "create_crypto_connection() => NEW noise_handshake set");
-        // if (c->crypto_connections[id].noise_handshake == nullptr) {
-        //     return  -1;
-        // }
-
-        c->crypto_connections[id].status = CRYPTO_CONN_NO_CONNECTION;
     }
+
+    // Memsetting float/double to 0 is non-portable, so we explicitly set them to 0
+    c->crypto_connections[id].packet_recv_rate = 0;
+    c->crypto_connections[id].packet_send_rate = 0;
+    c->crypto_connections[id].last_packets_left_rem = 0;
+    c->crypto_connections[id].packet_send_rate_requested = 0;
+    c->crypto_connections[id].last_packets_left_requested_rem = 0;
+    c->crypto_connections[id].mutex = (pthread_mutex_t *)calloc(1, sizeof(pthread_mutex_t));
+
+    if (c->crypto_connections[id].mutex == nullptr) {
+        LOGGER_ERROR(c->log, "create_crypto_connection(): FAILED to alloc mutex");
+        pthread_mutex_unlock(&c->connections_mutex);
+        return -1;
+    }
+
+    if (pthread_mutex_init(c->crypto_connections[id].mutex, nullptr) != 0) {
+        LOGGER_ERROR(c->log, "create_crypto_connection(): FAILED to init mutex");
+        free(c->crypto_connections[id].mutex);
+        pthread_mutex_unlock(&c->connections_mutex);
+        return -1;
+    }
+
+    c->crypto_connections[id].noise_handshake = calloc(1, sizeof(struct noise_handshake));
+    //TODO: remove
+    LOGGER_DEBUG(c->log, "create_crypto_connection() => NEW noise_handshake set");
+    if (c->crypto_connections[id].noise_handshake == nullptr) {
+        LOGGER_ERROR(c->log, "create_crypto_connection(): FAILED to alloc noise_handshake");
+        free(c->crypto_connections[id].mutex);
+        pthread_mutex_unlock(&c->connections_mutex);
+        return  -1;
+    }
+
+    c->crypto_connections[id].status = CRYPTO_CONN_NO_CONNECTION;
 
     pthread_mutex_unlock(&c->connections_mutex);
     return id;
@@ -2604,12 +2608,17 @@ static int wipe_crypto_connection(Net_Crypto *c, int crypt_connection_id)
         return -1;
     }
 
+    LOGGER_DEBUG(c->log, "wipe_crypto_connection(): valid id provided, free()'ing");
+
     uint32_t i;
 
     pthread_mutex_destroy(c->crypto_connections[crypt_connection_id].mutex);
     free(c->crypto_connections[crypt_connection_id].mutex);
-    // crypto_memzero(&c->crypto_connections[crypt_connection_id].noise_handshake, sizeof(noise_handshake));
-    // free(c->crypto_connections[crypt_connection_id].noise_handshake);
+
+    crypto_memzero(&c->crypto_connections[crypt_connection_id].noise_handshake, sizeof(struct noise_handshake));
+    free(c->crypto_connections[crypt_connection_id].noise_handshake);
+    c->crypto_connections[crypt_connection_id].noise_handshake = nullptr;
+
     crypto_memzero(&c->crypto_connections[crypt_connection_id], sizeof(Crypto_Connection));
 
     /* check if we can resize the connections array */
@@ -2859,7 +2868,7 @@ static int handle_new_connection_handshake(Net_Crypto *c, const IP_Port *source,
 
             //TODO: if this is called as responder and there is already a crypto connection, then the session keys of this peer are lost?!
             //TODO: there is already something in conn->noise_handshake - need to free in this case!
-            crypto_memzero(conn->noise_handshake, sizeof(conn->noise_handshake_data));
+            crypto_memzero(conn->noise_handshake, sizeof(struct noise_handshake));
             // free(conn->noise_handshake);
             conn->noise_handshake = n_c.noise_handshake;
 
@@ -2874,7 +2883,7 @@ static int handle_new_connection_handshake(Net_Crypto *c, const IP_Port *source,
             }
             // responder Noise Split(): vice-verse keys in comparison to initiator
             crypto_hkdf(conn->recv_key, conn->send_key, nullptr, nullptr, CRYPTO_SYMMETRIC_KEY_SIZE, CRYPTO_SYMMETRIC_KEY_SIZE, 0, 0, conn->noise_handshake->chaining_key);
-            crypto_memzero(conn->noise_handshake, sizeof(conn->noise_handshake_data));
+            crypto_memzero(conn->noise_handshake, sizeof(struct noise_handshake));
             // free(conn->noise_handshake);
 
             //TODO: memzero stuff from old handshake?
@@ -2996,7 +3005,7 @@ int accept_crypto_connection(Net_Crypto *c, const New_Connection *n_c)
 
             // Noise Split(), nonces already set
             crypto_hkdf(conn->recv_key, conn->send_key, nullptr, nullptr, CRYPTO_SYMMETRIC_KEY_SIZE, CRYPTO_SYMMETRIC_KEY_SIZE, 0, 0, conn->noise_handshake->chaining_key);
-            crypto_memzero(conn->noise_handshake, sizeof(conn->noise_handshake_data));
+            crypto_memzero(conn->noise_handshake, sizeof(struct noise_handshake));
             //TODO: memzero stuff from old handshake, also not necessary anymore
         }
         else {
@@ -3110,7 +3119,7 @@ int new_crypto_connection(Net_Crypto *c, const uint8_t *real_public_key, const u
 
     // only necessary if Cookie request was successful
     if (noise_handshake_init(conn->noise_handshake, c->self_secret_key, real_public_key, true) != 0) {
-        crypto_memzero(conn->noise_handshake, sizeof(conn->noise_handshake_data));
+        crypto_memzero(conn->noise_handshake, sizeof(struct noise_handshake));
         // free(conn->noise_handshake);
         return -1;
     }
