@@ -7,7 +7,7 @@ audio MUST be PCM (signed) int16_t, MONO, @48kHz and framesize 120ms, audio bitr
 
    40000 max bytes length for custom lossless NGC packets.
 
-   1373 (TOX_MAX_CUSTOM_PACKET_SIZE) max bytes length for audio frames and header,
+   1372 (MAX_GC_PACKET_CHUNK_SIZE) max bytes length for audio frames and header,
    but most audio frames will never be near that size anyway.
 
 
@@ -20,12 +20,12 @@ audio MUST be PCM (signed) int16_t, MONO, @48kHz and framesize 120ms, audio bitr
 | pkt id        |       1        |  0x31                                              |
 | audio channels|       1        |  uint8_t always 1 (for MONO)                       |
 | sampling freq |       1        |  uint8_t always 48 (for 48kHz)                     |
-| data          |[1, 1363]       |  *uint8_t  bytes, zero not allowed!                |
+| data          |[1, 1362]       |  *uint8_t  bytes, zero not allowed!                |
 
 
 header size: 10 bytes
 
-data   size: 1 - 1363 bytes
+data   size: 1 - 1362 bytes
 
 ## Send Video to NGC Groups
 
