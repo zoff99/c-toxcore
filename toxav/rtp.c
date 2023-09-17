@@ -337,6 +337,7 @@ static void update_bwc_values(RTPSession *session, const struct RTPMessage *msg)
  *   payload.
  * @param incoming_data_length The packet length *not* including header, i.e.
  *   this is the actual payload length.
+ * @param log A logger.
  *
  * @retval -1 on error.
  * @retval 0 on success.
