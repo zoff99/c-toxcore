@@ -2615,7 +2615,7 @@ static int wipe_crypto_connection(Net_Crypto *c, int crypt_connection_id)
     pthread_mutex_destroy(c->crypto_connections[crypt_connection_id].mutex);
     free(c->crypto_connections[crypt_connection_id].mutex);
 
-    crypto_memzero(&c->crypto_connections[crypt_connection_id].noise_handshake, sizeof(struct noise_handshake));
+    crypto_memzero(c->crypto_connections[crypt_connection_id].noise_handshake, sizeof(struct noise_handshake));
     free(c->crypto_connections[crypt_connection_id].noise_handshake);
     c->crypto_connections[crypt_connection_id].noise_handshake = nullptr;
 
@@ -2824,8 +2824,8 @@ static int handle_new_connection_handshake(Net_Crypto *c, const IP_Port *source,
     //TODO: Differention between old and handshake needs to be checked here!
 
     if (noise_handshake_init(n_c.noise_handshake, c->self_secret_key, nullptr, false) != 0) {
-        crypto_memzero(n_c.noise_handshake, sizeof(n_c.noise_handshake_data));
-        // free(n_c.noise_handshake);
+        crypto_memzero(n_c.noise_handshake, sizeof(struct noise_handshake));
+        n_c.noise_handshake = nullptr;
         free(n_c.cookie);
         return -1;
     }
@@ -2835,7 +2835,8 @@ static int handle_new_connection_handshake(Net_Crypto *c, const IP_Port *source,
 
     if (!handle_crypto_handshake(c, n_c.recv_nonce, n_c.peersessionpublic_key, n_c.public_key, n_c.dht_public_key,
                                  n_c.cookie, data, length, nullptr, n_c.noise_handshake)) {
-        crypto_memzero(n_c.noise_handshake, sizeof(n_c.noise_handshake_data));
+        crypto_memzero(n_c.noise_handshake, sizeof(struct noise_handshake));
+        n_c.noise_handshake = nullptr;
         free(n_c.cookie);
         return -1;
     }
@@ -2850,8 +2851,9 @@ static int handle_new_connection_handshake(Net_Crypto *c, const IP_Port *source,
     const int crypt_connection_id = getcryptconnection_id(c, n_c.public_key);
 
     //TODO: Unsure which case this is.. if already called new_crypto_connection() as responder before?
-    //TODO: if this is called as responder and there is already a crypto connection, then the session keys of this peer are lost?!
+    //TODO: IMPORTANT!! if this is called as responder and there is already a crypto connection, then the session keys of this peer are lost?!
     if (crypt_connection_id != -1) {
+        LOGGER_DEBUG(c->log, "handle_new_connection_handshake() => CRYPTO CONN EXISTING");
         Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
 
         if (conn == nullptr) {
@@ -2869,8 +2871,10 @@ static int handle_new_connection_handshake(Net_Crypto *c, const IP_Port *source,
             //TODO: if this is called as responder and there is already a crypto connection, then the session keys of this peer are lost?!
             //TODO: there is already something in conn->noise_handshake - need to free in this case!
             crypto_memzero(conn->noise_handshake, sizeof(struct noise_handshake));
-            // free(conn->noise_handshake);
-            conn->noise_handshake = n_c.noise_handshake;
+            memcpy(conn->noise_handshake, n_c.noise_handshake, sizeof(struct noise_handshake));
+            
+            crypto_memzero(n_c.noise_handshake, sizeof(struct noise_handshake));
+            n_c.noise_handshake = nullptr;
 
             memcpy(conn->recv_nonce, n_c.recv_nonce, CRYPTO_NONCE_SIZE);
             memcpy(conn->peersessionpublic_key, n_c.peersessionpublic_key, CRYPTO_PUBLIC_KEY_SIZE);
@@ -2884,7 +2888,6 @@ static int handle_new_connection_handshake(Net_Crypto *c, const IP_Port *source,
             // responder Noise Split(): vice-verse keys in comparison to initiator
             crypto_hkdf(conn->recv_key, conn->send_key, nullptr, nullptr, CRYPTO_SYMMETRIC_KEY_SIZE, CRYPTO_SYMMETRIC_KEY_SIZE, 0, 0, conn->noise_handshake->chaining_key);
             crypto_memzero(conn->noise_handshake, sizeof(struct noise_handshake));
-            // free(conn->noise_handshake);
 
             //TODO: memzero stuff from old handshake?
             conn->status = CRYPTO_CONN_NOT_CONFIRMED;
@@ -2983,7 +2986,9 @@ int accept_crypto_connection(Net_Crypto *c, const New_Connection *n_c)
         if (!n_c->noise_handshake->initiator) {
             //TODO: remove
             LOGGER_DEBUG(c->log, "accept_crypto_connection() => RESPONDER");
-            conn->noise_handshake = n_c->noise_handshake;
+            memcpy(conn->noise_handshake, n_c->noise_handshake, sizeof(struct noise_handshake));
+            crypto_memzero(n_c->noise_handshake, sizeof(struct noise_handshake));
+            
             // necessary -> TODO: duplicated code necessary?
             memcpy(conn->public_key, n_c->public_key, CRYPTO_PUBLIC_KEY_SIZE);
             memcpy(conn->recv_nonce, n_c->recv_nonce, CRYPTO_NONCE_SIZE);
@@ -3119,8 +3124,13 @@ int new_crypto_connection(Net_Crypto *c, const uint8_t *real_public_key, const u
 
     // only necessary if Cookie request was successful
     if (noise_handshake_init(conn->noise_handshake, c->self_secret_key, real_public_key, true) != 0) {
-        crypto_memzero(conn->noise_handshake, sizeof(struct noise_handshake));
+        //TODO: 
+        // crypto_memzero(conn->noise_handshake, sizeof(struct noise_handshake));
         // free(conn->noise_handshake);
+        pthread_mutex_lock(&c->tcp_mutex);
+        kill_tcp_connection_to(c->tcp_c, conn->connection_number_tcp);
+        pthread_mutex_unlock(&c->tcp_mutex);
+        wipe_crypto_connection(c, crypt_connection_id);
         return -1;
     }
 
