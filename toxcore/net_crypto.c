@@ -15,6 +15,7 @@
 #include <string.h>
 //TODO: remove
 #include <stdio.h>
+#include "../testing/misc_tools.h"
 
 #include "ccompat.h"
 #include "list.h"
@@ -70,6 +71,7 @@ typedef struct Crypto_Connection {
     // uint8_t niose_send_key[CRYPTO_PUBLIC_KEY_SIZE];
     // uint8_t noise_recv_key[CRYPTO_PUBLIC_KEY_SIZE];
     //TODO: necessary?
+    uint32_t handshake_send_interval;
     // bool initiator;
     // uint8_t precomputed_static_static[CRYPTO_PUBLIC_KEY_SIZE];
 
@@ -640,7 +642,6 @@ static int noise_decrypt_and_hash(uint8_t *plaintext, const uint8_t *ciphertext,
 * TODO: helper function to print hashes, keys, packets, etc.
 * TODO: remove from production code or make dependent on MIN_LOGGER_LEVEL=DEBUG?
 */
-
 static void bytes2string(char *string, size_t string_size, const uint8_t *bytes, size_t bytes_size, const Logger *log)
 {
     int i;
@@ -656,6 +657,89 @@ static void bytes2string(char *string, size_t string_size, const uint8_t *bytes,
             log_buf += sprintf(log_buf, "%02X", bytes[i]);
         }
     }
+}
+
+/*
+ * Initializes a Noise HandshakeState with TODO:
+ *
+ * return -1 on failure
+ * return 0 on success
+ */
+static int noise_handshake_init
+(struct noise_handshake *noise_handshake, const uint8_t *self_secret_key, const uint8_t *peer_public_key, bool initiator)
+{
+    //TODO: add Logger? TODO: remove
+    // FILE *fp;
+    // fp  = fopen ("data.log", "a");
+    // fprintf(fp, "ENTERING: noise_handshake_init()\n");
+    //TODO: ? memset(handshake, 0, sizeof(*handshake));
+
+    // IntializeSymmetric(protocol_name) => set h to NOISE_PROTOCOL_NAME and append zero bytes to make 64 bytes, sets ck = h
+    // Nothing gets hashed in Tox case because NOISE_PROTOCOL_NAME < CRYPTO_SHA512_SIZE
+    uint8_t temp_hash[CRYPTO_SHA512_SIZE];
+    memset(temp_hash, '\0', CRYPTO_SHA512_SIZE);
+    memcpy(temp_hash, NOISE_PROTOCOL_NAME, sizeof(NOISE_PROTOCOL_NAME));
+    memcpy(noise_handshake->hash, temp_hash, CRYPTO_SHA512_SIZE);
+    memcpy(noise_handshake->chaining_key, temp_hash, CRYPTO_SHA512_SIZE);
+
+    // Sets the initiator, s, rs (only initiator) => ephemeral keys are set afterwards
+    noise_handshake->initiator = initiator;
+    if (self_secret_key) {
+        memcpy(noise_handshake->static_private, self_secret_key, CRYPTO_PUBLIC_KEY_SIZE);
+        crypto_derive_public_key(noise_handshake->static_public, self_secret_key);
+    } else {
+        fprintf(stderr, "Local static private key required, but not provided.\n");
+        return -1;
+    }
+    /* <- s: pre-message from responder to initiator */
+    if (initiator) {
+        if (peer_public_key != nullptr) {
+            memcpy(noise_handshake->remote_static, peer_public_key, CRYPTO_PUBLIC_KEY_SIZE);
+            // Calls MixHash() once for each public key listed in the pre-messages from Noise IK
+            noise_mix_hash(noise_handshake->hash, peer_public_key, CRYPTO_PUBLIC_KEY_SIZE);
+            //TODO: add logger?
+            // fprintf(fp, "noise_handshake_init() => noise_mix_hash() INITIATOR\n");
+            // int i;
+            // fprintf(fp, "Handshake hash: ");
+            // for (i = 0; i < CRYPTO_SHA512_SIZE; i++)
+            // {
+            //     if (i > 0) fprintf(fp, ":");
+            //     fprintf(fp, "%02X", noise_handshake->hash[i]);
+            // }
+            // fprintf(fp, "\n");
+            // fprintf(fp, "Noise_handshake_init() => INITIATOR keys set\n");
+        } else {
+            fprintf(stderr, "Remote peer static public key required, but not provided.\n");
+            return -1;
+        }
+    } else if (!initiator) {
+        // crypto_derive_public_key() happens for both
+        // crypto_derive_public_key(noise_handshake->static_public, self_secret_key);
+        // Calls MixHash() once for each public key listed in the pre-messages from Noise IK
+        noise_mix_hash(noise_handshake->hash, noise_handshake->static_public, CRYPTO_PUBLIC_KEY_SIZE);
+        //TODO: add logger?
+        // fprintf(fp, "noise_handshake_init() => noise_mix_hash() RESPONDER\n");
+        // int i;
+        // fprintf(fp, "Handshake hash: ");
+        // for (i = 0; i < CRYPTO_SHA512_SIZE; i++)
+        // {
+        //     if (i > 0) fprintf(fp, ":");
+        //     fprintf(fp, "%02X", noise_handshake->hash[i]);
+        // }
+        // fprintf(fp, "\n");
+        // fprintf(fp, "noise_handshake_init() => RESPONDER keys set\n");
+    } else {
+        return -1;
+    }
+
+    // fclose(fp);
+
+    //TODO: precompute_static_static ?
+
+    //TODO: crypto_new_keypair(c->rng, conn->sessionpublic_key, conn->sessionsecret_key); -> here? currently not possible due to backwards compatibility
+
+    /* Ready to go */
+    return 0;
 }
 
 /**  TODO: adapt, cf. Noise WriteMessage()  @brief Create a handshake packet and put it in packet.
@@ -896,14 +980,30 @@ static bool handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t
 {
     LOGGER_DEBUG(c->log, "ENTERING: handle_crypto_handshake()");
     if (noise_handshake != nullptr) {
-        LOGGER_DEBUG(c->log, "NOISE handshake");
+        LOGGER_DEBUG(c->log, "NOISE handshake => INITIATOR or RESPONDER: %d", noise_handshake->initiator);
         
         if (!noise_handshake->initiator) {
             if (length != NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR) {
+                LOGGER_DEBUG(c->log, "NOISE handshake => RESPONDER: length != NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR");
                 return false;
             }
         } else if (noise_handshake->initiator) {
             if (length != NOISE_HANDSHAKE_PACKET_LENGTH_RESPONDER) {
+                LOGGER_DEBUG(c->log, "NOISE handshake => INITIATOR: length != NOISE_HANDSHAKE_PACKET_LENGTH_RESPONDER");
+                //TODO: initialize here as responder?
+                crypto_memzero(noise_handshake, sizeof(struct noise_handshake));
+                if (noise_handshake_init(noise_handshake, c->self_secret_key, nullptr, false) != 0) {
+                    //TODO: 
+                    // crypto_memzero(conn->noise_handshake, sizeof(struct noise_handshake));
+                    // free(conn->noise_handshake);
+                    //TODO: necessary? have no crypt_connection_id here
+                    // pthread_mutex_lock(&c->tcp_mutex);
+                    // kill_tcp_connection_to(c->tcp_c, conn->connection_number_tcp);
+                    // pthread_mutex_unlock(&c->tcp_mutex);
+                    // wipe_crypto_connection(c, crypt_connection_id);
+                    return false;
+                }
+                //TODO: add again? TODO: IMPORTANT With this false a lot more tests were working?
                 return false;
             }
         } else {
@@ -2371,12 +2471,23 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
     if (conn->noise_handshake != nullptr) {
         LOGGER_DEBUG(c->log, "handle_packet_crypto_hs() => NOISE HANDHSHAKE");
         if (conn->noise_handshake->initiator) {
+            LOGGER_DEBUG(c->log, "INITIATOR");
             if (!handle_crypto_handshake(c, conn->recv_nonce, conn->peersessionpublic_key, peer_real_pk, dht_public_key, cookie,
                                     packet, length, conn->public_key, conn->noise_handshake)) {
                 return -1;
             }
             // Noise Split(), nonces already set in conn
             crypto_hkdf(conn->send_key, conn->recv_key, nullptr, nullptr, CRYPTO_SYMMETRIC_KEY_SIZE, CRYPTO_SYMMETRIC_KEY_SIZE, 0, 0, conn->noise_handshake->chaining_key);
+            crypto_memzero(conn->noise_handshake, sizeof(struct noise_handshake));
+            // free(conn->noise_handshake);
+        } else if(!conn->noise_handshake->initiator) {
+            LOGGER_DEBUG(c->log, "RESPONDER");
+            if (!handle_crypto_handshake(c, conn->recv_nonce, conn->peersessionpublic_key, peer_real_pk, dht_public_key, cookie,
+                                    packet, length, nullptr, conn->noise_handshake)) {
+                return -1;
+            }
+            // responder Noise Split(): vice-verse keys in comparison to initiator
+            crypto_hkdf(conn->recv_key, conn->send_key, nullptr, nullptr, CRYPTO_SYMMETRIC_KEY_SIZE, CRYPTO_SYMMETRIC_KEY_SIZE, 0, 0, conn->noise_handshake->chaining_key);
             crypto_memzero(conn->noise_handshake, sizeof(struct noise_handshake));
             // free(conn->noise_handshake);
         } else {
@@ -2577,6 +2688,8 @@ static int create_crypto_connection(Net_Crypto *c)
         return  -1;
     }
 
+     c->crypto_connections[id].handshake_send_interval = CRYPTO_SEND_PACKET_INTERVAL + (rand() % 3000);
+
     c->crypto_connections[id].status = CRYPTO_CONN_NO_CONNECTION;
 
     pthread_mutex_unlock(&c->connections_mutex);
@@ -2698,89 +2811,6 @@ static int crypto_connection_add_source(Net_Crypto *c, int crypt_connection_id, 
     }
 
     return -1;
-}
-
-/*
- * Initializes a Noise HandshakeState with TODO:
- *
- * return -1 on failure
- * return 0 on success
- */
-static int noise_handshake_init
-(struct noise_handshake *noise_handshake, const uint8_t *self_secret_key, const uint8_t *peer_public_key, bool initiator)
-{
-    //TODO: add Logger? TODO: remove
-    // FILE *fp;
-    // fp  = fopen ("data.log", "a");
-    // fprintf(fp, "ENTERING: noise_handshake_init()\n");
-    //TODO: ? memset(handshake, 0, sizeof(*handshake));
-
-    // IntializeSymmetric(protocol_name) => set h to NOISE_PROTOCOL_NAME and append zero bytes to make 64 bytes, sets ck = h
-    // Nothing gets hashed in Tox case because NOISE_PROTOCOL_NAME < CRYPTO_SHA512_SIZE
-    uint8_t temp_hash[CRYPTO_SHA512_SIZE];
-    memset(temp_hash, '\0', CRYPTO_SHA512_SIZE);
-    memcpy(temp_hash, NOISE_PROTOCOL_NAME, sizeof(NOISE_PROTOCOL_NAME));
-    memcpy(noise_handshake->hash, temp_hash, CRYPTO_SHA512_SIZE);
-    memcpy(noise_handshake->chaining_key, temp_hash, CRYPTO_SHA512_SIZE);
-
-    // Sets the initiator, s, rs (only initiator) => ephemeral keys are set afterwards
-    noise_handshake->initiator = initiator;
-    if (self_secret_key) {
-        memcpy(noise_handshake->static_private, self_secret_key, CRYPTO_PUBLIC_KEY_SIZE);
-        crypto_derive_public_key(noise_handshake->static_public, self_secret_key);
-    } else {
-        fprintf(stderr, "Local static private key required, but not provided.\n");
-        return -1;
-    }
-    /* <- s: pre-message from responder to initiator */
-    if (initiator) {
-        if (peer_public_key != nullptr) {
-            memcpy(noise_handshake->remote_static, peer_public_key, CRYPTO_PUBLIC_KEY_SIZE);
-            // Calls MixHash() once for each public key listed in the pre-messages from Noise IK
-            noise_mix_hash(noise_handshake->hash, peer_public_key, CRYPTO_PUBLIC_KEY_SIZE);
-            //TODO: add logger?
-            // fprintf(fp, "noise_handshake_init() => noise_mix_hash() INITIATOR\n");
-            // int i;
-            // fprintf(fp, "Handshake hash: ");
-            // for (i = 0; i < CRYPTO_SHA512_SIZE; i++)
-            // {
-            //     if (i > 0) fprintf(fp, ":");
-            //     fprintf(fp, "%02X", noise_handshake->hash[i]);
-            // }
-            // fprintf(fp, "\n");
-            // fprintf(fp, "Noise_handshake_init() => INITIATOR keys set\n");
-        } else {
-            fprintf(stderr, "Remote peer static public key required, but not provided.\n");
-            return -1;
-        }
-    } else if (!initiator) {
-        // crypto_derive_public_key() happens for both
-        // crypto_derive_public_key(noise_handshake->static_public, self_secret_key);
-        // Calls MixHash() once for each public key listed in the pre-messages from Noise IK
-        noise_mix_hash(noise_handshake->hash, noise_handshake->static_public, CRYPTO_PUBLIC_KEY_SIZE);
-        //TODO: add logger?
-        // fprintf(fp, "noise_handshake_init() => noise_mix_hash() RESPONDER\n");
-        // int i;
-        // fprintf(fp, "Handshake hash: ");
-        // for (i = 0; i < CRYPTO_SHA512_SIZE; i++)
-        // {
-        //     if (i > 0) fprintf(fp, ":");
-        //     fprintf(fp, "%02X", noise_handshake->hash[i]);
-        // }
-        // fprintf(fp, "\n");
-        // fprintf(fp, "noise_handshake_init() => RESPONDER keys set\n");
-    } else {
-        return -1;
-    }
-
-    // fclose(fp);
-
-    //TODO: precompute_static_static ?
-
-    //TODO: crypto_new_keypair(c->rng, conn->sessionpublic_key, conn->sessionsecret_key); -> here? currently not possible due to backwards compatibility
-
-    /* Ready to go */
-    return 0;
 }
 
 /** @brief Set function to be called when someone requests a new connection to us.
@@ -3606,11 +3636,20 @@ static void send_crypto_packets(Net_Crypto *c)
             continue;
         }
 
+        //TODO: Use again?
         if ((CRYPTO_SEND_PACKET_INTERVAL + conn->temp_packet_sent_time) < temp_time) {
+            
             //TODO: remove
-            // LOGGER_DEBUG(c->log, "ENTERING: send_crypto_packets() => call send_temp_packet()");
+            //LOGGER_DEBUG(c->log, "=> call send_temp_packet() => random_backoff: %d", random_backoff);
+            // c_sleep(random_backoff);
             send_temp_packet(c, i);
         }
+
+        //TODO: remove? where to add?
+        //uint32_t random_backoff = rand() % 1000;
+        // if ((conn->handshake_send_interval + conn->temp_packet_sent_time) < temp_time) {
+        //     send_temp_packet(c, i);
+        // }
 
         if ((conn->status == CRYPTO_CONN_NOT_CONFIRMED || conn->status == CRYPTO_CONN_ESTABLISHED)
                 && (CRYPTO_SEND_PACKET_INTERVAL + conn->last_request_packet_sent) < temp_time) {
@@ -3997,6 +4036,8 @@ int send_lossy_cryptpacket(Net_Crypto *c, int crypt_connection_id, const uint8_t
 int crypto_kill(Net_Crypto *c, int crypt_connection_id)
 {
     Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
+
+    LOGGER_DEBUG(c->log, "ENTERING: crypto conn: %d", crypt_connection_id);
 
     int ret = -1;
 
