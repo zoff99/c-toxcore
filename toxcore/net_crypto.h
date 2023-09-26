@@ -34,7 +34,6 @@
 /** Packets in this range are reserved for AV use. */
 #define PACKET_ID_RANGE_LOSSY_START 192
 #define PACKET_ID_RANGE_LOSSY_AV_START 192
-#define PACKET_ID_RANGE_LOSSY_AV_SIZE 8
 #define PACKET_ID_RANGE_LOSSY_AV_END 199
 /** Packets in this range can be used for anything. */
 #define PACKET_ID_RANGE_LOSSY_CUSTOM_START 200

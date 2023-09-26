@@ -189,7 +189,7 @@ bool check_peer_offline_status(const Logger *log, Tox *tox, MSISession *session,
     }
 
     Tox_Err_Friend_Query f_con_query_error;
-    Tox_Connection f_con_status = tox_friend_get_connection_status(tox, friend_number, &f_con_query_error);
+    const Tox_Connection f_con_status = tox_friend_get_connection_status(tox, friend_number, &f_con_query_error);
 
     if (f_con_status == TOX_CONNECTION_NONE) {
         /* Friend is now offline */
@@ -510,7 +510,7 @@ static int m_msi_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uin
     /* we need to prepend 1 byte (packet id) to data
      * do this without calloc, memcpy and free in the future
      */
-    size_t length_new = (size_t)length + 1;
+    const size_t length_new = (size_t)length + 1;
     uint8_t *data_new = (uint8_t *)calloc(length_new, sizeof(uint8_t));
 
     if (data_new == nullptr) {
@@ -940,7 +940,7 @@ static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *d
         return;
     }
 
-    uint16_t length = (uint16_t)(length_with_pkt_id - 1);
+    const uint16_t length = (uint16_t)(length_with_pkt_id - 1);
 
     // Zoff: do not show the first byte, its always "PACKET_ID_MSI"
     const uint8_t *data_strip_id_byte = data + 1;
