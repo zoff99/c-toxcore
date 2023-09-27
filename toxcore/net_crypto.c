@@ -384,7 +384,7 @@ static int udp_handle_cookie_request(void *object, const IP_Port *source, const 
     const Net_Crypto *c = (const Net_Crypto *)object;
 
     //TODO: remove
-    LOGGER_DEBUG(c->log, "ENTERING: udp_handle_cookie_request()");
+    // LOGGER_DEBUG(c->log, "ENTERING: udp_handle_cookie_request()");
 
     uint8_t request_plain[COOKIE_REQUEST_PLAIN_LENGTH];
     uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE];
@@ -2255,7 +2255,7 @@ static int send_kill_packet(Net_Crypto *c, int crypt_connection_id)
     uint8_t kill_packet = PACKET_ID_KILL;
 
     //TODO: remove
-    LOGGER_DEBUG(c->log, "KILL PACKET");
+    // LOGGER_DEBUG(c->log, "KILL PACKET");
 
     return send_data_packet_helper(c, crypt_connection_id, conn->recv_array.buffer_start, conn->send_array.buffer_end,
                                    &kill_packet, sizeof(kill_packet));
@@ -2335,7 +2335,7 @@ static int handle_data_packet_core(Net_Crypto *c, int crypt_connection_id, const
     const uint8_t *real_data = data + (sizeof(uint32_t) * 2);
     uint16_t real_length = len - (sizeof(uint32_t) * 2);
 
-    LOGGER_DEBUG(c->log, "DATA ID: %d", real_data[0]);
+    // LOGGER_DEBUG(c->log, "DATA ID: %d", real_data[0]);
 
     while (real_data[0] == PACKET_ID_PADDING) { /* Remove Padding */
         ++real_data;
@@ -2346,7 +2346,7 @@ static int handle_data_packet_core(Net_Crypto *c, int crypt_connection_id, const
         }
     }
 
-    LOGGER_DEBUG(c->log, "DATA ID after PADDING: %d", real_data[0]);
+    // LOGGER_DEBUG(c->log, "DATA ID after PADDING: %d", real_data[0]);
 
     if (real_data[0] == PACKET_ID_KILL) {
         LOGGER_DEBUG(c->log, "KILL PACKET RECEIVED");
@@ -2600,7 +2600,7 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
             // crypto_memzero(conn->noise_handshake, sizeof(struct noise_handshake));
         } else {
             //TODO: remove
-            LOGGER_DEBUG(c->log, "NOT initiator or responder => !conn->noise_handshake->initiator: %d, initiator_change: %d", !conn->noise_handshake->initiator, initiator_change);
+            // LOGGER_DEBUG(c->log, "NOT initiator or responder => !conn->noise_handshake->initiator: %d, initiator_change: %d", !conn->noise_handshake->initiator, initiator_change);
             return -1;
         }
     } 
@@ -2619,7 +2619,7 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
         //TODO: is this called? => yes
         encrypt_precompute(conn->peersessionpublic_key, conn->sessionsecret_key, conn->shared_key);
 
-        LOGGER_DEBUG(c->log, "Crypto Conn Status: %d", conn->status);
+        // LOGGER_DEBUG(c->log, "Crypto Conn Status: %d", conn->status);
 
         if (conn->status == CRYPTO_CONN_COOKIE_REQUESTING) {
             if (create_send_handshake(c, crypt_connection_id, cookie, dht_public_key) != 0) {
@@ -3307,7 +3307,7 @@ static int tcp_data_callback(void *object, int crypt_connection_id, const uint8_
     Net_Crypto *c = (Net_Crypto *)object;
 
     //TODO: remove
-    LOGGER_DEBUG(c->log, "ENTERING => PACKET: %d", data[0]);
+    // LOGGER_DEBUG(c->log, "ENTERING => PACKET: %d", data[0]);
 
     if (length == 0 || length > MAX_CRYPTO_PACKET_SIZE) {
         return -1;
@@ -3340,7 +3340,7 @@ static int tcp_oob_callback(void *object, const uint8_t *public_key, unsigned in
     Net_Crypto *c = (Net_Crypto *)object;
 
     //TODO: remove
-    LOGGER_DEBUG(c->log, "ENTERING => PACKET: %d", data[0]);
+    // LOGGER_DEBUG(c->log, "ENTERING => PACKET: %d", data[0]);
 
     if (length == 0 || length > MAX_CRYPTO_PACKET_SIZE) {
         return -1;
@@ -3635,7 +3635,7 @@ int connection_data_handler(const Net_Crypto *c, int crypt_connection_id,
     Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
 
     //TODO: remove
-    LOGGER_DEBUG(c->log, "ENTERING");
+    // LOGGER_DEBUG(c->log, "ENTERING");
 
     if (conn == nullptr) {
         return -1;
@@ -3662,7 +3662,7 @@ int connection_lossy_data_handler(const Net_Crypto *c, int crypt_connection_id,
     Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
 
     //TODO: remove
-    LOGGER_DEBUG(c->log, "ENTERING");
+    // LOGGER_DEBUG(c->log, "ENTERING");
 
     if (conn == nullptr) {
         return -1;
@@ -3690,7 +3690,7 @@ int nc_dht_pk_callback(const Net_Crypto *c, int crypt_connection_id, dht_pk_cb *
     Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
 
     //TODO: remove
-    LOGGER_DEBUG(c->log, "ENTERING");
+    // LOGGER_DEBUG(c->log, "ENTERING");
 
     if (conn == nullptr) {
         return -1;
@@ -3730,7 +3730,7 @@ static int udp_handle_packet(void *object, const IP_Port *source, const uint8_t 
     Net_Crypto *c = (Net_Crypto *)object;
 
     //TODO: remove
-    LOGGER_DEBUG(c->log, "ENTERING => PACKET: %d", packet[0]);
+    // LOGGER_DEBUG(c->log, "ENTERING => PACKET: %d", packet[0]);
 
     if (length <= CRYPTO_MIN_PACKET_SIZE || length > MAX_CRYPTO_PACKET_SIZE) {
         return 1;
@@ -4149,7 +4149,7 @@ int cryptpacket_received(const Net_Crypto *c, int crypt_connection_id, uint32_t 
     const Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
 
     //TODO: remove
-    LOGGER_DEBUG(c->log, "ENTERING");
+    // LOGGER_DEBUG(c->log, "ENTERING");
 
     if (conn == nullptr) {
         return -1;
@@ -4258,7 +4258,7 @@ bool crypto_connection_status(const Net_Crypto *c, int crypt_connection_id, bool
 void new_keys(Net_Crypto *c)
 {
     //TODO: remove
-    LOGGER_DEBUG(c->log, "ENTERING");
+    // LOGGER_DEBUG(c->log, "ENTERING");
     crypto_new_keypair(c->rng, c->self_public_key, c->self_secret_key);
 }
 
@@ -4326,7 +4326,7 @@ Net_Crypto *new_net_crypto(const Logger *log, const Random *rng, const Network *
 
     bs_list_init(&temp->ip_port_list, sizeof(IP_Port), 8);
 
-    LOGGER_DEBUG(temp->log, "DONE");
+    // LOGGER_DEBUG(temp->log, "DONE");
 
     return temp;
 }
