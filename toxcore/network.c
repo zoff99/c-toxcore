@@ -941,8 +941,8 @@ int send_packet(const Networking_Core *net, const IP_Port *ip_port, Packet packe
     if (net_family_is_ipv4(net->family) && !net_family_is_ipv4(ipp_copy.ip.family)) {
         // TODO(iphydf): Make this an error. Occasionally we try to send to an
         // all-zero ip_port.
-        LOGGER_DEBUG(net->log, "attempted to send message with network family %d (probably IPv6) on IPv4 socket",
-                       ipp_copy.ip.family.value);
+        //LOGGER_DEBUG(net->log, "attempted to send message with network family %d (probably IPv6) on IPv4 socket",
+        //               ipp_copy.ip.family.value);
         return -1;
     }
 
