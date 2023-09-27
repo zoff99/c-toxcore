@@ -120,7 +120,7 @@ done
 for i in $(ls -1 ./custom_tests/*.c) ; do
     echo "CCC:--------------- ""$i"" ---------------"
     rm -f test
-    clang -g -O1 -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address \
+    clang -g -O2 -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address \
     -Wno-everything -Wno-missing-variable-declarations \
     $(pkg-config --cflags toxcore libavcodec libavutil x264 opus vpx libsodium) \
     $(pkg-config --libs toxcore libavcodec libavutil x264 opus vpx libsodium) \
