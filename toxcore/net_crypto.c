@@ -3258,14 +3258,6 @@ int new_crypto_connection(Net_Crypto *c, const uint8_t *real_public_key, const u
     //TODO: remove
     // LOGGER_DEBUG(c->log, "END: new_crypto_connection()");
 
-    //TODO: calloc conn->noise_handshake here?
-    conn->noise_handshake = (noise_handshake *)calloc(1, sizeof(noise_handshake));
-    // only necessary if Cookie request was successful
-    if (noise_handshake_init(c->log, conn->noise_handshake, c->self_secret_key, real_public_key, true) != 0) {
-        crypto_memzero(conn->noise_handshake, sizeof(conn->noise_handshake));
-        return -1;
-    }
-
     return crypt_connection_id;
 }
 
