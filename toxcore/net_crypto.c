@@ -2707,7 +2707,6 @@ static int create_crypto_connection(Net_Crypto *c)
             LOGGER_DEBUG(c->log, "DONE realloc");
         } else {
             LOGGER_ERROR(c->log, "FAILED to realloc connections");
-            pthread_mutex_unlock(&c->connections_mutex);
             return -1;
         }
     }
