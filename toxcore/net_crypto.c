@@ -2442,7 +2442,7 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
     uint8_t dht_public_key[CRYPTO_PUBLIC_KEY_SIZE];
     uint8_t cookie[COOKIE_LENGTH];
     
-    //TODO: via noise_handshake struct?
+    //TODO: via noise_handshake struct? TODO: remove
     bool initiator_change = false;
 
     if (conn->noise_handshake != nullptr) {
@@ -2508,17 +2508,18 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
         // Case where RESPONDER with and without change from INITIATOR  
         else if(!conn->noise_handshake->initiator) {
             LOGGER_DEBUG(c->log, "RESPONDER");
-                if (noise_handshake_init(c->log, conn->noise_handshake, c->self_secret_key, nullptr, false) != 0) {
-                    //TODO: 
-                    // crypto_memzero(conn->noise_handshake, sizeof(struct noise_handshake));
-                    // free(conn->noise_handshake);
-                    //TODO: necessary? have no crypt_connection_id here
-                    // pthread_mutex_lock(&c->tcp_mutex);
-                    // kill_tcp_connection_to(c->tcp_c, conn->connection_number_tcp);
-                    // pthread_mutex_unlock(&c->tcp_mutex);
-                    // wipe_crypto_connection(c, crypt_connection_id);
-                    return false;
-                }
+            // necessary, otherwise broken after INITIATOR to RESPONDER change
+            if (noise_handshake_init(c->log, conn->noise_handshake, c->self_secret_key, nullptr, false) != 0) {
+                //TODO: 
+                // crypto_memzero(conn->noise_handshake, sizeof(struct noise_handshake));
+                // free(conn->noise_handshake);
+                //TODO: necessary?
+                // pthread_mutex_lock(&c->tcp_mutex);
+                // kill_tcp_connection_to(c->tcp_c, conn->connection_number_tcp);
+                // pthread_mutex_unlock(&c->tcp_mutex);
+                // wipe_crypto_connection(c, crypt_connection_id);
+                return false;
+            }
             if (!handle_crypto_handshake(c, conn->recv_nonce, conn->peersessionpublic_key, peer_real_pk, dht_public_key, cookie,
                                     packet, length, nullptr, conn->noise_handshake)) {
                 return -1;
@@ -2566,14 +2567,6 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
             if (create_send_handshake(c, crypt_connection_id, cookie, dht_public_key) != 0) {
                 return -1;
             }
-        }
-
-        //TODO: adapt
-        if (initiator_change) {
-            // responder Noise Split(): vice-verse keys in comparison to initiator
-            //TODO: currently happens twice for RESPONDER? doesnt change keys, but needless
-            crypto_hkdf(conn->recv_key, conn->send_key, nullptr, nullptr, CRYPTO_SYMMETRIC_KEY_SIZE, CRYPTO_SYMMETRIC_KEY_SIZE, 0, 0, conn->noise_handshake->chaining_key);
-            LOGGER_DEBUG(c->log, "After Noise Split()");
         }
 
         //TODO: why here and not before? => set before, in case of dht_pk_callback there is a new crypto connection created anyway
