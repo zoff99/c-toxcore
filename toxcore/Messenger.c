@@ -44,8 +44,13 @@
  * someone wanted not to include tox.h here
  */
 
+#ifdef NOGLOBALVARS
+static bool global_force_udp_only_mode = false;
+static bool global_onion_active = true;
+#else
 extern bool global_force_udp_only_mode;
 extern bool global_onion_active;
+#endif
 
 static_assert(MAX_CONCURRENT_FILE_PIPES <= UINT8_MAX + 1,
               "uint8_t cannot represent all file transfer numbers");

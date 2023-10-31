@@ -17,7 +17,11 @@
 
 #define PORTS_PER_DISCOVERY 10
 
+#ifdef NOGLOBALVARS
+static bool global_force_udp_only_mode = false;
+#else
 extern bool global_force_udp_only_mode;
+#endif
 
 typedef struct Friend_Conn_Callbacks {
     fc_status_cb *status_callback;
