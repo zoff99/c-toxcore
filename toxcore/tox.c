@@ -956,6 +956,9 @@ Tox *tox_new(const struct Tox_Options *options, Tox_Err_New *error)
 
     if (load_savedata_tox
             && tox_load(tox, tox_options_get_savedata_data(opts), tox_options_get_savedata_length(opts)) == -1) {
+        kill_groupchats(tox->m->conferences_object);
+        kill_messenger(tox->m);
+
         mono_time_free(tox->mono_time);
         tox_options_free(default_options);
         tox_unlock(tox);
