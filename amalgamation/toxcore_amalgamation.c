@@ -6884,9 +6884,6 @@ typedef enum Tox_Err_New {
  * This function will bring the instance into a valid state. Running the event
  * loop with a new instance will operate correctly.
  *
- * If loading failed or succeeded only partially, the new or partially loaded
- * instance is returned and an error code is set.
- *
  * @param options An options object as described above. If this parameter is
  *   NULL, the default options are used.
  *
@@ -20404,8 +20401,8 @@ int pack_nodes(const Logger *logger, uint8_t *data, uint16_t length, const Node_
 
 #ifndef NDEBUG
         const uint32_t increment = ipp_size + CRYPTO_PUBLIC_KEY_SIZE;
-#endif
         assert(increment == PACKED_NODE_SIZE_IP4 || increment == PACKED_NODE_SIZE_IP6);
+#endif
     }
 
     return packed_length;
@@ -20443,8 +20440,8 @@ int unpack_nodes(Node_format *nodes, uint16_t max_num_nodes, uint16_t *processed
 
 #ifndef NDEBUG
         const uint32_t increment = ipp_size + CRYPTO_PUBLIC_KEY_SIZE;
-#endif
         assert(increment == PACKED_NODE_SIZE_IP4 || increment == PACKED_NODE_SIZE_IP6);
+#endif
     }
 
     if (processed_data_len != nullptr) {
@@ -23314,7 +23311,11 @@ void kill_forwarding(Forwarding *forwarding)
 
 #define PORTS_PER_DISCOVERY 10
 
+#ifdef NOGLOBALVARS
+static bool global_force_udp_only_mode = false;
+#else
 extern bool global_force_udp_only_mode;
+#endif
 
 typedef struct Friend_Conn_Callbacks {
     fc_status_cb *status_callback;
@@ -25759,6 +25760,7 @@ static int addpeer(Group_Chats *g_c, uint32_t groupnumber, const uint8_t *real_p
 
     if (peer_index != -1) {
         if (!pk_equal(g->group[peer_index].real_pk, real_pk)) {
+            LOGGER_ERROR(g_c->m->log, "peer public key is incorrect for peer %d", peer_number);
             return -1;
         }
 
@@ -28647,6 +28649,7 @@ static State_Load_Status load_conferences_helper(Group_Chats *g_c, const uint8_t
 
         if (groupnumber == -1) {
             // If this fails there's a serious problem, don't bother with cleanup
+            LOGGER_ERROR(g_c->m->log, "conference creation failed");
             return STATE_LOAD_STATUS_ERROR;
         }
 
@@ -28673,6 +28676,7 @@ static State_Load_Status load_conferences_helper(Group_Chats *g_c, const uint8_t
                                        nullptr, true, false);
 
         if (peer_index == -1) {
+            LOGGER_ERROR(g_c->m->log, "adding peer %d failed", g->peer_number);
             return STATE_LOAD_STATUS_ERROR;
         }
 
@@ -35817,12 +35821,12 @@ static bool ping_peer(const GC_Chat *chat, const GC_Connection *gconn)
 
     if (!send_lossy_group_packet(chat, gconn, data, packed_len, GP_PING)) {
         free(data);
-        return true;
+        return false;
     }
 
     free(data);
 
-    return false;
+    return true;
 }
 
 /**
@@ -40366,8 +40370,13 @@ int my_pthread_mutex_unlock(pthread_mutex_t *mutex, const char *mutex_name, cons
  * someone wanted not to include tox.h here
  */
 
+#ifdef NOGLOBALVARS
+static bool global_force_udp_only_mode = false;
+static bool global_onion_active = true;
+#else
 extern bool global_force_udp_only_mode;
 extern bool global_onion_active;
+#endif
 
 static_assert(MAX_CONCURRENT_FILE_PIPES <= UINT8_MAX + 1,
               "uint8_t cannot represent all file transfer numbers");
@@ -43723,6 +43732,7 @@ static State_Load_Status load_nospam_keys(Messenger *m, const uint8_t *data, uin
     load_secret_key(m->net_crypto, data + sizeof(uint32_t) + CRYPTO_PUBLIC_KEY_SIZE);
 
     if (!pk_equal(data + sizeof(uint32_t), nc_get_self_public_key(m->net_crypto))) {
+        LOGGER_ERROR(m->log, "public key stored in savedata does not match its secret key");
         return STATE_LOAD_STATUS_ERROR;
     }
 
@@ -43954,8 +43964,11 @@ static State_Load_Status groups_load(Messenger *m, const uint8_t *data, uint32_t
 
         if (group_number < 0) {
             LOGGER_WARNING(m->log, "Failed to load group %u", i);
+            // Can't recover trivially. We may need to skip over some data here.
         }
     }
+
+    LOGGER_DEBUG(m->log, "Successfully loaded %u groups", gc_count_groups(m->group_handler));
 
     bin_unpack_free(bu);
 
@@ -49087,7 +49100,7 @@ void networking_poll(const Networking_Core *net, void *userdata)
     }
 
     IP_Port ip_port;
-    uint8_t data[MAX_UDP_PACKET_SIZE];
+    uint8_t data[MAX_UDP_PACKET_SIZE] = {0};
     uint32_t length;
 
     while (receivepacket(net->ns, net->log, net->sock, &ip_port, data, &length) != -1) {
@@ -54371,7 +54384,7 @@ int state_load(const Logger *log, state_load_cb *state_load_callback, void *oute
             }
 
             case STATE_LOAD_STATUS_ERROR: {
-                LOGGER_ERROR(log, "Error occcured in state file (type: %u).", type);
+                LOGGER_ERROR(log, "Error occcured in state file (type: 0x%02x).", type);
                 return -1;
             }
 
@@ -60092,12 +60105,26 @@ Tox *tox_new(const struct Tox_Options *options, Tox_Err_New *error)
 
     if (load_savedata_tox
             && tox_load(tox, tox_options_get_savedata_data(opts), tox_options_get_savedata_length(opts)) == -1) {
+        kill_groupchats(tox->m->conferences_object);
+        kill_messenger(tox->m);
+
+        mono_time_free(tox->mono_time);
+        tox_options_free(default_options);
+        tox_unlock(tox);
+
+        if (tox->mutex != nullptr) {
+            pthread_mutex_destroy(tox->mutex);
+        }
+
+        free(tox->mutex);
+        free(tox);
+
         SET_ERROR_PARAMETER(error, TOX_ERR_NEW_LOAD_BAD_FORMAT);
-    } else if (load_savedata_sk) {
+        return nullptr;
+    }
+
+    if (load_savedata_sk) {
         load_secret_key(tox->m->net_crypto, tox_options_get_savedata_data(opts));
-        SET_ERROR_PARAMETER(error, TOX_ERR_NEW_OK);
-    } else {
-        SET_ERROR_PARAMETER(error, TOX_ERR_NEW_OK);
     }
 
     m_callback_namechange(tox->m, tox_friend_name_handler);
@@ -60148,6 +60175,9 @@ Tox *tox_new(const struct Tox_Options *options, Tox_Err_New *error)
     tox_options_free(default_options);
 
     tox_unlock(tox);
+
+    SET_ERROR_PARAMETER(error, TOX_ERR_NEW_OK);
+
     return tox;
 }
 
