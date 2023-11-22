@@ -681,6 +681,10 @@ VPX_LIBS
 VPX_CFLAGS
 OPUS_LIBS
 OPUS_CFLAGS
+X264_LIBS
+X264_CFLAGS
+LIBAVCODEC_LIBS
+LIBAVCODEC_CFLAGS
 PTHREAD_LDFLAGS
 PTHREAD_CFLAGS
 PTHREAD_LIBS
@@ -867,6 +871,10 @@ CPPFLAGS
 LT_SYS_LIBRARY_PATH
 LIBSODIUM_CFLAGS
 LIBSODIUM_LIBS
+LIBAVCODEC_CFLAGS
+LIBAVCODEC_LIBS
+X264_CFLAGS
+X264_LIBS
 OPUS_CFLAGS
 OPUS_LIBS
 VPX_CFLAGS
@@ -1571,6 +1579,12 @@ Some influential environment variables:
               C compiler flags for LIBSODIUM, overriding pkg-config
   LIBSODIUM_LIBS
               linker flags for LIBSODIUM, overriding pkg-config
+  LIBAVCODEC_CFLAGS
+              C compiler flags for LIBAVCODEC, overriding pkg-config
+  LIBAVCODEC_LIBS
+              linker flags for LIBAVCODEC, overriding pkg-config
+  X264_CFLAGS C compiler flags for X264, overriding pkg-config
+  X264_LIBS   linker flags for X264, overriding pkg-config
   OPUS_CFLAGS C compiler flags for OPUS, overriding pkg-config
   OPUS_LIBS   linker flags for OPUS, overriding pkg-config
   VPX_CFLAGS  C compiler flags for VPX, overriding pkg-config
@@ -14774,6 +14788,174 @@ fi
 if test "x$BUILD_AV" = "xyes"; then
 
 pkg_failed=no
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for LIBAVCODEC" >&5
+printf %s "checking for LIBAVCODEC... " >&6; }
+
+if test -n "$LIBAVCODEC_CFLAGS"; then
+    pkg_cv_LIBAVCODEC_CFLAGS="$LIBAVCODEC_CFLAGS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libavcodec\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "libavcodec") 2>&5
+  ac_status=$?
+  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_LIBAVCODEC_CFLAGS=`$PKG_CONFIG --cflags "libavcodec" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+if test -n "$LIBAVCODEC_LIBS"; then
+    pkg_cv_LIBAVCODEC_LIBS="$LIBAVCODEC_LIBS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libavcodec\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "libavcodec") 2>&5
+  ac_status=$?
+  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_LIBAVCODEC_LIBS=`$PKG_CONFIG --libs "libavcodec" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+
+
+
+if test $pkg_failed = yes; then
+   	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+
+if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
+        _pkg_short_errors_supported=yes
+else
+        _pkg_short_errors_supported=no
+fi
+        if test $_pkg_short_errors_supported = yes; then
+	        LIBAVCODEC_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "libavcodec" 2>&1`
+        else
+	        LIBAVCODEC_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "libavcodec" 2>&1`
+        fi
+	# Put the nasty error message in config.log where it belongs
+	echo "$LIBAVCODEC_PKG_ERRORS" >&5
+
+
+            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: disabling AV support $LIBAVCODEC_PKG_ERRORS" >&5
+printf "%s\n" "$as_me: WARNING: disabling AV support $LIBAVCODEC_PKG_ERRORS" >&2;}
+            BUILD_AV="no"
+
+
+elif test $pkg_failed = untried; then
+     	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+
+            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: disabling AV support $LIBAVCODEC_PKG_ERRORS" >&5
+printf "%s\n" "$as_me: WARNING: disabling AV support $LIBAVCODEC_PKG_ERRORS" >&2;}
+            BUILD_AV="no"
+
+
+else
+	LIBAVCODEC_CFLAGS=$pkg_cv_LIBAVCODEC_CFLAGS
+	LIBAVCODEC_LIBS=$pkg_cv_LIBAVCODEC_LIBS
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+fi
+fi
+
+if test "x$BUILD_AV" = "xyes"; then
+
+pkg_failed=no
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for X264" >&5
+printf %s "checking for X264... " >&6; }
+
+if test -n "$X264_CFLAGS"; then
+    pkg_cv_X264_CFLAGS="$X264_CFLAGS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"x264\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "x264") 2>&5
+  ac_status=$?
+  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_X264_CFLAGS=`$PKG_CONFIG --cflags "x264" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+if test -n "$X264_LIBS"; then
+    pkg_cv_X264_LIBS="$X264_LIBS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"x264\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "x264") 2>&5
+  ac_status=$?
+  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_X264_LIBS=`$PKG_CONFIG --libs "x264" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+
+
+
+if test $pkg_failed = yes; then
+   	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+
+if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
+        _pkg_short_errors_supported=yes
+else
+        _pkg_short_errors_supported=no
+fi
+        if test $_pkg_short_errors_supported = yes; then
+	        X264_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "x264" 2>&1`
+        else
+	        X264_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "x264" 2>&1`
+        fi
+	# Put the nasty error message in config.log where it belongs
+	echo "$X264_PKG_ERRORS" >&5
+
+
+            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: disabling AV support $X264_PKG_ERRORS" >&5
+printf "%s\n" "$as_me: WARNING: disabling AV support $X264_PKG_ERRORS" >&2;}
+            BUILD_AV="no"
+
+
+elif test $pkg_failed = untried; then
+     	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+
+            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: disabling AV support $X264_PKG_ERRORS" >&5
+printf "%s\n" "$as_me: WARNING: disabling AV support $X264_PKG_ERRORS" >&2;}
+            BUILD_AV="no"
+
+
+else
+	X264_CFLAGS=$pkg_cv_X264_CFLAGS
+	X264_LIBS=$pkg_cv_X264_LIBS
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+fi
+fi
+
+if test "x$BUILD_AV" = "xyes"; then
+
+pkg_failed=no
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for OPUS" >&5
 printf %s "checking for OPUS... " >&6; }
 
@@ -14942,10 +15124,10 @@ fi
 if test "x$BUILD_AV" = "xyes"; then
     # toxcore lib needs an global?
     # So far this works okay
-    AV_LIBS="$OPUS_LIBS $VPX_LIBS"
+    AV_LIBS="$OPUS_LIBS $VPX_LIBS $LIBAVCODEC_LIBS $X264_LIBS"
 
 
-    AV_CFLAGS="$OPUS_CFLAGS $VPX_CFLAGS"
+    AV_CFLAGS="$OPUS_CFLAGS $VPX_CFLAGS $LIBAVCODEC_CFLAGS $X264_CFLAGS"
 
 fi
 
