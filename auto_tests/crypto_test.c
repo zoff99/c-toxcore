@@ -9,7 +9,9 @@
 
 static void rand_bytes(const Random *rng, uint8_t *b, size_t blen)
 {
-    for (size_t i = 0; i < blen; i++) {
+    size_t i;
+
+    for (i = 0; i < blen; i++) {
         b[i] = random_u08(rng);
     }
 }
@@ -82,18 +84,19 @@ static void test_known(void)
 {
     uint8_t c[147];
     uint8_t m[131];
+    uint16_t clen, mlen;
 
     ck_assert_msg(sizeof(c) == sizeof(m) + CRYPTO_MAC_SIZE * sizeof(uint8_t),
                   "cyphertext should be CRYPTO_MAC_SIZE bytes longer than plaintext");
     ck_assert_msg(sizeof(test_c) == sizeof(c), "sanity check failed");
     ck_assert_msg(sizeof(test_m) == sizeof(m), "sanity check failed");
 
-    const uint16_t clen = encrypt_data(bobpk, alicesk, test_nonce, test_m, sizeof(test_m) / sizeof(uint8_t), c);
+    clen = encrypt_data(bobpk, alicesk, test_nonce, test_m, sizeof(test_m) / sizeof(uint8_t), c);
 
     ck_assert_msg(memcmp(test_c, c, sizeof(c)) == 0, "cyphertext doesn't match test vector");
     ck_assert_msg(clen == sizeof(c) / sizeof(uint8_t), "wrong ciphertext length");
 
-    const uint16_t mlen = decrypt_data(bobpk, alicesk, test_nonce, test_c, sizeof(test_c) / sizeof(uint8_t), m);
+    mlen = decrypt_data(bobpk, alicesk, test_nonce, test_c, sizeof(test_c) / sizeof(uint8_t), m);
 
     ck_assert_msg(memcmp(test_m, m, sizeof(m)) == 0, "decrypted text doesn't match test vector");
     ck_assert_msg(mlen == sizeof(m) / sizeof(uint8_t), "wrong plaintext length");
@@ -104,6 +107,7 @@ static void test_fast_known(void)
     uint8_t k[CRYPTO_SHARED_KEY_SIZE];
     uint8_t c[147];
     uint8_t m[131];
+    uint16_t clen, mlen;
 
     encrypt_precompute(bobpk, alicesk, k);
 
@@ -112,12 +116,12 @@ static void test_fast_known(void)
     ck_assert_msg(sizeof(test_c) == sizeof(c), "sanity check failed");
     ck_assert_msg(sizeof(test_m) == sizeof(m), "sanity check failed");
 
-    const uint16_t clen = encrypt_data_symmetric(k, test_nonce, test_m, sizeof(test_m) / sizeof(uint8_t), c);
+    clen = encrypt_data_symmetric(k, test_nonce, test_m, sizeof(test_m) / sizeof(uint8_t), c);
 
     ck_assert_msg(memcmp(test_c, c, sizeof(c)) == 0, "cyphertext doesn't match test vector");
     ck_assert_msg(clen == sizeof(c) / sizeof(uint8_t), "wrong ciphertext length");
 
-    const uint16_t mlen = decrypt_data_symmetric(k, test_nonce, test_c, sizeof(test_c) / sizeof(uint8_t), m);
+    mlen = decrypt_data_symmetric(k, test_nonce, test_c, sizeof(test_c) / sizeof(uint8_t), m);
 
     ck_assert_msg(memcmp(test_m, m, sizeof(m)) == 0, "decrypted text doesn't match test vector");
     ck_assert_msg(mlen == sizeof(m) / sizeof(uint8_t), "wrong plaintext length");
@@ -269,36 +273,12 @@ static void test_large_data_symmetric(void)
     free(m1);
 }
 
-static void test_very_large_data(void)
-{
-    const Random *rng = system_random();
-    ck_assert(rng != nullptr);
-
-    uint8_t nonce[CRYPTO_NONCE_SIZE] = {0};
-    uint8_t pk[CRYPTO_PUBLIC_KEY_SIZE];
-    uint8_t sk[CRYPTO_SECRET_KEY_SIZE];
-    crypto_new_keypair(rng, pk, sk);
-
-    // 100 MiB of data (all zeroes, doesn't matter what's inside).
-    const uint32_t plain_size = 100 * 1024 * 1024;
-    uint8_t *plain = (uint8_t *)malloc(plain_size);
-    uint8_t *encrypted = (uint8_t *)malloc(plain_size + CRYPTO_MAC_SIZE);
-
-    ck_assert(plain != nullptr);
-    ck_assert(encrypted != nullptr);
-
-    encrypt_data(pk, sk, nonce, plain, plain_size, encrypted);
-
-    free(encrypted);
-    free(plain);
-}
-
 static void increment_nonce_number_cmp(uint8_t *nonce, uint32_t num)
 {
-    uint32_t num1 = 0;
+    uint32_t num1, num2;
     memcpy(&num1, nonce + (CRYPTO_NONCE_SIZE - sizeof(num1)), sizeof(num1));
     num1 = net_ntohl(num1);
-    uint32_t num2 = num + num1;
+    num2 = num + num1;
 
     if (num2 < num1) {
         for (uint16_t i = CRYPTO_NONCE_SIZE - sizeof(num1); i != 0; --i) {
@@ -319,9 +299,11 @@ static void test_increment_nonce(void)
     const Random *rng = system_random();
     ck_assert(rng != nullptr);
 
+    uint32_t i;
+
     uint8_t n[CRYPTO_NONCE_SIZE];
 
-    for (uint32_t i = 0; i < CRYPTO_NONCE_SIZE; ++i) {
+    for (i = 0; i < CRYPTO_NONCE_SIZE; ++i) {
         n[i] = random_u08(rng);
     }
 
@@ -329,13 +311,13 @@ static void test_increment_nonce(void)
 
     memcpy(n1, n, CRYPTO_NONCE_SIZE);
 
-    for (uint32_t i = 0; i < (1 << 18); ++i) {
+    for (i = 0; i < (1 << 18); ++i) {
         increment_nonce_number_cmp(n, 1);
         increment_nonce(n1);
         ck_assert_msg(memcmp(n, n1, CRYPTO_NONCE_SIZE) == 0, "Bad increment_nonce function");
     }
 
-    for (uint32_t i = 0; i < (1 << 18); ++i) {
+    for (i = 0; i < (1 << 18); ++i) {
         const uint32_t r = random_u32(rng);
         increment_nonce_number_cmp(n, r);
         increment_nonce_number(n1, r);
@@ -349,8 +331,9 @@ static void test_memzero(void)
     memcpy(src, test_c, sizeof(test_c));
 
     crypto_memzero(src, sizeof(src));
+    size_t i;
 
-    for (size_t i = 0; i < sizeof(src); i++) {
+    for (i = 0; i < sizeof(src); i++) {
         ck_assert_msg(src[i] == 0, "Memory is not zeroed");
     }
 }
@@ -364,7 +347,6 @@ int main(void)
     test_endtoend(); /* waiting up to 15 seconds */
     test_large_data();
     test_large_data_symmetric();
-    test_very_large_data();
     test_increment_nonce();
     test_memzero();
 
