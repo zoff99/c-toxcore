@@ -124,7 +124,7 @@ for i in $(ls -1 ./custom_tests/*.l) ; do
 done
 
 echo "race:/workspace2/build/FFmpeg-n6.1/libavutil/*.c" > /workspace/tsan_ignore
-# echo "race:buffer_replace" > /workspace/tsan_ignore
+# echo "race:2110_toxav_ts_sync_test.c:1309" >> /workspace/tsan_ignore
 echo "" >> /workspace/tsan_ignore
 
 cat /workspace/tsan_ignore
