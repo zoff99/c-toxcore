@@ -43303,7 +43303,7 @@ void do_messenger(Messenger *m, void *userdata)
         if (m->tcp_server != nullptr) {
             /* Add self tcp server. */
             IP_Port local_ip_port;
-            local_ip_port.port = m->options.tcp_server_port;
+            local_ip_port.port = net_htons(m->options.tcp_server_port);
             local_ip_port.ip.family = net_family_ipv4();
             local_ip_port.ip.ip.v4 = get_ip4_loopback();
             add_tcp_relay(m->net_crypto, &local_ip_port, tcp_server_public_key(m->tcp_server));
@@ -75271,14 +75271,17 @@ void toxav_kill(ToxAV *av)
         }
     }
 
+    // set ToxAV object to NULL in toxcore, to signal ToxAV has been shutdown
+    tox_set_av_object(av->tox, nullptr);
+
     mono_time_free(av->toxav_mono_time);
 
     pthread_mutex_unlock(av->mutex);
     pthread_mutex_destroy(av->mutex);
-    pthread_mutex_destroy(av->toxav_endcall_mutex);
 
-    // set ToxAV object to NULL in toxcore, to signal ToxAV has been shutdown
-    tox_set_av_object(av->tox, nullptr);
+    pthread_mutex_lock(av->toxav_endcall_mutex);
+    pthread_mutex_unlock(av->toxav_endcall_mutex);
+    pthread_mutex_destroy(av->toxav_endcall_mutex);
 
     free(av);
     av = nullptr;
@@ -77061,7 +77064,11 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
         return;
     }
 
-    pthread_mutex_lock(call->av->mutex);
+    if (pthread_mutex_trylock(call->av->mutex) != 0) {
+        LOGGER_API_DEBUG(call->av->tox, "could not lock call->av->mutex, returning without processing BWC data");
+        return;
+    }
+
     pthread_mutex_lock(call->toxav_call_mutex);
 
     if (call->video_bit_rate == 0) {
@@ -79304,10 +79311,11 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
+    // HINT: initialize H264 encoder and decoder
     vc = vc_new_h264((Logger *)log, av, friend_number, cb, cb_data, vc);
-
-    // HINT: initialize VP8 encoder
-    return vc_new_vpx((Logger *)log, av, friend_number, cb, cb_data, vc);
+    // HINT: initialize VP8 encoder and decoder
+    vc = vc_new_vpx((Logger *)log, av, friend_number, cb, cb_data, vc);
+    return vc;
 #pragma GCC diagnostic pop
 
 BASE_CLEANUP:
@@ -80646,13 +80654,9 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
         x264_param_t param;
 
-        // -- set inital value for H264 encoder profile --
-        int global_h264_enc_profile_high_enabled = H264_ENCODER_STARTWITH_PROFILE_HIGH;
-        // -- set inital value for H264 encoder profile --
-
         // "ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo"
 
-        if (global_h264_enc_profile_high_enabled == 1) {
+        if ((int)(H264_ENCODER_STARTWITH_PROFILE_HIGH) == 1) {
             if (x264_param_default_preset(&param, "superfast", "zerolatency,fastdecode") < 0) {
                 // goto fail;
             }
@@ -80714,7 +80718,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
         /* Apply profile restrictions. */
 
-        if (global_h264_enc_profile_high_enabled == 1) {
+        if ((int)(H264_ENCODER_STARTWITH_PROFILE_HIGH) == 1) {
             if (x264_param_apply_profile(&param,
                                          "high") < 0) { // "baseline", "main", "high", "high10", "high422", "high444"
                 // goto fail;
@@ -80780,11 +80784,7 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
         vc->h264_out_pic2 = av_packet_alloc();
 
-        // -- set inital value for H264 encoder profile --
-        int global_h264_enc_profile_high_enabled = H264_ENCODER_STARTWITH_PROFILE_HIGH;
-        // -- set inital value for H264 encoder profile --
-
-        if (global_h264_enc_profile_high_enabled == 1) {
+        if ((int)(H264_ENCODER_STARTWITH_PROFILE_HIGH) == 1) {
             av_opt_set(vc->h264_encoder2->priv_data, "profile", "high", 0);
             vc->h264_encoder2->profile               = FF_PROFILE_H264_HIGH; // FF_PROFILE_H264_HIGH;
             // av_opt_set(vc->h264_encoder2->priv_data, "level", "4.0", AV_OPT_SEARCH_CHILDREN);
@@ -81161,8 +81161,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
                     x264_param_t param;
 
-                    int global_h264_enc_profile_high_enabled = H264_ENCODER_STARTWITH_PROFILE_HIGH;
-                    if (global_h264_enc_profile_high_enabled == 1) {
+                    if ((int)(H264_ENCODER_STARTWITH_PROFILE_HIGH) == 1) {
                         if (x264_param_default_preset(&param, "superfast", "zerolatency,fastdecode") < 0) {
                             // goto fail;
                         }
@@ -81231,7 +81230,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 #endif
 
                     /* Apply profile restrictions. */
-                    if (global_h264_enc_profile_high_enabled == 1) {
+                    if ((int)(H264_ENCODER_STARTWITH_PROFILE_HIGH) == 1) {
                         if (x264_param_apply_profile(&param,
                                                      "high") < 0) { // "baseline", "main", "high", "high10", "high422", "high444"
                             // goto fail;
@@ -81301,8 +81300,7 @@ int vc_reconfigure_encoder_h264(Logger *log, VCSession *vc, uint32_t bit_rate,
 
                 vc->h264_encoder2 = avcodec_alloc_context3(codec2);
 
-                int global_h264_enc_profile_high_enabled = H264_ENCODER_STARTWITH_PROFILE_HIGH;
-                if (global_h264_enc_profile_high_enabled == 1) {
+                if ((int)(H264_ENCODER_STARTWITH_PROFILE_HIGH) == 1) {
                     av_opt_set(vc->h264_encoder2->priv_data, "profile", "high", 0);
                     vc->h264_encoder2->profile               = FF_PROFILE_H264_HIGH; // FF_PROFILE_H264_HIGH;
                     // av_opt_set(vc->h264_encoder2->priv_data, "level", "4.0", AV_OPT_SEARCH_CHILDREN);
