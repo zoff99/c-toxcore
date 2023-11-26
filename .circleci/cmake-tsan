@@ -7,6 +7,9 @@ CACHEDIR="$HOME/cache"
 mkdir -p "$CACHEDIR"
 echo 'race:^av_buffer_unref$' > "$CACHEDIR/tsan_ignore"
 echo 'race:^av_malloc$' >> "$CACHEDIR/tsan_ignore"
+echo 'race:libavutil.so*' >> "$CACHEDIR/tsan_ignore"
+echo 'race:libavcodec.so*' >> "$CACHEDIR/tsan_ignore"
+
 
 echo "############################"
 echo "  TSAN suppressions file:"
