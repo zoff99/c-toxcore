@@ -1,0 +1,102 @@
+# syntax=docker/dockerfile:1
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+        apt-get -y --force-yes install \
+        ca-certificates \
+        rsync \
+        nano \
+        coreutils \
+        clang \
+        cmake \
+        git \
+        libconfig-dev \
+        libgtest-dev \
+        libopus-dev \
+        libsodium-dev \
+        libvpx-dev \
+        ninja-build \
+        pkg-config \
+        binutils \
+        llvm-dev \
+        llvm-runtime \
+        llvm-spirv \
+        libx264-dev \
+        net-tools \
+        curl \
+        iproute2 \
+        tor
+
+RUN apt-get update && \
+        apt-get -y --force-yes install \
+        make yasm curl wget autoconf libtool
+
+RUN apt-get update && \
+        apt-get -y --force-yes install \
+        clang-tools \
+        clang-tidy \
+        clang-format \
+        libtsan0 \
+        libasan6
+
+RUN mkdir -p /workspace2/build/
+RUN cd /workspace2/build/;FFMPEG_VERSION=n6.1 ; FFMPEG_FILENAME="$FFMPEG_VERSION.tar.gz" ;rm -f "ffmpeg"*.tar.*;wget "https://github.com/FFmpeg/FFmpeg/archive/refs/tags/$FFMPEG_FILENAME" -O "ffmpeg_""$FFMPEG_FILENAME";tar -xf "ffmpeg_""$FFMPEG_FILENAME";rm -f "ffmpeg"*.tar.*
+
+RUN hostname
+RUN domainname
+
+
+RUN cd /workspace2/build/ && mkdir /workspace2/build/inst/ && \
+    cd ./FFmpeg-n6.1/ && \
+    ./configure  \
+              --enable-gpl \
+              --prefix="/workspace2/build/inst/" \
+              --extra-cflags="-fno-omit-frame-pointer -fkeep-inline-functions -O0 -g" \
+              --extra-ldflags="-fno-omit-frame-pointer -fkeep-inline-functions -O0 -g -lm " \
+              --disable-asm \
+              --disable-network \
+              --disable-everything \
+              --disable-debug \
+              --disable-shared \
+              --disable-protocols \
+              --disable-doc \
+              --disable-sdl2 \
+              --disable-filters \
+              --disable-iconv \
+              --disable-network \
+              --disable-postproc \
+              --disable-swscale-alpha \
+              --disable-dwt \
+              --disable-lsp \
+              --disable-faan \
+              --disable-vaapi \
+              --disable-vdpau \
+              --disable-zlib \
+              --disable-bzlib \
+              --disable-lzma \
+              --disable-encoders \
+              --disable-decoders \
+              --disable-demuxers \
+              --disable-parsers \
+              --disable-bsfs \
+              --disable-symver \
+              --disable-devices --disable-programs \
+              --disable-doc --disable-avdevice \
+              --disable-swscale \
+              --disable-network --disable-everything \
+              --disable-bzlib \
+              --disable-libxcb-shm \
+              --disable-libxcb-xfixes \
+              --enable-pthreads \
+              --enable-parser=h264 \
+              --enable-runtime-cpudetect \
+              --enable-gpl --enable-decoder=h264 \
+              --enable-pic \
+              --enable-avcodec \
+              && \
+    make -j$(nproc) && \
+    make install
+
+RUN ls -al /workspace2/build/inst/lib/
