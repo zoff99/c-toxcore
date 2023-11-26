@@ -234,14 +234,17 @@ void toxav_kill(ToxAV *av)
         }
     }
 
+    // set ToxAV object to NULL in toxcore, to signal ToxAV has been shutdown
+    tox_set_av_object(av->tox, nullptr);
+
     mono_time_free(av->toxav_mono_time);
 
     pthread_mutex_unlock(av->mutex);
     pthread_mutex_destroy(av->mutex);
-    pthread_mutex_destroy(av->toxav_endcall_mutex);
 
-    // set ToxAV object to NULL in toxcore, to signal ToxAV has been shutdown
-    tox_set_av_object(av->tox, nullptr);
+    pthread_mutex_lock(av->toxav_endcall_mutex);
+    pthread_mutex_unlock(av->toxav_endcall_mutex);
+    pthread_mutex_destroy(av->toxav_endcall_mutex);
 
     free(av);
     av = nullptr;
@@ -2024,7 +2027,11 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
         return;
     }
 
-    pthread_mutex_lock(call->av->mutex);
+    if (pthread_mutex_trylock(call->av->mutex) != 0) {
+        LOGGER_API_DEBUG(call->av->tox, "could not lock call->av->mutex, returning without processing BWC data");
+        return;
+    }
+
     pthread_mutex_lock(call->toxav_call_mutex);
 
     if (call->video_bit_rate == 0) {

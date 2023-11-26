@@ -196,10 +196,11 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
+    // HINT: initialize H264 encoder and decoder
     vc = vc_new_h264((Logger *)log, av, friend_number, cb, cb_data, vc);
-
-    // HINT: initialize VP8 encoder
-    return vc_new_vpx((Logger *)log, av, friend_number, cb, cb_data, vc);
+    // HINT: initialize VP8 encoder and decoder
+    vc = vc_new_vpx((Logger *)log, av, friend_number, cb, cb_data, vc);
+    return vc;
 #pragma GCC diagnostic pop
 
 BASE_CLEANUP:
