@@ -184,14 +184,6 @@ non_null()
 void crypto_hmac512(uint8_t auth[CRYPTO_SHA512_SIZE], const uint8_t key[CRYPTO_SHA512_SIZE], const uint8_t *data,
                  size_t length);
 
-/**
- * @brief Verify an HMAC authenticator.
- * TODO: verify needed?
- */
-non_null()
-bool crypto_hmac512_verify(uint8_t auth[CRYPTO_SHA512_SIZE], const uint8_t key[CRYPTO_SHA512_SIZE],
-                        const uint8_t *data, size_t length);
-
 /* This is Hugo Krawczyk's HKDF:
  *  - https://eprint.iacr.org/2010/264.pdf
  *  - https://tools.ietf.org/html/rfc5869
@@ -520,6 +512,44 @@ bool crypto_memunlock(void *data, size_t length);
  */
 non_null()
 void new_hmac_key(const Random *rng, uint8_t key[CRYPTO_HMAC_KEY_SIZE]);
+
+/* Noise Part */
+
+/*
+* TODO: Implements MixKey(input_key_material)
+* input_key_material = DH_X25519(private, public)
+*/
+non_null()
+bool noise_mix_key(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
+				uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE],
+				const uint8_t private[CRYPTO_PUBLIC_KEY_SIZE],
+				const uint8_t public[CRYPTO_PUBLIC_KEY_SIZE]);
+
+/*
+* TODO: MixHash(data) as defined in Noise spec
+*/
+non_null()
+void noise_mix_hash(uint8_t hash[CRYPTO_SHA512_SIZE], const uint8_t *data, size_t data_len);
+
+/*
+* TODO: EncryptAndHash(plaintext) as defined in Noise spec besides 
+* "Noise spec: Note that if k is empty, the EncryptWithAd() call will set ciphertext equal to plaintext."
+* because this is not the case in Tox.
+*/
+non_null()
+void noise_encrypt_and_hash(uint8_t *ciphertext, const uint8_t *plaintext,
+			    size_t plain_length, uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE],
+			    uint8_t hash[CRYPTO_SHA512_SIZE], uint8_t nonce[CRYPTO_NONCE_SIZE]);
+
+/*
+* TODO: DecryptAndHash(plaintext) as defined in Noise spec besides 
+* "Note that if k is empty, the DecryptWithAd() call will set plaintext equal to ciphertext."
+* because this is not the case in Tox.
+*/
+non_null()
+int noise_decrypt_and_hash(uint8_t *plaintext, const uint8_t *ciphertext,
+			    size_t encrypted_length, uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE],
+			    uint8_t hash[CRYPTO_SHA512_SIZE], uint8_t nonce[CRYPTO_NONCE_SIZE]);
 
 #ifdef __cplusplus
 }  // extern "C"

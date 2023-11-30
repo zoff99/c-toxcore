@@ -13,8 +13,8 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-//TODO: remove
-#include <stdio.h>
+//TODO: remove, used to for bin2hex_toupper() function to print/log bytes
+#include "../other/fun/create_common.h"
 
 #include "ccompat.h"
 #include "list.h"
@@ -495,92 +495,14 @@ static int handle_cookie_response(uint8_t *cookie, uint64_t *number,
 #define NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR (1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_MAC_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_SHA512_SIZE + COOKIE_LENGTH + CRYPTO_MAC_SIZE)
 #define NOISE_HANDSHAKE_PACKET_LENGTH_RESPONDER (1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_SHA512_SIZE + COOKIE_LENGTH + CRYPTO_MAC_SIZE)
 
-/*
-* TODO: Implements MixKey(input_key_material)
-* input_key_material = DH_X25519(private, public)
-*/
- 
-static bool noise_mix_key(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
-				uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE],
-				const uint8_t private[CRYPTO_PUBLIC_KEY_SIZE],
-				const uint8_t public[CRYPTO_PUBLIC_KEY_SIZE])
-{
-	uint8_t dh_calculation[CRYPTO_PUBLIC_KEY_SIZE];
-
-    // X25519 - returns plain DH result, afterwards hashed with HKDF
-    encrypt_precompute(public, private, dh_calculation);
-    // chaining_key is HKDF output1 and shared_key is HKDF output2 => different values!
-	crypto_hkdf(chaining_key, shared_key, nullptr, dh_calculation, CRYPTO_SHA512_SIZE,
-	    CRYPTO_SHARED_KEY_SIZE, 0, CRYPTO_PUBLIC_KEY_SIZE, chaining_key);
-    //If HASHLEN is 64, then truncates temp_k to 32 bytes. => done via call to crypto_hkdf()
-	crypto_memzero(dh_calculation, CRYPTO_PUBLIC_KEY_SIZE);
-	return true;
-}
-
-/*
-* TODO: MixHash(data) as defined in Noise spec
-*/
-static void noise_mix_hash(uint8_t hash[CRYPTO_SHA512_SIZE], const uint8_t *data, size_t data_len)
-{
-	uint8_t to_hash[CRYPTO_SHA512_SIZE + data_len];
-    memcpy(to_hash, hash, CRYPTO_SHA512_SIZE);
-    memcpy(to_hash + CRYPTO_SHA512_SIZE, data, data_len);
-    crypto_sha512(hash, to_hash, CRYPTO_SHA512_SIZE + data_len);
-}
-
-/*
-* TODO: EncryptAndHash(plaintext) as defined in Noise spec besides 
-* "Noise spec: Note that if k is empty, the EncryptWithAd() call will set ciphertext equal to plaintext."
-* because this is not the case in Tox.
-*/ 
-static void noise_encrypt_and_hash(uint8_t *ciphertext, const uint8_t *plaintext,
-			    size_t plain_length, uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE],
-			    uint8_t hash[CRYPTO_SHA512_SIZE], uint8_t nonce[CRYPTO_NONCE_SIZE])
-{
-    unsigned long long encrypted_length = encrypt_data_symmetric_xaead(shared_key, nonce,
-                               plaintext, plain_length, ciphertext,
-                               hash, CRYPTO_SHA512_SIZE);
-
-	noise_mix_hash(hash, ciphertext, encrypted_length);
-}
-
-/*
-* TODO: DecryptAndHash(plaintext) as defined in Noise spec besides 
-* "Note that if k is empty, the DecryptWithAd() call will set plaintext equal to ciphertext."
-* because this is not the case in Tox.
-*/ 
-static int noise_decrypt_and_hash(uint8_t *plaintext, const uint8_t *ciphertext,
-			    size_t encrypted_length, uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE],
-			    uint8_t hash[CRYPTO_SHA512_SIZE], uint8_t nonce[CRYPTO_NONCE_SIZE])
-{
-    unsigned long long plaintext_length = decrypt_data_symmetric_xaead(shared_key, nonce,
-                               ciphertext, encrypted_length, plaintext,
-                               hash, CRYPTO_SHA512_SIZE);
-
-	noise_mix_hash(hash, ciphertext, encrypted_length);
-
-	return plaintext_length;
-}
-
 /* 
 * TODO: helper function to print hashes, keys, packets, etc.
 * TODO: remove from production code or make dependent on MIN_LOGGER_LEVEL=DEBUG?
+* uses sodium_bin2hex() via bin2hex_toupper() function from `../other/fun/create_common.h`
 */
 static void bytes2string(char *string, size_t string_size, const uint8_t *bytes, size_t bytes_size, const Logger *log)
 {
-    int i;
-    char *log_buf = string;
-    char *log_buf_endofbuf = log_buf + string_size;
-    for (i = 0; i < bytes_size; i++) {
-        /* i use 4 here since we are going to add at most
-        3 chars, need a space for a null terminator */
-        if (log_buf + 4 < log_buf_endofbuf) {
-            if (i > 0) {
-                log_buf += sprintf(log_buf, ":");
-            }
-            log_buf += sprintf(log_buf, "%02X", bytes[i]);
-        }
-    }
+    bin2hex_toupper(string, string_size, bytes, bytes_size);
 }
 
 /*

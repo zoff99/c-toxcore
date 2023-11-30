@@ -605,12 +605,6 @@ void crypto_hmac512(uint8_t auth[CRYPTO_SHA512_SIZE], const uint8_t key[CRYPTO_S
 {
     crypto_auth_hmacsha512(auth, data, length, key);
 }
-//TODO: verify needed? TODO: key size correct?
-bool crypto_hmac512_verify(uint8_t auth[CRYPTO_SHA512_SIZE], const uint8_t key[CRYPTO_SHA512_SIZE],
-                        const uint8_t *data, size_t length)
-{
-    return crypto_auth_hmacsha512_verify(auth, data, length, key) == 0;
-}
 
 /* This is Hugo Krawczyk's HKDF:
  *  - https://eprint.iacr.org/2010/264.pdf
@@ -732,4 +726,72 @@ const Random *system_random(void)
 void random_bytes(const Random *rng, uint8_t *bytes, size_t length)
 {
     rng->funcs->random_bytes(rng->obj, bytes, length);
+}
+
+/* Noise part */
+
+/*
+* TODO: Implements MixKey(input_key_material)
+* input_key_material = DH_X25519(private, public)
+*/
+bool noise_mix_key(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
+				uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE],
+				const uint8_t private[CRYPTO_PUBLIC_KEY_SIZE],
+				const uint8_t public[CRYPTO_PUBLIC_KEY_SIZE])
+{
+	uint8_t dh_calculation[CRYPTO_PUBLIC_KEY_SIZE];
+
+    // X25519 - returns plain DH result, afterwards hashed with HKDF
+    encrypt_precompute(public, private, dh_calculation);
+    // chaining_key is HKDF output1 and shared_key is HKDF output2 => different values!
+	crypto_hkdf(chaining_key, shared_key, nullptr, dh_calculation, CRYPTO_SHA512_SIZE,
+	    CRYPTO_SHARED_KEY_SIZE, 0, CRYPTO_PUBLIC_KEY_SIZE, chaining_key);
+    //If HASHLEN is 64, then truncates temp_k to 32 bytes. => done via call to crypto_hkdf()
+	crypto_memzero(dh_calculation, CRYPTO_PUBLIC_KEY_SIZE);
+	return true;
+}
+
+/*
+* TODO: MixHash(data) as defined in Noise spec
+*/
+void noise_mix_hash(uint8_t hash[CRYPTO_SHA512_SIZE], const uint8_t *data, size_t data_len)
+{
+	uint8_t to_hash[CRYPTO_SHA512_SIZE + data_len];
+    memcpy(to_hash, hash, CRYPTO_SHA512_SIZE);
+    memcpy(to_hash + CRYPTO_SHA512_SIZE, data, data_len);
+    crypto_sha512(hash, to_hash, CRYPTO_SHA512_SIZE + data_len);
+}
+
+/*
+* TODO: EncryptAndHash(plaintext) as defined in Noise spec besides 
+* "Noise spec: Note that if k is empty, the EncryptWithAd() call will set ciphertext equal to plaintext."
+* because this is not the case in Tox.
+*/ 
+void noise_encrypt_and_hash(uint8_t *ciphertext, const uint8_t *plaintext,
+			    size_t plain_length, uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE],
+			    uint8_t hash[CRYPTO_SHA512_SIZE], uint8_t nonce[CRYPTO_NONCE_SIZE])
+{
+    unsigned long long encrypted_length = encrypt_data_symmetric_xaead(shared_key, nonce,
+                               plaintext, plain_length, ciphertext,
+                               hash, CRYPTO_SHA512_SIZE);
+
+	noise_mix_hash(hash, ciphertext, encrypted_length);
+}
+
+/*
+* TODO: DecryptAndHash(plaintext) as defined in Noise spec besides 
+* "Note that if k is empty, the DecryptWithAd() call will set plaintext equal to ciphertext."
+* because this is not the case in Tox.
+*/ 
+int noise_decrypt_and_hash(uint8_t *plaintext, const uint8_t *ciphertext,
+			    size_t encrypted_length, uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE],
+			    uint8_t hash[CRYPTO_SHA512_SIZE], uint8_t nonce[CRYPTO_NONCE_SIZE])
+{
+    unsigned long long plaintext_length = decrypt_data_symmetric_xaead(shared_key, nonce,
+                               ciphertext, encrypted_length, plaintext,
+                               hash, CRYPTO_SHA512_SIZE);
+
+	noise_mix_hash(hash, ciphertext, encrypted_length);
+
+	return plaintext_length;
 }

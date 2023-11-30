@@ -121,6 +121,7 @@ non_null() TCP_Connections *nc_get_tcp_c(const Net_Crypto *c);
 non_null() DHT *nc_get_dht(const Net_Crypto *c);
 
 //TODO: struct necessary?
+//TODO: move to crypto_core.h?
 typedef struct noise_handshake {
     //TODO: static_private?
     uint8_t static_private[CRYPTO_PUBLIC_KEY_SIZE];
