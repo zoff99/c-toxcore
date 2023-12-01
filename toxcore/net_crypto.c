@@ -15,6 +15,8 @@
 #include <string.h>
 //TODO: remove
 #include <stdio.h>
+#include <ctype.h>
+#include <sodium.h>
 
 #include "ccompat.h"
 #include "list.h"
@@ -492,14 +494,19 @@ static int handle_cookie_response(uint8_t *cookie, uint64_t *number,
 #define NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR (1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_MAC_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_SHA512_SIZE + COOKIE_LENGTH + CRYPTO_MAC_SIZE)
 #define NOISE_HANDSHAKE_PACKET_LENGTH_RESPONDER (1 + COOKIE_LENGTH + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_SHA512_SIZE + COOKIE_LENGTH + CRYPTO_MAC_SIZE)
 
-/* 
-* TODO: Helper function to print hashes, keys, packets, etc.
-* TODO: remove from production code or make dependent on MIN_LOGGER_LEVEL=DEBUG?
-* uses sodium_bin2hex() via bin2hex_toupper() function from `../other/fun/create_common.h`
-*/
+static void bin2hex_toupper__(char *const hex, const size_t hex_maxlen, const unsigned char *const bin,
+                            const size_t bin_len)
+{
+    sodium_bin2hex(hex, hex_maxlen, bin, bin_len);
+
+    for (size_t i = 0; i < hex_maxlen; i ++) {
+        hex[i] = (char)toupper(hex[i]);
+    }
+}
+
 static void bytes2string(char *string, size_t string_size, const uint8_t *bytes, size_t bytes_size, const Logger *log)
 {
-    bin2hex_toupper(string, string_size, bytes, bytes_size);
+    bin2hex_toupper__(string, string_size, bytes, bytes_size);
 }
 
 /**
@@ -3368,7 +3375,8 @@ unsigned int copy_connected_tcp_relays(Net_Crypto *c, Node_format *tcp_relays, u
         return 0;
     }
 
-    const unsigned int ret = tcp_copy_connected_relays(c->tcp_c, tcp_relays, num);
+    return tcp_copy_connected_relays(c->tcp_c, tcp_relays, num);
+}
 
 non_null()
 char *udp_copy_all_connected(IP_Port conn_ip_port, char *connections_report_string, uint16_t max_num, uint32_t* num)
@@ -4316,9 +4324,6 @@ void kill_net_crypto(Net_Crypto *c)
     for (uint32_t i = 0; i < c->crypto_connections_length; ++i) {
         crypto_kill(c, i);
     }
-
-    pthread_mutex_destroy(&c->tcp_mutex);
-    pthread_mutex_destroy(&c->connections_mutex);
 
     kill_tcp_connections(c->tcp_c);
     bs_list_free(&c->ip_port_list);
