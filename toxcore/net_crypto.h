@@ -122,6 +122,8 @@ non_null() DHT *nc_get_dht(const Net_Crypto *c);
 
 //TODO: struct necessary?
 //TODO: move to crypto_core.h?
+/** @brief Necessary Noise handshake state information/values.
+ */
 typedef struct noise_handshake {
     //TODO: static_private?
     uint8_t static_private[CRYPTO_PUBLIC_KEY_SIZE];
@@ -147,6 +149,7 @@ typedef struct New_Connection {
     // Necessary for Noise
     noise_handshake noise_handshake_data;
     noise_handshake *noise_handshake;
+    //TODO: if no struct necessary
     // uint8_t noise_hash[CRYPTO_SHA512_SIZE];
 	// uint8_t noise_chaining_key[CRYPTO_SHA512_SIZE];
     // uint8_t niose_send_key[CRYPTO_PUBLIC_KEY_SIZE];
@@ -438,7 +441,7 @@ void do_net_crypto(Net_Crypto *c, void *userdata);
 nullable(1)
 void kill_net_crypto(Net_Crypto *c);
 
-//TODO: comment
+//TODO: necessary?
 //static void handshake_zero(struct noise_handshake *handshake);
 
 
