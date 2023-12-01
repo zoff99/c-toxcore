@@ -285,90 +285,6 @@ int32_t encrypt_precompute(const uint8_t *public_key, const uint8_t *secret_key,
 #endif
 }
 
-//TODO: without encrypted_length parameter
-size_t encrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *nonce,
-                               const uint8_t *plain, size_t plain_length, uint8_t *encrypted,
-                               const uint8_t *ad, size_t ad_length)
-{
-    // Additional data ad can be a NULL pointer with ad_length equal to 0; encrypted_length is calculated by libsodium
-    if (plain_length == 0 || shared_key == nullptr || nonce == nullptr || plain == nullptr || encrypted == nullptr) {
-        return -1;
-    }
-
-    unsigned long long encrypted_length = 0;
-    
-    // nsec is not used by this particular construction and should always be NULL.
-    if (crypto_aead_xchacha20poly1305_ietf_encrypt(encrypted, &encrypted_length, plain, plain_length,
-                           ad, ad_length, NULL, nonce, shared_key) != 0) {
-        return -1;
-    }
-
-    //assert(length < INT32_MAX - crypto_box_MACBYTES);
-    return encrypted_length;
-}
-//TODO: with encrypted_length parameter
-// int32_t encrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *nonce,
-//                                const uint8_t *plain, size_t plain_length, uint8_t *encrypted,
-//                                size_t encrypted_length, const uint8_t *ad, size_t ad_length)
-// {
-//     // Additional data ad can be a NULL pointer with ad_length equal to 0; encrypted_length is calculated by libsodium
-//     if (plain_length == 0 || shared_key == nullptr || nonce == nullptr || plain == nullptr || encrypted == nullptr) {
-//         return -1;
-//     }
-    
-//     // nsec is not used by this particular construction and should always be NULL.
-//     if (crypto_aead_xchacha20poly1305_ietf_encrypt(encrypted, &encrypted_length, plain, plain_length,
-//                            ad, ad_length, NULL, nonce, shared_key) != 0) {
-//         return -1;
-//     }
-
-//     //assert(length < INT32_MAX - crypto_box_MACBYTES);
-//     return (int32_t)(encrypted_length);
-// }
-
-//TODO: without plain_length parameter
-size_t decrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *nonce,
-                               const uint8_t *encrypted, size_t encrypted_length, uint8_t *plain,
-                               const uint8_t *ad, size_t ad_length)
-{
-    // plain_length is calculated by libsodium
-    //TODO: encrypted length is longer than crypto_box_BOXZEROBYTES => Why is this check here?
-    // if (encrypted_length <= crypto_box_BOXZEROBYTES || shared_key == nullptr || nonce == nullptr || encrypted == nullptr
-    //         || plain == nullptr) {
-    //     return -1;
-    // }
-
-    unsigned long long plain_length = 0;
-
-    if (crypto_aead_xchacha20poly1305_ietf_decrypt(plain, &plain_length, NULL, encrypted,
-                                encrypted_length, ad, ad_length, nonce, shared_key) != 0) {
-        return -1;
-    }
-
-    // assert(length > crypto_box_MACBYTES);
-    // assert(length < INT32_MAX);
-    return plain_length;
-}
-//TODO: with plain_length parameter
-// int32_t decrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *nonce,
-//                                const uint8_t *encrypted, size_t encrypted_length, uint8_t *plain,
-//                                size_t plain_length, const uint8_t *ad, size_t ad_length)
-// {
-//     // plain_length is calculated by libsodium
-//     if (encrypted_length <= crypto_box_BOXZEROBYTES || shared_key == nullptr || nonce == nullptr || encrypted == nullptr
-//             || plain == nullptr) {
-//         return -1;
-//     }
-//     if (crypto_aead_xchacha20poly1305_ietf_decrypt(plain, &plain_length, NULL, encrypted,
-//                                 encrypted_length, ad, ad_length, nonce, shared_key) != 0) {
-//         return -1;
-//     }
-
-//     // assert(length > crypto_box_MACBYTES);
-//     // assert(length < INT32_MAX);
-//     return (int32_t)(plain_length);
-// }
-
 int32_t encrypt_data_symmetric(const uint8_t *shared_key, const uint8_t *nonce,
                                const uint8_t *plain, size_t length, uint8_t *encrypted)
 {
@@ -594,69 +510,6 @@ bool crypto_hmac_verify(const uint8_t auth[CRYPTO_HMAC_SIZE], const uint8_t key[
 #endif
 }
 
-/*
-* HMAC-SHA-512 instead of HMAC-SHA512-256 as used by `crypto_auth_*()` (libsodium) which is underlying function of
-* `crypto_hmac*() in crypto_core. Necessary for Noise (cf. section 4.3) to return 64 bytes (SHA512 HASHLEN) instead of 
-* of 32 bytes (SHA512-256 HASHLEN).
-* TODO: key size correct?
-*/
-void crypto_hmac512(uint8_t auth[CRYPTO_SHA512_SIZE], const uint8_t key[CRYPTO_SHA512_SIZE], const uint8_t *data,
-                 size_t length)
-{
-    crypto_auth_hmacsha512(auth, data, length, key);
-}
-
-/* This is Hugo Krawczyk's HKDF:
- *  - https://eprint.iacr.org/2010/264.pdf
- *  - https://tools.ietf.org/html/rfc5869
- * HKDF(chaining_key, input_key_material, num_outputs): Takes a
-chaining_key byte sequence of length HASHLEN, and an input_key_material
-byte sequence with length either zero bytes, 32 bytes, or DHLEN bytes.
-Returns a pair or triple of byte sequences each of length HASHLEN,
-depending on whether num_outputs is two or three:
-– Sets temp_key = HMAC-HASH(chaining_key, input_key_material).
-– Sets output1 = HMAC-HASH(temp_key, byte(0x01)).
-– Sets output2 = HMAC-HASH(temp_key, output1 || byte(0x02)).
-– If num_outputs == 2 then returns the pair (output1, output2).
-– Sets output3 = HMAC-HASH(temp_key, output2 || byte(0x03)).
-– Returns the triple (output1, output2, output3).
-
-Note that temp_key, output1, output2, and output3 are all HASHLEN bytes in
-length. Also note that the HKDF() function is simply HKDF from [4] with the
-chaining_key as HKDF salt, and zero-length HKDF info.
- */
-void crypto_hkdf(uint8_t *output1, uint8_t *output2, uint8_t *output3, const uint8_t *data,
-		size_t first_len, size_t second_len, size_t third_len,
-		size_t data_len, const uint8_t chaining_key[CRYPTO_SHA512_SIZE])
-{
-	uint8_t output[CRYPTO_SHA512_SIZE + 1];
-    // temp_key = secret in WG
-    uint8_t temp_key[CRYPTO_SHA512_SIZE];
-
-	/* Extract entropy from data into temp_key */
-    // data => input_key_material => DH result in Noise
-	crypto_hmac512(temp_key, chaining_key, data, data_len);
-
-	/* Expand first key: key = temp_key, data = 0x1 */
-	output[0] = 1;
-	crypto_hmac512(output, temp_key, output, 1);
-	memcpy(output1, output, first_len);
-
-	/* Expand second key: key = secret, data = first-key || 0x2 */
-	output[CRYPTO_SHA512_SIZE] = 2;
-	crypto_hmac512(output, temp_key, output, CRYPTO_SHA512_SIZE + 1);
-	memcpy(output2, output, second_len);
-
-	/* Expand third key: key = temp_key, data = second-key || 0x3 */
-	output[CRYPTO_SHA512_SIZE] = 3;
-	crypto_hmac512(output, temp_key, output, CRYPTO_SHA512_SIZE + 1);
-	memcpy(output3, output, third_len);
-
-	/* Clear sensitive data from stack */
-	crypto_memzero(temp_key, CRYPTO_SHA512_SIZE);
-	crypto_memzero(output, CRYPTO_SHA512_SIZE + 1);
-}
-
 void crypto_sha256(uint8_t *hash, const uint8_t *data, size_t length)
 {
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
@@ -728,13 +581,127 @@ void random_bytes(const Random *rng, uint8_t *bytes, size_t length)
     rng->funcs->random_bytes(rng->obj, bytes, length);
 }
 
-/* Noise part */
+/* Necessary functions for Noise, cf. https://noiseprotocol.org/noise.html (Revision 34) */
+
+size_t encrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *nonce,
+                               const uint8_t *plain, size_t plain_length, uint8_t *encrypted,
+                               const uint8_t *ad, size_t ad_length)
+{
+    // Additional data ad can be a NULL pointer with ad_length equal to 0; encrypted_length is calculated by libsodium
+    if (plain_length == 0 || shared_key == nullptr || nonce == nullptr || plain == nullptr || encrypted == nullptr) {
+        return -1;
+    }
+
+    unsigned long long encrypted_length = 0;
+    
+    // nsec is not used by this particular construction and should always be NULL.
+    if (crypto_aead_xchacha20poly1305_ietf_encrypt(encrypted, &encrypted_length, plain, plain_length,
+                           ad, ad_length, NULL, nonce, shared_key) != 0) {
+        return -1;
+    }
+
+    //assert(length < INT32_MAX - crypto_box_MACBYTES);
+    return encrypted_length;
+}
+
+size_t decrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *nonce,
+                               const uint8_t *encrypted, size_t encrypted_length, uint8_t *plain,
+                               const uint8_t *ad, size_t ad_length)
+{
+    // Additional data ad can be a NULL pointer with ad_length equal to 0;  plain_length is calculated by libsodium
+    if (encrypted_length <= CRYPTO_MAC_SIZE || shared_key == nullptr || nonce == nullptr || encrypted == nullptr
+            || plain == nullptr) {
+        return -1;
+    }
+
+    unsigned long long plain_length = 0;
+
+    if (crypto_aead_xchacha20poly1305_ietf_decrypt(plain, &plain_length, NULL, encrypted,
+                                encrypted_length, ad, ad_length, nonce, shared_key) != 0) {
+        return -1;
+    }
+
+    // assert(length > crypto_box_MACBYTES);
+    // assert(length < INT32_MAX);
+    return plain_length;
+}
 
 /*
-* TODO: Implements MixKey(input_key_material)
-* input_key_material = DH_X25519(private, public)
+* cf. Noise sections 4.3 and 5.1
+* Applies HMAC from RFC2104 (https://www.ietf.org/rfc/rfc2104.txt) using the HASH() (=SHA512) function.
+* This function is only called via `crypto_hkdf()`.
+* HMAC-SHA-512 instead of HMAC-SHA512-256 as used by `crypto_auth_*()` (libsodium) which is underlying function of
+* `crypto_hmac*() in crypto_core. Necessary for Noise (cf. section 4.3) to return 64 bytes (SHA512 HASHLEN) instead of 
+* of 32 bytes (SHA512-256 HASHLEN). Cf. https://doc.libsodium.org/advanced/hmac-sha2#hmac-sha-512
+* key is CRYPTO_SHA512_SIZE bytes because this function is only called via crypto_hkdf() where the key (ck, temp_key) 
+* is always HASHLEN bytes.
 */
-bool noise_mix_key(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
+void crypto_hmac512(uint8_t auth[CRYPTO_SHA512_SIZE], const uint8_t key[CRYPTO_SHA512_SIZE], const uint8_t *data,
+                 size_t data_length)
+{
+    crypto_auth_hmacsha512(auth, data, data_length, key);
+}
+
+/* This is Hugo Krawczyk's HKDF:
+ * - https://eprint.iacr.org/2010/264.pdf
+ * - https://tools.ietf.org/html/rfc5869
+ * HKDF(chaining_key, input_key_material, num_outputs): Takes a
+ * chaining_key byte sequence of length HASHLEN, and an input_key_material
+ * byte sequence with length either zero bytes, 32 bytes, or DHLEN bytes.
+ * Returns a pair or triple of byte sequences each of length HASHLEN,
+ * depending on whether num_outputs is two or three:
+ * – Sets temp_key = HMAC-HASH(chaining_key, input_key_material).
+ * – Sets output1 = HMAC-HASH(temp_key, byte(0x01)).
+ * – Sets output2 = HMAC-HASH(temp_key, output1 || byte(0x02)).
+ * – If num_outputs == 2 then returns the pair (output1, output2).
+ * – Sets output3 = HMAC-HASH(temp_key, output2 || byte(0x03)).
+ * – Returns the triple (output1, output2, output3).
+ * Note that temp_key, output1, output2, and output3 are all HASHLEN bytes in
+ * length. Also note that the HKDF() function is simply HKDF with the
+ * chaining_key as HKDF salt, and zero-length HKDF info.
+ */
+void crypto_hkdf(uint8_t *output1, uint8_t *output2, uint8_t *output3, const uint8_t *data,
+		size_t first_len, size_t second_len, size_t third_len,
+		size_t data_len, const uint8_t chaining_key[CRYPTO_SHA512_SIZE])
+{
+	uint8_t output[CRYPTO_SHA512_SIZE + 1];
+    // temp_key = secret in WG
+    uint8_t temp_key[CRYPTO_SHA512_SIZE];
+
+	/* Extract entropy from data into temp_key */
+    // data => input_key_material => DH result in Noise
+	crypto_hmac512(temp_key, chaining_key, data, data_len);
+
+	/* Expand first key: key = temp_key, data = 0x1 */
+	output[0] = 1;
+	crypto_hmac512(output, temp_key, output, 1);
+	memcpy(output1, output, first_len);
+
+	/* Expand second key: key = secret, data = first-key || 0x2 */
+	output[CRYPTO_SHA512_SIZE] = 2;
+	crypto_hmac512(output, temp_key, output, CRYPTO_SHA512_SIZE + 1);
+	memcpy(output2, output, second_len);
+
+	/* Expand third key: key = temp_key, data = second-key || 0x3 */
+    /* Currently not used in Tox, maybe necessary in future for pre-shared symmetric keys (cf. Noise spec )*/
+	output[CRYPTO_SHA512_SIZE] = 3;
+	crypto_hmac512(output, temp_key, output, CRYPTO_SHA512_SIZE + 1);
+	memcpy(output3, output, third_len);
+
+	/* Clear sensitive data from stack */
+	crypto_memzero(temp_key, CRYPTO_SHA512_SIZE);
+	crypto_memzero(output, CRYPTO_SHA512_SIZE + 1);
+}
+
+/*
+ * cf. Noise section 5.2
+ * Executes the following steps:
+ * - Sets ck, temp_k = HKDF(ck, input_key_material, 2).
+ * - If HASHLEN is 64, then truncates temp_k to 32 bytes
+ * - Calls InitializeKey(temp_k).
+ * input_key_material = DH_X25519(private, public)
+ */
+void noise_mix_key(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
 				uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE],
 				const uint8_t private_key[CRYPTO_PUBLIC_KEY_SIZE],
 				const uint8_t public_key[CRYPTO_PUBLIC_KEY_SIZE])
@@ -746,14 +713,15 @@ bool noise_mix_key(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
     // chaining_key is HKDF output1 and shared_key is HKDF output2 => different values!
 	crypto_hkdf(chaining_key, shared_key, nullptr, dh_calculation, CRYPTO_SHA512_SIZE,
 	    CRYPTO_SHARED_KEY_SIZE, 0, CRYPTO_PUBLIC_KEY_SIZE, chaining_key);
-    //If HASHLEN is 64, then truncates temp_k to 32 bytes. => done via call to crypto_hkdf()
+    // If HASHLEN is 64, then truncates temp_k to 32 bytes. => done via call to crypto_hkdf()
 	crypto_memzero(dh_calculation, CRYPTO_PUBLIC_KEY_SIZE);
-	return true;
 }
 
 /*
-* TODO: MixHash(data) as defined in Noise spec
-*/
+ * Noise MixHash(data): Sets h = HASH(h || data).
+ * 
+ * cf. Noise section 5.2
+ */
 void noise_mix_hash(uint8_t hash[CRYPTO_SHA512_SIZE], const uint8_t *data, size_t data_len)
 {
 	uint8_t to_hash[CRYPTO_SHA512_SIZE + data_len];
@@ -763,10 +731,10 @@ void noise_mix_hash(uint8_t hash[CRYPTO_SHA512_SIZE], const uint8_t *data, size_
 }
 
 /*
-* TODO: EncryptAndHash(plaintext) as defined in Noise spec besides 
-* "Noise spec: Note that if k is empty, the EncryptWithAd() call will set ciphertext equal to plaintext."
-* because this is not the case in Tox.
-*/ 
+ * cf. Noise section 5.2
+ * "Noise spec: Note that if k is empty, the EncryptWithAd() call will set ciphertext equal to plaintext."
+ * This is not the case in Tox.
+ */ 
 void noise_encrypt_and_hash(uint8_t *ciphertext, const uint8_t *plaintext,
 			    size_t plain_length, uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE],
 			    uint8_t hash[CRYPTO_SHA512_SIZE], uint8_t nonce[CRYPTO_NONCE_SIZE])
@@ -779,10 +747,10 @@ void noise_encrypt_and_hash(uint8_t *ciphertext, const uint8_t *plaintext,
 }
 
 /*
-* TODO: DecryptAndHash(plaintext) as defined in Noise spec besides 
-* "Note that if k is empty, the DecryptWithAd() call will set plaintext equal to ciphertext."
-* because this is not the case in Tox.
-*/ 
+ * cf. Noise section 5.2
+ * "Note that if k is empty, the DecryptWithAd() call will set plaintext equal to ciphertext."
+ * This is not the case in Tox.
+ */ 
 int noise_decrypt_and_hash(uint8_t *plaintext, const uint8_t *ciphertext,
 			    size_t encrypted_length, uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE],
 			    uint8_t hash[CRYPTO_SHA512_SIZE], uint8_t nonce[CRYPTO_NONCE_SIZE])
