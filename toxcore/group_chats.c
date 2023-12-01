@@ -156,6 +156,11 @@ typedef enum Group_Sync_Flags {
     GF_STATE      = (1 << 2), // 4
 } Group_Sync_Flags;
 
+typedef enum Group_CustomPkts_Direction {
+    GC_CUSTOMPKTS_SENDING      = (1 << 0), // 1
+    GC_CUSTOMPKTS_RECEIVING    = (1 << 1), // 2
+} Group_CustomPkts_Direction;
+
 non_null() static bool self_gc_is_founder(const GC_Chat *chat);
 non_null() static bool group_number_valid(const GC_Session *c, int group_number);
 non_null() static int peer_update(const GC_Chat *chat, const GC_Peer *peer, uint32_t peer_number);
@@ -4906,11 +4911,17 @@ static int handle_gc_private_message(const GC_Session *c, const GC_Chat *chat, c
 }
 
 /** @brief Returns false if a custom packet is too large. */
-static bool custom_gc_packet_length_is_valid(uint16_t length, bool lossless)
+static bool custom_gc_packet_length_is_valid(uint16_t length, bool lossless, Group_CustomPkts_Direction pkt_direction)
 {
     if (lossless) {
-        if (length > MAX_GC_CUSTOM_LOSSLESS_PACKET_SIZE) {
-            return false;
+        if (pkt_direction == GC_CUSTOMPKTS_SENDING) {
+            if (length > MAX_GC_CUSTOM_LOSSLESS_PACKET_SIZE) {
+                return false;
+            }
+        } else {
+            if (length > MAX_GC_PACKET_SIZE) {
+                return false;
+            }
         }
     } else {
         if (length > MAX_GC_CUSTOM_LOSSY_PACKET_SIZE) {
@@ -4924,7 +4935,7 @@ static bool custom_gc_packet_length_is_valid(uint16_t length, bool lossless)
 int gc_send_custom_private_packet(const GC_Chat *chat, bool lossless, uint32_t peer_id, const uint8_t *message,
                                   uint16_t length)
 {
-    if (!custom_gc_packet_length_is_valid(length, lossless)) {
+    if (!custom_gc_packet_length_is_valid(length, lossless, GC_CUSTOMPKTS_SENDING)) {
         return -1;
     }
 
@@ -4966,7 +4977,7 @@ non_null(1, 2, 3, 4) nullable(7)
 static int handle_gc_custom_private_packet(const GC_Session *c, const GC_Chat *chat, const GC_Peer *peer,
         const uint8_t *data, uint16_t length, bool lossless, void *userdata)
 {
-    if (!custom_gc_packet_length_is_valid(length, lossless)) {
+    if (!custom_gc_packet_length_is_valid(length, lossless, GC_CUSTOMPKTS_RECEIVING)) {
         return -1;
     }
 
@@ -4987,7 +4998,7 @@ static int handle_gc_custom_private_packet(const GC_Session *c, const GC_Chat *c
 
 int gc_send_custom_packet(const GC_Chat *chat, bool lossless, const uint8_t *data, uint16_t length)
 {
-    if (!custom_gc_packet_length_is_valid(length, lossless)) {
+    if (!custom_gc_packet_length_is_valid(length, lossless, GC_CUSTOMPKTS_SENDING)) {
         return -1;
     }
 
@@ -5017,7 +5028,7 @@ non_null(1, 2, 3, 4) nullable(7)
 static int handle_gc_custom_packet(const GC_Session *c, const GC_Chat *chat, const GC_Peer *peer, const uint8_t *data,
                                    uint16_t length, bool lossless, void *userdata)
 {
-    if (!custom_gc_packet_length_is_valid(length, lossless)) {
+    if (!custom_gc_packet_length_is_valid(length, lossless, GC_CUSTOMPKTS_RECEIVING)) {
         return -1;
     }
 
@@ -6056,6 +6067,7 @@ static bool handle_gc_lossless_packet(const GC_Session *c, GC_Chat *chat, const 
 
     uint8_t packet_type;
     uint64_t message_id;
+
 
     const int len = group_packet_unwrap(chat->log, gconn, data, &message_id, &packet_type, packet, length);
 
