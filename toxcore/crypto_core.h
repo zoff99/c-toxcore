@@ -526,7 +526,7 @@ void crypto_hmac512(uint8_t auth[CRYPTO_SHA512_SIZE], const uint8_t key[CRYPTO_S
  * @param third_len Length of output3/key
  * @param data HKDF input_key_material byte sequence with length either zero bytes, 32 bytes, or DHLEN bytes
  * @param data_len length of either zero bytes, 32 bytes, or DHLEN bytes
- * @param Noise 64 byte chaining key as HKDF salt
+ * @param chaining_key Noise 64 byte chaining key as HKDF salt
  */
 void crypto_hkdf(uint8_t *output1, uint8_t *output2, uint8_t *output3, const uint8_t *data,
 		size_t first_len, size_t second_len, size_t third_len,
@@ -542,7 +542,7 @@ void crypto_hkdf(uint8_t *output1, uint8_t *output2, uint8_t *output3, const uin
  * - Calls InitializeKey(temp_k).
  * input_key_material = DH_X25519(private, public)
  * 
- * @param 64 byte Noise ck
+ * @param chaining_key 64 byte Noise ck
  * @param shared_key 32 byte key to be calculated
  * @param private_key X25519 private key
  * @param public_key X25519 public key
@@ -577,7 +577,7 @@ void noise_mix_hash(uint8_t hash[CRYPTO_SHA512_SIZE], const uint8_t *data, size_
  * 
  * @param ciphertext stores encrypted plaintext
  * @param plaintext to be encrypted
- * @param plain_lenth length of plaintext
+ * @param plain_length length of plaintext
  * @param shared_key used for XAEAD encryption
  * @param hash stores hash value, used as associated data in XAEAD
  * @param nonce used for XEAD encryption
@@ -599,7 +599,7 @@ void noise_encrypt_and_hash(uint8_t *ciphertext, const uint8_t *plaintext,
  * 
  * @param ciphertext contains ciphertext to decrypt
  * @param plaintext stores decrypted ciphertext
- * @param encrypted_lenth length of ciphertext+MAC
+ * @param encrypted_length length of ciphertext+MAC
  * @param shared_key used for XAEAD decryption
  * @param hash stores hash value, used as associated data in XAEAD
  * @param nonce used for XEAD decryption
