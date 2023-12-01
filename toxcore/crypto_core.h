@@ -520,10 +520,9 @@ void new_hmac_key(const Random *rng, uint8_t key[CRYPTO_HMAC_KEY_SIZE]);
 * input_key_material = DH_X25519(private, public)
 */
 non_null()
-bool noise_mix_key(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
-				uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE],
-				const uint8_t private[CRYPTO_PUBLIC_KEY_SIZE],
-				const uint8_t public[CRYPTO_PUBLIC_KEY_SIZE]);
+bool noise_mix_key(uint8_t chaining_key[CRYPTO_SHA512_SIZE], uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE],
+				const uint8_t private_key[CRYPTO_PUBLIC_KEY_SIZE],
+				const uint8_t public_key[CRYPTO_PUBLIC_KEY_SIZE]);
 
 /*
 * TODO: MixHash(data) as defined in Noise spec

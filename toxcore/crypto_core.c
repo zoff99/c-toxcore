@@ -736,13 +736,13 @@ void random_bytes(const Random *rng, uint8_t *bytes, size_t length)
 */
 bool noise_mix_key(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
 				uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE],
-				const uint8_t private[CRYPTO_PUBLIC_KEY_SIZE],
-				const uint8_t public[CRYPTO_PUBLIC_KEY_SIZE])
+				const uint8_t private_key[CRYPTO_PUBLIC_KEY_SIZE],
+				const uint8_t public_key[CRYPTO_PUBLIC_KEY_SIZE])
 {
 	uint8_t dh_calculation[CRYPTO_PUBLIC_KEY_SIZE];
 
     // X25519 - returns plain DH result, afterwards hashed with HKDF
-    encrypt_precompute(public, private, dh_calculation);
+    encrypt_precompute(public_key, private_key, dh_calculation);
     // chaining_key is HKDF output1 and shared_key is HKDF output2 => different values!
 	crypto_hkdf(chaining_key, shared_key, nullptr, dh_calculation, CRYPTO_SHA512_SIZE,
 	    CRYPTO_SHARED_KEY_SIZE, 0, CRYPTO_PUBLIC_KEY_SIZE, chaining_key);
