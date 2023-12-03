@@ -44,12 +44,12 @@ const char *savedata_filename1 = "savedata1.tox";
 const char *savedata_filename2 = "savedata2.tox";
 FILE *logfile = NULL;
 
-uint8_t s_num1 = 1;
-uint8_t s_num2 = 2;
-long a_frames_rvcd = 0;
-long v_frames_rvcd = 0;
-long a_frames_sent = 0;
-long v_frames_sent = 0;
+_Atomic uint8_t s_num1 = 1;
+_Atomic uint8_t s_num2 = 2;
+_Atomic long a_frames_rvcd = 0;
+_Atomic long v_frames_rvcd = 0;
+_Atomic long a_frames_sent = 0;
+_Atomic long v_frames_sent = 0;
 
 int s_online[3] = { 0, 0, 0};
 int f_online[3] = { 0, 0, 0};
