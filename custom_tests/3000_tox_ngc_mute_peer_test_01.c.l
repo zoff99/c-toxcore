@@ -228,7 +228,8 @@ void dbg(int level, const char *fmt, ...)
     struct timeval tv;
     gettimeofday(&tv, NULL);
     time_t t3 = time(NULL);
-    struct tm tm3 = *localtime(&t3);
+    struct tm tm3;
+    tm3 = *localtime_r(&t3, &tm3);
     char *level_and_format_2 = calloc(1, strlen(level_and_format) + 5 + 3 + 3 + 1 + 3 + 3 + 3 + 7 + 1);
     level_and_format_2[0] = '\0';
     snprintf(level_and_format_2, (strlen(level_and_format) + 5 + 3 + 3 + 1 + 3 + 3 + 3 + 7 + 1),
