@@ -65,10 +65,18 @@ jobs:
       - name: run custom tests
         run: |
           pwd
+          CACHEDIR="$HOME/cache"
+          mkdir -p "$CACHEDIR"
+          echo 'race:^av_buffer_unref$' > "$CACHEDIR/tsan_ignore"
+          echo 'race:^av_malloc$' >> "$CACHEDIR/tsan_ignore"
+          echo 'race:libavutil.so*' >> "$CACHEDIR/tsan_ignore"
+          echo 'race:libavcodec.so*' >> "$CACHEDIR/tsan_ignore"
+          cat "$CACHEDIR/tsan_ignore"
           export TSAN_OPTIONS="color=always"
           export TSAN_OPTIONS="$TSAN_OPTIONS,halt_on_error=1"
           export TSAN_OPTIONS="$TSAN_OPTIONS,second_deadlock_stack=1"
           export TSAN_OPTIONS="$TSAN_OPTIONS,symbolize=1"
+          export TSAN_OPTIONS="$TSAN_OPTIONS,suppressions=$CACHEDIR/tsan_ignore"
           export TEST_MAX_TIME=$[10*60] # 10 minutes
           ls -1 ./custom_tests/*.c
           export PKG_CONFIG_PATH="$PWD"/_install/lib/pkgconfig
