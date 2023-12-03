@@ -1,4 +1,4 @@
-name: custom_tests
+name: custom_tests_asan
 
 on:
   push:
