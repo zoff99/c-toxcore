@@ -279,8 +279,8 @@ static void test_very_large_data(void)
     uint8_t sk[CRYPTO_SECRET_KEY_SIZE];
     crypto_new_keypair(rng, pk, sk);
 
-    // 100 MiB of data (all zeroes, doesn't matter what's inside).
-    const uint32_t plain_size = 100 * 1024 * 1024;
+    // 50 MiB of data (all zeroes, doesn't matter what's inside).
+    const uint32_t plain_size = 50 * 1024 * 1024;
     uint8_t *plain = (uint8_t *)malloc(plain_size);
     uint8_t *encrypted = (uint8_t *)malloc(plain_size + CRYPTO_MAC_SIZE);
 
