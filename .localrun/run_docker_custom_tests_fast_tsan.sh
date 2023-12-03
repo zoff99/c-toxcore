@@ -140,7 +140,7 @@ for i in $(ls -1 ./custom_tests/*.c) ; do
     -o test
     echo "RUN:--------------- ""$i"" ---------------"
     export TSAN_OPTIONS="color=always"
-    export TSAN_OPTIONS="$TSAN_OPTIONS,halt_on_error=0"
+    export TSAN_OPTIONS="$TSAN_OPTIONS,halt_on_error=1"
     export TSAN_OPTIONS="$TSAN_OPTIONS,second_deadlock_stack=1"
     export TSAN_OPTIONS="$TSAN_OPTIONS,symbolize=1"
     export TSAN_OPTIONS="$TSAN_OPTIONS,suppressions=/workspace/tsan_ignore"
