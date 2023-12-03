@@ -2032,6 +2032,13 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
         return;
     }
 
+    if (pthread_mutex_trylock(call->mutex_video) != 0) {
+        pthread_mutex_unlock(call->av->mutex);
+        LOGGER_API_DEBUG(call->av->tox, "could not lock call->mutex_video, returning without processing BWC data");
+        return;
+    }
+
+
     pthread_mutex_lock(call->toxav_call_mutex);
 
     if (call->video_bit_rate == 0) {
@@ -2136,6 +2143,7 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
     // HINT: sanity check --------------
 
     pthread_mutex_unlock(call->toxav_call_mutex);
+    pthread_mutex_unlock(call->mutex_video);
     pthread_mutex_unlock(call->av->mutex);
 }
 
