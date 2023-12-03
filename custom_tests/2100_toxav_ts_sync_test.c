@@ -4,6 +4,7 @@
 
 
 #include <ctype.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -54,8 +55,8 @@ int f_online[3] = { 0, 0, 0};
 int f_join_other[3] = { 0, 0, 0};
 int f_join_self[3] = { 0, 0, 0};
 
-int toxav_video_thread_stop = 0;
-int toxav_audioiterate_thread_stop = 0;
+_Atomic int toxav_video_thread_stop = 0;
+_Atomic int toxav_audioiterate_thread_stop = 0;
 
 long a_frames_rvcd = 0;
 long v_frames_rvcd = 0;
