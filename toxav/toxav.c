@@ -2621,7 +2621,9 @@ static void call_kill_transmission(ToxAVCall *call)
         return;
     }
 
+    pthread_mutex_lock(call->toxav_call_mutex);
     call->active = 0;
+    pthread_mutex_unlock(call->toxav_call_mutex);
 
     pthread_mutex_lock(call->mutex_audio);
     pthread_mutex_unlock(call->mutex_audio);
