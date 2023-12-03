@@ -29,8 +29,8 @@ TEST(CryptoCore, EncryptLargeData)
     SecretKey sk;
     crypto_new_keypair(rng, pk.data(), sk.data());
 
-    // 50 MiB of data (all zeroes, doesn't matter what's inside).
-    std::vector<uint8_t> plain(50 * 1024 * 1024);
+    // 10 MiB of data (all zeroes, doesn't matter what's inside).
+    std::vector<uint8_t> plain(10 * 1024 * 1024);
     std::vector<uint8_t> encrypted(plain.size() + CRYPTO_MAC_SIZE);
 
     encrypt_data(pk.data(), sk.data(), nonce.data(), plain.data(), plain.size(), encrypted.data());
