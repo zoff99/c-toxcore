@@ -2717,6 +2717,7 @@ static int create_crypto_connection(Net_Crypto *c)
         c->crypto_connections[id].packet_send_rate_requested = 0;
         c->crypto_connections[id].last_packets_left_requested_rem = 0;
         c->crypto_connections[id].mutex = (pthread_mutex_t *)mem_alloc(c->mem, sizeof(pthread_mutex_t));
+    }
 
     if (c->crypto_connections[id].mutex == nullptr) {
         LOGGER_ERROR(c->log, "failed to alloc mutex");
