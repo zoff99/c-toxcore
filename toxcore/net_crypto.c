@@ -2781,7 +2781,6 @@ static int wipe_crypto_connection(Net_Crypto *c, int crypt_connection_id)
 
     pthread_mutex_destroy(c->crypto_connections[crypt_connection_id].mutex);
     mem_delete(c->mem, c->crypto_connections[crypt_connection_id].mutex);
-    free(c->crypto_connections[crypt_connection_id].mutex);
 
     crypto_memzero(c->crypto_connections[crypt_connection_id].noise_handshake, sizeof(struct noise_handshake));
     free(c->crypto_connections[crypt_connection_id].noise_handshake);
