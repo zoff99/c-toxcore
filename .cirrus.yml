@@ -9,10 +9,8 @@ bazel-opt_task:
     - /src/workspace/tools/inject-repo c-toxcore
   test_all_script:
     - cd /src/workspace && bazel test -k
-        --remote_http_cache=http://$CIRRUS_HTTP_CACHE_HOST
         --build_tag_filters=-haskell
         --test_tag_filters=-haskell
-        --remote_download_minimal
         --
         //c-toxcore/...
         -//c-toxcore/auto_tests:tcp_relay_test # TODO(robinlinden): Why does this pass locally but not in Cirrus?
@@ -27,75 +25,11 @@ bazel-dbg_task:
     - /src/workspace/tools/inject-repo c-toxcore
   test_all_script:
     - cd /src/workspace && bazel test -k
-        --remote_http_cache=http://$CIRRUS_HTTP_CACHE_HOST
         --build_tag_filters=-haskell
         --test_tag_filters=-haskell
-        --remote_download_minimal
         --
         //c-toxcore/...
         -//c-toxcore/auto_tests:tcp_relay_test # TODO(robinlinden): Why does this pass locally but not in Cirrus?
-
-bazel-asan_task:
-  container:
-    image: toxchat/toktok-stack:latest-asan
-    cpu: 2
-    memory: 4G
-  configure_script:
-    - git submodule update --init --recursive
-    - /src/workspace/tools/inject-repo c-toxcore
-  test_all_script:
-    - cd /src/workspace && bazel test -k
-        --remote_http_cache=http://$CIRRUS_HTTP_CACHE_HOST
-        --build_tag_filters=-haskell
-        --test_tag_filters=-haskell
-        --remote_download_minimal
-        --
-        //c-toxcore/...
-        -//c-toxcore/auto_tests:tcp_relay_test # TODO(robinlinden): Why does this pass locally but not in Cirrus?
-
-# TODO(iphydf): Enable once this works properly.
-#bazel-msan_task:
-#  container:
-#    image: toxchat/toktok-stack:latest-msan
-#    cpu: 2
-#    memory: 4G
-#  configure_script:
-#    - git submodule update --init --recursive
-#    - /src/workspace/tools/inject-repo c-toxcore
-#  test_all_script:
-#    - cd /src/workspace && bazel test -k
-#        --remote_http_cache=http://$CIRRUS_HTTP_CACHE_HOST
-#        --build_tag_filters=-haskell
-#        --test_tag_filters=-haskell
-#        --remote_download_minimal
-#        --
-#        //c-toxcore/...
-#        -//c-toxcore/auto_tests:tcp_relay_test # TODO(robinlinden): Why does this pass locally but not in Cirrus?
-
-# TODO(iphydf): Fix test timeouts.
-bazel-tsan_task:
-  container:
-    image: toxchat/toktok-stack:latest-tsan
-    cpu: 2
-    memory: 4G
-  configure_script:
-    - git submodule update --init --recursive
-    - /src/workspace/tools/inject-repo c-toxcore
-  test_all_script:
-    - cd /src/workspace && bazel test -k
-        --remote_http_cache=http://$CIRRUS_HTTP_CACHE_HOST
-        --build_tag_filters=-haskell
-        --test_tag_filters=-haskell
-        --remote_download_minimal
-        --
-        //c-toxcore/...
-        -//c-toxcore/auto_tests:conference_av_test
-        -//c-toxcore/auto_tests:conference_test
-        -//c-toxcore/auto_tests:file_transfer_test
-        -//c-toxcore/auto_tests:group_tcp_test
-        -//c-toxcore/auto_tests:onion_test
-        -//c-toxcore/auto_tests:tcp_relay_test
-        -//c-toxcore/auto_tests:tox_many_test
 
 cimple_task:
   container:
@@ -107,8 +41,19 @@ cimple_task:
     - /src/workspace/tools/inject-repo c-toxcore
   test_all_script:
     - cd /src/workspace && bazel test -k
-        --remote_http_cache=http://$CIRRUS_HTTP_CACHE_HOST
         --build_tag_filters=haskell
         --test_tag_filters=haskell
         --
         //c-toxcore/...
+
+freebsd_task:
+  container:
+    image: toxchat/freebsd:latest
+    cpu: 2
+    memory: 4G
+    kvm: true
+  configure_script:
+    - git submodule update --init --recursive
+    - cd .. && mv cirrus-ci-build /work/c-toxcore && mkdir cirrus-ci-build
+  test_all_script:
+    - cd /work/c-toxcore && .github/scripts/cmake-freebsd

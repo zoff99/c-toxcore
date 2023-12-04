@@ -14,6 +14,7 @@
 #include "attributes.h"
 #include "crypto_core.h"
 #include "logger.h"
+#include "mem.h"
 #include "mono_time.h"
 #include "network.h"
 #include "ping_array.h"
@@ -213,18 +214,6 @@ int packed_node_size(Family ip_family);
 non_null()
 int pack_ip_port(const Logger *logger, uint8_t *data, uint16_t length, const IP_Port *ip_port);
 
-/** @brief Encrypt plain and write resulting DHT packet into packet with max size length.
- *
- * @return size of packet on success.
- * @retval -1 on failure.
- */
-non_null()
-int dht_create_packet(const Random *rng,
-                      const uint8_t public_key[CRYPTO_PUBLIC_KEY_SIZE],
-                      const uint8_t *shared_key, const uint8_t type,
-                      const uint8_t *plain, size_t plain_length,
-                      uint8_t *packet, size_t length);
-
 /** @brief Unpack IP_Port structure from data of max size length into ip_port.
  *
  * len_processed is the offset of data currently unpacked.
@@ -234,6 +223,18 @@ int dht_create_packet(const Random *rng,
  */
 non_null()
 int unpack_ip_port(IP_Port *ip_port, const uint8_t *data, uint16_t length, bool tcp_enabled);
+
+/** @brief Encrypt plain and write resulting DHT packet into packet with max size length.
+ *
+ * @return size of packet on success.
+ * @retval -1 on failure.
+ */
+non_null()
+int dht_create_packet(const Memory *mem, const Random *rng,
+                      const uint8_t public_key[CRYPTO_PUBLIC_KEY_SIZE],
+                      const uint8_t *shared_key, const uint8_t type,
+                      const uint8_t *plain, size_t plain_length,
+                      uint8_t *packet, size_t length);
 
 /** @brief Pack number of nodes into data of maxlength length.
  *
@@ -393,7 +394,7 @@ void set_announce_node(DHT *dht, const uint8_t *public_key);
  */
 non_null()
 int get_close_nodes(const DHT *dht, const uint8_t *public_key, Node_format *nodes_list, Family sa_family,
-                    bool is_LAN, bool want_announce);
+                    bool is_lan, bool want_announce);
 
 
 /** @brief Put up to max_num nodes in nodes from the random friends.
@@ -494,8 +495,8 @@ int dht_load(DHT *dht, const uint8_t *data, uint32_t length);
 
 /** Initialize DHT. */
 non_null()
-DHT *new_dht(const Logger *log, const Random *rng, const Network *ns, Mono_Time *mono_time, Networking_Core *net,
-             bool hole_punching_enabled, bool lan_discovery_enabled);
+DHT *new_dht(const Logger *log, const Memory *mem, const Random *rng, const Network *ns,
+             Mono_Time *mono_time, Networking_Core *net, bool hole_punching_enabled, bool lan_discovery_enabled);
 
 nullable(1)
 void kill_dht(DHT *dht);
@@ -513,6 +514,24 @@ bool dht_isconnected(const DHT *dht);
  */
 non_null()
 bool dht_non_lan_connected(const DHT *dht);
+
+/**
+ * This function returns the ratio of close dht nodes that are known to support announce/store.
+ * This function returns the number of DHT nodes in the closelist.
+ *
+ * @return number
+ */
+non_null()
+uint16_t dht_get_num_closelist(const DHT *dht);
+
+/**
+ * This function returns the number of DHT nodes in the closelist,
+ * that are capable to store annouce data (introduced in version 0.2.18).
+ *
+ * @return number
+ */
+non_null()
+uint16_t dht_get_num_closelist_announce_capable(const DHT *dht);
 
 /** @brief Attempt to add client with ip_port and public_key to the friends client list
  * and close_clientlist.

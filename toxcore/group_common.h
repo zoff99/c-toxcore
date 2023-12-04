@@ -28,6 +28,8 @@
  * For an explanation on why this value was chosen, see the following link: https://archive.ph/vsCOG
  */
 #define MAX_GC_PACKET_CHUNK_SIZE 500
+/* Max size of an incoming packet chunk that is allowed */
+#define MAX_GC_PACKET_INCOMING_CHUNK_SIZE 1372
 
 #define MAX_GC_MESSAGE_SIZE GROUP_MAX_MESSAGE_LENGTH
 #define MAX_GC_MESSAGE_RAW_SIZE (MAX_GC_MESSAGE_SIZE + GC_MESSAGE_PSEUDO_ID_SIZE)
@@ -247,6 +249,7 @@ typedef struct GC_TopicInfo {
 typedef struct GC_Chat {
     Mono_Time       *mono_time;
     const Logger    *log;
+    const Memory    *mem;
     const Random    *rng;
 
     uint32_t        connected_tcp_relays;
@@ -291,7 +294,7 @@ typedef struct GC_Chat {
     uint64_t    last_time_peers_loaded;
 
     /* keeps track of frequency of new inbound connections */
-    uint8_t     connection_O_metre;
+    uint8_t     connection_o_metre;
     uint64_t    connection_cooldown_timer;
     bool        block_handshakes;
 

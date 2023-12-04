@@ -5,10 +5,13 @@ workflows:
   version: 2
   program-analysis:
     jobs:
-      # Dynamic analysis
+      # Dynamic analysis in the Bazel build
+      - bazel-asan
+      - bazel-msan
+      - bazel-tsan
+      # Dynamic analysis with CMake
       - asan
       - tsan
-      - msan
       - ubsan
       # Static analysis
       - clang-analyze
@@ -18,6 +21,40 @@ workflows:
       - static-analysis
 
 jobs:
+  bazel-asan:
+    working_directory: /tmp/cirrus-ci-build
+    docker:
+      - image: toxchat/toktok-stack:latest-asan
+
+    steps:
+      - checkout
+      - run: .circleci/bazel-test
+          //c-toxcore/...
+
+  bazel-tsan:
+    working_directory: /tmp/cirrus-ci-build
+    docker:
+      - image: toxchat/toktok-stack:latest-tsan
+
+    steps:
+      - checkout
+      - run: .circleci/bazel-test
+          //c-toxcore/...
+          -//c-toxcore/auto_tests:conference_av_test
+          -//c-toxcore/auto_tests:conference_test
+          -//c-toxcore/auto_tests:onion_test
+          -//c-toxcore/auto_tests:tox_many_test
+
+  bazel-msan:
+    working_directory: /tmp/cirrus-ci-build
+    docker:
+      - image: toxchat/toktok-stack:latest-msan
+
+    steps:
+      - checkout
+      - run: .circleci/bazel-test
+          //c-toxcore/auto_tests:lossless_packet_test
+
   asan:
     working_directory: ~/work
     docker:
@@ -65,21 +102,6 @@ jobs:
       - checkout
       - run: git submodule update --init --recursive
       - run: CC=clang .circleci/cmake-ubsan
-
-  msan:
-    working_directory: ~/work
-    docker:
-      - image: toxchat/toktok-stack:latest-msan
-
-    steps:
-      - checkout
-      - run: git submodule update --init --recursive
-      - run: rm -rf /src/workspace/c-toxcore/* && mv * /src/workspace/c-toxcore/
-      - run:
-          cd /src/workspace && bazel test
-            //c-toxcore/auto_tests:lossless_packet_test
-            //c-toxcore/toxav/...
-            //c-toxcore/toxcore/...
 
   infer:
     working_directory: ~/work
@@ -144,10 +166,9 @@ jobs:
       - run:
           apt-get install -y --no-install-recommends
             ca-certificates
-            clang-tidy-12
+            clang-tidy-14
       - checkout
       - run: git submodule update --init --recursive
-      - run: cmake . -B_build -GNinja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
       - run:
           other/analysis/run-clang-tidy ||
           other/analysis/run-clang-tidy ||

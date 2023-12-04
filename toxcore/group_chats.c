@@ -108,9 +108,18 @@ static_assert(GCC_BUFFER_SIZE <= UINT16_MAX,
 static_assert(MAX_GC_PACKET_CHUNK_SIZE < MAX_GC_PACKET_SIZE,
               "MAX_GC_PACKET_CHUNK_SIZE must be < MAX_GC_PACKET_SIZE");
 
+static_assert(MAX_GC_PACKET_INCOMING_CHUNK_SIZE < MAX_GC_PACKET_SIZE,
+              "MAX_GC_PACKET_INCOMING_CHUNK_SIZE must be < MAX_GC_PACKET_SIZE");
+
+static_assert(MAX_GC_PACKET_INCOMING_CHUNK_SIZE >= MAX_GC_PACKET_CHUNK_SIZE,
+              "MAX_GC_PACKET_INCOMING_CHUNK_SIZE must be >= MAX_GC_PACKET_CHUNK_SIZE");
+
 // size of a lossless handshake packet - lossless packets can't/shouldn't be split up
 static_assert(MAX_GC_PACKET_CHUNK_SIZE >= 171,
               "MAX_GC_PACKET_CHUNK_SIZE must be >= 171");
+
+static_assert(MAX_GC_PACKET_INCOMING_CHUNK_SIZE >= 171,
+              "MAX_GC_PACKET_INCOMING_CHUNK_SIZE must be >= 171");
 
 // group_moderation constants assume this is the max packet size.
 static_assert(MAX_GC_PACKET_SIZE >= 50000,
@@ -118,6 +127,9 @@ static_assert(MAX_GC_PACKET_SIZE >= 50000,
 
 static_assert(MAX_GC_PACKET_SIZE <= UINT16_MAX - MAX_GC_PACKET_CHUNK_SIZE,
               "MAX_GC_PACKET_SIZE must be <= UINT16_MAX - MAX_GC_PACKET_CHUNK_SIZE");
+
+static_assert(MAX_GC_PACKET_SIZE <= UINT16_MAX - MAX_GC_PACKET_INCOMING_CHUNK_SIZE,
+              "MAX_GC_PACKET_SIZE must be <= UINT16_MAX - MAX_GC_PACKET_INCOMING_CHUNK_SIZE");
 
 /** Types of broadcast messages. */
 typedef enum Group_Message_Type {
@@ -3498,8 +3510,8 @@ unsigned int gc_get_peer_connection_status(const GC_Chat *chat, uint32_t peer_id
 {
     const int peer_number = get_peer_number_of_peer_id(chat, peer_id);
 
-    if (peer_number_is_self(peer_number)) {  // we cannot have a connection with ourselves
-        return 0;
+    if (peer_number_is_self(peer_number)) {
+        return chat->self_udp_status ==  SELF_UDP_STATUS_NONE ? 1 : 2;
     }
 
     const GC_Connection *gconn = get_gc_connection(chat, peer_number);
@@ -5691,13 +5703,13 @@ static int handle_gc_handshake_request(GC_Chat *chat, const IP_Port *ipp, const 
         return -1;
     }
 
-    if (chat->connection_O_metre >= GC_NEW_PEER_CONNECTION_LIMIT) {
+    if (chat->connection_o_metre >= GC_NEW_PEER_CONNECTION_LIMIT) {
         chat->block_handshakes = true;
         LOGGER_DEBUG(chat->log, "Handshake overflow. Blocking handshakes.");
         return -1;
     }
 
-    ++chat->connection_O_metre;
+    ++chat->connection_o_metre;
 
     const uint8_t *public_sig_key = data + ENC_PUBLIC_KEY_SIZE;
 
@@ -6255,13 +6267,13 @@ static int handle_gc_tcp_packet(void *object, int id, const uint8_t *packet, uin
 
     if (length <= MIN_TCP_PACKET_SIZE) {
         LOGGER_WARNING(m->log, "Got tcp packet with invalid length: %u (expected %u to %u)", length,
-                       MIN_TCP_PACKET_SIZE, MAX_GC_PACKET_CHUNK_SIZE + MIN_TCP_PACKET_SIZE + ENC_PUBLIC_KEY_SIZE);
+                       MIN_TCP_PACKET_SIZE, MAX_GC_PACKET_INCOMING_CHUNK_SIZE + MIN_TCP_PACKET_SIZE + ENC_PUBLIC_KEY_SIZE);
         return -1;
     }
 
-    if (length > MAX_GC_PACKET_CHUNK_SIZE + MIN_TCP_PACKET_SIZE + ENC_PUBLIC_KEY_SIZE) {
+    if (length > MAX_GC_PACKET_INCOMING_CHUNK_SIZE + MIN_TCP_PACKET_SIZE + ENC_PUBLIC_KEY_SIZE) {
         LOGGER_WARNING(m->log, "Got tcp packet with invalid length: %u (expected %u to %u)", length,
-                       MIN_TCP_PACKET_SIZE, MAX_GC_PACKET_CHUNK_SIZE + MIN_TCP_PACKET_SIZE + ENC_PUBLIC_KEY_SIZE);
+                       MIN_TCP_PACKET_SIZE, MAX_GC_PACKET_INCOMING_CHUNK_SIZE + MIN_TCP_PACKET_SIZE + ENC_PUBLIC_KEY_SIZE);
         return -1;
     }
 
@@ -6336,13 +6348,13 @@ static int handle_gc_tcp_oob_packet(void *object, const uint8_t *public_key, uns
 
     if (length <= GC_MIN_HS_PACKET_PAYLOAD_SIZE) {
         LOGGER_WARNING(m->log, "Got tcp oob packet with invalid length: %u (expected %u to %u)", length,
-                       GC_MIN_HS_PACKET_PAYLOAD_SIZE, MAX_GC_PACKET_CHUNK_SIZE + CRYPTO_MAC_SIZE + CRYPTO_NONCE_SIZE);
+                       GC_MIN_HS_PACKET_PAYLOAD_SIZE, MAX_GC_PACKET_INCOMING_CHUNK_SIZE + CRYPTO_MAC_SIZE + CRYPTO_NONCE_SIZE);
         return -1;
     }
 
-    if (length > MAX_GC_PACKET_CHUNK_SIZE + CRYPTO_MAC_SIZE + CRYPTO_NONCE_SIZE) {
+    if (length > MAX_GC_PACKET_INCOMING_CHUNK_SIZE + CRYPTO_MAC_SIZE + CRYPTO_NONCE_SIZE) {
         LOGGER_WARNING(m->log, "Got tcp oob packet with invalid length: %u (expected %u to %u)", length,
-                       GC_MIN_HS_PACKET_PAYLOAD_SIZE, MAX_GC_PACKET_CHUNK_SIZE + CRYPTO_MAC_SIZE + CRYPTO_NONCE_SIZE);
+                       GC_MIN_HS_PACKET_PAYLOAD_SIZE, MAX_GC_PACKET_INCOMING_CHUNK_SIZE + CRYPTO_MAC_SIZE + CRYPTO_NONCE_SIZE);
         return -1;
     }
 
@@ -6392,13 +6404,13 @@ static int handle_gc_udp_packet(void *object, const IP_Port *ipp, const uint8_t 
 
     if (length <= MIN_UDP_PACKET_SIZE) {
         LOGGER_WARNING(m->log, "Got UDP packet with invalid length: %u (expected %u to %u)", length,
-                       MIN_UDP_PACKET_SIZE, MAX_GC_PACKET_CHUNK_SIZE + MIN_UDP_PACKET_SIZE + ENC_PUBLIC_KEY_SIZE);
+                       MIN_UDP_PACKET_SIZE, MAX_GC_PACKET_INCOMING_CHUNK_SIZE + MIN_UDP_PACKET_SIZE + ENC_PUBLIC_KEY_SIZE);
         return -1;
     }
 
-    if (length > MAX_GC_PACKET_CHUNK_SIZE + MIN_UDP_PACKET_SIZE + ENC_PUBLIC_KEY_SIZE) {
+    if (length > MAX_GC_PACKET_INCOMING_CHUNK_SIZE + MIN_UDP_PACKET_SIZE + ENC_PUBLIC_KEY_SIZE) {
         LOGGER_WARNING(m->log, "Got UDP packet with invalid length: %u (expected %u to %u)", length,
-                       MIN_UDP_PACKET_SIZE, MAX_GC_PACKET_CHUNK_SIZE + MIN_UDP_PACKET_SIZE + ENC_PUBLIC_KEY_SIZE);
+                       MIN_UDP_PACKET_SIZE, MAX_GC_PACKET_INCOMING_CHUNK_SIZE + MIN_UDP_PACKET_SIZE + ENC_PUBLIC_KEY_SIZE);
         return -1;
     }
 
@@ -6961,12 +6973,12 @@ static bool ping_peer(const GC_Chat *chat, const GC_Connection *gconn)
 
     if (!send_lossy_group_packet(chat, gconn, data, packed_len, GP_PING)) {
         free(data);
-        return true;
+        return false;
     }
 
     free(data);
 
-    return false;
+    return true;
 }
 
 /**
@@ -7015,7 +7027,7 @@ static void do_gc_ping_and_key_rotation(GC_Chat *chat)
 non_null()
 static void do_new_connection_cooldown(GC_Chat *chat)
 {
-    if (chat->connection_O_metre == 0) {
+    if (chat->connection_o_metre == 0) {
         return;
     }
 
@@ -7023,9 +7035,9 @@ static void do_new_connection_cooldown(GC_Chat *chat)
 
     if (chat->connection_cooldown_timer < tm) {
         chat->connection_cooldown_timer = tm;
-        --chat->connection_O_metre;
+        --chat->connection_o_metre;
 
-        if (chat->connection_O_metre == 0 && chat->block_handshakes) {
+        if (chat->connection_o_metre == 0 && chat->block_handshakes) {
             chat->block_handshakes = false;
             LOGGER_DEBUG(chat->log, "Unblocking handshakes");
         }
@@ -7250,7 +7262,7 @@ static bool init_gc_tcp_connection(const GC_Session *c, GC_Chat *chat)
 {
     const Messenger *m = c->messenger;
 
-    chat->tcp_conn = new_tcp_connections(chat->log, chat->rng, m->ns, chat->mono_time, chat->self_secret_key,
+    chat->tcp_conn = new_tcp_connections(chat->log, chat->mem, chat->rng, m->ns, chat->mono_time, chat->self_secret_key,
                                          &m->options.proxy_info);
 
     if (chat->tcp_conn == nullptr) {
@@ -7305,6 +7317,7 @@ static void init_gc_moderation(GC_Chat *chat)
     memcpy(chat->moderation.self_secret_sig_key, get_sig_pk(chat->self_secret_key), SIG_SECRET_KEY_SIZE);
     chat->moderation.shared_state_version = chat->shared_state.version;
     chat->moderation.log = chat->log;
+    chat->moderation.mem = chat->mem;
 }
 
 non_null()
@@ -7332,6 +7345,7 @@ static int create_new_group(GC_Session *c, const uint8_t *nick, size_t nick_leng
     GC_Chat *chat = &c->chats[group_number];
 
     chat->log = m->log;
+    chat->mem = m->mem;
     chat->rng = m->rng;
 
     const uint64_t tm = mono_time_get(m->mono_time);
@@ -7476,9 +7490,14 @@ int gc_group_load(GC_Session *c, Bin_Unpack *bu)
     chat->net = m->net;
     chat->mono_time = m->mono_time;
     chat->log = m->log;
+    chat->mem = m->mem;
     chat->rng = m->rng;
     chat->last_ping_interval = tm;
     chat->friend_connection_id = -1;
+
+    // Initialise these first, because we may need to log/dealloc things on cleanup.
+    chat->moderation.log = m->log;
+    chat->moderation.mem = m->mem;
 
     if (!gc_load_unpack_group(chat, bu)) {
         LOGGER_ERROR(chat->log, "Failed to unpack group");

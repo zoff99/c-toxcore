@@ -41,18 +41,18 @@ bool friend_is_valid(const Messenger *m, int32_t friendnumber)
 
 /** @brief Set the size of the friend list to numfriends.
  *
- * @retval -1 if realloc fails.
+ * @retval -1 if mem_vrealloc fails.
  */
 non_null()
 static int realloc_friendlist(Messenger *m, uint32_t num)
 {
     if (num == 0) {
-        free(m->friendlist);
+        mem_delete(m->mem, m->friendlist);
         m->friendlist = nullptr;
         return 0;
     }
 
-    Friend *newfriendlist = (Friend *)realloc(m->friendlist, num * sizeof(Friend));
+    Friend *newfriendlist = (Friend *)mem_vrealloc(m->mem, m->friendlist, num, sizeof(Friend));
 
     if (newfriendlist == nullptr) {
         return -1;
@@ -313,7 +313,7 @@ static int clear_receipts(Messenger *m, int32_t friendnumber)
 
     while (receipts != nullptr) {
         struct Receipts *temp_r = receipts->next;
-        free(receipts);
+        mem_delete(m->mem, receipts);
         receipts = temp_r;
     }
 
@@ -329,7 +329,7 @@ static int add_receipt(Messenger *m, int32_t friendnumber, uint32_t packet_num, 
         return -1;
     }
 
-    struct Receipts *new_receipts = (struct Receipts *)calloc(1, sizeof(struct Receipts));
+    struct Receipts *new_receipts = (struct Receipts *)mem_alloc(m->mem, sizeof(struct Receipts));
 
     if (new_receipts == nullptr) {
         return -1;
@@ -430,7 +430,7 @@ static int do_receipts(Messenger *m, int32_t friendnumber, void *userdata)
 
         struct Receipts *r_next = receipts->next;
 
-        free(receipts);
+        mem_delete(m->mem, receipts);
 
         m->friendlist[friendnumber].receipts_start = r_next;
 
@@ -2024,7 +2024,7 @@ non_null(1, 3) nullable(5)
 static int m_handle_packet_offline(Messenger *m, const int i, const uint8_t *data, const uint16_t data_length, void *userdata)
 {
     if (data_length == 0) {
-    	set_friend_status(m, i, FRIEND_CONFIRMED, userdata);
+        set_friend_status(m, i, FRIEND_CONFIRMED, userdata);
     }
 
     return 0;
@@ -2403,8 +2403,8 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
             return m_handle_packet_file_data(m, i, data, data_length, userdata);
         case PACKET_ID_MSI:
             return m_handle_packet_msi(m, i, data, data_length, userdata);
-	    case PACKET_ID_INVITE_GROUPCHAT:
-	        return m_handle_packet_invite_groupchat(m, i, data, data_length, userdata);
+        case PACKET_ID_INVITE_GROUPCHAT:
+            return m_handle_packet_invite_groupchat(m, i, data, data_length, userdata);
     }
 
     return handle_custom_lossless_packet(object, i, temp, len, userdata);
@@ -2627,7 +2627,7 @@ void do_messenger(Messenger *m, void *userdata)
         if (m->tcp_server != nullptr) {
             /* Add self tcp server. */
             IP_Port local_ip_port;
-            local_ip_port.port = m->options.tcp_server_port;
+            local_ip_port.port = net_htons(m->options.tcp_server_port);
             local_ip_port.ip.family = net_family_ipv4();
             local_ip_port.ip.ip.v4 = get_ip4_loopback();
             add_tcp_relay(m->net_crypto, &local_ip_port, tcp_server_public_key(m->tcp_server));
@@ -2640,7 +2640,7 @@ void do_messenger(Messenger *m, void *userdata)
     }
 
     if (m->tcp_server != nullptr) {
-        do_TCP_server(m->tcp_server, m->mono_time);
+        do_tcp_server(m->tcp_server, m->mono_time);
     }
 
     do_net_crypto(m->net_crypto, userdata);
@@ -2915,15 +2915,16 @@ bool m_register_state_plugin(Messenger *m, State_Type type, m_state_size_cb *siz
                              m_state_load_cb *load_callback,
                              m_state_save_cb *save_callback)
 {
-    Messenger_State_Plugin *temp = (Messenger_State_Plugin *)realloc(m->options.state_plugins,
-                                   sizeof(Messenger_State_Plugin) * (m->options.state_plugins_length + 1));
+    const uint32_t new_length = m->options.state_plugins_length + 1;
+    Messenger_State_Plugin *temp = (Messenger_State_Plugin *)mem_vrealloc(
+            m->mem, m->options.state_plugins, new_length, sizeof(Messenger_State_Plugin));
 
     if (temp == nullptr) {
         return false;
     }
 
     m->options.state_plugins = temp;
-    ++m->options.state_plugins_length;
+    m->options.state_plugins_length = new_length;
 
     const uint8_t index = m->options.state_plugins_length - 1;
     m->options.state_plugins[index].type = type;
@@ -2987,6 +2988,7 @@ static State_Load_Status load_nospam_keys(Messenger *m, const uint8_t *data, uin
     load_secret_key(m->net_crypto, data + sizeof(uint32_t) + CRYPTO_PUBLIC_KEY_SIZE);
 
     if (!pk_equal(data + sizeof(uint32_t), nc_get_self_public_key(m->net_crypto))) {
+        LOGGER_ERROR(m->log, "public key stored in savedata does not match its secret key");
         return STATE_LOAD_STATUS_ERROR;
     }
 
@@ -3151,7 +3153,7 @@ static void pack_groupchats(const GC_Session *c, Bin_Pack *bp)
 }
 
 non_null()
-static bool pack_groupchats_handler(Bin_Pack *bp, const void *obj)
+static bool pack_groupchats_handler(Bin_Pack *bp, const Logger *log, const void *obj)
 {
     pack_groupchats((const GC_Session *)obj, bp);
     return true;  // TODO(iphydf): Return bool from pack functions.
@@ -3161,7 +3163,7 @@ non_null()
 static uint32_t saved_groups_size(const Messenger *m)
 {
     GC_Session *c = m->group_handler;
-    return bin_pack_obj_size(pack_groupchats_handler, c);
+    return bin_pack_obj_size(pack_groupchats_handler, m->log, c);
 }
 
 non_null()
@@ -3183,7 +3185,7 @@ static uint8_t *groups_save(const Messenger *m, uint8_t *data)
 
     data = state_write_section_header(data, STATE_COOKIE_TYPE, len, STATE_TYPE_GROUPS);
 
-    if (!bin_pack_obj(pack_groupchats_handler, c, data, len)) {
+    if (!bin_pack_obj(pack_groupchats_handler, m->log, c, data, len)) {
         LOGGER_FATAL(m->log, "failed to pack group chats into buffer of length %u", len);
         return data;
     }
@@ -3218,8 +3220,12 @@ static State_Load_Status groups_load(Messenger *m, const uint8_t *data, uint32_t
 
         if (group_number < 0) {
             LOGGER_WARNING(m->log, "Failed to load group %u", i);
+            // Can't recover trivially. We may need to skip over some data here.
+            break;
         }
     }
+
+    LOGGER_DEBUG(m->log, "Successfully loaded %u groups", gc_count_groups(m->group_handler));
 
     bin_unpack_free(bu);
 
@@ -3502,7 +3508,8 @@ static void m_handle_friend_request(
  *
  * if error is not NULL it will be set to one of the values in the enum above.
  */
-Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network *ns, Messenger_Options *options, Messenger_Error *error)
+Messenger *new_messenger(Mono_Time *mono_time, const Memory *mem, const Random *rng, const Network *ns,
+                         Messenger_Options *options, Messenger_Error *error)
 {
     if (options == nullptr) {
         return nullptr;
@@ -3512,20 +3519,21 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
         *error = MESSENGER_ERROR_OTHER;
     }
 
-    Messenger *m = (Messenger *)calloc(1, sizeof(Messenger));
+    Messenger *m = (Messenger *)mem_alloc(mem, sizeof(Messenger));
 
     if (m == nullptr) {
         return nullptr;
     }
 
     m->mono_time = mono_time;
+    m->mem = mem;
     m->rng = rng;
     m->ns = ns;
 
     m->fr = friendreq_new();
 
     if (m->fr == nullptr) {
-        free(m);
+        mem_delete(mem, m);
         return nullptr;
     }
 
@@ -3533,7 +3541,7 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
 
     if (m->log == nullptr) {
         friendreq_kill(m->fr);
-        free(m);
+        mem_delete(mem, m);
         return nullptr;
     }
 
@@ -3548,17 +3556,17 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
     }
 
     if (options->udp_disabled) {
-        m->net = new_networking_no_udp(m->log, m->ns);
+        m->net = new_networking_no_udp(m->log, m->mem, m->ns);
     } else {
         IP ip;
         ip_init(&ip, options->ipv6enabled);
-        m->net = new_networking_ex(m->log, m->ns, &ip, options->port_range[0], options->port_range[1], &net_err);
+        m->net = new_networking_ex(m->log, m->mem, m->ns, &ip, options->port_range[0], options->port_range[1], &net_err);
     }
 
     if (m->net == nullptr) {
         friendreq_kill(m->fr);
         logger_kill(m->log);
-        free(m);
+        mem_delete(mem, m);
 
         if (error != nullptr && net_err == 1) {
             *error = MESSENGER_ERROR_PORT;
@@ -3567,24 +3575,24 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
         return nullptr;
     }
 
-    m->dht = new_dht(m->log, m->rng, m->ns, m->mono_time, m->net, options->hole_punching_enabled, options->local_discovery_enabled);
+    m->dht = new_dht(m->log, m->mem, m->rng, m->ns, m->mono_time, m->net, options->hole_punching_enabled, options->local_discovery_enabled);
 
     if (m->dht == nullptr) {
         kill_networking(m->net);
         friendreq_kill(m->fr);
         logger_kill(m->log);
-        free(m);
+        mem_delete(mem, m);
         return nullptr;
     }
 
-    m->net_crypto = new_net_crypto(m->log, m->rng, m->ns, m->mono_time, m->dht, &options->proxy_info);
+    m->net_crypto = new_net_crypto(m->log, m->mem, m->rng, m->ns, m->mono_time, m->dht, &options->proxy_info);
 
     if (m->net_crypto == nullptr) {
         kill_dht(m->dht);
         kill_networking(m->net);
         friendreq_kill(m->fr);
         logger_kill(m->log);
-        free(m);
+        mem_delete(mem, m);
         return nullptr;
     }
 
@@ -3597,7 +3605,7 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
         kill_networking(m->net);
         friendreq_kill(m->fr);
         logger_kill(m->log);
-        free(m);
+        mem_delete(mem, m);
         return nullptr;
     }
 
@@ -3605,15 +3613,15 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
 
     if (options->dht_announcements_enabled) {
         m->forwarding = new_forwarding(m->log, m->rng, m->mono_time, m->dht);
-        m->announce = new_announcements(m->log, m->rng, m->mono_time, m->forwarding);
+        m->announce = new_announcements(m->log, m->mem, m->rng, m->mono_time, m->forwarding);
     } else {
         m->forwarding = nullptr;
         m->announce = nullptr;
     }
 
-    m->onion = new_onion(m->log, m->mono_time, m->rng, m->dht);
-    m->onion_a = new_onion_announce(m->log, m->rng, m->mono_time, m->dht);
-    m->onion_c = new_onion_client(m->log, m->rng, m->mono_time, m->net_crypto);
+    m->onion = new_onion(m->log, m->mem, m->mono_time, m->rng, m->dht);
+    m->onion_a = new_onion_announce(m->log, m->mem, m->rng, m->mono_time, m->dht);
+    m->onion_c = new_onion_client(m->log, m->mem, m->rng, m->mono_time, m->net_crypto);
     m->fr_c = new_friend_connections(m->log, m->mono_time, m->ns, m->onion_c, options->local_discovery_enabled);
 
     if ((options->dht_announcements_enabled && (m->forwarding == nullptr || m->announce == nullptr)) ||
@@ -3632,7 +3640,7 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
         kill_networking(m->net);
         friendreq_kill(m->fr);
         logger_kill(m->log);
-        free(m);
+        mem_delete(mem, m);
         return nullptr;
     }
 
@@ -3654,15 +3662,16 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
         kill_networking(m->net);
         friendreq_kill(m->fr);
         logger_kill(m->log);
-        free(m);
+        mem_delete(mem, m);
         return nullptr;
     }
 
 #endif /* VANILLA_NACL */
 
     if (options->tcp_server_port != 0) {
-        m->tcp_server = new_TCP_server(m->log, m->rng, m->ns, options->ipv6enabled, 1, &options->tcp_server_port,
-                                       dht_get_self_secret_key(m->dht), m->onion, m->forwarding);
+        m->tcp_server = new_tcp_server(m->log, m->mem, m->rng, m->ns, options->ipv6enabled, 1,
+                                       &options->tcp_server_port, dht_get_self_secret_key(m->dht),
+                                       m->onion, m->forwarding);
 
         if (m->tcp_server == nullptr) {
             kill_onion(m->onion);
@@ -3682,7 +3691,7 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
             kill_networking(m->net);
             friendreq_kill(m->fr);
             logger_kill(m->log);
-            free(m);
+            mem_delete(mem, m);
 
             if (error != nullptr) {
                 *error = MESSENGER_ERROR_TCP_SERVER;
@@ -3721,7 +3730,7 @@ void kill_messenger(Messenger *m)
     }
 
     if (m->tcp_server != nullptr) {
-        kill_TCP_server(m->tcp_server);
+        kill_tcp_server(m->tcp_server);
     }
 
     kill_onion(m->onion);
@@ -3745,11 +3754,11 @@ void kill_messenger(Messenger *m)
     }
 
     logger_kill(m->log);
-    free(m->friendlist);
+    mem_delete(m->mem, m->friendlist);
     friendreq_kill(m->fr);
 
-    free(m->options.state_plugins);
-    free(m);
+    mem_delete(m->mem, m->options.state_plugins);
+    mem_delete(m->mem, m);
 }
 
 bool m_is_receiving_file(Messenger *m)

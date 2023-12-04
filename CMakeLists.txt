@@ -14,8 +14,8 @@
 #
 ################################################################################
 
-cmake_minimum_required(VERSION 2.8.12)
-cmake_policy(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.5)
+cmake_policy(VERSION 3.5)
 project(toxcore)
 
 list(APPEND CMAKE_MODULE_PATH ${toxcore_SOURCE_DIR}/cmake)
@@ -79,21 +79,19 @@ enable_testing()
 
 set(CMAKE_MACOSX_RPATH ON)
 
-if(${CMAKE_VERSION} VERSION_LESS "3.1.0")
-  if(NOT MSVC)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
-  endif()
-else()
-  # Set standard version for compiler.
+# Set standard version for compiler.
+if(MSVC)
+  # https://developercommunity.visualstudio.com/t/older-winsdk-headers-are-incompatible-with-zcprepr/1593479
   set(CMAKE_C_STANDARD 99)
-  set(CMAKE_CXX_STANDARD 17)
-  set(CMAKE_C_EXTENSIONS OFF)
-  set(CMAKE_CXX_EXTENSIONS OFF)
-
-  message(STATUS "Supported C compiler features = ${CMAKE_C_COMPILE_FEATURES}")
-  message(STATUS "Supported C++ compiler features = ${CMAKE_CXX_COMPILE_FEATURES}")
+else()
+  set(CMAKE_C_STANDARD 11)
 endif()
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_C_EXTENSIONS OFF)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+message(STATUS "Supported C compiler features = ${CMAKE_C_COMPILE_FEATURES}")
+message(STATUS "Supported C++ compiler features = ${CMAKE_CXX_COMPILE_FEATURES}")
 
 set(MIN_LOGGER_LEVEL "" CACHE STRING "Logging level to use (TRACE, DEBUG, INFO, WARNING, ERROR)")
 if(MIN_LOGGER_LEVEL)
@@ -156,7 +154,7 @@ endif()
 if(MSVC)
   option(MSVC_STATIC_SODIUM "Whether to link libsodium statically for MSVC" OFF)
   if(MSVC_STATIC_SODIUM)
-    add_definitions(-DSODIUM_STATIC=1 -DSODIUM_EXPORT)
+    add_definitions(-DSODIUM_STATIC=1)
   endif()
 endif()
 
@@ -268,6 +266,8 @@ set(toxcore_SOURCES
   toxcore/logger.h
   toxcore/Messenger.c
   toxcore/Messenger.h
+  toxcore/mem.c
+  toxcore/mem.h
   toxcore/mono_time.c
   toxcore/mono_time.h
   toxcore/net_crypto.c
@@ -434,6 +434,7 @@ unit_test(toxcore bin_pack)
 unit_test(toxcore crypto_core)
 unit_test(toxcore group_announce)
 unit_test(toxcore group_moderation)
+unit_test(toxcore mem)
 unit_test(toxcore mono_time)
 unit_test(toxcore ping_array)
 unit_test(toxcore tox)
