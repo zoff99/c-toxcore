@@ -491,7 +491,6 @@ size_t decrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *no
  * @param auth Resulting authenticator.
  * @param key Secret key
  */
-non_null()
 void crypto_hmac512(uint8_t auth[CRYPTO_SHA512_SIZE], const uint8_t key[CRYPTO_SHA512_SIZE], const uint8_t *data,
                  size_t data_length);
 

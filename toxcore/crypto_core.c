@@ -600,7 +600,7 @@ size_t encrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *no
         return -1;
     }
 
-    //assert(length < INT32_MAX - crypto_box_MACBYTES);
+    // assert(length < INT32_MAX - crypto_box_MACBYTES);
     return encrypted_length;
 }
 

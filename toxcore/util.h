@@ -84,6 +84,7 @@ uint16_t data_checksum(const uint8_t *data, uint32_t length);
  * @param str The string to save the result to.
  * @param str_length Length of the string
  */
+non_null()
 void bytes_to_string(const uint8_t *bytes, size_t bytes_length, char *str, size_t str_length);
 
 #ifdef __cplusplus
