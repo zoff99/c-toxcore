@@ -564,7 +564,8 @@ static int noise_handshake_init
         }
         
     } else {
-        fprintf(stderr, "Local static private key required, but not provided.\n");
+        // fprintf(stderr, "Local static private key required, but not provided.\n");
+        LOGGER_DEBUG(log, "Local static private key required, but not provided.");
         return -1;
     }
     /* <- s: pre-message from responder to initiator => sets rs (only initiator) */
@@ -588,7 +589,8 @@ static int noise_handshake_init
             //     LOGGER_DEBUG(log, "INITIATOR hash: %s", log_hash);
             // }
         } else {
-            fprintf(stderr, "Remote peer static public key required, but not provided.\n");
+            // fprintf(stderr, "Remote peer static public key required, but not provided.\n");
+            LOGGER_DEBUG(log, "Remote peer static public key required, but not provided.");
             return -1;
         }
     } else if (!initiator) {

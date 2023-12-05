@@ -113,6 +113,8 @@
 #define DEFAULT_PING_CONNECTION 1000
 #define DEFAULT_TCP_PING_CONNECTION 500
 
+#define NOISE_PROTOCOL_NAME Noise_IK_25519_XChaChaPoly_SHA512
+
 typedef struct Net_Crypto Net_Crypto;
 
 non_null() const uint8_t *nc_get_self_public_key(const Net_Crypto *c);
