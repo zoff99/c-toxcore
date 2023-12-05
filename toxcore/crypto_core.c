@@ -660,8 +660,8 @@ void crypto_hmac512(uint8_t auth[CRYPTO_SHA512_SIZE], const uint8_t key[CRYPTO_S
  * length. Also note that the HKDF() function is simply HKDF with the
  * chaining_key as HKDF salt, and zero-length HKDF info.
  */
-void crypto_hkdf(uint8_t *output1, uint8_t *output2, uint8_t *output3, const uint8_t *data,
-		size_t first_len, size_t second_len, size_t third_len,
+void crypto_hkdf(uint8_t *output1, uint8_t *output2, const uint8_t *data,
+		size_t first_len, size_t second_len,
 		size_t data_len, const uint8_t chaining_key[CRYPTO_SHA512_SIZE])
 {
 	uint8_t output[CRYPTO_SHA512_SIZE + 1];
@@ -683,10 +683,10 @@ void crypto_hkdf(uint8_t *output1, uint8_t *output2, uint8_t *output3, const uin
 	memcpy(output2, output, second_len);
 
 	/* Expand third key: key = temp_key, data = second-key || 0x3 */
-    /* Currently not used in Tox, maybe necessary in future for pre-shared symmetric keys (cf. Noise spec )*/
-	output[CRYPTO_SHA512_SIZE] = 3;
-	crypto_hmac512(output, temp_key, output, CRYPTO_SHA512_SIZE + 1);
-	memcpy(output3, output, third_len);
+    /* Currently output3 not used in Tox, maybe necessary in future for pre-shared symmetric keys (cf. Noise spec )*/
+	// output[CRYPTO_SHA512_SIZE] = 3;
+	// crypto_hmac512(output, temp_key, output, CRYPTO_SHA512_SIZE + 1);
+	// memcpy(output3, output, third_len);
 
 	/* Clear sensitive data from stack */
 	crypto_memzero(temp_key, CRYPTO_SHA512_SIZE);
@@ -711,8 +711,8 @@ void noise_mix_key(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
     // X25519 - returns plain DH result, afterwards hashed with HKDF
     encrypt_precompute(public_key, private_key, dh_calculation);
     // chaining_key is HKDF output1 and shared_key is HKDF output2 => different values!
-	crypto_hkdf(chaining_key, shared_key, nullptr, dh_calculation, CRYPTO_SHA512_SIZE,
-	    CRYPTO_SHARED_KEY_SIZE, 0, CRYPTO_PUBLIC_KEY_SIZE, chaining_key);
+	crypto_hkdf(chaining_key, shared_key, dh_calculation, CRYPTO_SHA512_SIZE,
+	    CRYPTO_SHARED_KEY_SIZE, CRYPTO_PUBLIC_KEY_SIZE, chaining_key);
     // If HASHLEN is 64, then truncates temp_k to 32 bytes. => done via call to crypto_hkdf()
 	crypto_memzero(dh_calculation, CRYPTO_PUBLIC_KEY_SIZE);
 }
