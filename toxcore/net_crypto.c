@@ -550,7 +550,7 @@ static int noise_handshake_init
 
     /* Sets the initiator, s => ephemeral keys are set afterwards */ 
     noise_handshake->initiator = initiator;
-    if (self_secret_key) {
+    if (self_secret_key != nullptr) {
         memcpy(noise_handshake->static_private, self_secret_key, CRYPTO_PUBLIC_KEY_SIZE);
         crypto_derive_public_key(noise_handshake->static_public, self_secret_key);
 
@@ -603,10 +603,6 @@ static int noise_handshake_init
     } else {
         return -1;
     }
-
-    //TODO: precompute_static_static ?
-
-    //TODO: crypto_new_keypair(c->rng, conn->sessionpublic_key, conn->sessionsecret_key); -> here? currently not possible due to backwards compatibility, also inefficient
 
     /* Ready to go */
     return 0;

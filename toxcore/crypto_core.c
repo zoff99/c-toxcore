@@ -701,7 +701,7 @@ void crypto_hkdf(uint8_t *output1, uint8_t *output2, const uint8_t *data,
  * - Calls InitializeKey(temp_k).
  * input_key_material = DH_X25519(private, public)
  */
-void noise_mix_key(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
+int32_t noise_mix_key(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
 				uint8_t shared_key[CRYPTO_SHARED_KEY_SIZE],
 				const uint8_t private_key[CRYPTO_PUBLIC_KEY_SIZE],
 				const uint8_t public_key[CRYPTO_PUBLIC_KEY_SIZE])
@@ -709,12 +709,16 @@ void noise_mix_key(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
 	uint8_t dh_calculation[CRYPTO_PUBLIC_KEY_SIZE];
 
     // X25519 - returns plain DH result, afterwards hashed with HKDF
-    encrypt_precompute(public_key, private_key, dh_calculation);
+    if(crypto_scalarmult_curve25519(dh_calculation, private_key, public_key) != 0) {
+        return -1;
+    }
     // chaining_key is HKDF output1 and shared_key is HKDF output2 => different values!
 	crypto_hkdf(chaining_key, shared_key, dh_calculation, CRYPTO_SHA512_SIZE,
 	    CRYPTO_SHARED_KEY_SIZE, CRYPTO_PUBLIC_KEY_SIZE, chaining_key);
     // If HASHLEN is 64, then truncates temp_k to 32 bytes. => done via call to crypto_hkdf()
 	crypto_memzero(dh_calculation, CRYPTO_PUBLIC_KEY_SIZE);
+
+    return 0;
 }
 
 /*
