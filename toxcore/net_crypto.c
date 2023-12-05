@@ -13,8 +13,6 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-//TODO: remove, used to for bin2hex_toupper() function to print/log bytes
-#include "../other/fun/create_common.h"
 
 #include "ccompat.h"
 #include "list.h"
@@ -500,11 +498,11 @@ static int handle_cookie_response(uint8_t *cookie, uint64_t *number,
 /* 
 * TODO: Helper function to print hashes, keys, packets, etc.
 * TODO: remove from production code or make dependent on MIN_LOGGER_LEVEL=DEBUG?
-* uses sodium_bin2hex() via bin2hex_toupper() function from `../other/fun/create_common.h`
+* bytes_to_string() from util.h
 */
-static void bytes2string(char *string, size_t string_size, const uint8_t *bytes, size_t bytes_size, const Logger *log)
+static void bytes2string(char *string, size_t string_length, const uint8_t *bytes, size_t bytes_length, const Logger *log)
 {
-    bin2hex_toupper(string, string_size, bytes, bytes_size);
+    bytes_to_string(bytes, bytes_length, string, string_length);
 }
 
 /**
@@ -2328,14 +2326,14 @@ static int handle_packet_cookie_response(Net_Crypto *c, int crypt_connection_id,
 {
     Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
 
+    if (conn == nullptr) {
+        return -1;
+    }
+
     LOGGER_DEBUG(c->log, "ENTERING: crypto_connection_id: %d => PACKET: %d => CRYPTO CONN STATE: %d",
             crypt_connection_id,
             packet[0],
             conn->status);
-
-    if (conn == nullptr) {
-        return -1;
-    }
 
     if (conn->status != CRYPTO_CONN_COOKIE_REQUESTING) {
         return -1;
@@ -2395,14 +2393,15 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
                                    void *userdata)
 {
     Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
-    LOGGER_DEBUG(c->log, "ENTERING: crypt_connection_id: %d | PACKET: %d | CRYPTO CONN STATE: %d",
-            crypt_connection_id,
-            packet[0],
-            conn->status);
 
     if (conn == nullptr) {
         return -1;
     }
+
+    LOGGER_DEBUG(c->log, "ENTERING: crypt_connection_id: %d | PACKET: %d | CRYPTO CONN STATE: %d",
+            crypt_connection_id,
+            packet[0],
+            conn->status);
 
     //TODO: what if I remove CRYPTO_CONN_NOT_CONFIRMED from here? => doesn't work together with connection_kill() after decrypting failure (after new handshake)
     if (conn->status != CRYPTO_CONN_COOKIE_REQUESTING
@@ -2586,14 +2585,15 @@ static int handle_packet_crypto_data(Net_Crypto *c, int crypt_connection_id, con
 {
     const Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
 
+    if (conn == nullptr) {
+        return -1;
+    }
+
     //TODO: remove from prod code
     LOGGER_DEBUG(c->log, "ENTERING: PACKET: %d | CRYPTO CONN STATE: %d",
             packet[0],
             conn->status);
 
-    if (conn == nullptr) {
-        return -1;
-    }
 
     if (conn->status != CRYPTO_CONN_NOT_CONFIRMED && conn->status != CRYPTO_CONN_ESTABLISHED) {
         return -1;
