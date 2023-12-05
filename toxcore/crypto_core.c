@@ -596,7 +596,7 @@ size_t encrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *no
     
     // nsec is not used by this particular construction and should always be NULL.
     if (crypto_aead_xchacha20poly1305_ietf_encrypt(encrypted, &encrypted_length, plain, plain_length,
-                           ad, ad_length, NULL, nonce, shared_key) != 0) {
+                           ad, ad_length, nullptr, nonce, shared_key) != 0) {
         return -1;
     }
 
@@ -616,7 +616,7 @@ size_t decrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *no
 
     unsigned long long plain_length = 0;
 
-    if (crypto_aead_xchacha20poly1305_ietf_decrypt(plain, &plain_length, NULL, encrypted,
+    if (crypto_aead_xchacha20poly1305_ietf_decrypt(plain, &plain_length, nullptr, encrypted,
                                 encrypted_length, ad, ad_length, nonce, shared_key) != 0) {
         return -1;
     }
