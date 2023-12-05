@@ -2027,7 +2027,7 @@ static int send_temp_packet(Net_Crypto *c, int crypt_connection_id)
     }
 
     conn->temp_packet_sent_time = current_time_monotonic(c->mono_time);
-    LOGGER_DEBUG(c->log, "conn->temp_packet_sent_time: %llu", conn->temp_packet_sent_time);
+    // LOGGER_DEBUG(c->log, "conn->temp_packet_sent_time: %lu", conn->temp_packet_sent_time);
     ++conn->temp_packet_num_sent;
     return 0;
 }

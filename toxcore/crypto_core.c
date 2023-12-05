@@ -626,16 +626,16 @@ size_t decrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *no
     return plain_length;
 }
 
-/*
-* cf. Noise sections 4.3 and 5.1
-* Applies HMAC from RFC2104 (https://www.ietf.org/rfc/rfc2104.txt) using the HASH() (=SHA512) function.
-* This function is only called via `crypto_hkdf()`.
-* HMAC-SHA-512 instead of HMAC-SHA512-256 as used by `crypto_auth_*()` (libsodium) which is underlying function of
-* `crypto_hmac*() in crypto_core. Necessary for Noise (cf. section 4.3) to return 64 bytes (SHA512 HASHLEN) instead of 
-* of 32 bytes (SHA512-256 HASHLEN). Cf. https://doc.libsodium.org/advanced/hmac-sha2#hmac-sha-512
-* key is CRYPTO_SHA512_SIZE bytes because this function is only called via crypto_hkdf() where the key (ck, temp_key) 
-* is always HASHLEN bytes.
-*/
+/**
+ * cf. Noise sections 4.3 and 5.1
+ * Applies HMAC from RFC2104 (https://www.ietf.org/rfc/rfc2104.txt) using the HASH() (=SHA512) function.
+ * This function is only called via `crypto_hkdf()`.
+ * HMAC-SHA-512 instead of HMAC-SHA512-256 as used by `crypto_auth_*()` (libsodium) which is underlying function of
+ * `crypto_hmac*() in crypto_core. Necessary for Noise (cf. section 4.3) to return 64 bytes (SHA512 HASHLEN) instead of 
+ * of 32 bytes (SHA512-256 HASHLEN). Cf. https://doc.libsodium.org/advanced/hmac-sha2#hmac-sha-512
+ * key is CRYPTO_SHA512_SIZE bytes because this function is only called via crypto_hkdf() where the key (ck, temp_key) 
+ * is always HASHLEN bytes.
+ */
 void crypto_hmac512(uint8_t auth[CRYPTO_SHA512_SIZE], const uint8_t key[CRYPTO_SHA512_SIZE], const uint8_t *data,
                  size_t data_length)
 {
@@ -724,7 +724,7 @@ void noise_mix_key(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
  */
 void noise_mix_hash(uint8_t hash[CRYPTO_SHA512_SIZE], const uint8_t *data, size_t data_len)
 {
-	uint8_t to_hash[CRYPTO_SHA512_SIZE + data_len];
+	VLA(uint8_t, to_hash, CRYPTO_SHA512_SIZE + data_len);
     memcpy(to_hash, hash, CRYPTO_SHA512_SIZE);
     memcpy(to_hash + CRYPTO_SHA512_SIZE, data, data_len);
     crypto_sha512(hash, to_hash, CRYPTO_SHA512_SIZE + data_len);
