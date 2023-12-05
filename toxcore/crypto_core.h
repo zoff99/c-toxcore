@@ -521,8 +521,6 @@ void crypto_hmac512(uint8_t auth[CRYPTO_SHA512_SIZE], const uint8_t key[CRYPTO_S
  * @param first_len Length of output1/key
  * @param output2 Second key to compute
  * @param second_len Length of output2/key
- * @param output3 Third key to compute
- * @param third_len Length of output3/key
  * @param data HKDF input_key_material byte sequence with length either zero bytes, 32 bytes, or DHLEN bytes
  * @param data_len length of either zero bytes, 32 bytes, or DHLEN bytes
  * @param chaining_key Noise 64 byte chaining key as HKDF salt
