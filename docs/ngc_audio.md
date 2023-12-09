@@ -27,7 +27,7 @@ header size: 10 bytes
 
 data   size: 1 - 1362 bytes
 
-## Send Video to NGC Groups
+## Send Audio to NGC Groups
 
 do this globally, so you can only send/receive audio for 1 NGC group at a time!
 
