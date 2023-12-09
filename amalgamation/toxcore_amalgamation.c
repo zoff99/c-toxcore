@@ -10078,7 +10078,8 @@ Tox_Group_Role tox_group_peer_get_role(const Tox *tox, uint32_t group_number, ui
 /**
  * Return the type of connection we have established with a peer.
  *
- * This function will return an error if called on ourselves.
+ * If `peer_id` designates ourself, the return value indicates whether we're capable
+ * of making UDP connections with other peers, or are limited to TCP connections.
  *
  * @param group_number The group number of the group we wish to query.
  * @param peer_id The ID of the peer whose connection status we wish to query.
@@ -12954,9 +12955,12 @@ int gc_get_savedpeer_public_key_by_slot_number(const GC_Chat *chat, uint32_t slo
 
 /** @brief Gets the connection status for peer associated with `peer_id`.
  *
+ * If `peer_id` designates ourself, the return value indicates whether we're capable
+ * of making UDP connections with other peers, or are limited to TCP connections.
+ *
  * Returns 2 if we have a direct (UDP) connection with a peer.
  * Returns 1 if we have an indirect (TCP) connection with a peer.
- * Returns 0 if peer_id is invalid or corresponds to ourselves.
+ * Returns 0 if peer_id is invalid.
  *
  * Note: Return values must correspond to Tox_Connection enum in API.
  */
@@ -32371,8 +32375,8 @@ unsigned int gc_get_peer_connection_status(const GC_Chat *chat, uint32_t peer_id
 {
     const int peer_number = get_peer_number_of_peer_id(chat, peer_id);
 
-    if (peer_number_is_self(peer_number)) {  // we cannot have a connection with ourselves
-        return 0;
+    if (peer_number_is_self(peer_number)) {
+        return chat->self_udp_status ==  SELF_UDP_STATUS_NONE ? 1 : 2;
     }
 
     const GC_Connection *gconn = get_gc_connection(chat, peer_number);
@@ -77069,6 +77073,13 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
         return;
     }
 
+    if (pthread_mutex_trylock(call->mutex_video) != 0) {
+        pthread_mutex_unlock(call->av->mutex);
+        LOGGER_API_DEBUG(call->av->tox, "could not lock call->mutex_video, returning without processing BWC data");
+        return;
+    }
+
+
     pthread_mutex_lock(call->toxav_call_mutex);
 
     if (call->video_bit_rate == 0) {
@@ -77173,6 +77184,7 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
     // HINT: sanity check --------------
 
     pthread_mutex_unlock(call->toxav_call_mutex);
+    pthread_mutex_unlock(call->mutex_video);
     pthread_mutex_unlock(call->av->mutex);
 }
 
