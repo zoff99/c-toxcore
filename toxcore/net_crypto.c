@@ -2373,11 +2373,6 @@ static int handle_packet_cookie_response(Net_Crypto *c, int crypt_connection_id,
 
     // Noise: only necessary if Cookie response was successful
     if (noise_handshake_init(c->log, conn->noise_handshake, c->self_secret_key, conn->public_key, true) != 0) {
-        //TODO: cleanup
-        // pthread_mutex_lock(&c->tcp_mutex);
-        // kill_tcp_connection_to(c->tcp_c, conn->connection_number_tcp);
-        // pthread_mutex_unlock(&c->tcp_mutex);
-        // wipe_crypto_connection(c, crypt_connection_id);
         return -1;
     }
 
@@ -2477,14 +2472,6 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
             } else if (length == NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR) {
                 LOGGER_DEBUG(c->log, "INITIATOR: CHANGED TO RESPONDER");
                 if (noise_handshake_init(c->log, conn->noise_handshake, c->self_secret_key, nullptr, false) != 0) {
-                    //TODO: 
-                    // crypto_memzero(conn->noise_handshake, sizeof(Noise_Handshake));
-                    // mem_delete(c->mem, conn->noise_handshake);
-                    //TODO: necessary?
-                    // pthread_mutex_lock(&c->tcp_mutex);
-                    // kill_tcp_connection_to(c->tcp_c, conn->connection_number_tcp);
-                    // pthread_mutex_unlock(&c->tcp_mutex);
-                    // wipe_crypto_connection(c, crypt_connection_id);
                     return -1;
                 }
 
@@ -2524,14 +2511,6 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
                 LOGGER_DEBUG(c->log, "RESPONDER: NOISE_HANDSHAKE_PACKET_LENGTH_INITIATOR");
                 /* necessary, otherwise broken after INITIATOR to RESPONDER change */ 
                 if (noise_handshake_init(c->log, conn->noise_handshake, c->self_secret_key, nullptr, false) != 0) {
-                    //TODO: 
-                    // crypto_memzero(conn->noise_handshake, sizeof(struct noise_handshake));
-                    // mem_delete(c->mem, conn->noise_handshake);
-                    //TODO: necessary?
-                    // pthread_mutex_lock(&c->tcp_mutex);
-                    // kill_tcp_connection_to(c->tcp_c, conn->connection_number_tcp);
-                    // pthread_mutex_unlock(&c->tcp_mutex);
-                    // wipe_crypto_connection(c, crypt_connection_id);
                     return false;
                 }
                 if (!handle_crypto_handshake(c, conn->recv_nonce, nullptr, nullptr, dht_public_key, cookie,
@@ -2554,7 +2533,6 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
             else if (length == NOISE_HANDSHAKE_PACKET_LENGTH_RESPONDER) {
                 LOGGER_DEBUG(c->log, "RESPONDER: NOISE_HANDSHAKE_PACKET_LENGTH_RESPONDER");
                 /* cannot chagne to INITIATOR here, connection broken */ 
-                connection_kill(c, crypt_connection_id, userdata);
                 return -1;
             }
         } else {
