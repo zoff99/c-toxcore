@@ -631,7 +631,7 @@ size_t decrypt_data_symmetric_xaead(const uint8_t *shared_key, const uint8_t *no
  * Applies HMAC from RFC2104 (https://www.ietf.org/rfc/rfc2104.txt) using the HASH() (=SHA512) function.
  * This function is only called via `crypto_hkdf()`.
  * HMAC-SHA-512 instead of HMAC-SHA512-256 as used by `crypto_auth_*()` (libsodium) which is underlying function of
- * `crypto_hmac*() in crypto_core. Necessary for Noise (cf. section 4.3) to return 64 bytes (SHA512 HASHLEN) instead of 
+ * `crypto_hmac*()` in crypto_core. Necessary for Noise (cf. section 4.3) to return 64 bytes (SHA512 HASHLEN) instead of 
  * of 32 bytes (SHA512-256 HASHLEN). Cf. https://doc.libsodium.org/advanced/hmac-sha2#hmac-sha-512
  * key is CRYPTO_SHA512_SIZE bytes because this function is only called via crypto_hkdf() where the key (ck, temp_key) 
  * is always HASHLEN bytes.
@@ -707,6 +707,7 @@ int32_t noise_mix_key(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
 				const uint8_t public_key[CRYPTO_PUBLIC_KEY_SIZE])
 {
 	uint8_t dh_calculation[CRYPTO_PUBLIC_KEY_SIZE];
+    crypto_memzero(dh_calculation, CRYPTO_PUBLIC_KEY_SIZE);
 
     // X25519 - returns plain DH result, afterwards hashed with HKDF
     if(crypto_scalarmult_curve25519(dh_calculation, private_key, public_key) != 0) {
