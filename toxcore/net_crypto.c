@@ -959,8 +959,8 @@ static bool handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t
             // memcpy(session_pk, packet + 1 + COOKIE_LENGTH, CRYPTO_PUBLIC_KEY_SIZE);
             // cookie necessary for Noise RESPONDER, used afterwards in create_send_handshake()
             memcpy(cookie, handshake_payload_plain + CRYPTO_NONCE_SIZE + COOKIE_LENGTH, COOKIE_LENGTH);
-            // not necessary for Noise (=remote static)
-            // memcpy(peer_real_pk, cookie_plain, CRYPTO_PUBLIC_KEY_SIZE);
+            // not necessary for Noise (=remote static) => TODO: necessary for friend_connection.c->handle_new_connections()
+            memcpy(peer_real_pk, noise_handshake->remote_static, CRYPTO_PUBLIC_KEY_SIZE);
             // necessary
             memcpy(dht_public_key, cookie_plain + CRYPTO_PUBLIC_KEY_SIZE, CRYPTO_PUBLIC_KEY_SIZE);
             //TODO: memzero packet, unwatend side effects?
@@ -2447,7 +2447,7 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
                     return -1;
                 }
 
-                if (!handle_crypto_handshake(c, conn->recv_nonce, nullptr, nullptr, dht_public_key, cookie,
+                if (!handle_crypto_handshake(c, conn->recv_nonce, nullptr, conn->public_key, dht_public_key, cookie,
                                     packet, length, conn->public_key, conn->noise_handshake)) {
                     return -1;
                 }
@@ -2463,6 +2463,8 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
                 if (create_send_handshake(c, crypt_connection_id, cookie, dht_public_key) != 0) {
                     return -1;
                 }
+                //TODO: here?
+                conn->status = CRYPTO_CONN_HANDSHAKE_SENT;
             } else {
                 return -1;
             }
@@ -2476,7 +2478,7 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
                 if (noise_handshake_init(c->log, conn->noise_handshake, c->self_secret_key, nullptr, false) != 0) {
                     return false;
                 }
-                if (!handle_crypto_handshake(c, conn->recv_nonce, nullptr, nullptr, dht_public_key, cookie,
+                if (!handle_crypto_handshake(c, conn->recv_nonce, nullptr, conn->public_key, dht_public_key, cookie,
                                     packet, length, nullptr, conn->noise_handshake)) {
                     return -1;
                 }
@@ -2484,6 +2486,8 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
                 if (create_send_handshake(c, crypt_connection_id, cookie, dht_public_key) != 0) {
                     return -1;
                 }
+                //TODO: here?
+                conn->status = CRYPTO_CONN_HANDSHAKE_SENT;
             }
             else if (length == NOISE_HANDSHAKE_PACKET_LENGTH_RESPONDER) {
                 LOGGER_DEBUG(c->log, "RESPONDER: NOISE_HANDSHAKE_PACKET_LENGTH_RESPONDER");
@@ -2898,7 +2902,8 @@ static int handle_new_connection_handshake(Net_Crypto *c, const IP_Port *source,
     //TODO: remove
     LOGGER_DEBUG(c->log, "RESPONDER: After Handshake init");
 
-    if (!handle_crypto_handshake(c, n_c.recv_nonce, nullptr, nullptr, n_c.dht_public_key,
+    //TODO: need to add peer_real_pk (=n_c.public_key) -> otherwise not working (call via friend_connection.c)
+    if (!handle_crypto_handshake(c, n_c.recv_nonce, nullptr, n_c.public_key, n_c.dht_public_key,
                                  n_c.cookie, data, length, nullptr, n_c.noise_handshake)) {
         crypto_memzero(n_c.noise_handshake, sizeof(Noise_Handshake));
         n_c.noise_handshake = nullptr;
@@ -3006,6 +3011,7 @@ static int handle_new_connection_handshake(Net_Crypto *c, const IP_Port *source,
 
     const int ret = c->new_connection_callback(c->new_connection_callback_object, &n_c);
     mem_delete(c->mem, n_c.cookie);
+    LOGGER_DEBUG(c->log, "ret (!= 0?): %d", ret);
     return ret;
 }
 
