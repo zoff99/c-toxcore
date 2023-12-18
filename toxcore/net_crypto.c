@@ -2192,7 +2192,7 @@ static int handle_data_packet_core(Net_Crypto *c, int crypt_connection_id, const
     if (len <= (int)(sizeof(uint32_t) * 2)) {
         //TODO: unwanted side effects?
         LOGGER_DEBUG(c->log, "connection_kill() because data packet decryption failure, len: %d", len);
-        connection_kill(c, crypt_connection_id, userdata);
+        // connection_kill(c, crypt_connection_id, userdata);
         return -1;
     }
 
