@@ -2190,9 +2190,9 @@ static int handle_data_packet_core(Net_Crypto *c, int crypt_connection_id, const
     const int len = handle_data_packet(c, crypt_connection_id, data, packet, length);
 
     if (len <= (int)(sizeof(uint32_t) * 2)) {
-        //TODO: unwanted side effects?
-        LOGGER_DEBUG(c->log, "connection_kill() because data packet decryption failure, len: %d", len);
-        // connection_kill(c, crypt_connection_id, userdata);
+        LOGGER_DEBUG(c->log, "connection_kill() because data packet decryption failure, crypt_connection_id: %d", crypt_connection_id);
+        //TODO: unwanted side effects? TODO: leave here?
+        connection_kill(c, crypt_connection_id, userdata);
         return -1;
     }
 
@@ -2488,6 +2488,8 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
             else if (length == NOISE_HANDSHAKE_PACKET_LENGTH_RESPONDER) {
                 LOGGER_DEBUG(c->log, "RESPONDER: NOISE_HANDSHAKE_PACKET_LENGTH_RESPONDER");
                 /* cannot chagne to INITIATOR here, connection broken */ 
+                //TODO: leave here?
+                connection_kill(c, crypt_connection_id, userdata);
                 return -1;
             }
         } 
