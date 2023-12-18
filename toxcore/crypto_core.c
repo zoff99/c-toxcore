@@ -707,7 +707,8 @@ int32_t noise_mix_key(uint8_t chaining_key[CRYPTO_SHA512_SIZE],
 				const uint8_t public_key[CRYPTO_PUBLIC_KEY_SIZE])
 {
 	uint8_t dh_calculation[CRYPTO_PUBLIC_KEY_SIZE];
-    crypto_memzero(dh_calculation, CRYPTO_PUBLIC_KEY_SIZE);
+    // crypto_memzero(dh_calculation, CRYPTO_PUBLIC_KEY_SIZE);
+    memset(dh_calculation, 0, CRYPTO_PUBLIC_KEY_SIZE);
 
     // X25519 - returns plain DH result, afterwards hashed with HKDF
     if(crypto_scalarmult_curve25519(dh_calculation, private_key, public_key) != 0) {
