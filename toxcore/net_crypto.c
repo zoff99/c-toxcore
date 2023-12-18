@@ -532,6 +532,7 @@ static int noise_handshake_init
         LOGGER_DEBUG(log, "ENTERING");
     }
 
+    //TODO: move to handle_packet_crypto_hs()?
     crypto_memzero(noise_handshake, sizeof(Noise_Handshake));
 
     /* IntializeSymmetric(protocol_name) => set h to NOISE_PROTOCOL_NAME and append zero bytes to make 64 bytes, sets ck = h
@@ -679,6 +680,9 @@ static int create_crypto_handshake(const Net_Crypto *c, uint8_t *packet, const u
             // char log_hash2[CRYPTO_SHA512_SIZE*2+1];
             // bytes2string(log_hash2, sizeof(log_hash2), noise_handshake->hash, CRYPTO_SHA512_SIZE, c->log);
             // LOGGER_DEBUG(c->log, "hash2 INITIATOR: %s", log_hash2);
+            char log_ephemeral[CRYPTO_PUBLIC_KEY_SIZE*2+1];
+            bytes2string(log_ephemeral, sizeof(log_ephemeral), noise_handshake->ephemeral_public, CRYPTO_PUBLIC_KEY_SIZE, c->log);
+            LOGGER_DEBUG(c->log, "ephemeral public: %s", log_ephemeral);
 
             /* ss */
             noise_mix_key(noise_handshake->chaining_key, noise_handshake_temp_key, noise_handshake->static_private, noise_handshake->remote_static);
@@ -903,6 +907,11 @@ static bool handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t
             // char log_hash1[CRYPTO_SHA512_SIZE*2+1];
             // bytes2string(log_hash1, sizeof(log_hash1), noise_handshake->hash, CRYPTO_SHA512_SIZE, c->log);
             // LOGGER_DEBUG(c->log, "hash1 RESPONDER: %s", log_hash1);
+            char log_static[CRYPTO_PUBLIC_KEY_SIZE*2+1];
+            bytes2string(log_static, sizeof(log_static), noise_handshake->static_public, CRYPTO_PUBLIC_KEY_SIZE, c->log);
+            LOGGER_DEBUG(c->log, "local static pub: %s", log_static);
+            bytes2string(log_static, sizeof(log_static), noise_handshake->remote_ephemeral, CRYPTO_PUBLIC_KEY_SIZE, c->log);
+            LOGGER_DEBUG(c->log, "remote ephemeral: %s", log_static);
 
             /* es */
             uint8_t noise_handshake_temp_key[CRYPTO_SHARED_KEY_SIZE];
@@ -918,9 +927,6 @@ static bool handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t
             }
 
             //TODO: remove
-            char log_static[CRYPTO_PUBLIC_KEY_SIZE*2+1];
-            bytes2string(log_static, sizeof(log_static), noise_handshake->static_public, CRYPTO_PUBLIC_KEY_SIZE, c->log);
-            LOGGER_DEBUG(c->log, "local static pub: %s", log_static);
             bytes2string(log_static, sizeof(log_static), noise_handshake->remote_static, CRYPTO_PUBLIC_KEY_SIZE, c->log);
             LOGGER_DEBUG(c->log, "local remote pub: %s", log_static);
             
@@ -2448,7 +2454,7 @@ static int handle_packet_crypto_hs(Net_Crypto *c, int crypt_connection_id, const
                 }
 
                 if (!handle_crypto_handshake(c, conn->recv_nonce, nullptr, conn->public_key, dht_public_key, cookie,
-                                    packet, length, conn->public_key, conn->noise_handshake)) {
+                                    packet, length, nullptr, conn->noise_handshake)) {
                     return -1;
                 }
 
