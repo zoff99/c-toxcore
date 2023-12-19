@@ -1769,6 +1769,9 @@ int32_t net_getipport(const char *node, IP_Port **res, int tox_type)
 {
     // Try parsing as IP address first.
     IP_Port parsed = {{{0}}};
+    // Initialise to nullptr. In error paths, at least we initialise the out
+    // parameter.
+    *res = nullptr;
 
     if (addr_parse_ip(node, &parsed.ip)) {
         IP_Port *tmp = (IP_Port *)calloc(1, sizeof(IP_Port));
@@ -1797,7 +1800,6 @@ int32_t net_getipport(const char *node, IP_Port **res, int tox_type)
     // It's not an IP address, so now we try doing a DNS lookup.
     struct addrinfo *infos;
     const int ret = getaddrinfo(node, nullptr, nullptr, &infos);
-    *res = nullptr;
 
     if (ret != 0) {
         return -1;

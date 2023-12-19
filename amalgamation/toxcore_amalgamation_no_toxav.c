@@ -4294,7 +4294,8 @@ int unpack_gc_saved_peers(GC_Chat *chat, const uint8_t *data, uint16_t length);
 
 /** @brief Packs all valid entries from saved peerlist into `data`.
  *
- * If `processed` is non-null it will be set to the length of the packed data.
+ * If `processed` is non-null it will be set to the length of the packed data
+ * on success, and will be untouched on error.
  *
  * Return the number of packed saved peers on success.
  * Return -1 if buffer is too small.
@@ -33916,6 +33917,9 @@ int gc_group_load(GC_Session *c, Bin_Unpack *bu)
     chat->last_ping_interval = tm;
     chat->friend_connection_id = -1;
 
+    // Initialise these first, because we may need to log/dealloc things on cleanup.
+    chat->moderation.log = m->log;
+
     if (!gc_load_unpack_group(chat, bu)) {
         LOGGER_ERROR(chat->log, "Failed to unpack group");
         return -1;
@@ -36627,7 +36631,6 @@ int create_gca_announce_request(
  */
 
 
-#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -36731,7 +36734,7 @@ static bool load_unpack_mod_list(GC_Chat *chat, Bin_Unpack *bu)
 
     if (chat->moderation.num_mods > MOD_MAX_NUM_MODERATORS) {
         LOGGER_ERROR(chat->log, "moderation count %u exceeds maximum %u", chat->moderation.num_mods, MOD_MAX_NUM_MODERATORS);
-        return false;
+        chat->moderation.num_mods = MOD_MAX_NUM_MODERATORS;
     }
 
     uint8_t *packed_mod_list = (uint8_t *)malloc(chat->moderation.num_mods * MOD_LIST_ENTRY_SIZE);
@@ -36799,7 +36802,10 @@ static bool load_unpack_self_info(GC_Chat *chat, Bin_Unpack *bu)
         return false;
     }
 
-    assert(self_nick_len <= MAX_GC_NICK_SIZE);
+    if (self_nick_len > MAX_GC_NICK_SIZE) {
+        LOGGER_ERROR(chat->log, "self_nick too big (%u bytes), truncating to %d", self_nick_len, MAX_GC_NICK_SIZE);
+        self_nick_len = MAX_GC_NICK_SIZE;
+    }
 
     if (!bin_unpack_bin_fixed(bu, self_nick, self_nick_len)) {
         LOGGER_ERROR(chat->log, "Failed to unpack self nick bytes");
@@ -36812,7 +36818,10 @@ static bool load_unpack_self_info(GC_Chat *chat, Bin_Unpack *bu)
         return false;
     }
 
-    assert(chat->numpeers > 0);
+    if (chat->numpeers == 0) {
+        LOGGER_ERROR(chat->log, "Failed to unpack self: numpeers should be > 0");
+        return false;
+    }
 
     GC_Peer *self = &chat->group[0];
 
@@ -36974,9 +36983,12 @@ static void save_pack_self_info(const GC_Chat *chat, Bin_Pack *bp)
 {
     bin_pack_array(bp, 4);
 
-    const GC_Peer *self = &chat->group[0];
+    GC_Peer *self = &chat->group[0];
 
-    assert(self->nick_length <= MAX_GC_NICK_SIZE);
+    if (self->nick_length > MAX_GC_NICK_SIZE) {
+        LOGGER_ERROR(chat->log, "self_nick is too big (%u). Truncating to %d", self->nick_length, MAX_GC_NICK_SIZE);
+        self->nick_length = MAX_GC_NICK_SIZE;
+    }
 
     bin_pack_u16(bp, self->nick_length); // 1
     bin_pack_u08(bp, (uint8_t)self->role); // 2
@@ -47354,6 +47366,9 @@ int32_t net_getipport(const char *node, IP_Port **res, int tox_type)
 {
     // Try parsing as IP address first.
     IP_Port parsed = {{{0}}};
+    // Initialise to nullptr. In error paths, at least we initialise the out
+    // parameter.
+    *res = nullptr;
 
     if (addr_parse_ip(node, &parsed.ip)) {
         IP_Port *tmp = (IP_Port *)calloc(1, sizeof(IP_Port));
@@ -47382,7 +47397,6 @@ int32_t net_getipport(const char *node, IP_Port **res, int tox_type)
     // It's not an IP address, so now we try doing a DNS lookup.
     struct addrinfo *infos;
     const int ret = getaddrinfo(node, nullptr, nullptr, &infos);
-    *res = nullptr;
 
     if (ret != 0) {
         return -1;
