@@ -162,6 +162,8 @@ ACCESSORS(bool,, local_discovery_enabled)
 ACCESSORS(bool,, dht_announcements_enabled)
 ACCESSORS(bool,, experimental_thread_safety)
 ACCESSORS(const Tox_System *,, operating_system)
+ACCESSORS(bool,, noise_compatibility_enabled)
+
 
 //!TOKSTYLE+
 
@@ -188,6 +190,7 @@ void tox_options_default(struct Tox_Options *options)
         tox_options_set_local_discovery_enabled(options, true);
         tox_options_set_dht_announcements_enabled(options, true);
         tox_options_set_experimental_thread_safety(options, false);
+        tox_options_set_noise_compatibility_enabled(options, true);
     }
 }
 

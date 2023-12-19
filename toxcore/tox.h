@@ -689,6 +689,15 @@ struct Tox_Options {
      */
     const Tox_System *operating_system;
 
+    /**
+     * compatibility for old non-NOISE handshake.
+     *
+     * If this is set to false, non-NOISE handshake
+     * will not work anymore.
+     *
+     * Default: true.
+     */
+    bool noise_compatibility_enabled;
 };
 
 
@@ -763,6 +772,10 @@ void tox_options_set_experimental_thread_safety(struct Tox_Options *options, boo
 const Tox_System *tox_options_get_operating_system(const struct Tox_Options *options);
 
 void tox_options_set_operating_system(struct Tox_Options *options, const Tox_System *operating_system);
+
+bool tox_options_get_noise_compatibility_enabled(const struct Tox_Options *options);
+
+void tox_options_set_noise_compatibility_enabled(struct Tox_Options *options, bool noise_compatibility_enabled);
 
 /**
  * @brief Initialises a Tox_Options object with the default options.

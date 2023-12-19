@@ -699,6 +699,7 @@ Tox *tox_new(const struct Tox_Options *options, Tox_Err_New *error)
     }
 
     m_options.ipv6enabled = tox_options_get_ipv6_enabled(opts);
+    m_options.noisecompatibilityenabled = tox_options_get_noise_compatibility_enabled(opts);
     m_options.udp_disabled = !tox_options_get_udp_enabled(opts);
     m_options.port_range[0] = tox_options_get_start_port(opts);
     m_options.port_range[1] = tox_options_get_end_port(opts);
