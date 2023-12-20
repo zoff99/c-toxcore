@@ -2019,13 +2019,17 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
         return;
     }
 
-    if (call->active == 0) {
-        return;
-    }
-
     if (!call->av) {
         return;
     }
+
+    pthread_mutex_lock(call->toxav_call_mutex);
+    if (call->active == 0) {
+        pthread_mutex_unlock(call->toxav_call_mutex);
+        return;
+    }
+    pthread_mutex_unlock(call->toxav_call_mutex);
+
 
     if (pthread_mutex_trylock(call->av->mutex) != 0) {
         LOGGER_API_DEBUG(call->av->tox, "could not lock call->av->mutex, returning without processing BWC data");
@@ -2040,16 +2044,24 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
 
 
     pthread_mutex_lock(call->toxav_call_mutex);
+    if (call->active == 0) {
+        pthread_mutex_unlock(call->toxav_call_mutex);
+        pthread_mutex_unlock(call->mutex_video);
+        pthread_mutex_unlock(call->av->mutex);
+        return;
+    }
 
     if (call->video_bit_rate == 0) {
         // HINT: video is turned off -> just do nothing
         pthread_mutex_unlock(call->toxav_call_mutex);
+        pthread_mutex_unlock(call->mutex_video);
         pthread_mutex_unlock(call->av->mutex);
         return;
     }
 
     if (!call->video) {
         pthread_mutex_unlock(call->toxav_call_mutex);
+        pthread_mutex_unlock(call->mutex_video);
         pthread_mutex_unlock(call->av->mutex);
         return;
     }
@@ -2057,6 +2069,7 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
     if (call->video->video_bitrate_autoset == 0) {
         // HINT: client does not want bitrate autoset
         pthread_mutex_unlock(call->toxav_call_mutex);
+        pthread_mutex_unlock(call->mutex_video);
         pthread_mutex_unlock(call->av->mutex);
         return;
     }
@@ -2625,11 +2638,11 @@ static void call_kill_transmission(ToxAVCall *call)
         return;
     }
 
+    pthread_mutex_lock(call->toxav_call_mutex);
     if (call->active == 0) {
+        pthread_mutex_unlock(call->toxav_call_mutex);
         return;
     }
-
-    pthread_mutex_lock(call->toxav_call_mutex);
     call->active = 0;
     pthread_mutex_unlock(call->toxav_call_mutex);
 
