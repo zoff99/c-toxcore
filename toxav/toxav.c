@@ -3321,6 +3321,10 @@ void* toxav_ngc_audio_init(const int32_t bit_rate, const int32_t sampling_rate, 
         ngc_audio_coders->ngc__opus_encoder = opus_encoder;
     }
 
+    ngc_audio_coders->ngc__a_encoder_sampling_rate = sampling_rate;
+    ngc_audio_coders->ngc__a_encoder_channel_count = channel_count;
+    ngc_audio_coders->ngc__a_encoder_bitrate = bit_rate;
+
     // bitrate in bits per second !!
     // Rates from 500 to 512000 bits per second are meaningful
     status_enc = opus_encoder_ctl(opus_encoder, OPUS_SET_BITRATE(bit_rate));
