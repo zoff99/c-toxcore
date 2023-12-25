@@ -3452,9 +3452,9 @@ int32_t toxav_ngc_audio_decode(void *angc, const uint8_t *encoded_frame_bytes,
         if (samples_decoded <= 0) {
             printf("Decoding error: %s\n", opus_strerror(samples_decoded));
         } else {
-            const int frame_duration = (samples_decoded * 1000) / ngc_audio_coders->ngc__a_encoder_sampling_rate;
-            printf("Decoding frame_duration=%d samples_decoded=%d sampling_rate=%d\n",
-                frame_duration, samples_decoded, ngc_audio_coders->ngc__a_encoder_sampling_rate);
+            // const int frame_duration = (samples_decoded * 1000) / ngc_audio_coders->ngc__a_encoder_sampling_rate;
+            // printf("Decoding frame_duration=%d samples_decoded=%d sampling_rate=%d\n",
+            //    frame_duration, samples_decoded, ngc_audio_coders->ngc__a_encoder_sampling_rate);
             return samples_decoded;
         }
     }
