@@ -21,7 +21,7 @@ some of the subjects we are teaching here are:<br><br>
 - [x] make Toxcore API thread safe (see: https://github.com/TokTok/c-toxcore/pull/1382)
 - [x] make ToxAV use only public Tox API functions (see: https://github.com/TokTok/c-toxcore/pull/1431)
 - [ ] ~~resumable Filetransfers, even across restarts (inside c-toxcore)~~ [was removed in favor of Filetransfers V2]
-- [x] Filetransfers V2, resumeable when connection is lost. does not survive client restarts (see: https://github.com/zoff99/c-toxcore/pull/52 and https://github.com/zoff99/c-toxcore/commit/22498763d468e71444fb103f208261e62e2c25bf)
+- [x] Filetransfers V2, resumeable when connection is lost. does not survive client restarts (see: https://github.com/zoff99/c-toxcore/blob/zoff99/zoxcore_local_fork/docs/filetransfer_v2.md)
 - [x] Push Message Support (with TRIfA on Android, Antidote on iPhone and with [qTox_enhanced](https://github.com/Zoxcore/qTox_enhanced))
 - [x] New Group Chats - NGC. with IRC like features (see: https://github.com/TokTok/c-toxcore/pull/2269)
 - [x] Filetransfers in NGC Groups (see: https://github.com/zoff99/c-toxcore/blob/zoff99/zoxcore_local_fork/docs/ngc_filetransfer.md)
