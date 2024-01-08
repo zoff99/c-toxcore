@@ -1,3 +1,9 @@
+#### Recommended Tox Clients
+
+<a href="https://github.com/Zoxcore/trifa_material/releases"><img src="https://github.com/Zoxcore/trifa_material/releases/download/nightly/screenshot-macos.png" height="200"></a>
+<a href="https://f-droid.org/app/com.zoffcc.applications.trifa"><img src="https://raw.githubusercontent.com/zoff99/ToxAndroidRefImpl/zoff99/dev003/doc/mockup_004a.png" height="200">
+
+
 #### by some random twist of fate you stumbled into the Department of Science of Tox-University
 
 [![CircleCI](https://circleci.com/gh/zoff99/c-toxcore/tree/zoff99%2Fzoxcore_local_fork.png?style=badge)](https://circleci.com/gh/zoff99/c-toxcore/tree/zoff99%2Fzoxcore_local_fork)
