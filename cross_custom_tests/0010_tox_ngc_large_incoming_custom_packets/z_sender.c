@@ -239,8 +239,8 @@ int main(void)
 
     Tox_Err_Group_Send_Custom_Packet error1;
     Tox_Err_Group_Send_Custom_Private_Packet error2;
-    const int data_grp_pkt_len = 30000;
-    const int data_grp_pvt_pkt_len = 30000;
+    const int data_grp_pkt_len = 60000;
+    const int data_grp_pvt_pkt_len = 60000;
     uint8_t *data_grp_pkt = (uint8_t *)calloc(1, data_grp_pkt_len);
     uint8_t *data_grp_pvt_pkt = (uint8_t *)calloc(1, data_grp_pvt_pkt_len);
 
@@ -262,8 +262,21 @@ int main(void)
         usleep(tox_iteration_interval(tox));
     }
 
+    for (int k=38000;k<40001;k=k+1000)
+    {
+        tox_group_send_custom_packet(tox, 0, true, data_grp_pkt, k, &error1);
+        tox_iterate(tox, NULL);
+        usleep(tox_iteration_interval(tox));
+    }
+
+    for (int k=39998;k<40021;k++)
+    {
+        tox_group_send_custom_packet(tox, 0, true, data_grp_pkt, k, &error1);
+        tox_iterate(tox, NULL);
+        usleep(tox_iteration_interval(tox));
+    }
+
     tox_group_send_custom_packet(tox, 0, true, data_grp_pkt, data_grp_pkt_len, &error1);
-    tox_group_send_custom_private_packet(tox, 0, 1, true, data_grp_pvt_pkt, data_grp_pvt_pkt_len, &error2);
     tox_iterate(tox, NULL);
     usleep(tox_iteration_interval(tox));
 

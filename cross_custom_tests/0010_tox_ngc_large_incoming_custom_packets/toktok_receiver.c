@@ -183,7 +183,7 @@ int main(int argc, char *argv[])
     printf("RCV:received %d custom packets already\n", self_revd_custom_pkts);
 
     long count = 0;
-    long max_count = 2000;
+    long max_count = 30000;
     while (count < max_count) {
         tox_iterate(tox, NULL);
         usleep(tox_iteration_interval(tox));
