@@ -143,6 +143,6 @@ int msi_answer(const Logger *log, MSICall *call, uint8_t capabilities);
  */
 int msi_change_capabilities(const Logger *log, MSICall *call, uint8_t capabilities);
 
-bool check_peer_offline_status(const Logger *log, Tox *tox, MSISession *session, uint32_t friend_number);
+bool check_peer_offline_status(const Logger *log, const Tox *tox, MSISession *session, uint32_t friend_number);
 
 #endif // C_TOXCORE_TOXAV_MSI_H

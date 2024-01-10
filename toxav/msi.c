@@ -182,7 +182,7 @@ int msi_kill(const Logger *log, Tox *tox, MSISession *session)
 /*
  * return true if friend was offline and the call was canceled
  */
-bool check_peer_offline_status(const Logger *log, Tox *tox, MSISession *session, uint32_t friend_number)
+bool check_peer_offline_status(const Logger *log, const Tox *tox, MSISession *session, uint32_t friend_number)
 {
     if (tox == nullptr || session == nullptr) {
         return false;
@@ -933,7 +933,7 @@ static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *d
         return;
     }
 
-    Logger *log = toxav_get_logger(toxav);
+    const Logger *log = toxav_get_logger(toxav);
 
     if (length_with_pkt_id < 2) {
         LOGGER_ERROR(log, "MSI packet is less than 2 bytes in size");

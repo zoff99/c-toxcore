@@ -141,7 +141,7 @@ static ToxAVCall *call_remove(ToxAVCall *call);
 static bool call_prepare_transmission(ToxAVCall *call);
 static void call_kill_transmission(ToxAVCall *call);
 
-MSISession *tox_av_msi_get(ToxAV *av)
+MSISession *tox_av_msi_get(const ToxAV *av)
 {
     if (av == nullptr) {
         return nullptr;
@@ -177,7 +177,7 @@ RTPSession *rtp_session_get(ToxAVCall *call, int payload_type)
     }
 }
 
-BWController *bwc_controller_get(ToxAVCall *call)
+BWController *bwc_controller_get(const ToxAVCall *call)
 {
     if (call == nullptr) {
         return nullptr;
@@ -315,7 +315,7 @@ Tox *toxav_get_tox(const ToxAV *av)
     return av->tox;
 }
 
-Logger *toxav_get_logger(ToxAV *av)
+const Logger *toxav_get_logger(const ToxAV *av)
 {
     return av->log;
 }
@@ -1568,7 +1568,7 @@ static void call_kill_transmission(ToxAVCall *call)
 
     bwc_kill(call->bwc);
 
-    ToxAV *av = call->av;
+    const ToxAV *av = call->av;
 
     rtp_kill(av->log, call->audio_rtp);
     ac_kill(call->audio);
@@ -1584,7 +1584,7 @@ static void call_kill_transmission(ToxAVCall *call)
     pthread_mutex_destroy(call->mutex_video);
 }
 
-Mono_Time *toxav_get_av_mono_time(ToxAV *av)
+Mono_Time *toxav_get_av_mono_time(const ToxAV *av)
 {
     if (av == nullptr) {
         return nullptr;

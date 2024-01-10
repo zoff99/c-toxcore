@@ -2248,7 +2248,7 @@ int add_tcp_relay(Net_Crypto *c, const IP_Port *ip_port, const uint8_t *public_k
  * return TCP connection number on success.
  * return -1 on failure.
  */
-int get_random_tcp_con_number(Net_Crypto *c)
+int get_random_tcp_con_number(const Net_Crypto *c)
 {
     return get_random_tcp_onion_conn_number(c->tcp_c);
 }
@@ -2258,7 +2258,7 @@ int get_random_tcp_con_number(Net_Crypto *c)
  * return true on success.
  * return false on failure.
  */
-bool get_random_tcp_conn_ip_port(Net_Crypto *c, IP_Port *ip_port)
+bool get_random_tcp_conn_ip_port(const Net_Crypto *c, IP_Port *ip_port)
 {
     return tcp_get_random_conn_ip_port(c->tcp_c, ip_port);
 }
@@ -2296,7 +2296,7 @@ int send_tcp_forward_request(const Logger *logger, Net_Crypto *c, const IP_Port 
  * return number of relays copied to tcp_relays on success.
  * return 0 on failure.
  */
-unsigned int copy_connected_tcp_relays(Net_Crypto *c, Node_format *tcp_relays, uint16_t num)
+unsigned int copy_connected_tcp_relays(const Net_Crypto *c, Node_format *tcp_relays, uint16_t num)
 {
     if (num == 0) {
         return 0;
@@ -2305,7 +2305,7 @@ unsigned int copy_connected_tcp_relays(Net_Crypto *c, Node_format *tcp_relays, u
     return tcp_copy_connected_relays(c->tcp_c, tcp_relays, num);
 }
 
-uint32_t copy_connected_tcp_relays_index(Net_Crypto *c, Node_format *tcp_relays, uint16_t num, uint32_t idx)
+uint32_t copy_connected_tcp_relays_index(const Net_Crypto *c, Node_format *tcp_relays, uint16_t num, uint32_t idx)
 {
     if (num == 0) {
         return 0;
