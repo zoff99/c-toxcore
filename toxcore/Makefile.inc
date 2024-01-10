@@ -1,7 +1,8 @@
 lib_LTLIBRARIES += libtoxcore.la
 
 libtoxcore_la_include_HEADERS = \
-                        ../toxcore/tox.h
+                        ../toxcore/tox.h \
+                        ../toxcore/tox_private.h
 
 libtoxcore_la_includedir = $(includedir)/tox
 
@@ -122,7 +123,6 @@ libtoxcore_la_SOURCES = ../third_party/cmp/cmp.c \
 libtoxcore_la_CFLAGS =  -I$(top_srcdir) \
                         -I$(top_srcdir)/toxcore \
                         $(LIBSODIUM_CFLAGS) \
-                        $(NACL_CFLAGS) \
                         $(MSGPACK_CFLAGS) \
                         $(PTHREAD_CFLAGS) \
                         -DCMP_NO_FLOAT=1
@@ -130,15 +130,12 @@ libtoxcore_la_CFLAGS =  -I$(top_srcdir) \
 libtoxcore_la_LDFLAGS = $(LT_LDFLAGS) \
                         $(EXTRA_LT_LDFLAGS) \
                         $(LIBSODIUM_LDFLAGS) \
-                        $(NACL_LDFLAGS) \
                         $(MSGPACK_LDFLAGS) \
                         $(MATH_LDFLAGS) \
                         $(RT_LIBS) \
                         $(WINSOCK2_LIBS)
 
 libtoxcore_la_LIBADD =  $(LIBSODIUM_LIBS) \
-                        $(NACL_OBJECTS) \
-                        $(NACL_LIBS) \
                         $(MSGPACK_LIBS) \
                         $(PTHREAD_LIBS)
 

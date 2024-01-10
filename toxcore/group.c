@@ -12,8 +12,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "DHT.h"
+#include "Messenger.h"
 #include "ccompat.h"
+#include "crypto_core.h"
+#include "friend_connection.h"
+#include "group_common.h"
+#include "logger.h"
 #include "mono_time.h"
+#include "net_crypto.h"
+#include "network.h"
 #include "state.h"
 #include "util.h"
 
@@ -212,13 +220,13 @@ static bool group_id_eq(const uint8_t *a, const uint8_t *b)
 }
 
 non_null()
-static bool g_title_eq(Group_c *g, const uint8_t *title, uint8_t title_len)
+static bool g_title_eq(const Group_c *g, const uint8_t *title, uint8_t title_len)
 {
     return memeq(g->title, g->title_len, title, title_len);
 }
 
 non_null()
-static bool g_peer_nick_eq(Group_Peer *peer, const uint8_t *nick, uint8_t nick_len)
+static bool g_peer_nick_eq(const Group_Peer *peer, const uint8_t *nick, uint8_t nick_len)
 {
     return memeq(peer->nick, peer->nick_len, nick, nick_len);
 }
@@ -802,6 +810,7 @@ static int addpeer(Group_Chats *g_c, uint32_t groupnumber, const uint8_t *real_p
 
     if (peer_index != -1) {
         if (!pk_equal(g->group[peer_index].real_pk, real_pk)) {
+            LOGGER_ERROR(g_c->m->log, "peer public key is incorrect for peer %d", peer_number);
             return -1;
         }
 
@@ -3679,6 +3688,7 @@ static State_Load_Status load_conferences_helper(Group_Chats *g_c, const uint8_t
 
         if (groupnumber == -1) {
             // If this fails there's a serious problem, don't bother with cleanup
+            LOGGER_ERROR(g_c->m->log, "conference creation failed");
             return STATE_LOAD_STATUS_ERROR;
         }
 
@@ -3696,6 +3706,7 @@ static State_Load_Status load_conferences_helper(Group_Chats *g_c, const uint8_t
                 assert(ret);
             }
 
+            LOGGER_ERROR(g_c->m->log, "conference loading failed");
             return STATE_LOAD_STATUS_ERROR;
         }
 
@@ -3705,6 +3716,7 @@ static State_Load_Status load_conferences_helper(Group_Chats *g_c, const uint8_t
                                        nullptr, true, false);
 
         if (peer_index == -1) {
+            LOGGER_ERROR(g_c->m->log, "adding peer %d failed", g->peer_number);
             return STATE_LOAD_STATUS_ERROR;
         }
 
@@ -3763,7 +3775,6 @@ Group_Chats *new_groupchats(const Mono_Time *mono_time, Messenger *m)
     temp->mono_time = mono_time;
     temp->m = m;
     temp->fr_c = m->fr_c;
-    m->conferences_object = temp;
     m_callback_conference_invite(m, &handle_friend_invite_packet);
 
     set_global_status_callback(m->fr_c, &g_handle_any_status, temp);

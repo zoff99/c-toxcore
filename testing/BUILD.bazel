@@ -1,7 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 
-package(features = ["layering_check"])
-
 CIMPLE_FILES = [
     "//c-toxcore/toxav:cimple_files",
     "//c-toxcore/toxcore:cimple_files",
@@ -15,13 +13,44 @@ sh_test(
     args = ["$(locations %s)" % f for f in CIMPLE_FILES] + [
         "-Wno-boolean-return",
         "-Wno-callback-names",
-        "-Wno-enum-names",
         "+RTS",
-        "-N3",
+        "-N4",
         "-RTS",
     ],
     data = CIMPLE_FILES,
-    tags = ["haskell"],
+    tags = [
+        "haskell",
+        "no-cross",
+    ],
+)
+
+sh_test(
+    name = "c_test",
+    size = "small",
+    srcs = ["//hs-tokstyle/tools:check-c"],
+    args = [
+        "--cc=$(CC)",
+        "-Iexternal/libsodium/include",
+        "-Iexternal/libvpx",
+        "-Iexternal/opus/include",
+        "-Ihs-tokstyle/include",
+    ] + ["$(locations %s)" % f for f in CIMPLE_FILES] + [
+        "+RTS",
+        "-N4",
+        "-RTS",
+    ],
+    data = CIMPLE_FILES + [
+        "//c-toxcore/third_party:headers",
+        "//hs-tokstyle:headers",
+        "@libsodium//:headers",
+        "@libvpx//:headers",
+        "@opus//:headers",
+    ],
+    tags = [
+        "haskell",
+        "no-cross",
+    ],
+    toolchains = ["@rules_cc//cc:current_cc_toolchain"],
 )
 
 sh_test(
@@ -30,7 +59,10 @@ sh_test(
     srcs = ["//hs-cimple/tools:cimplefmt"],
     args = ["--reparse"] + ["$(locations %s)" % f for f in CIMPLE_FILES],
     data = CIMPLE_FILES,
-    tags = ["haskell"],
+    tags = [
+        "haskell",
+        "no-cross",
+    ],
 )
 
 cc_library(

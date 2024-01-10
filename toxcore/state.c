@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "ccompat.h"
+#include "logger.h"
 
 /** state load/save */
 int state_load(const Logger *log, state_load_cb *state_load_callback, void *outer,
@@ -52,7 +53,7 @@ int state_load(const Logger *log, state_load_cb *state_load_callback, void *oute
             }
 
             case STATE_LOAD_STATUS_ERROR: {
-                LOGGER_ERROR(log, "Error occcured in state file (type: %u).", type);
+                LOGGER_ERROR(log, "Error occcured in state file (type: 0x%02x).", type);
                 return -1;
             }
 

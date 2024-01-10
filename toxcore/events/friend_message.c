@@ -119,12 +119,12 @@ static bool tox_event_friend_message_unpack(
     Tox_Event_Friend_Message *event, Bin_Unpack *bu)
 {
     assert(event != nullptr);
-    if (!bin_unpack_array_fixed(bu, 3)) {
+    if (!bin_unpack_array_fixed(bu, 3, nullptr)) {
         return false;
     }
 
     return bin_unpack_u32(bu, &event->friend_number)
-           && tox_unpack_message_type(bu, &event->type)
+           && tox_message_type_unpack(bu, &event->type)
            && bin_unpack_bin(bu, &event->message, &event->message_length);
 }
 

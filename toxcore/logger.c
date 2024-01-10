@@ -8,7 +8,6 @@
  */
 #include "logger.h"
 
-#include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -117,4 +116,9 @@ void logger_write(const Logger *log, Logger_Level level, const char *file, int l
     va_end(args);
 
     log->callback(log->context, level, file, line, func, msg, log->userdata);
+}
+
+void logger_abort(void)
+{
+    abort();
 }

@@ -12,8 +12,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "DHT.h"
 #include "LAN_discovery.h"
 #include "ccompat.h"
+#include "crypto_core.h"
+#include "forwarding.h"
+#include "logger.h"
+#include "mem.h"
+#include "mono_time.h"
+#include "network.h"
 #include "shared_key_cache.h"
 #include "timed_auth.h"
 #include "util.h"
@@ -302,7 +309,7 @@ static int create_reply_plain_data_search_request(Announcements *announce,
         const IP_Port *source,
         const uint8_t *data, uint16_t length,
         uint8_t *reply, uint16_t reply_max_length,
-        uint8_t *to_auth, uint16_t to_auth_length)
+        const uint8_t *to_auth, uint16_t to_auth_length)
 {
     if (length != CRYPTO_PUBLIC_KEY_SIZE &&
             length != CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_SHA256_SIZE) {
@@ -377,11 +384,12 @@ static int create_reply_plain_data_search_request(Announcements *announce,
 }
 
 non_null()
-static int create_reply_plain_data_retrieve_request(Announcements *announce,
+static int create_reply_plain_data_retrieve_request(
+        const Announcements *announce,
         const IP_Port *source,
         const uint8_t *data, uint16_t length,
         uint8_t *reply, uint16_t reply_max_length,
-        uint8_t *to_auth, uint16_t to_auth_length)
+        const uint8_t *to_auth, uint16_t to_auth_length)
 {
     if (length != CRYPTO_PUBLIC_KEY_SIZE + 1 + TIMED_AUTH_SIZE) {
         return -1;
@@ -423,10 +431,10 @@ static int create_reply_plain_store_announce_request(Announcements *announce,
         const IP_Port *source,
         const uint8_t *data, uint16_t length,
         uint8_t *reply, uint16_t reply_max_length,
-        uint8_t *to_auth, uint16_t to_auth_length)
+        const uint8_t *to_auth, uint16_t to_auth_length)
 {
     const int plain_len = (int)length - (CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_MAC_SIZE);
-    const int announcement_len = (int)plain_len - (TIMED_AUTH_SIZE + sizeof(uint32_t) + 1);
+    const int announcement_len = plain_len - (TIMED_AUTH_SIZE + sizeof(uint32_t) + 1);
 
     const uint8_t *const data_public_key = data;
 
@@ -660,7 +668,7 @@ Announcements *new_announcements(const Logger *log, const Memory *mem, const Ran
     announce->public_key = dht_get_self_public_key(announce->dht);
     announce->secret_key = dht_get_self_secret_key(announce->dht);
     new_hmac_key(announce->rng, announce->hmac_key);
-    announce->shared_keys = shared_key_cache_new(mono_time, mem, announce->secret_key, KEYS_TIMEOUT, MAX_KEYS_PER_SLOT);
+    announce->shared_keys = shared_key_cache_new(log, mono_time, mem, announce->secret_key, KEYS_TIMEOUT, MAX_KEYS_PER_SLOT);
     if (announce->shared_keys == nullptr) {
         free(announce);
         return nullptr;

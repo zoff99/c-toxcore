@@ -11,9 +11,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "DHT.h"
+#include "LAN_discovery.h"
+#include "TCP_connection.h"
 #include "ccompat.h"
+#include "crypto_core.h"
+#include "logger.h"
 #include "mono_time.h"
-#include "util.h"
+#include "net_crypto.h"
+#include "network.h"
+#include "onion_client.h"
 
 #define PORTS_PER_DISCOVERY 10
 
@@ -467,11 +474,12 @@ static void dht_pk_callback(void *object, int32_t number, const uint8_t *dht_pub
 non_null()
 static int handle_packet(void *object, int number, const uint8_t *data, uint16_t length, void *userdata)
 {
+    Friend_Connections *const fr_c = (Friend_Connections *)object;
+
     if (length == 0) {
         return -1;
     }
 
-    Friend_Connections *const fr_c = (Friend_Connections *)object;
     Friend_Conn *friend_con = get_conn(fr_c, number);
 
     if (friend_con == nullptr) {
@@ -526,11 +534,12 @@ static int handle_packet(void *object, int number, const uint8_t *data, uint16_t
 non_null()
 static int handle_lossy_packet(void *object, int number, const uint8_t *data, uint16_t length, void *userdata)
 {
+    const Friend_Connections *const fr_c = (const Friend_Connections *)object;
+
     if (length == 0) {
         return -1;
     }
 
-    const Friend_Connections *const fr_c = (const Friend_Connections *)object;
     const Friend_Conn *friend_con = get_conn(fr_c, number);
 
     if (friend_con == nullptr) {
@@ -911,24 +920,26 @@ Friend_Connections *new_friend_connections(
         return nullptr;
     }
 
-    temp->mono_time = mono_time;
-    temp->logger = logger;
-    temp->dht = onion_get_dht(onion_c);
-    temp->net_crypto = onion_get_net_crypto(onion_c);
-    temp->onion_c = onion_c;
     temp->local_discovery_enabled = local_discovery_enabled;
-    // Don't include default port in port range
-    temp->next_lan_port = TOX_PORTRANGE_FROM + 1;
-
-    new_connection_handler(temp->net_crypto, &handle_new_connections, temp);
 
     if (temp->local_discovery_enabled) {
         temp->broadcast = lan_discovery_init(ns);
 
         if (temp->broadcast == nullptr) {
             LOGGER_ERROR(logger, "could not initialise LAN discovery");
+            temp->local_discovery_enabled = false;
         }
     }
+
+    temp->mono_time = mono_time;
+    temp->logger = logger;
+    temp->dht = onion_get_dht(onion_c);
+    temp->net_crypto = onion_get_net_crypto(onion_c);
+    temp->onion_c = onion_c;
+    // Don't include default port in port range
+    temp->next_lan_port = TOX_PORTRANGE_FROM + 1;
+
+    new_connection_handler(temp->net_crypto, &handle_new_connections, temp);
 
     return temp;
 }

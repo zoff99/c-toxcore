@@ -71,7 +71,7 @@ typedef struct MSIMessage {
 static void msg_init(MSIMessage *dest, MSIRequest request);
 static void kill_call(const Logger *log, MSICall *call);
 static int msg_parse_in(const Logger *log, MSIMessage *dest, const uint8_t *data, uint16_t length);
-static uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, uint8_t value_len,
+static uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const uint8_t *value, uint8_t value_len,
                                      uint16_t *length);
 static int send_message(const Logger *log, Tox *tox, uint32_t friend_number, const MSIMessage *msg);
 static int send_error(const Logger *log, Tox *tox, uint32_t friend_number, MSIError error);
@@ -479,7 +479,7 @@ static int msg_parse_in(const Logger *log, MSIMessage *dest, const uint8_t *data
     return 0;
 }
 
-static uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const void *value, uint8_t value_len,
+static uint8_t *msg_parse_header_out(MSIHeaderID id, uint8_t *dest, const uint8_t *value, uint8_t value_len,
                                      uint16_t *length)
 {
     /* Parse a single header for sending */
@@ -895,6 +895,7 @@ static void handle_pop(const Logger *log, MSICall *call, const MSIMessage *msg)
         switch (call->state) {
             case MSI_CALL_INACTIVE: {
                 LOGGER_FATAL(log, "Handling what should be impossible case");
+                break;
             }
 
             case MSI_CALL_ACTIVE: {

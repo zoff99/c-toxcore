@@ -16,12 +16,17 @@
 #include "../toxcore/DHT.h"
 #include "../toxcore/LAN_discovery.h"
 #include "../toxcore/ccompat.h"
-#include "../toxcore/friend_requests.h"
+#include "../toxcore/crypto_core.h"
+#include "../toxcore/forwarding.h"
+#include "../toxcore/group_announce.h"
 #include "../toxcore/group_onion_announce.h"
 #include "../toxcore/logger.h"
+#include "../toxcore/mem.h"
 #include "../toxcore/mono_time.h"
+#include "../toxcore/network.h"
+#include "../toxcore/onion.h"
+#include "../toxcore/onion_announce.h"
 #include "../toxcore/tox.h"
-#include "../toxcore/util.h"
 
 #define TCP_RELAY_ENABLED
 
@@ -31,17 +36,22 @@
 
 #include "../testing/misc_tools.h"
 
+#define DHT_NODE_EXTRA_PACKETS
+
 #ifdef DHT_NODE_EXTRA_PACKETS
 #include "./bootstrap_node_packets.h"
 
-#define DHT_VERSION_NUMBER 1
-#define DHT_MOTD "This is a test motd"
+#ifndef DAEMON_VERSION_NUMBER
+#define DAEMON_VERSION_NUMBER (1000000000UL + TOX_VERSION_MAJOR*1000000UL + TOX_VERSION_MINOR*1000UL + TOX_VERSION_PATCH*1UL)
+#endif
+
+static const char *motd_str = ""; //Change this to anything within 256 bytes(but 96 bytes maximum prefered)
 #endif
 
 #define PORT 33445
 
 
-static void manage_keys(DHT *dht)
+static bool manage_keys(DHT *dht)
 {
     enum { KEYS_SIZE = CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_SECRET_KEY_SIZE };
     uint8_t keys[KEYS_SIZE];
@@ -55,7 +65,8 @@ static void manage_keys(DHT *dht)
 
         if (read_size != KEYS_SIZE) {
             printf("Error while reading the key file\nExiting.\n");
-            exit(1);
+            fclose(keys_file);
+            return false;
         }
 
         dht_set_self_public_key(dht, keys);
@@ -68,18 +79,20 @@ static void manage_keys(DHT *dht)
 
         if (keys_file == nullptr) {
             printf("Error opening key file in write mode.\nKeys will not be saved.\n");
-            return;
+            return false;
         }
 
         if (fwrite(keys, sizeof(uint8_t), KEYS_SIZE, keys_file) != KEYS_SIZE) {
             printf("Error while writing the key file.\nExiting.\n");
-            exit(1);
+            fclose(keys_file);
+            return false;
         }
 
         printf("Keys saved successfully.\n");
     }
 
     fclose(keys_file);
+    return true;
 }
 
 static const char *strlevel(Logger_Level level)
@@ -116,7 +129,7 @@ int main(int argc, char *argv[])
     if (argc == 2 && !tox_strncasecmp(argv[1], "-h", 3)) {
         printf("Usage (connected)  : %s [--ipv4|--ipv6] IP PORT KEY\n", argv[0]);
         printf("Usage (unconnected): %s [--ipv4|--ipv6]\n", argv[0]);
-        exit(0);
+        return 0;
     }
 
     /* let user override default by cmdline */
@@ -124,7 +137,7 @@ int main(int argc, char *argv[])
     int argvoffset = cmdline_parsefor_ipv46(argc, argv, &ipv6enabled);
 
     if (argvoffset < 0) {
-        exit(1);
+        return 1;
     }
 
     /* Initialize networking -
@@ -152,19 +165,21 @@ int main(int argc, char *argv[])
     Onion_Announce *onion_a = new_onion_announce(logger, mem, rng, mono_time, dht);
 
 #ifdef DHT_NODE_EXTRA_PACKETS
-    bootstrap_set_callbacks(dht_get_net(dht), DHT_VERSION_NUMBER, DHT_MOTD, sizeof(DHT_MOTD));
+    bootstrap_set_callbacks(dht_get_net(dht), (uint32_t)DAEMON_VERSION_NUMBER, (const uint8_t *) motd_str, strlen(motd_str)+1);
 #endif
 
     if (!(onion && forwarding && onion_a)) {
         printf("Something failed to initialize.\n");
-        exit(1);
+        return 1;
     }
 
     gca_onion_init(gc_announces_list, onion_a);
 
     perror("Initialization");
 
-    manage_keys(dht);
+    if (!manage_keys(dht)) {
+        return 1;
+    }
     printf("Public key: ");
 
 #ifdef TCP_RELAY_ENABLED
@@ -174,7 +189,7 @@ int main(int argc, char *argv[])
 
     if (tcp_s == nullptr) {
         printf("TCP server failed to initialize.\n");
-        exit(1);
+        return 1;
     }
 
 #endif
@@ -184,7 +199,7 @@ int main(int argc, char *argv[])
 
     if (file == nullptr) {
         printf("Could not open file \"%s\" for writing. Exiting...\n", public_id_filename);
-        exit(1);
+        return 1;
     }
 
     for (uint32_t i = 0; i < 32; ++i) {
@@ -205,7 +220,7 @@ int main(int argc, char *argv[])
 
         if (port_conv <= 0 || port_conv > UINT16_MAX) {
             printf("Failed to convert \"%s\" into a valid port. Exiting...\n", argv[argvoffset + 2]);
-            exit(1);
+            return 1;
         }
 
         const uint16_t port = net_htons((uint16_t)port_conv);
@@ -217,7 +232,7 @@ int main(int argc, char *argv[])
 
         if (!res) {
             printf("Failed to convert \"%s\" into an IP address. Exiting...\n", argv[argvoffset + 1]);
-            exit(1);
+            return 1;
         }
     }
 

@@ -1,7 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
-package(features = ["layering_check"])
-
 cc_binary(
     name = "bootstrap_daemon",
     srcs = glob([
@@ -20,7 +18,6 @@ cc_binary(
         "//c-toxcore/toxcore:mono_time",
         "//c-toxcore/toxcore:onion_announce",
         "//c-toxcore/toxcore:tox",
-        "//c-toxcore/toxcore:util",
         "@libconfig",
     ],
 )

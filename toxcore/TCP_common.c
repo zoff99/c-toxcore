@@ -5,10 +5,13 @@
 
 #include "TCP_common.h"
 
-#include <stdlib.h>
 #include <string.h>
 
 #include "ccompat.h"
+#include "crypto_core.h"
+#include "logger.h"
+#include "mem.h"
+#include "network.h"
 
 void wipe_priority_list(const Memory *mem, TCP_Priority_List *p)
 {
@@ -201,7 +204,11 @@ int read_tcp_packet(
     const uint16_t count = net_socket_data_recv_buffer(ns, sock);
 
     if (count < length) {
-        LOGGER_TRACE(logger, "recv buffer has %d bytes, but requested %d bytes", count, length);
+        if (count != 0) {
+            // Only log when there are some bytes available, as empty buffer
+            // is a very common case and this spams our logs.
+            LOGGER_TRACE(logger, "recv buffer has %d bytes, but requested %d bytes", count, length);
+        }
         return -1;
     }
 

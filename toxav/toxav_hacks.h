@@ -14,10 +14,10 @@
 typedef struct ToxAVCall ToxAVCall;
 #endif /* TOXAV_CALL_DEFINED */
 
-non_null(1)
+non_null()
 ToxAVCall *call_get(ToxAV *av, uint32_t friend_number);
 
-non_null(1)
+non_null()
 RTPSession *rtp_session_get(ToxAVCall *call, int payload_type);
 
 non_null()

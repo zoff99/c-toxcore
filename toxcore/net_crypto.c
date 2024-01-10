@@ -10,13 +10,19 @@
  */
 #include "net_crypto.h"
 
-#include <math.h>
-#include <stdlib.h>
 #include <string.h>
 
+#include "DHT.h"
+#include "LAN_discovery.h"
+#include "TCP_client.h"
+#include "TCP_connection.h"
 #include "ccompat.h"
+#include "crypto_core.h"
 #include "list.h"
+#include "logger.h"
+#include "mem.h"
 #include "mono_time.h"
+#include "network.h"
 #include "util.h"
 
 typedef struct Packet_Data {
@@ -212,10 +218,9 @@ static int create_cookie_request(const Net_Crypto *c, uint8_t *packet, const uin
                                  uint64_t number, uint8_t *shared_key)
 {
     uint8_t plain[COOKIE_REQUEST_PLAIN_LENGTH];
-    uint8_t padding[CRYPTO_PUBLIC_KEY_SIZE] = {0};
 
     memcpy(plain, c->self_public_key, CRYPTO_PUBLIC_KEY_SIZE);
-    memcpy(plain + CRYPTO_PUBLIC_KEY_SIZE, padding, CRYPTO_PUBLIC_KEY_SIZE);
+    memset(plain + CRYPTO_PUBLIC_KEY_SIZE, 0, CRYPTO_PUBLIC_KEY_SIZE);
     memcpy(plain + (CRYPTO_PUBLIC_KEY_SIZE * 2), &number, sizeof(uint64_t));
     const uint8_t *tmp_shared_key = dht_get_shared_key_sent(c->dht, dht_public_key);
     memcpy(shared_key, tmp_shared_key, CRYPTO_SHARED_KEY_SIZE);

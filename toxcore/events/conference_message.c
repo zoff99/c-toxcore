@@ -135,13 +135,13 @@ static bool tox_event_conference_message_unpack(
     Tox_Event_Conference_Message *event, Bin_Unpack *bu)
 {
     assert(event != nullptr);
-    if (!bin_unpack_array_fixed(bu, 4)) {
+    if (!bin_unpack_array_fixed(bu, 4, nullptr)) {
         return false;
     }
 
     return bin_unpack_u32(bu, &event->conference_number)
            && bin_unpack_u32(bu, &event->peer_number)
-           && tox_unpack_message_type(bu, &event->type)
+           && tox_message_type_unpack(bu, &event->type)
            && bin_unpack_bin(bu, &event->message, &event->message_length);
 }
 

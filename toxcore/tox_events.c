@@ -5,16 +5,16 @@
 #include "tox_events.h"
 
 #include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
+#include "bin_pack.h"
 #include "bin_unpack.h"
 #include "ccompat.h"
 #include "events/events_alloc.h"
+#include "logger.h"
 #include "mem.h"
 #include "tox.h"
-#include "tox_private.h"
+#include "tox_struct.h"
 
 
 /*****************************************************
@@ -115,7 +115,7 @@ bool tox_events_pack(const Tox_Events *events, Bin_Pack *bp)
 }
 
 non_null()
-static bool tox_event_unpack(Tox_Events *events, Bin_Unpack *bu)
+static bool tox_events_unpack_event(Tox_Events *events, Bin_Unpack *bu)
 {
     uint32_t size;
     if (!bin_unpack_array(bu, &size)) {
@@ -210,7 +210,7 @@ bool tox_events_unpack(Tox_Events *events, Bin_Unpack *bu)
     }
 
     for (uint32_t i = 0; i < size; ++i) {
-        if (!tox_event_unpack(events, bu)) {
+        if (!tox_events_unpack_event(events, bu)) {
             return false;
         }
     }
@@ -218,20 +218,21 @@ bool tox_events_unpack(Tox_Events *events, Bin_Unpack *bu)
     return true;
 }
 
-non_null(1) nullable(2)
-static bool tox_events_bin_pack_handler(Bin_Pack *bp, const void *obj)
+non_null(1) nullable(2, 3)
+static bool tox_events_bin_pack_handler(Bin_Pack *bp, const Logger *logger, const void *obj)
 {
-    return tox_events_pack((const Tox_Events *)obj, bp);
+    const Tox_Events *events = (const Tox_Events *)obj;
+    return tox_events_pack(events, bp);
 }
 
 uint32_t tox_events_bytes_size(const Tox_Events *events)
 {
-    return bin_pack_obj_size(tox_events_bin_pack_handler, events);
+    return bin_pack_obj_size(tox_events_bin_pack_handler, nullptr, events);
 }
 
 void tox_events_get_bytes(const Tox_Events *events, uint8_t *bytes)
 {
-    bin_pack_obj(tox_events_bin_pack_handler, events, bytes, UINT32_MAX);
+    bin_pack_obj(tox_events_bin_pack_handler, nullptr, events, bytes, UINT32_MAX);
 }
 
 Tox_Events *tox_events_load(const Tox_System *sys, const uint8_t *bytes, uint32_t bytes_size)

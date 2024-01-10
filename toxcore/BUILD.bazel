@@ -2,8 +2,6 @@ load("@rules_cc//cc:defs.bzl", "cc_test")
 load("@rules_fuzzing//fuzzing:cc_defs.bzl", "cc_fuzz_test")
 load("//tools:no_undefined.bzl", "cc_library")
 
-package(features = ["layering_check"])
-
 exports_files(
     srcs = ["tox.h"],
     visibility = ["//c-toxcore:__subpackages__"],
@@ -77,6 +75,22 @@ cc_test(
 )
 
 cc_library(
+    name = "logger",
+    srcs = ["logger.c"],
+    hdrs = ["logger.h"],
+    visibility = [
+        "//c-toxcore/auto_tests:__pkg__",
+        "//c-toxcore/other:__pkg__",
+        "//c-toxcore/other/bootstrap_daemon:__pkg__",
+        "//c-toxcore/toxav:__pkg__",
+    ],
+    deps = [
+        ":attributes",
+        ":ccompat",
+    ],
+)
+
+cc_library(
     name = "bin_pack",
     srcs = ["bin_pack.c"],
     hdrs = ["bin_pack.h"],
@@ -84,6 +98,7 @@ cc_library(
     deps = [
         ":attributes",
         ":ccompat",
+        ":logger",
         "//c-toxcore/third_party:cmp",
     ],
 )
@@ -159,22 +174,6 @@ cc_test(
 )
 
 cc_library(
-    name = "logger",
-    srcs = ["logger.c"],
-    hdrs = ["logger.h"],
-    visibility = [
-        "//c-toxcore/auto_tests:__pkg__",
-        "//c-toxcore/other:__pkg__",
-        "//c-toxcore/other/bootstrap_daemon:__pkg__",
-        "//c-toxcore/toxav:__pkg__",
-    ],
-    deps = [
-        ":attributes",
-        ":ccompat",
-    ],
-)
-
-cc_library(
     name = "state",
     srcs = ["state.c"],
     hdrs = ["state.h"],
@@ -199,6 +198,7 @@ cc_library(
         ":attributes",
         ":ccompat",
         ":mem",
+        ":util",
         "@pthread",
     ],
 )
@@ -228,6 +228,7 @@ cc_library(
     deps = [
         ":ccompat",
         ":crypto_core",
+        ":logger",
         ":mem",
         ":mono_time",
     ],
@@ -339,6 +340,7 @@ cc_library(
     deps = [
         ":LAN_discovery",
         ":attributes",
+        ":bin_pack",
         ":ccompat",
         ":crypto_core",
         ":logger",
@@ -366,6 +368,7 @@ cc_test(
 
 cc_fuzz_test(
     name = "DHT_fuzz_test",
+    size = "small",
     srcs = ["DHT_fuzz_test.cc"],
     corpus = ["//tools/toktok-fuzzer/corpus:DHT_fuzz_test"],
     deps = [
@@ -405,6 +408,7 @@ cc_library(
 
 cc_fuzz_test(
     name = "forwarding_fuzz_test",
+    size = "small",
     srcs = ["forwarding_fuzz_test.cc"],
     #corpus = ["//tools/toktok-fuzzer/corpus:forwarding_fuzz_test"],
     deps = [
@@ -606,6 +610,7 @@ cc_library(
 
 cc_fuzz_test(
     name = "group_announce_fuzz_test",
+    size = "small",
     srcs = ["group_announce_fuzz_test.cc"],
     #corpus = ["//tools/toktok-fuzzer/corpus:group_announce_fuzz_test"],
     deps = [
@@ -709,6 +714,7 @@ cc_test(
 
 cc_fuzz_test(
     name = "group_moderation_fuzz_test",
+    size = "small",
     srcs = ["group_moderation_fuzz_test.cc"],
     corpus = ["//tools/toktok-fuzzer/corpus:group_moderation_fuzz_test"],
     deps = [
@@ -865,6 +871,7 @@ cc_test(
 
 cc_fuzz_test(
     name = "tox_events_fuzz_test",
+    size = "small",
     srcs = ["tox_events_fuzz_test.cc"],
     corpus = ["//tools/toktok-fuzzer/corpus:tox_events_fuzz_test"],
     deps = [

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
- * Copyright © 2016-2018 The TokTok team.
+ * Copyright © 2016-2023 The TokTok team.
  * Copyright © 2013 Tox project.
  */
 
@@ -21,7 +21,7 @@
 #define _XOPEN_SOURCE 700
 #endif
 
-#if defined(_WIN32) && _WIN32_WINNT >= _WIN32_WINNT_WINXP
+#if defined(_WIN32) && defined(_WIN32_WINNT) && _WIN32_WINNT >= _WIN32_WINNT_WINXP
 #undef _WIN32_WINNT
 #define _WIN32_WINNT  0x501
 #endif
@@ -87,14 +87,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef VANILLA_NACL
-// Used for sodium_init()
-#include <sodium.h>
-#endif
-
 #include "ccompat.h"
 #include "logger.h"
-#include "mono_time.h"
+#include "mem.h"
 #include "util.h"
 
 // Disable MSG_NOSIGNAL on systems not supporting it, e.g. Windows, FreeBSD
@@ -345,12 +340,20 @@ static void fill_addr6(const IP6 *ip, struct in6_addr *addr)
 #endif
 
 static const IP empty_ip = {{0}};
-const IP_Port empty_ip_port = {{{0}}};
 
-const IP4 ip4_broadcast = { INADDR_BROADCAST };
-const IP6 ip6_broadcast = {
-    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }
-};
+IP4 get_ip4_broadcast(void)
+{
+    const IP4 ip4_broadcast = { INADDR_BROADCAST };
+    return ip4_broadcast;
+}
+
+IP6 get_ip6_broadcast(void)
+{
+    const IP6 ip6_broadcast = {
+        { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }
+    };
+    return ip6_broadcast;
+}
 
 IP4 get_ip4_loopback(void)
 {
@@ -361,13 +364,9 @@ IP4 get_ip4_loopback(void)
 
 IP6 get_ip6_loopback(void)
 {
-    IP6 loopback;
-#ifdef ESP_PLATFORM
-    loopback = empty_ip_port.ip.ip.v6;
+    /* in6addr_loopback isn't available everywhere, so we do it ourselves. */
+    IP6 loopback = empty_ip.ip.v6;
     loopback.uint8[15] = 1;
-#else
-    get_ip6(&loopback, &in6addr_loopback);
-#endif
     return loopback;
 }
 
@@ -375,7 +374,11 @@ IP6 get_ip6_loopback(void)
 #define INVALID_SOCKET (-1)
 #endif
 
-const Socket net_invalid_socket = { (int)INVALID_SOCKET };
+Socket net_invalid_socket(void)
+{
+    const Socket invalid_socket = { (int)INVALID_SOCKET };
+    return invalid_socket;
+}
 
 Family net_family_unspec(void)
 {
@@ -469,7 +472,8 @@ bool net_family_is_tox_tcp_ipv6(Family family)
 
 bool sock_valid(Socket sock)
 {
-    return sock.sock != net_invalid_socket.sock;
+    const Socket invalid_socket = net_invalid_socket();
+    return sock.sock != invalid_socket.sock;
 }
 
 struct Network_Addr {
@@ -565,7 +569,7 @@ non_null()
 static int sys_getsockopt(void *obj, int sock, int level, int optname, void *optval, size_t *optlen)
 {
     socklen_t len = *optlen;
-    const int ret = getsockopt(sock, level, optname, optval, &len);
+    const int ret = getsockopt(sock, level, optname, (char *)optval, &len);
     *optlen = len;
     return ret;
 }
@@ -573,7 +577,7 @@ static int sys_getsockopt(void *obj, int sock, int level, int optname, void *opt
 non_null()
 static int sys_setsockopt(void *obj, int sock, int level, int optname, const void *optval, size_t optlen)
 {
-    return setsockopt(sock, level, optname, optval, optlen);
+    return setsockopt(sock, level, optname, (const char *)optval, optlen);
 }
 
 static const Network_Funcs system_network_funcs = {
@@ -778,7 +782,7 @@ static void loglogdata(const Logger *log, const char *message, const uint8_t *bu
         Ip_Ntoa ip_str;
         const int error = net_error();
         char *strerror = net_new_strerror(error);
-        LOGGER_TRACE(log, "[%02x = %-20s] %s %3u%c %s:%u (%u: %s) | %08x%08x...%02x",
+        LOGGER_TRACE(log, "[%02x = %-21s] %s %3u%c %s:%u (%u: %s) | %08x%08x...%02x",
                      buffer[0], net_packet_type_name((Net_Packet_Type)buffer[0]), message,
                      min_u16(buflen, 999), 'E',
                      net_ip_ntoa(&ip_port->ip, &ip_str), net_ntohs(ip_port->port), error,
@@ -786,14 +790,14 @@ static void loglogdata(const Logger *log, const char *message, const uint8_t *bu
         net_kill_strerror(strerror);
     } else if ((res > 0) && ((size_t)res <= buflen)) {
         Ip_Ntoa ip_str;
-        LOGGER_TRACE(log, "[%02x = %-20s] %s %3u%c %s:%u (%u: %s) | %08x%08x...%02x",
+        LOGGER_TRACE(log, "[%02x = %-21s] %s %3u%c %s:%u (%u: %s) | %08x%08x...%02x",
                      buffer[0], net_packet_type_name((Net_Packet_Type)buffer[0]), message,
                      min_u16(res, 999), (size_t)res < buflen ? '<' : '=',
                      net_ip_ntoa(&ip_port->ip, &ip_str), net_ntohs(ip_port->port), 0, "OK",
                      data_0(buflen, buffer), data_1(buflen, buffer), buffer[buflen - 1]);
     } else { /* empty or overwrite */
         Ip_Ntoa ip_str;
-        LOGGER_TRACE(log, "[%02x = %-20s] %s %lu%c%u %s:%u (%u: %s) | %08x%08x...%02x",
+        LOGGER_TRACE(log, "[%02x = %-21s] %s %lu%c%u %s:%u (%u: %s) | %08x%08x...%02x",
                      buffer[0], net_packet_type_name((Net_Packet_Type)buffer[0]), message,
                      res, res == 0 ? '!' : '>', buflen,
                      net_ip_ntoa(&ip_port->ip, &ip_str), net_ntohs(ip_port->port), 0, "OK",
@@ -1086,7 +1090,7 @@ void networking_poll(const Networking_Core *net, void *userdata)
     }
 
     IP_Port ip_port;
-    uint8_t data[MAX_UDP_PACKET_SIZE];
+    uint8_t data[MAX_UDP_PACKET_SIZE] = {0};
     uint32_t length;
 
     while (receivepacket(net->ns, net->mem, net->log, net->sock, &ip_port, data, &length) != -1) {
@@ -1184,11 +1188,11 @@ Networking_Core *new_networking_ex(
     int n = 1024 * 1024 * 2;
 
     if (net_setsockopt(ns, temp->sock, SOL_SOCKET, SO_RCVBUF, &n, sizeof(n)) != 0) {
-        LOGGER_ERROR(log, "failed to set socket option %d", SO_RCVBUF);
+        LOGGER_WARNING(log, "failed to set socket option %d", SO_RCVBUF);
     }
 
     if (net_setsockopt(ns, temp->sock, SOL_SOCKET, SO_SNDBUF, &n, sizeof(n)) != 0) {
-        LOGGER_ERROR(log, "failed to set socket option %d", SO_SNDBUF);
+        LOGGER_WARNING(log, "failed to set socket option %d", SO_SNDBUF);
     }
 
     /* Enable broadcast on socket */
@@ -1340,8 +1344,8 @@ Networking_Core *new_networking_ex(
     Ip_Ntoa ip_str;
     int neterror = net_error();
     char *strerror = net_new_strerror(neterror);
-    LOGGER_ERROR(log, "failed to bind socket: %d, %s IP: %s port_from: %u port_to: %u", neterror, strerror,
-                 net_ip_ntoa(ip, &ip_str), port_from, port_to);
+    LOGGER_ERROR(log, "failed to bind socket: %d, %s IP: %s port_from: %u port_to: %u",
+                 neterror, strerror, net_ip_ntoa(ip, &ip_str), port_from, port_to);
     net_kill_strerror(strerror);
     kill_networking(temp);
 
@@ -1456,6 +1460,7 @@ void ipport_reset(IP_Port *ipport)
         return;
     }
 
+    const IP_Port empty_ip_port = {{{0}}};
     *ipport = empty_ip_port;
 }
 
@@ -1514,30 +1519,29 @@ void ipport_copy(IP_Port *target, const IP_Port *source)
     *target = *source;
 }
 
-/** @brief Converts IP into a string.
- *
- * Writes error message into the buffer on error.
- *
- * @param ip_str contains a buffer of the required size.
- *
- * @return Pointer to the buffer inside `ip_str` containing the IP string.
- */
 const char *net_ip_ntoa(const IP *ip, Ip_Ntoa *ip_str)
 {
     assert(ip_str != nullptr);
 
+    ip_str->ip_is_valid = false;
+
     if (ip == nullptr) {
         snprintf(ip_str->buf, sizeof(ip_str->buf), "(IP invalid: NULL)");
+        ip_str->length = (uint16_t)strlen(ip_str->buf);
         return ip_str->buf;
     }
 
     if (!ip_parse_addr(ip, ip_str->buf, sizeof(ip_str->buf))) {
         snprintf(ip_str->buf, sizeof(ip_str->buf), "(IP invalid, family %u)", ip->family.value);
+        ip_str->length = (uint16_t)strlen(ip_str->buf);
         return ip_str->buf;
     }
 
     /* brute force protection against lacking termination */
     ip_str->buf[sizeof(ip_str->buf) - 1] = '\0';
+    ip_str->length = (uint16_t)strlen(ip_str->buf);
+    ip_str->ip_is_valid = true;
+
     return ip_str->buf;
 }
 
@@ -1758,8 +1762,8 @@ bool net_connect(const Memory *mem, const Logger *log, Socket sock, const IP_Por
         // Non-blocking socket: "Operation in progress" means it's connecting.
         if (!should_ignore_connect_error(error)) {
             char *net_strerror = net_new_strerror(error);
-            LOGGER_ERROR(log, "failed to connect to %s:%d: %d (%s)",
-                         net_ip_ntoa(&ip_port->ip, &ip_str), net_ntohs(ip_port->port), error, net_strerror);
+            LOGGER_WARNING(log, "failed to connect to %s:%d: %d (%s)",
+                           net_ip_ntoa(&ip_port->ip, &ip_str), net_ntohs(ip_port->port), error, net_strerror);
             net_kill_strerror(net_strerror);
             return false;
         }
@@ -1770,6 +1774,8 @@ bool net_connect(const Memory *mem, const Logger *log, Socket sock, const IP_Por
 
 int32_t net_getipport(const Memory *mem, const char *node, IP_Port **res, int tox_type)
 {
+    assert(node != nullptr);
+
     // Try parsing as IP address first.
     IP_Port parsed = {{{0}}};
     // Initialise to nullptr. In error paths, at least we initialise the out
@@ -2032,7 +2038,7 @@ char *net_new_strerror(int error)
     return str;
 }
 #else
-#ifdef _GNU_SOURCE
+#if defined(_GNU_SOURCE) && defined(__GLIBC__)
 non_null()
 static const char *net_strerror_r(int error, char *tmp, size_t tmp_size)
 {

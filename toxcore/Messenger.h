@@ -289,7 +289,7 @@ struct Messenger {
     m_friend_read_receipt_cb *read_receipt;
     m_friend_connection_status_cb *friend_connectionstatuschange;
 
-    struct Group_Chats *conferences_object; /* Set by new_groupchats()*/
+    struct Group_Chats *conferences_object;
     m_conference_invite_cb *conference_invite;
 
     m_group_invite_cb *group_invite;

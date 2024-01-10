@@ -6,7 +6,6 @@
 
 #include <assert.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "../bin_pack.h"
 #include "../bin_unpack.h"
@@ -99,13 +98,13 @@ static bool tox_event_file_recv_control_unpack(
     Tox_Event_File_Recv_Control *event, Bin_Unpack *bu)
 {
     assert(event != nullptr);
-    if (!bin_unpack_array_fixed(bu, 3)) {
+    if (!bin_unpack_array_fixed(bu, 3, nullptr)) {
         return false;
     }
 
     return bin_unpack_u32(bu, &event->friend_number)
            && bin_unpack_u32(bu, &event->file_number)
-           && tox_unpack_file_control(bu, &event->control);
+           && tox_file_control_unpack(bu, &event->control);
 }
 
 

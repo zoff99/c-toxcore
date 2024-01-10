@@ -15,14 +15,15 @@
 #include <string.h>
 
 #include "DHT.h"
+#include "TCP_connection.h"
 #include "ccompat.h"
 #include "crypto_core.h"
 #include "group_chats.h"
 #include "group_common.h"
+#include "logger.h"
 #include "mono_time.h"
+#include "network.h"
 #include "util.h"
-
-#ifndef VANILLA_NACL
 
 /** Seconds since last direct UDP packet was received before the connection is considered dead */
 #define GCC_UDP_DIRECT_TIMEOUT (GC_PING_TIMEOUT + 4)
@@ -211,7 +212,7 @@ bool gcc_send_lossless_packet_fragments(const GC_Chat *chat, GC_Connection *gcon
     const uint16_t end_idx = gcc_get_array_index(gconn->send_message_id);
 
     for (uint16_t i = start_idx; i != end_idx; i = (i + 1) % GCC_BUFFER_SIZE) {
-        GC_Message_Array_Entry *entry = &gconn->send_array[i];
+        const GC_Message_Array_Entry *entry = &gconn->send_array[i];
 
         if (array_entry_is_empty(entry)) {
             LOGGER_FATAL(chat->log, "array entry for packet chunk is empty");
@@ -366,7 +367,7 @@ static uint16_t reassemble_packet(const Logger *log, GC_Connection *gconn, uint8
     // search backwards in recv array until we find an empty slot or a non-fragment packet type
     while (!array_entry_is_empty(entry) && entry->packet_type == GP_FRAGMENT) {
         assert(entry->data != nullptr);
-        assert(entry->data_length <= MAX_GC_PACKET_CHUNK_SIZE);
+        assert(entry->data_length <= MAX_GC_PACKET_INCOMING_CHUNK_SIZE);
 
         const uint16_t diff = packet_length + entry->data_length;
 
@@ -453,6 +454,7 @@ int gcc_handle_packet_fragment(const GC_Session *c, GC_Chat *chat, uint32_t peer
     gconn = get_gc_connection(chat, peer_number);
 
     if (gconn == nullptr) {
+        free(payload);
         return 0;
     }
 
@@ -703,5 +705,3 @@ void gcc_cleanup(const GC_Chat *chat)
         gcc_peer_cleanup(gconn);
     }
 }
-
-#endif // VANILLA_NACL

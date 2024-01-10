@@ -7,8 +7,8 @@
  * An implementation of massive text only group chats.
  */
 
-#ifndef GROUP_CHATS_H
-#define GROUP_CHATS_H
+#ifndef C_TOXCORE_TOXCORE_GROUP_CHATS_H
+#define C_TOXCORE_TOXCORE_GROUP_CHATS_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -142,7 +142,7 @@ non_null(1, 2, 3, 4, 5) nullable(7)
 int group_packet_wrap(
     const Logger *log, const Random *rng, const uint8_t *self_pk, const uint8_t *shared_key, uint8_t *packet,
     uint16_t packet_size, const uint8_t *data, uint16_t length, uint64_t message_id,
-    uint8_t gp_packet_type, uint8_t net_packet_type);
+    uint8_t gp_packet_type, Net_Packet_Type net_packet_type);
 
 /** @brief Returns the size of a wrapped/encrypted packet with a plain size of `length`.
  *
@@ -162,7 +162,7 @@ uint16_t gc_get_wrapped_packet_size(uint16_t length, Net_Packet_Type packet_type
  * Returns -4 if the sender does not have permission to speak.
  * Returns -5 if the packet fails to send.
  */
-non_null(1, 2, 3, 4) nullable(5)
+non_null(1, 2) nullable(5)
 int gc_send_message(const GC_Chat *chat, const uint8_t *message, uint16_t length, uint8_t type,
                     uint32_t *message_id);
 
@@ -390,11 +390,37 @@ int gc_get_peer_nick_size(const GC_Chat *chat, uint32_t peer_id);
 non_null(1) nullable(3)
 int gc_get_peer_public_key_by_peer_id(const GC_Chat *chat, uint32_t peer_id, uint8_t *public_key);
 
+/** @brief Returns the length of the IP address for the peer designated by `peer_id`.
+ * Returns -1 if peer_id is invalid.
+ */
+non_null()
+int gc_get_peer_ip_address_size(const GC_Chat *chat, uint32_t peer_id);
+
+/** @brief Copies peer_id's IP address to `ip_addr`.
+ *
+ * If the peer is forcing TCP connections this will be a placeholder value indicating
+ * that their real IP address is unknown to us.
+ *
+ * If `peer_id` designates ourself, it will write either our own IP address or a
+ * placeholder value, depending on whether or not we're forcing TCP connections.
+ *
+ * `ip_addr` should have room for at least IP_NTOA_LEN bytes.
+ *
+ * Returns 0 on success.
+ * Returns -1 if peer_id is invalid or doesn't correspond to a valid peer connection.
+ * Returns -2 if `ip_addr` is null.
+ */
+non_null(1) nullable(3)
+int gc_get_peer_ip_address(const GC_Chat *chat, uint32_t peer_id, uint8_t *ip_addr);
+
 /** @brief Gets the connection status for peer associated with `peer_id`.
+ *
+ * If `peer_id` designates ourself, the return value indicates whether we're capable
+ * of making UDP connections with other peers, or are limited to TCP connections.
  *
  * Returns 2 if we have a direct (UDP) connection with a peer.
  * Returns 1 if we have an indirect (TCP) connection with a peer.
- * Returns 0 if peer_id is invalid or corresponds to ourselves.
+ * Returns 0 if peer_id is invalid.
  *
  * Note: Return values must correspond to Tox_Connection enum in API.
  */
@@ -779,4 +805,4 @@ GC_Chat *gc_get_group_by_public_key(const GC_Session *c, const uint8_t *public_k
 non_null()
 int gc_add_peers_from_announces(GC_Chat *chat, const GC_Announce *announces, uint8_t gc_announces_count);
 
-#endif  // GROUP_CHATS_H
+#endif  // C_TOXCORE_TOXCORE_GROUP_CHATS_H

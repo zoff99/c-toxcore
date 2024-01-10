@@ -6,8 +6,8 @@
  * Common groupchat data structures.
  */
 
-#ifndef GROUP_COMMON_H
-#define GROUP_COMMON_H
+#ifndef C_TOXCORE_TOXCORE_GROUP_COMMON_H
+#define C_TOXCORE_TOXCORE_GROUP_COMMON_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -28,11 +28,13 @@
  * For an explanation on why this value was chosen, see the following link: https://archive.ph/vsCOG
  */
 #define MAX_GC_PACKET_CHUNK_SIZE 500
+/* Max size of an incoming packet chunk that is allowed */
+#define MAX_GC_PACKET_INCOMING_CHUNK_SIZE 1372
 
 #define MAX_GC_MESSAGE_SIZE GROUP_MAX_MESSAGE_LENGTH
 #define MAX_GC_MESSAGE_RAW_SIZE (MAX_GC_MESSAGE_SIZE + GC_MESSAGE_PSEUDO_ID_SIZE)
 #define MAX_GC_CUSTOM_LOSSLESS_PACKET_SIZE 1373
-#define MAX_GC_CUSTOM_LOSSY_PACKET_SIZE MAX_GC_PACKET_CHUNK_SIZE
+#define MAX_GC_CUSTOM_LOSSY_PACKET_SIZE 1373
 #define MAX_GC_PASSWORD_SIZE 32
 #define MAX_GC_SAVED_INVITES 10
 #define MAX_GC_PEERS_DEFAULT 100
@@ -399,7 +401,8 @@ int unpack_gc_saved_peers(GC_Chat *chat, const uint8_t *data, uint16_t length);
 
 /** @brief Packs all valid entries from saved peerlist into `data`.
  *
- * If `processed` is non-null it will be set to the length of the packed data.
+ * If `processed` is non-null it will be set to the length of the packed data
+ * on success, and will be untouched on error.
  *
  * Return the number of packed saved peers on success.
  * Return -1 if buffer is too small.
@@ -407,4 +410,4 @@ int unpack_gc_saved_peers(GC_Chat *chat, const uint8_t *data, uint16_t length);
 non_null(1, 2) nullable(4)
 int pack_gc_saved_peers(const GC_Chat *chat, uint8_t *data, uint16_t length, uint16_t *processed);
 
-#endif  // GROUP_COMMON_H
+#endif  // C_TOXCORE_TOXCORE_GROUP_COMMON_H
