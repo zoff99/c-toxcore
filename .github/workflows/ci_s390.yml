@@ -1,0 +1,115 @@
+name: s390 build
+
+on:
+#  push:
+#    paths-ignore:
+#     - 'README.md'
+#     - 'CHANGELOG.md'
+  pull_request:
+    paths-ignore:
+     - 'README.md'
+     - 'CHANGELOG.md'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: dummy
+        default: dummy
+
+jobs:
+
+  build-s390:
+    name: s390 Build
+    runs-on: ubuntu-22.04
+    if: |
+      true
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: install deps
+        run: |
+          sudo apt-get update && \
+          sudo DEBIAN_FRONTEND=noninteractive \
+          apt-get install -y --no-install-recommends \
+          ca-certificates qemu-system-s390x qemu-user-static \
+          qemu-utils binfmt-support libc6-s390x-cross libatomic1-s390x-cross
+
+      - name: enable s390 emu
+        run: |
+          sudo modprobe binfmt_misc || echo "NO ERR"
+          sudo update-binfmts --enable || echo "NO ERR"
+
+      - name: check binfmt_misc
+        run: |
+          lsmod | grep binfmt_misc || echo "NO ERR"
+          ls -al /proc/sys/fs/binfmt_misc/ || echo "NO ERR"
+          cat /proc/sys/fs/binfmt_misc/qemu-s390x || echo "NO ERR"
+          ls -al /usr/libexec/qemu-binfmt/s390x-binfmt-P || echo "NO ERR"
+
+      - name: make script dockcross/linux-s390x
+        run: docker run --rm dockcross/linux-s390x > ./dockcross-linux-s390x; chmod +x ./dockcross-linux-s390x
+
+      - name: test
+        run: ./dockcross-linux-s390x bash -c 'ls -al;id;pwd;hostname;uname -a'
+
+      - name: build deps
+        run: |
+          ./dockcross-linux-s390x bash -c './.circleci/cmake-s390x'
+
+      - name: find output
+        run: | 
+          find . -name libtoxcore.a
+          find . -name 'libtoxcore.so*' || echo "NO ERR"
+          find . -name friend_connection_test
+
+      - name: run single test
+        run: |
+            sudo cp -av /usr/s390x-linux-gnu/lib/ld64.so.1 /lib/ld64.so.1
+            export LD_LIBRARY_PATH=/usr/s390x-linux-gnu/lib
+            file ./build/friend_connection_test
+            ./build/announce_test
+            ./build/conference_av_test
+            ./build/conference_double_invite_test
+            ./build/conference_invite_merge_test
+            ./build/conference_peer_nick_test
+            ./build/conference_simple_test
+            ./build/conference_test
+            ./build/conference_two_test
+            ./build/crypto_test
+            ./build/encryptsave_test
+            ./build/file_saving_test
+            ./build/file_transfer_test
+            ./build/forwarding_test
+            ./build/friend_connection_test
+            ./build/friend_request_test
+            ./build/group_state_test
+            ./build/invalid_tcp_proxy_test
+            ./build/invalid_udp_proxy_test
+            ./build/lan_discovery_test
+            ./build/lossless_packet_test
+            ./build/lossy_packet_test
+            ./build/network_test
+            ./build/onion_test
+            ./build/overflow_recvq_test
+            ./build/overflow_sendq_test
+            ./build/reconnect_test
+            ./build/save_compatibility_test
+            ./build/save_friend_test
+            ./build/send_message_test
+            ./build/set_name_test
+            ./build/set_status_message_test
+            ./build/TCP_test
+            ./build/tox_dispatch_test
+            ./build/tox_events_test
+            ./build/tox_many_tcp_test
+            ./build/tox_many_test
+            ./build/tox_strncasecmp_test
+            ./build/typing_test
+            ./build/version_test
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: s390_bins
+          path: ./build/*_test

@@ -1,0 +1,194 @@
+#!/bin/bash
+
+# set -eu
+
+sudo apt-get update && \
+sudo DEBIAN_FRONTEND=noninteractive \
+apt-get install -y --no-install-recommends \
+cmake nasm yasm
+
+
+FFMPEG_VERSION="n6.1"
+OPUS_VERSION="v1.4"
+SODIUM_VERSION="1.0.19"
+VPX_VERSION="v1.13.1"
+_X264_VERSION_="baee400fa9ced6f5481a728138fed6e867b0ff7f"
+
+# ---------------------------------------------------------------------------------
+FFMPEG_FILENAME="$FFMPEG_VERSION.tar.gz"
+rm -f "ffmpeg"*.tar.*
+wget $WGET_OPTIONS "https://github.com/FFmpeg/FFmpeg/archive/refs/tags/$FFMPEG_FILENAME" -O "ffmpeg_""$FFMPEG_FILENAME"
+tar -xf "ffmpeg_""$FFMPEG_FILENAME"
+rm -f "ffmpeg"*.tar.*
+cd *mpeg*/
+
+  ./configure --arch="s390" \
+              --enable-gpl \
+              --prefix="$_INST_" \
+              --target-os="linux" \
+              --cross-prefix="$CROSS_COMPILE" \
+              --disable-asm \
+              --disable-swscale \
+              --disable-network \
+              --disable-everything \
+              --disable-debug \
+              --disable-shared \
+              --disable-programs \
+              --disable-protocols \
+              --disable-doc \
+              --disable-sdl2 \
+              --disable-avfilter \
+              --disable-filters \
+              --disable-iconv \
+              --disable-network \
+              --disable-muxers \
+              --disable-postproc \
+              --disable-swresample \
+              --disable-swscale-alpha \
+              --disable-dwt \
+              --disable-lsp \
+              --disable-faan \
+              --disable-vaapi \
+              --disable-vdpau \
+              --disable-zlib \
+              --disable-xlib \
+              --disable-bzlib \
+              --disable-lzma \
+              --disable-encoders \
+              --disable-decoders \
+              --disable-demuxers \
+              --disable-parsers \
+              --disable-bsfs \
+              --disable-libxcb \
+              --disable-libxcb-shm \
+              --enable-parser=h264 \
+              --enable-decoder=h264 || exit 1
+
+  make -j$(nproc) || exit 1
+  make install
+
+cd ..
+# ---------------------------------------------------------------------------------
+
+
+
+# ---------------------------------------------------------------------------------
+OPUS_FILENAME="$OPUS_VERSION.tar.gz"
+rm -f "opus"*.tar.gz
+wget $WGET_OPTIONS "https://github.com/xiph/opus/archive/refs/tags/$OPUS_FILENAME" -O "opus_""$OPUS_FILENAME"
+tar -xf "opus_""$OPUS_FILENAME"
+rm -f "opus"*.tar.gz
+cd opus*/
+
+echo '#!/bin/bash
+export PACKAGE_VERSION="'"$OPUS_VERSION"'"' > package_version
+chmod a+rx package_version
+
+./autogen.sh
+
+    ./configure --host="$CROSS_TRIPLE" \
+                               --prefix="$_INST_" \
+                               --disable-shared \
+                               --enable-static \
+                               --disable-soname-versions \
+                               --disable-extra-programs \
+                               --disable-doc || exit 1
+
+  make -j$(nproc) || exit 1
+  make install
+
+cd ..
+# ---------------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------------
+SODIUM_FILENAME="libsodium-$SODIUM_VERSION.tar.gz"
+rm -f libsodium-*.tar.gz
+wget $WGET_OPTIONS "https://download.libsodium.org/libsodium/releases/$SODIUM_FILENAME" -O "$SODIUM_FILENAME"
+tar -xf "$SODIUM_FILENAME"
+cd libsodium*/
+
+    ./configure --host="$CROSS_TRIPLE" \
+              --prefix="$_INST_" \
+              --disable-shared \
+              --enable-static \
+              --with-pic || exit 1
+
+  make -j$(nproc) || exit 1
+  make install
+cd ..
+# ---------------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------------
+VPX_FILENAME="$VPX_VERSION.tar.gz"
+
+rm -f *.tar.gz
+wget $WGET_OPTIONS "https://github.com/webmproject/libvpx/archive/refs/tags/""$VPX_VERSION"".tar.gz" -O "$VPX_FILENAME"
+tar -xf "$VPX_FILENAME"
+cd libvpx*/
+
+    ./configure --target=generic-gnu \
+                                         --prefix="$_INST_" \
+                                         --disable-shared \
+                                         --size-limit=16384x16384 \
+                                         --enable-onthefly-bitpacking \
+                                         --enable-runtime-cpu-detect \
+                                         --enable-realtime-only \
+                                         --enable-multi-res-encoding \
+                                         --enable-temporal-denoising \
+                                         --enable-static \
+                                         --disable-examples \
+                                         --disable-tools \
+                                         --disable-docs \
+                                         --disable-unit-tests || exit 1
+
+  make -j$(nproc) || exit 1
+  make install
+cd ..
+# ---------------------------------------------------------------------------------
+
+
+
+
+
+# ---------------------------------------------------------------------------------
+git clone https://code.videolan.org/videolan/x264.git
+cd x264/
+
+  git checkout "$_X264_VERSION_"
+
+    ./configure --host="$CROSS_TRIPLE" \
+                                         --disable-asm \
+                                         --prefix="$_INST_" \
+                                         --disable-opencl \
+                                         --enable-static \
+                                         --disable-avs \
+                                         --disable-cli \
+                                         --enable-pic || exit 
+
+  make -j$(nproc) || exit 1
+  make install
+cd ..
+# ---------------------------------------------------------------------------------
+
+
+ls -al /lib/
+ls -al /usr/local/lib/pkgconfig/
+
+autoreconf -fi
+
+  ./configure --host="$CROSS_TRIPLE" \
+     CFLAGS="-DTOX_CAPABILITIES_ACTIVE -L/lib/" \
+     LDFLAGS="-L/lib/" \
+    --prefix="$_INST_" \
+    --disable-soname-versions \
+    --disable-shared \
+    --disable-testing \
+    --disable-rt || exit 1
+
+    make -j$(nproc) || exit 1
+    make install
+
+    make check || echo "NO ERR"
+
