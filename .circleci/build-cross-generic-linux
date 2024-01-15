@@ -228,8 +228,10 @@ autoreconf -fi
 
 ls -al ${_INST_}/lib/
 ls -al ${_INST_}/lib/pkgconfig/
-ls -al ${_INST_}/lib/include/
+ls -al ${_INST_}/include/
 
+pkg-config --cflags libtoxcore libavcodec libavutil x264 opus vpx libsodium
+pkg-config --libs libtoxcore libavcodec libavutil x264 opus vpx libsodium
 
 # ---------------------------------------------------------------------------------
 export TEST_MAX_TIME=$[10*60] # 10 minutes
@@ -242,8 +244,8 @@ for i in $(ls -1 ./custom_tests/*.c) ; do
     $CC -g -O1 -fno-omit-frame-pointer \
     -Wno-everything -Wno-missing-variable-declarations \
     -L${_INST_}/lib/ -I${_INST_}/include/ \
-    $(pkg-config --cflags toxcore toxav libavcodec libavutil x264 opus vpx libsodium) \
-    $(pkg-config --libs toxcore toxav libavcodec libavutil x264 opus vpx libsodium) \
+    $(pkg-config --cflags libtoxcore libavcodec libavutil x264 opus vpx libsodium) \
+    $(pkg-config --libs libtoxcore libavcodec libavutil x264 opus vpx libsodium) \
     "$i" \
     -o test
     echo "RUN:--------------- ""$i"" ---------------"
