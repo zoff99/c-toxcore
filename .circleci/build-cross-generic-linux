@@ -209,10 +209,6 @@ cd ..
 # ---------------------------------------------------------------------------------
 
 
-ls -al /lib/
-ls -al /usr/local/lib/pkgconfig/
-ls -al ${_INST_}/lib/
-
 autoreconf -fi
 
   ./configure --host="$CROSS_TRIPLE" \
@@ -230,6 +226,10 @@ autoreconf -fi
     # make check || echo "NO ERR"
 
 
+ls -al ${_INST_}/lib/
+ls -al ${_INST_}/lib/pkgconfig/
+ls -al ${_INST_}/lib/include/
+
 
 # ---------------------------------------------------------------------------------
 export TEST_MAX_TIME=$[10*60] # 10 minutes
@@ -241,9 +241,9 @@ for i in $(ls -1 ./custom_tests/*.c) ; do
     rm -f test
     $CC -g -O1 -fno-omit-frame-pointer \
     -Wno-everything -Wno-missing-variable-declarations \
-    -L${_INST_}/lib/ -I${_INST_}/include \
-    $(pkg-config --cflags toxcore libavcodec libavutil x264 opus vpx libsodium) \
-    $(pkg-config --libs toxcore libavcodec libavutil x264 opus vpx libsodium) \
+    -L${_INST_}/lib/ -I${_INST_}/include/ \
+    $(pkg-config --cflags toxcore toxav libavcodec libavutil x264 opus vpx libsodium) \
+    $(pkg-config --libs toxcore toxav libavcodec libavutil x264 opus vpx libsodium) \
     "$i" \
     -o test
     echo "RUN:--------------- ""$i"" ---------------"
