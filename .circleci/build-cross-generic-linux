@@ -258,7 +258,7 @@ for i in $(ls -1 ./custom_tests/*.c) ; do
     /work/lib/libtoxcore.a \
     /work/lib/libtoxav.a \
     /work/lib/libtoxencryptsave.a \
-    -pthread -lm -latomic -lx264 -lpthread -lm \
+    -pthread -lm -latomic -lpthread -lm \
     "$i" \
     -o test
     set +x
