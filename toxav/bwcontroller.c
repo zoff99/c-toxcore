@@ -209,7 +209,7 @@ static void bwc_handle_data(Tox *tox, uint32_t friendnumber, const uint8_t *data
         return;
     }
 
-    ToxAVCall *call = call_get(toxav, friendnumber);
+    const ToxAVCall *call = call_get(toxav, friendnumber);
 
     if (call == nullptr) {
         LOGGER_ERROR(log, "Could not get ToxAVCall object from ToxAV");

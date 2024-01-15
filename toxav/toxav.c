@@ -969,7 +969,7 @@ RETURN:
     return rc == TOXAV_ERR_SEND_FRAME_OK;
 }
 
-static Toxav_Err_Send_Frame send_frames(ToxAV *av, ToxAVCall *call)
+static Toxav_Err_Send_Frame send_frames(const ToxAV *av, ToxAVCall *call)
 {
     vpx_codec_iter_t iter = nullptr;
 

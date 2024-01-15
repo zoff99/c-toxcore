@@ -927,7 +927,7 @@ static void handle_pop(const Logger *log, MSICall *call, const MSIMessage *msg)
 static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length_with_pkt_id,
                               void *object)
 {
-    ToxAV *toxav = (ToxAV *)tox_get_av_object(tox);
+    const ToxAV *toxav = (ToxAV *)tox_get_av_object(tox);
 
     if (toxav == nullptr) {
         return;
