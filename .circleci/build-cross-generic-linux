@@ -208,6 +208,7 @@ cd x264/
 cd ..
 # ---------------------------------------------------------------------------------
 
+export PKG_CONFIG_PATH=${_INST_}/lib/pkgconfig/:$PKG_CONFIG_PATH
 
 autoreconf -fi
 
@@ -233,7 +234,7 @@ ls -al ${_INST_}/include/
 # ---------------------------------------------------------------------------------
 export TEST_MAX_TIME=$[10*60] # 10 minutes
 ls -1 ./custom_tests/*.c
-export PKG_CONFIG_PATH=${_INST_}/lib/pkgconfig/:$PKG_CONFIG_PATH
+# export PKG_CONFIG_PATH=${_INST_}/lib/pkgconfig/:$PKG_CONFIG_PATH
 export LD_LIBRARY_PATH=${_INST_}/lib:$LD_LIBRARY_PATH
 
 pkg-config --cflags libtoxcore libavcodec libavutil x264 opus vpx libsodium
