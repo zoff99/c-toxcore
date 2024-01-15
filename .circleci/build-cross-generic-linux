@@ -7,6 +7,8 @@ sudo DEBIAN_FRONTEND=noninteractive \
 apt-get install -y --no-install-recommends \
 cmake nasm yasm
 
+echo "_INST_="$(pwd)
+export _INST_=$(pwd)
 
 FFMPEG_VERSION="n6.1"
 OPUS_VERSION="v1.4"
@@ -22,7 +24,43 @@ tar -xf "ffmpeg_""$FFMPEG_FILENAME"
 rm -f "ffmpeg"*.tar.*
 cd *mpeg*/
 
-  ./configure --arch="s390" \
+#ARCH_LIST="
+#    aarch64
+#    alpha
+#    arm
+#    avr32
+#    avr32_ap
+#    avr32_uc
+#    bfin
+#    ia64
+#    loongarch
+#    loongarch32
+#    loongarch64
+#    m68k
+#    mips
+#    mips64
+#    parisc
+#    ppc
+#    ppc64
+#    riscv
+#    s390
+#    sh4
+#    sparc
+#    sparc64
+#    tilegx
+#    tilepro
+#    x86
+#    x86_32
+#    x86_64
+#"
+
+export ARCH2="$ARCH"
+
+#if [ "$ARCH""x" == "arm64" ]; then
+#    export ARCH2="aarch64"
+#fi
+
+  ./configure --arch="$ARCH2" \
               --enable-gpl \
               --prefix="$_INST_" \
               --target-os="linux" \
@@ -165,7 +203,7 @@ cd x264/
                                          --enable-static \
                                          --disable-avs \
                                          --disable-cli \
-                                         --enable-pic || exit 
+                                         --enable-pic || exit 1
 
   make -j$(nproc) || exit 1
   make install
@@ -175,12 +213,13 @@ cd ..
 
 ls -al /lib/
 ls -al /usr/local/lib/pkgconfig/
+ls -al ${_INST_}/lib/
 
 autoreconf -fi
 
   ./configure --host="$CROSS_TRIPLE" \
-     CFLAGS="-DTOX_CAPABILITIES_ACTIVE -L/lib/" \
-     LDFLAGS="-L/lib/" \
+     CFLAGS="-DTOX_CAPABILITIES_ACTIVE -L${_INST_}/lib/ -I${_INST_}/include" \
+     LDFLAGS="-L${_INST_}/lib/" \
     --prefix="$_INST_" \
     --disable-soname-versions \
     --disable-shared \

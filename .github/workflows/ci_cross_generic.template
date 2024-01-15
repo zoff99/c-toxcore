@@ -1,0 +1,65 @@
+name: @@ARCH@@ build
+
+on:
+  push:
+    paths-ignore:
+     - 'README.md'
+     - 'CHANGELOG.md'
+  pull_request:
+    paths-ignore:
+     - 'README.md'
+     - 'CHANGELOG.md'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: dummy
+        default: dummy
+
+jobs:
+
+  build-@@ARCH@@:
+    name: @@ARCH@@ Build
+    runs-on: ubuntu-22.04
+    if: |
+      true
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: install deps
+        run: |
+          sudo apt-get update && \
+          sudo DEBIAN_FRONTEND=noninteractive \
+          apt-get install -y --no-install-recommends \
+          ca-certificates qemu-system-@@SYSARCH@@ qemu-user-static \
+          qemu-utils binfmt-support libc6-@@ARCH@@-cross libatomic1-@@ARCH@@-cross
+
+      - name: enable @@ARCH@@ emu
+        run: |
+          sudo modprobe binfmt_misc || echo "NO ERR"
+          sudo update-binfmts --enable || echo "NO ERR"
+
+      - name: check binfmt_misc
+        run: |
+          lsmod | grep binfmt_misc || echo "NO ERR"
+          ls -al /proc/sys/fs/binfmt_misc/ || echo "NO ERR"
+
+      - name: make script dockcross/linux-@@ARCH@@
+        run: docker run --rm dockcross/linux-@@ARCH@@ > ./dockcross-linux-@@ARCH@@; chmod +x ./dockcross-linux-@@ARCH@@
+
+      - name: test
+        run: ./dockcross-linux-@@ARCH@@ bash -c 'ls -al;id;pwd;hostname;uname -a'
+
+      - name: build deps
+        run: |
+          ./dockcross-linux-@@ARCH@@ bash -c './.circleci/build-cross-generic-linux'
+
+      - name: find output
+        run: |
+          find . -name libtoxcore.a
+          find . -name 'libtoxcore.so*' || echo "NO ERR"
+          find . -name friend_connection_test
+          file ./lib/libtoxcore.a || echo "NO ERR"
+          file ./build/friend_connection_test || echo "NO ERR"
+
