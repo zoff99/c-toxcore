@@ -230,6 +230,7 @@ set -x
 ls -al ${_INST_}/lib/
 ls -al ${_INST_}/lib/pkgconfig/
 ls -al ${_INST_}/include/
+file ${_INST_}/lib/
 
 # ---------------------------------------------------------------------------------
 export TEST_MAX_TIME=$[10*60] # 10 minutes
@@ -249,17 +250,17 @@ for i in $(ls -1 ./custom_tests/*.c) ; do
     $CC -g -O1 -fno-omit-frame-pointer \
     -I/work/include -I/work/include/opus \
     -L/work/lib \
+    "$i" \
+    /work/lib/libtoxav.a \
+    /work/lib/libtoxencryptsave.a \
+    /work/lib/libtoxcore.a \
     /work/lib/libavcodec.a \
     /work/lib/libavutil.a \
     /work/lib/libx264.a \
     /work/lib/libopus.a \
     /work/lib/libvpx.a \
     /work/lib/libsodium.a \
-    /work/lib/libtoxcore.a \
-    /work/lib/libtoxav.a \
-    /work/lib/libtoxencryptsave.a \
     -pthread -lm -latomic -lpthread -lm \
-    "$i" \
     -o test
     set +x
     echo "RUN:--------------- ""$i"" ---------------"
