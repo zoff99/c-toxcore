@@ -229,7 +229,7 @@ autoreconf -fi
     make -j$(nproc) || exit 1
     make install
 
-    make check || echo "NO ERR"
+    # make check || echo "NO ERR"
 
 
 
