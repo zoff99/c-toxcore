@@ -62,4 +62,3 @@ jobs:
           find . -name friend_connection_test
           file ./lib/libtoxcore.a || echo "NO ERR"
           file ./build/friend_connection_test || echo "NO ERR"
-

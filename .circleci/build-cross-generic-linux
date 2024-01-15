@@ -231,3 +231,32 @@ autoreconf -fi
 
     make check || echo "NO ERR"
 
+
+
+# ---------------------------------------------------------------------------------
+export TEST_MAX_TIME=$[10*60] # 10 minutes
+ls -1 ./custom_tests/*.c
+export PKG_CONFIG_PATH=${_INST_}/lib/pkgconfig
+export LD_LIBRARY_PATH=${_INST_}/lib
+for i in $(ls -1 ./custom_tests/*.c) ; do
+    echo "CCC:--------------- ""$i"" ---------------"
+    rm -f test
+    $CC -g -O1 -fno-omit-frame-pointer \
+    -Wno-everything -Wno-missing-variable-declarations \
+    -L${_INST_}/lib/ -I${_INST_}/include \
+    $(pkg-config --cflags toxcore libavcodec libavutil x264 opus vpx libsodium) \
+    $(pkg-config --libs toxcore libavcodec libavutil x264 opus vpx libsodium) \
+    "$i" \
+    -o test
+    echo "RUN:--------------- ""$i"" ---------------"
+    timeout -v -k ${TEST_MAX_TIME} $[${TEST_MAX_TIME}+1] ./test
+    if [ $? -ne 0 ]; then
+        echo "ERR:--------------- ""$i"" ---------------"
+        # exit $?
+        echo "NO ERR"
+    else
+        echo "OK :*************** ""$i"" ***************"
+    fi
+done
+# ---------------------------------------------------------------------------------
+
