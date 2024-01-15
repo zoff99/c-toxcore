@@ -230,20 +230,21 @@ ls -al ${_INST_}/lib/
 ls -al ${_INST_}/lib/pkgconfig/
 ls -al ${_INST_}/include/
 
-pkg-config --cflags libtoxcore libavcodec libavutil x264 opus vpx libsodium
-pkg-config --libs libtoxcore libavcodec libavutil x264 opus vpx libsodium
-
 # ---------------------------------------------------------------------------------
 export TEST_MAX_TIME=$[10*60] # 10 minutes
 ls -1 ./custom_tests/*.c
-export PKG_CONFIG_PATH=${_INST_}/lib/pkgconfig
-export LD_LIBRARY_PATH=${_INST_}/lib
+export PKG_CONFIG_PATH=${_INST_}/lib/pkgconfig/:$PKG_CONFIG_PATH
+export LD_LIBRARY_PATH=${_INST_}/lib:$LD_LIBRARY_PATH
+
+pkg-config --cflags libtoxcore libavcodec libavutil x264 opus vpx libsodium
+pkg-config --libs libtoxcore libavcodec libavutil x264 opus vpx libsodium
+
 for i in $(ls -1 ./custom_tests/*.c) ; do
     echo "CCC:--------------- ""$i"" ---------------"
     rm -f test
     $CC -g -O1 -fno-omit-frame-pointer \
-    -Wno-everything -Wno-missing-variable-declarations \
     -L${_INST_}/lib/ -I${_INST_}/include/ \
+    -ltoxcore -ltoxencryptsave -lm -lpthread \
     $(pkg-config --cflags libtoxcore libavcodec libavutil x264 opus vpx libsodium) \
     $(pkg-config --libs libtoxcore libavcodec libavutil x264 opus vpx libsodium) \
     "$i" \
