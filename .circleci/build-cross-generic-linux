@@ -248,7 +248,6 @@ for i in $(ls -1 ./custom_tests/*.c) ; do
     set -x
     $CC -g -O1 -fno-omit-frame-pointer \
     -L${_INST_}/lib/ -I${_INST_}/include/ \
-    -ltoxcore -ltoxencryptsave -lm -lpthread \
     $(pkg-config --cflags libtoxcore libavcodec libavutil x264 opus vpx libsodium) \
     $(pkg-config --libs libtoxcore libavcodec libavutil x264 opus vpx libsodium) \
     "$i" \
