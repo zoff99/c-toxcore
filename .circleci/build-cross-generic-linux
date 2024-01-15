@@ -247,9 +247,17 @@ for i in $(ls -1 ./custom_tests/*.c) ; do
     rm -f test
     set -x
     $CC -g -O1 -fno-omit-frame-pointer \
-    $(pkg-config --cflags libtoxcore libavcodec libavutil x264 opus vpx libsodium) \
-    $(pkg-config --libs libavcodec libavutil x264 opus vpx libsodium) \
-    $(pkg-config --libs libtoxcore) \
+    -I/work/include -I/work/include/opus \
+    -L/work/lib \
+    /work/lib/libavcodec.a \
+    /work/lib/libavutil.a \
+    /work/lib/libx264.a \
+    /work/lib/libopus.a \
+    /work/lib/libvpx.a \
+    /work/lib/libvpx.a \
+    /work/lib/libsodium.a \
+    /work/lib/libtoxencryptsave.a \
+    -pthread -lm -latomic -lx264 -lpthread -lm \
     "$i" \
     -o test
     set +x
