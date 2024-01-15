@@ -876,16 +876,18 @@ Tox *tox_new(const struct Tox_Options *options, Tox_Err_New *error)
     }
 
     if (tox_options_get_experimental_thread_safety(opts)) {
-        tox->mutex = (pthread_mutex_t *)mem_alloc(sys->mem, sizeof(pthread_mutex_t));
+        pthread_mutex_t *mutex = (pthread_mutex_t *)mem_alloc(sys->mem, sizeof(pthread_mutex_t));
 
-        if (tox->mutex == nullptr) {
+        if (mutex == nullptr) {
             SET_ERROR_PARAMETER(error, TOX_ERR_NEW_MALLOC);
             mem_delete(sys->mem, tox);
             tox_options_free(default_options);
             return nullptr;
         }
 
-        pthread_mutex_init(tox->mutex, nullptr);
+        pthread_mutex_init(mutex, nullptr);
+
+        tox->mutex = mutex;
     } else {
         tox->mutex = nullptr;
     }
@@ -1143,6 +1145,11 @@ bool tox_bootstrap(Tox *tox, const char *host, uint16_t port, const uint8_t publ
     bool udp_success = tox->m->options.udp_disabled;
 
     for (int32_t i = 0; i < count; ++i) {
+        if (!tox->m->options.ipv6enabled && net_family_is_ipv6(root[i].ip.family)) {
+            // We can't use ipv6 when it's disabled.
+            continue;
+        }
+
         root[i].port = net_htons(port);
 
         if (onion_add_bs_path_node(tox->m->onion_c, &root[i], public_key)) {
@@ -4104,6 +4111,11 @@ bool tox_group_send_custom_packet(const Tox *tox, uint32_t group_number, bool lo
 
         case -3: {
             SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SEND_CUSTOM_PACKET_PERMISSIONS);
+            return false;
+        }
+
+        case -4: {
+            SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SEND_CUSTOM_PACKET_FAIL_SEND);
             return false;
         }
     }

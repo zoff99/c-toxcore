@@ -1824,12 +1824,11 @@ static int create_crypto_connection(Net_Crypto *c)
 
     if (id != -1) {
         // Memsetting float/double to 0 is non-portable, so we explicitly set them to 0
-        c->crypto_connections[id].packet_recv_rate = 0;
-        c->crypto_connections[id].packet_send_rate = 0;
-        c->crypto_connections[id].last_packets_left_rem = 0;
-        c->crypto_connections[id].packet_send_rate_requested = 0;
-        c->crypto_connections[id].last_packets_left_requested_rem = 0;
-        c->crypto_connections[id].status = CRYPTO_CONN_NO_CONNECTION;
+        c->crypto_connections[id].packet_recv_rate = 0.0;
+        c->crypto_connections[id].packet_send_rate = 0.0;
+        c->crypto_connections[id].last_packets_left_rem = 0.0;
+        c->crypto_connections[id].packet_send_rate_requested = 0.0;
+        c->crypto_connections[id].last_packets_left_requested_rem = 0.0;
     }
 
     return id;
@@ -1961,13 +1960,14 @@ non_null(1, 2, 3) nullable(5)
 static int handle_new_connection_handshake(Net_Crypto *c, const IP_Port *source, const uint8_t *data, uint16_t length,
         void *userdata)
 {
-    New_Connection n_c;
-    n_c.cookie = (uint8_t *)mem_balloc(c->mem, COOKIE_LENGTH);
+    uint8_t *cookie = (uint8_t *)mem_balloc(c->mem, COOKIE_LENGTH);
 
-    if (n_c.cookie == nullptr) {
+    if (cookie == nullptr) {
         return -1;
     }
 
+    New_Connection n_c = {{{{0}}}};
+    n_c.cookie = cookie;
     n_c.source = *source;
     n_c.cookie_length = COOKIE_LENGTH;
 

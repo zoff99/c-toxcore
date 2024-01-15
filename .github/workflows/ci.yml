@@ -35,6 +35,17 @@ jobs:
       - name: Build, test, and upload coverage
         run: other/docker/coverage/run
 
+  generate-events:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Run generate_event_c
+        run: |
+          other/event_tooling/run
+          git diff --exit-code
+
   cimplefmt:
     runs-on: ubuntu-latest
     steps:
@@ -85,7 +96,7 @@ jobs:
       - name: Configure CMake
         run: cmake --preset windows-default
       - name: Build
-        run: cmake --build _build
+        run: cmake --build _build -j $([int]$env:NUMBER_OF_PROCESSORS+2)
       - name: Test
         run: |
           cd _build

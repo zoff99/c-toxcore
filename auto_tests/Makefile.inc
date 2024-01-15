@@ -15,6 +15,7 @@ TESTS = \
 	crypto_test \
 	encryptsave_test \
 	file_saving_test \
+	file_streaming_test \
 	file_transfer_test \
 	forwarding_test \
 	friend_connection_test \
@@ -103,6 +104,10 @@ file_saving_test_SOURCES = ../auto_tests/file_saving_test.c
 file_saving_test_CFLAGS = $(AUTOTEST_CFLAGS)
 file_saving_test_LDADD = $(AUTOTEST_LDADD)
 
+file_streaming_test_SOURCES = ../auto_tests/file_streaming_test.c
+file_streaming_test_CFLAGS = $(AUTOTEST_CFLAGS)
+file_streaming_test_LDADD = $(AUTOTEST_LDADD)
+
 file_transfer_test_SOURCES = ../auto_tests/file_transfer_test.c
 file_transfer_test_CFLAGS = $(AUTOTEST_CFLAGS)
 file_transfer_test_LDADD = $(AUTOTEST_LDADD)
@@ -187,13 +192,13 @@ TCP_test_SOURCES = ../auto_tests/TCP_test.c
 TCP_test_CFLAGS = $(AUTOTEST_CFLAGS)
 TCP_test_LDADD = $(AUTOTEST_LDADD)
 
-tox_events_test_SOURCES = ../auto_tests/tox_events_test.c
-tox_events_test_CFLAGS = $(AUTOTEST_CFLAGS)
-tox_events_test_LDADD = $(AUTOTEST_LDADD)
-
 tox_dispatch_test_SOURCES = ../auto_tests/tox_dispatch_test.c
 tox_dispatch_test_CFLAGS = $(AUTOTEST_CFLAGS)
 tox_dispatch_test_LDADD = $(AUTOTEST_LDADD)
+
+tox_events_test_SOURCES = ../auto_tests/tox_events_test.c
+tox_events_test_CFLAGS = $(AUTOTEST_CFLAGS)
+tox_events_test_LDADD = $(AUTOTEST_LDADD)
 
 tox_many_tcp_test_SOURCES = ../auto_tests/tox_many_tcp_test.c
 tox_many_tcp_test_CFLAGS = $(AUTOTEST_CFLAGS)
