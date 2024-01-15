@@ -508,10 +508,10 @@ static int m_msi_packet(Tox *tox, int32_t friendnumber, const uint8_t *data, uin
 {
     // TODO(Zoff): make this better later! -------------------
     /* we need to prepend 1 byte (packet id) to data
-     * do this without calloc, memcpy and free in the future
+     * do this without malloc, memcpy and free in the future
      */
     const size_t length_new = (size_t)length + 1;
-    uint8_t *data_new = (uint8_t *)calloc(length_new, sizeof(uint8_t));
+    uint8_t *data_new = (uint8_t *)malloc(length_new);
 
     if (data_new == nullptr) {
         return 0;

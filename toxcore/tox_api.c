@@ -159,14 +159,30 @@ ACCESSORS(uint16_t, tcp_port)
 ACCESSORS(bool, hole_punching_enabled)
 ACCESSORS(Tox_Savedata_Type, savedata_type)
 ACCESSORS(size_t, savedata_length)
-ACCESSORS(tox_log_cb *, log_callback)
-ACCESSORS(void *, log_user_data)
 ACCESSORS(bool, local_discovery_enabled)
 ACCESSORS(bool, dht_announcements_enabled)
 ACCESSORS(bool, experimental_thread_safety)
 ACCESSORS(const Tox_System *, operating_system)
 
 //!TOKSTYLE+
+
+tox_log_cb *tox_options_get_log_callback(const Tox_Options *options)
+{
+    return options->log_callback;
+}
+void tox_options_set_log_callback(Tox_Options *options, tox_log_cb *log_callback)
+{
+    options->log_callback = log_callback;
+}
+void *tox_options_get_log_user_data(const Tox_Options *options)
+{
+    return options->log_user_data;
+}
+void tox_options_set_log_user_data(Tox_Options *options, void *log_user_data)
+{
+    options->log_user_data = log_user_data;
+}
+
 
 const uint8_t *tox_options_get_savedata_data(const struct Tox_Options *options)
 {
