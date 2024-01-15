@@ -225,7 +225,7 @@ autoreconf -fi
 
     # make check || echo "NO ERR"
 
-
+set -x
 ls -al ${_INST_}/lib/
 ls -al ${_INST_}/lib/pkgconfig/
 ls -al ${_INST_}/include/
@@ -239,9 +239,12 @@ export LD_LIBRARY_PATH=${_INST_}/lib:$LD_LIBRARY_PATH
 pkg-config --cflags libtoxcore libavcodec libavutil x264 opus vpx libsodium
 pkg-config --libs libtoxcore libavcodec libavutil x264 opus vpx libsodium
 
+set +x
+
 for i in $(ls -1 ./custom_tests/*.c) ; do
     echo "CCC:--------------- ""$i"" ---------------"
     rm -f test
+    set -x
     $CC -g -O1 -fno-omit-frame-pointer \
     -L${_INST_}/lib/ -I${_INST_}/include/ \
     -ltoxcore -ltoxencryptsave -lm -lpthread \
@@ -249,6 +252,7 @@ for i in $(ls -1 ./custom_tests/*.c) ; do
     $(pkg-config --libs libtoxcore libavcodec libavutil x264 opus vpx libsodium) \
     "$i" \
     -o test
+    set +x
     echo "RUN:--------------- ""$i"" ---------------"
     timeout -v -k ${TEST_MAX_TIME} $[${TEST_MAX_TIME}+1] ./test
     if [ $? -ne 0 ]; then
