@@ -221,7 +221,7 @@ autoreconf -fi
 
   ./configure --host="$CROSS_TRIPLE" \
      CFLAGS="-DTOX_CAPABILITIES_ACTIVE -L${_INST_}/lib/ -I${_INST_}/include -fno-omit-frame-pointer -fsanitize=address -static-libasan" \
-     LDFLAGS="-L${_INST_}/lib/ -fsanitize=address -static-libasan" \
+     LDFLAGS="-L${_INST_}/lib/" \
     --prefix="$_INST_" \
     --disable-soname-versions \
     --disable-shared \
