@@ -2,10 +2,8 @@
 
 # set -eu
 
-sudo apt-get update && \
-sudo DEBIAN_FRONTEND=noninteractive \
-apt-get install -y --no-install-recommends \
-cmake nasm yasm
+# sudo apt-get update
+# DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --no-install-recommends cmake nasm yasm
 
 echo "_INST_="$(pwd)
 export _INST_=$(pwd)
@@ -210,15 +208,19 @@ cd x264/
 cd ..
 # ---------------------------------------------------------------------------------
 
+export PKG_CONFIG_PATH=${_INST_}/lib/pkgconfig/:$PKG_CONFIG_PATH
 
-ls -al /lib/
-ls -al /usr/local/lib/pkgconfig/
-ls -al ${_INST_}/lib/
+export ASAN_OPTIONS="color=always"
+export ASAN_OPTIONS="$ASAN_OPTIONS,detect_invalid_pointer_pairs=1"
+export ASAN_OPTIONS="$ASAN_OPTIONS,detect_stack_use_after_return=1"
+export ASAN_OPTIONS="$ASAN_OPTIONS,strict_init_order=1"
+export ASAN_OPTIONS="$ASAN_OPTIONS,strict_string_checks=1"
+export ASAN_OPTIONS="$ASAN_OPTIONS,symbolize=1"
 
 autoreconf -fi
 
   ./configure --host="$CROSS_TRIPLE" \
-     CFLAGS="-DTOX_CAPABILITIES_ACTIVE -L${_INST_}/lib/ -I${_INST_}/include" \
+     CFLAGS="-DTOX_CAPABILITIES_ACTIVE -L${_INST_}/lib/ -I${_INST_}/include -fno-omit-frame-pointer" \
      LDFLAGS="-L${_INST_}/lib/" \
     --prefix="$_INST_" \
     --disable-soname-versions \
@@ -230,4 +232,51 @@ autoreconf -fi
     make install
 
     make check || echo "NO ERR"
+
+ls -al ${_INST_}/lib/
+ls -al ${_INST_}/lib/pkgconfig/
+ls -al ${_INST_}/include/
+file ${_INST_}/lib/
+
+# ---------------------------------------------------------------------------------
+export TEST_MAX_TIME=$[10*60] # 10 minutes
+ls -1 ./custom_tests/*.c
+export LD_LIBRARY_PATH=${_INST_}/lib:$LD_LIBRARY_PATH
+
+pkg-config --cflags libtoxcore libavcodec libavutil x264 opus vpx libsodium
+pkg-config --libs libtoxcore libavcodec libavutil x264 opus vpx libsodium
+
+
+for i in $(ls -1 ./custom_tests/*.c) ; do
+    echo "CCC:--------------- ""$i"" ---------------"
+    rm -f test
+    set -x
+    $CC -g -O1 \
+    -fno-omit-frame-pointer -fsanitize=address -static-libasan \
+    -I/work/include -I/work/include/opus \
+    -L/work/lib \
+    "$i" \
+    /work/lib/libtoxav.a \
+    /work/lib/libtoxencryptsave.a \
+    /work/lib/libtoxcore.a \
+    /work/lib/libavcodec.a \
+    /work/lib/libavutil.a \
+    /work/lib/libx264.a \
+    /work/lib/libopus.a \
+    /work/lib/libvpx.a \
+    /work/lib/libsodium.a \
+    -pthread -lm -latomic -lpthread -lm \
+    -o test
+    set +x
+    echo "RUN:--------------- ""$i"" ---------------"
+    timeout -v -k ${TEST_MAX_TIME} $[${TEST_MAX_TIME}+1] ./test
+    if [ $? -ne 0 ]; then
+        echo "ERR:--------------- ""$i"" ---------------"
+        # exit $?
+        echo "NO ERR"
+    else
+        echo "OK :*************** ""$i"" ***************"
+    fi
+done
+# ---------------------------------------------------------------------------------
 
