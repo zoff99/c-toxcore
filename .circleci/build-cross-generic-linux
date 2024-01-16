@@ -209,7 +209,7 @@ cd ..
 # ---------------------------------------------------------------------------------
 
 export PKG_CONFIG_PATH=${_INST_}/lib/pkgconfig/:$PKG_CONFIG_PATH
-export LSAN_OPTIONS=verbosity=1:log_threads=1
+# export LSAN_OPTIONS=verbosity=1:log_threads=1
 
 autoreconf -fi
 
@@ -236,7 +236,6 @@ file ${_INST_}/lib/
 # ---------------------------------------------------------------------------------
 export TEST_MAX_TIME=$[10*60] # 10 minutes
 ls -1 ./custom_tests/*.c
-# export PKG_CONFIG_PATH=${_INST_}/lib/pkgconfig/:$PKG_CONFIG_PATH
 export LD_LIBRARY_PATH=${_INST_}/lib:$LD_LIBRARY_PATH
 
 pkg-config --cflags libtoxcore libavcodec libavutil x264 opus vpx libsodium
