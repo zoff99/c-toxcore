@@ -210,17 +210,17 @@ cd ..
 
 export PKG_CONFIG_PATH=${_INST_}/lib/pkgconfig/:$PKG_CONFIG_PATH
 
-#export ASAN_OPTIONS="color=always"
-#export ASAN_OPTIONS="$ASAN_OPTIONS,detect_invalid_pointer_pairs=1"
-#export ASAN_OPTIONS="$ASAN_OPTIONS,detect_stack_use_after_return=1"
-#export ASAN_OPTIONS="$ASAN_OPTIONS,strict_init_order=1"
-#export ASAN_OPTIONS="$ASAN_OPTIONS,strict_string_checks=1"
-#export ASAN_OPTIONS="$ASAN_OPTIONS,symbolize=1"
+export ASAN_OPTIONS="color=always"
+export ASAN_OPTIONS="$ASAN_OPTIONS,detect_invalid_pointer_pairs=1"
+export ASAN_OPTIONS="$ASAN_OPTIONS,detect_stack_use_after_return=1"
+export ASAN_OPTIONS="$ASAN_OPTIONS,strict_init_order=1"
+export ASAN_OPTIONS="$ASAN_OPTIONS,strict_string_checks=1"
+export ASAN_OPTIONS="$ASAN_OPTIONS,symbolize=1"
 
 autoreconf -fi
 
   ./configure --host="$CROSS_TRIPLE" \
-     CFLAGS="-DTOX_CAPABILITIES_ACTIVE -L${_INST_}/lib/ -I${_INST_}/include -fno-omit-frame-pointer -fsanitize=address -static-libasan" \
+     CFLAGS="-DTOX_CAPABILITIES_ACTIVE -L${_INST_}/lib/ -I${_INST_}/include -fno-omit-frame-pointer" \
      LDFLAGS="-L${_INST_}/lib/" \
     --prefix="$_INST_" \
     --disable-soname-versions \
