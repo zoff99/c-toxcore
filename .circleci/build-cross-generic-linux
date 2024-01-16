@@ -209,6 +209,7 @@ cd ..
 # ---------------------------------------------------------------------------------
 
 export PKG_CONFIG_PATH=${_INST_}/lib/pkgconfig/:$PKG_CONFIG_PATH
+export LSAN_OPTIONS=verbosity=1:log_threads=1
 
 autoreconf -fi
 
