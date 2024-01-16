@@ -241,18 +241,19 @@ file ${_INST_}/lib/
 # ---------------------------------------------------------------------------------
 export TEST_MAX_TIME=$[10*60] # 10 minutes
 ls -1 ./custom_tests/*.c
-export LD_LIBRARY_PATH=${_INST_}/lib:$LD_LIBRARY_PATH
+# export LD_LIBRARY_PATH=${_INST_}/lib:$LD_LIBRARY_PATH
 
 pkg-config --cflags libtoxcore libavcodec libavutil x264 opus vpx libsodium
 pkg-config --libs libtoxcore libavcodec libavutil x264 opus vpx libsodium
 
+#    -fno-omit-frame-pointer -fsanitize=address -static-libasan \
 
 for i in $(ls -1 ./custom_tests/*.c) ; do
     echo "CCC:--------------- ""$i"" ---------------"
     rm -f test
     set -x
     $CC -g -O1 \
-    -fno-omit-frame-pointer -fsanitize=address -static-libasan \
+    -fno-omit-frame-pointer \
     -I/work/include -I/work/include/opus \
     -L/work/lib \
     "$i" \
