@@ -231,9 +231,8 @@ autoreconf -fi
     make -j$(nproc) || exit 1
     make install
 
-    # make check || echo "NO ERR"
+    make check || echo "NO ERR"
 
-set -x
 ls -al ${_INST_}/lib/
 ls -al ${_INST_}/lib/pkgconfig/
 ls -al ${_INST_}/include/
@@ -247,7 +246,6 @@ export LD_LIBRARY_PATH=${_INST_}/lib:$LD_LIBRARY_PATH
 pkg-config --cflags libtoxcore libavcodec libavutil x264 opus vpx libsodium
 pkg-config --libs libtoxcore libavcodec libavutil x264 opus vpx libsodium
 
-set +x
 
 for i in $(ls -1 ./custom_tests/*.c) ; do
     echo "CCC:--------------- ""$i"" ---------------"
