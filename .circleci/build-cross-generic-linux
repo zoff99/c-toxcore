@@ -213,8 +213,8 @@ export PKG_CONFIG_PATH=${_INST_}/lib/pkgconfig/:$PKG_CONFIG_PATH
 autoreconf -fi
 
   ./configure --host="$CROSS_TRIPLE" \
-     CFLAGS="-DTOX_CAPABILITIES_ACTIVE -L${_INST_}/lib/ -I${_INST_}/include" \
-     LDFLAGS="-L${_INST_}/lib/" \
+     CFLAGS="-DTOX_CAPABILITIES_ACTIVE -L${_INST_}/lib/ -I${_INST_}/include -fno-omit-frame-pointer -fsanitize=address -static-libasan" \
+     LDFLAGS="-L${_INST_}/lib/ -fsanitize=address -static-libasan" \
     --prefix="$_INST_" \
     --disable-soname-versions \
     --disable-shared \
