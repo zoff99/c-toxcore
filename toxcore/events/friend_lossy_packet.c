@@ -42,7 +42,7 @@ uint32_t tox_event_friend_lossy_packet_get_friend_number(const Tox_Event_Friend_
     return friend_lossy_packet->friend_number;
 }
 
-non_null()
+non_null(1) nullable(2)
 static bool tox_event_friend_lossy_packet_set_data(Tox_Event_Friend_Lossy_Packet *friend_lossy_packet,
         const uint8_t *data, uint32_t data_length)
 {
@@ -52,6 +52,11 @@ static bool tox_event_friend_lossy_packet_set_data(Tox_Event_Friend_Lossy_Packet
         free(friend_lossy_packet->data);
         friend_lossy_packet->data = nullptr;
         friend_lossy_packet->data_length = 0;
+    }
+
+    if (data == nullptr) {
+        assert(data_length == 0);
+        return true;
     }
 
     uint8_t *data_copy = (uint8_t *)malloc(data_length);
@@ -92,10 +97,7 @@ static void tox_event_friend_lossy_packet_destruct(Tox_Event_Friend_Lossy_Packet
 bool tox_event_friend_lossy_packet_pack(
     const Tox_Event_Friend_Lossy_Packet *event, Bin_Pack *bp)
 {
-    assert(event != nullptr);
     return bin_pack_array(bp, 2)
-           && bin_pack_u32(bp, TOX_EVENT_FRIEND_LOSSY_PACKET)
-           && bin_pack_array(bp, 2)
            && bin_pack_u32(bp, event->friend_number)
            && bin_pack_bin(bp, event->data, event->data_length);
 }

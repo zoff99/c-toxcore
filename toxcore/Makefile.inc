@@ -21,6 +21,7 @@ libtoxcore_la_SOURCES = ../third_party/cmp/cmp.c \
                         ../toxcore/events/conference_peer_list_changed.c \
                         ../toxcore/events/conference_peer_name.c \
                         ../toxcore/events/conference_title.c \
+                        ../toxcore/events/dht_get_nodes_response.c \
                         ../toxcore/events/events_alloc.c \
                         ../toxcore/events/events_alloc.h \
                         ../toxcore/events/file_chunk_request.c \
@@ -94,6 +95,8 @@ libtoxcore_la_SOURCES = ../third_party/cmp/cmp.c \
                         ../toxcore/tox_event.c \
                         ../toxcore/tox_events.h \
                         ../toxcore/tox_events.c \
+                        ../toxcore/tox_pack.h \
+                        ../toxcore/tox_pack.c \
                         ../toxcore/tox_unpack.h \
                         ../toxcore/tox_unpack.c \
                         ../toxcore/tox_private.c \

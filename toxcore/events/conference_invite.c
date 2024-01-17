@@ -14,6 +14,7 @@
 #include "../mem.h"
 #include "../tox.h"
 #include "../tox_events.h"
+#include "../tox_pack.h"
 #include "../tox_unpack.h"
 
 
@@ -57,7 +58,7 @@ Tox_Conference_Type tox_event_conference_invite_get_type(const Tox_Event_Confere
     return conference_invite->type;
 }
 
-non_null()
+non_null(1) nullable(2)
 static bool tox_event_conference_invite_set_cookie(Tox_Event_Conference_Invite *conference_invite,
         const uint8_t *cookie, uint32_t cookie_length)
 {
@@ -67,6 +68,11 @@ static bool tox_event_conference_invite_set_cookie(Tox_Event_Conference_Invite *
         free(conference_invite->cookie);
         conference_invite->cookie = nullptr;
         conference_invite->cookie_length = 0;
+    }
+
+    if (cookie == nullptr) {
+        assert(cookie_length == 0);
+        return true;
     }
 
     uint8_t *cookie_copy = (uint8_t *)malloc(cookie_length);
@@ -107,12 +113,9 @@ static void tox_event_conference_invite_destruct(Tox_Event_Conference_Invite *co
 bool tox_event_conference_invite_pack(
     const Tox_Event_Conference_Invite *event, Bin_Pack *bp)
 {
-    assert(event != nullptr);
-    return bin_pack_array(bp, 2)
-           && bin_pack_u32(bp, TOX_EVENT_CONFERENCE_INVITE)
-           && bin_pack_array(bp, 3)
+    return bin_pack_array(bp, 3)
            && bin_pack_u32(bp, event->friend_number)
-           && bin_pack_u32(bp, event->type)
+           && tox_conference_type_pack(event->type, bp)
            && bin_pack_bin(bp, event->cookie, event->cookie_length);
 }
 
@@ -126,7 +129,7 @@ static bool tox_event_conference_invite_unpack_into(
     }
 
     return bin_unpack_u32(bu, &event->friend_number)
-           && tox_conference_type_unpack(bu, &event->type)
+           && tox_conference_type_unpack(&event->type, bu)
            && bin_unpack_bin(bu, &event->cookie, &event->cookie_length);
 }
 

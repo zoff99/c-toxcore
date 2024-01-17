@@ -3102,7 +3102,7 @@ static void pack_groupchats(const GC_Session *c, Bin_Pack *bp)
 }
 
 non_null()
-static bool pack_groupchats_handler(Bin_Pack *bp, const Logger *log, const void *obj)
+static bool pack_groupchats_handler(const void *obj, const Logger *log, Bin_Pack *bp)
 {
     const GC_Session *session = (const GC_Session *)obj;
     pack_groupchats(session, bp);
@@ -3112,8 +3112,8 @@ static bool pack_groupchats_handler(Bin_Pack *bp, const Logger *log, const void 
 non_null()
 static uint32_t saved_groups_size(const Messenger *m)
 {
-    const GC_Session *c = m->group_handler;
-    return bin_pack_obj_size(pack_groupchats_handler, m->log, c);
+    const GC_Session *session = m->group_handler;
+    return bin_pack_obj_size(pack_groupchats_handler, session, m->log);
 }
 
 non_null()
@@ -3135,7 +3135,7 @@ static uint8_t *groups_save(const Messenger *m, uint8_t *data)
 
     data = state_write_section_header(data, STATE_COOKIE_TYPE, len, STATE_TYPE_GROUPS);
 
-    if (!bin_pack_obj(pack_groupchats_handler, m->log, c, data, len)) {
+    if (!bin_pack_obj(pack_groupchats_handler, c, m->log, data, len)) {
         LOGGER_FATAL(m->log, "failed to pack group chats into buffer of length %u", len);
         return data;
     }
@@ -3148,22 +3148,17 @@ static uint8_t *groups_save(const Messenger *m, uint8_t *data)
 }
 
 non_null()
-static State_Load_Status groups_load(Messenger *m, const uint8_t *data, uint32_t length)
+static bool handle_groups_load(void *obj, Bin_Unpack *bu)
 {
-    Bin_Unpack *bu = bin_unpack_new(data, length);
-    if (bu == nullptr) {
-        LOGGER_ERROR(m->log, "failed to allocate binary unpacker");
-        return STATE_LOAD_STATUS_ERROR;
-    }
+    Messenger *m = (Messenger *)obj;
 
     uint32_t num_groups;
     if (!bin_unpack_array(bu, &num_groups)) {
         LOGGER_ERROR(m->log, "msgpack failed to unpack groupchats array: expected array");
-        bin_unpack_free(bu);
-        return STATE_LOAD_STATUS_ERROR;
+        return false;
     }
 
-    LOGGER_DEBUG(m->log, "Loading %u groups (length %u)", num_groups, length);
+    LOGGER_DEBUG(m->log, "Loading %u groups", num_groups);
 
     for (uint32_t i = 0; i < num_groups; ++i) {
         const int group_number = gc_group_load(m->group_handler, bu);
@@ -3177,7 +3172,16 @@ static State_Load_Status groups_load(Messenger *m, const uint8_t *data, uint32_t
 
     LOGGER_DEBUG(m->log, "Successfully loaded %u groups", gc_count_groups(m->group_handler));
 
-    bin_unpack_free(bu);
+    return true;
+}
+
+non_null()
+static State_Load_Status groups_load(Messenger *m, const uint8_t *data, uint32_t length)
+{
+    if (!bin_unpack_obj(handle_groups_load, m, data, length)) {
+        LOGGER_ERROR(m->log, "msgpack failed to unpack groupchats array");
+        return STATE_LOAD_STATUS_ERROR;
+    }
 
     return STATE_LOAD_STATUS_CONTINUE;
 }

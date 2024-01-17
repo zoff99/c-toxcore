@@ -3862,6 +3862,7 @@ static bool update_gc_topic(GC_Chat *chat, const uint8_t *public_sig_key)
         return true;
     }
 
+    LOGGER_TRACE(chat->log, "founder is re-signing topic");
     return gc_set_topic(chat, chat->topic_info.topic, chat->topic_info.length) == 0;
 }
 
@@ -6995,23 +6996,30 @@ non_null(1, 2) nullable(3)
 static void do_peer_delete(const GC_Session *c, GC_Chat *chat, void *userdata)
 {
     for (uint32_t i = 1; i < chat->numpeers; ++i) {
-        const GC_Connection *gconn = get_gc_connection(chat, i);
+        GC_Connection *gconn = get_gc_connection(chat, i);
         assert(gconn != nullptr);
 
-        if (gconn->pending_delete) {
-            const GC_Exit_Info *exit_info = &gconn->exit_info;
+        if (!gconn->pending_delete) {
+            continue;
+        }
 
-            if (exit_info->exit_type == GC_EXIT_TYPE_TIMEOUT && gconn->confirmed) {
-                add_gc_peer_timeout_list(chat, gconn);
-            }
+        if (!gconn->delete_this_iteration) {
+            gconn->delete_this_iteration = true;
+            continue;
+        }
 
-            if (!peer_delete(c, chat, i, userdata)) {
-                LOGGER_ERROR(chat->log, "Failed to delete peer %u", i);
-            }
+        const GC_Exit_Info *exit_info = &gconn->exit_info;
 
-            if (i >= chat->numpeers) {
-                break;
-            }
+        if (exit_info->exit_type == GC_EXIT_TYPE_TIMEOUT && gconn->confirmed) {
+            add_gc_peer_timeout_list(chat, gconn);
+        }
+
+        if (!peer_delete(c, chat, i, userdata)) {
+            LOGGER_ERROR(chat->log, "Failed to delete peer %u", i);
+        }
+
+        if (i >= chat->numpeers) {
+            break;
         }
     }
 }

@@ -42,7 +42,7 @@ uint32_t tox_event_friend_name_get_friend_number(const Tox_Event_Friend_Name *fr
     return friend_name->friend_number;
 }
 
-non_null()
+non_null(1) nullable(2)
 static bool tox_event_friend_name_set_name(Tox_Event_Friend_Name *friend_name,
         const uint8_t *name, uint32_t name_length)
 {
@@ -52,6 +52,11 @@ static bool tox_event_friend_name_set_name(Tox_Event_Friend_Name *friend_name,
         free(friend_name->name);
         friend_name->name = nullptr;
         friend_name->name_length = 0;
+    }
+
+    if (name == nullptr) {
+        assert(name_length == 0);
+        return true;
     }
 
     uint8_t *name_copy = (uint8_t *)malloc(name_length);
@@ -92,10 +97,7 @@ static void tox_event_friend_name_destruct(Tox_Event_Friend_Name *friend_name, c
 bool tox_event_friend_name_pack(
     const Tox_Event_Friend_Name *event, Bin_Pack *bp)
 {
-    assert(event != nullptr);
     return bin_pack_array(bp, 2)
-           && bin_pack_u32(bp, TOX_EVENT_FRIEND_NAME)
-           && bin_pack_array(bp, 2)
            && bin_pack_u32(bp, event->friend_number)
            && bin_pack_bin(bp, event->name, event->name_length);
 }

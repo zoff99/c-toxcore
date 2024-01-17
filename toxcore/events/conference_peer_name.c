@@ -56,7 +56,7 @@ uint32_t tox_event_conference_peer_name_get_peer_number(const Tox_Event_Conferen
     return conference_peer_name->peer_number;
 }
 
-non_null()
+non_null(1) nullable(2)
 static bool tox_event_conference_peer_name_set_name(Tox_Event_Conference_Peer_Name *conference_peer_name,
         const uint8_t *name, uint32_t name_length)
 {
@@ -66,6 +66,11 @@ static bool tox_event_conference_peer_name_set_name(Tox_Event_Conference_Peer_Na
         free(conference_peer_name->name);
         conference_peer_name->name = nullptr;
         conference_peer_name->name_length = 0;
+    }
+
+    if (name == nullptr) {
+        assert(name_length == 0);
+        return true;
     }
 
     uint8_t *name_copy = (uint8_t *)malloc(name_length);
@@ -106,10 +111,7 @@ static void tox_event_conference_peer_name_destruct(Tox_Event_Conference_Peer_Na
 bool tox_event_conference_peer_name_pack(
     const Tox_Event_Conference_Peer_Name *event, Bin_Pack *bp)
 {
-    assert(event != nullptr);
-    return bin_pack_array(bp, 2)
-           && bin_pack_u32(bp, TOX_EVENT_CONFERENCE_PEER_NAME)
-           && bin_pack_array(bp, 3)
+    return bin_pack_array(bp, 3)
            && bin_pack_u32(bp, event->conference_number)
            && bin_pack_u32(bp, event->peer_number)
            && bin_pack_bin(bp, event->name, event->name_length);

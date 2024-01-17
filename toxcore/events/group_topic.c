@@ -56,7 +56,7 @@ uint32_t tox_event_group_topic_get_peer_id(const Tox_Event_Group_Topic *group_to
     return group_topic->peer_id;
 }
 
-non_null()
+non_null(1) nullable(2)
 static bool tox_event_group_topic_set_topic(Tox_Event_Group_Topic *group_topic,
         const uint8_t *topic, uint32_t topic_length)
 {
@@ -66,6 +66,11 @@ static bool tox_event_group_topic_set_topic(Tox_Event_Group_Topic *group_topic,
         free(group_topic->topic);
         group_topic->topic = nullptr;
         group_topic->topic_length = 0;
+    }
+
+    if (topic == nullptr) {
+        assert(topic_length == 0);
+        return true;
     }
 
     uint8_t *topic_copy = (uint8_t *)malloc(topic_length);
@@ -106,10 +111,7 @@ static void tox_event_group_topic_destruct(Tox_Event_Group_Topic *group_topic, c
 bool tox_event_group_topic_pack(
     const Tox_Event_Group_Topic *event, Bin_Pack *bp)
 {
-    assert(event != nullptr);
-    return bin_pack_array(bp, 2)
-           && bin_pack_u32(bp, TOX_EVENT_GROUP_TOPIC)
-           && bin_pack_array(bp, 3)
+    return bin_pack_array(bp, 3)
            && bin_pack_u32(bp, event->group_number)
            && bin_pack_u32(bp, event->peer_id)
            && bin_pack_bin(bp, event->topic, event->topic_length);

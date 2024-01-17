@@ -14,6 +14,7 @@
 #include "../mem.h"
 #include "../tox.h"
 #include "../tox_events.h"
+#include "../tox_pack.h"
 #include "../tox_unpack.h"
 
 
@@ -71,7 +72,7 @@ Tox_Message_Type tox_event_conference_message_get_type(const Tox_Event_Conferenc
     return conference_message->type;
 }
 
-non_null()
+non_null(1) nullable(2)
 static bool tox_event_conference_message_set_message(Tox_Event_Conference_Message *conference_message,
         const uint8_t *message, uint32_t message_length)
 {
@@ -81,6 +82,11 @@ static bool tox_event_conference_message_set_message(Tox_Event_Conference_Messag
         free(conference_message->message);
         conference_message->message = nullptr;
         conference_message->message_length = 0;
+    }
+
+    if (message == nullptr) {
+        assert(message_length == 0);
+        return true;
     }
 
     uint8_t *message_copy = (uint8_t *)malloc(message_length);
@@ -121,13 +127,10 @@ static void tox_event_conference_message_destruct(Tox_Event_Conference_Message *
 bool tox_event_conference_message_pack(
     const Tox_Event_Conference_Message *event, Bin_Pack *bp)
 {
-    assert(event != nullptr);
-    return bin_pack_array(bp, 2)
-           && bin_pack_u32(bp, TOX_EVENT_CONFERENCE_MESSAGE)
-           && bin_pack_array(bp, 4)
+    return bin_pack_array(bp, 4)
            && bin_pack_u32(bp, event->conference_number)
            && bin_pack_u32(bp, event->peer_number)
-           && bin_pack_u32(bp, event->type)
+           && tox_message_type_pack(event->type, bp)
            && bin_pack_bin(bp, event->message, event->message_length);
 }
 
@@ -142,7 +145,7 @@ static bool tox_event_conference_message_unpack_into(
 
     return bin_unpack_u32(bu, &event->conference_number)
            && bin_unpack_u32(bu, &event->peer_number)
-           && tox_message_type_unpack(bu, &event->type)
+           && tox_message_type_unpack(&event->type, bu)
            && bin_unpack_bin(bu, &event->message, &event->message_length);
 }
 

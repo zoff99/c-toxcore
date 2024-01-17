@@ -44,7 +44,7 @@ uint32_t tox_event_group_invite_get_friend_number(const Tox_Event_Group_Invite *
     return group_invite->friend_number;
 }
 
-non_null()
+non_null(1) nullable(2)
 static bool tox_event_group_invite_set_invite_data(Tox_Event_Group_Invite *group_invite,
         const uint8_t *invite_data, uint32_t invite_data_length)
 {
@@ -54,6 +54,11 @@ static bool tox_event_group_invite_set_invite_data(Tox_Event_Group_Invite *group
         free(group_invite->invite_data);
         group_invite->invite_data = nullptr;
         group_invite->invite_data_length = 0;
+    }
+
+    if (invite_data == nullptr) {
+        assert(invite_data_length == 0);
+        return true;
     }
 
     uint8_t *invite_data_copy = (uint8_t *)malloc(invite_data_length);
@@ -78,7 +83,7 @@ const uint8_t *tox_event_group_invite_get_invite_data(const Tox_Event_Group_Invi
     return group_invite->invite_data;
 }
 
-non_null()
+non_null(1) nullable(2)
 static bool tox_event_group_invite_set_group_name(Tox_Event_Group_Invite *group_invite,
         const uint8_t *group_name, uint32_t group_name_length)
 {
@@ -88,6 +93,11 @@ static bool tox_event_group_invite_set_group_name(Tox_Event_Group_Invite *group_
         free(group_invite->group_name);
         group_invite->group_name = nullptr;
         group_invite->group_name_length = 0;
+    }
+
+    if (group_name == nullptr) {
+        assert(group_name_length == 0);
+        return true;
     }
 
     uint8_t *group_name_copy = (uint8_t *)malloc(group_name_length);
@@ -129,10 +139,7 @@ static void tox_event_group_invite_destruct(Tox_Event_Group_Invite *group_invite
 bool tox_event_group_invite_pack(
     const Tox_Event_Group_Invite *event, Bin_Pack *bp)
 {
-    assert(event != nullptr);
-    return bin_pack_array(bp, 2)
-           && bin_pack_u32(bp, TOX_EVENT_GROUP_INVITE)
-           && bin_pack_array(bp, 3)
+    return bin_pack_array(bp, 3)
            && bin_pack_u32(bp, event->friend_number)
            && bin_pack_bin(bp, event->invite_data, event->invite_data_length)
            && bin_pack_bin(bp, event->group_name, event->group_name_length);
