@@ -85,7 +85,7 @@ typedef struct MSICall {
  * returned the call is considered errored and will be handled
  * as such which means it will be terminated without any notice.
  */
-typedef int msi_action_cb(void *av, MSICall *call);
+typedef int msi_action_cb(void *object, MSICall *call);
 
 /**
  * Control session struct. Please do not modify outside msi.c
@@ -145,4 +145,4 @@ int msi_change_capabilities(const Logger *log, MSICall *call, uint8_t capabiliti
 
 bool check_peer_offline_status(const Logger *log, const Tox *tox, MSISession *session, uint32_t friend_number);
 
-#endif // C_TOXCORE_TOXAV_MSI_H
+#endif /* C_TOXCORE_TOXAV_MSI_H */

@@ -13,7 +13,7 @@
 
 typedef struct BWController BWController;
 
-typedef void m_cb(BWController *bwc, uint32_t friend_number, float todo, void *user_data);
+typedef void m_cb(BWController *bwc, uint32_t friend_number, float loss, void *user_data);
 
 BWController *bwc_new(const Logger *log, Tox *tox, uint32_t friendnumber,
                       m_cb *mcb, void *mcb_user_data, Mono_Time *bwc_mono_time);
@@ -25,4 +25,4 @@ void bwc_add_recv(BWController *bwc, uint32_t recv_bytes);
 void bwc_allow_receiving(Tox *tox);
 void bwc_stop_receiving(Tox *tox);
 
-#endif // C_TOXCORE_TOXAV_BWCONTROLLER_H
+#endif /* C_TOXCORE_TOXAV_BWCONTROLLER_H */

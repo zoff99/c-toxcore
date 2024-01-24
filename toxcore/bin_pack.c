@@ -26,18 +26,18 @@ static bool null_reader(cmp_ctx_t *ctx, void *data, size_t limit)
 }
 
 non_null()
-static bool null_skipper(cmp_ctx_t *ctx, size_t limit)
+static bool null_skipper(cmp_ctx_t *ctx, size_t count)
 {
-    assert(limit == 0);
+    assert(count == 0);
     return false;
 }
 
 non_null()
-static size_t buf_writer(cmp_ctx_t *ctx, const void *data, size_t data_size)
+static size_t buf_writer(cmp_ctx_t *ctx, const void *data, size_t count)
 {
     Bin_Pack *bp = (Bin_Pack *)ctx->buf;
     assert(bp != nullptr);
-    const uint32_t new_pos = bp->bytes_pos + data_size;
+    const uint32_t new_pos = bp->bytes_pos + count;
     if (new_pos < bp->bytes_pos) {
         // 32 bit overflow.
         return 0;
@@ -47,10 +47,10 @@ static size_t buf_writer(cmp_ctx_t *ctx, const void *data, size_t data_size)
             // Buffer too small.
             return 0;
         }
-        memcpy(&bp->bytes[bp->bytes_pos], data, data_size);
+        memcpy(&bp->bytes[bp->bytes_pos], data, count);
     }
-    bp->bytes_pos += data_size;
-    return data_size;
+    bp->bytes_pos += count;
+    return count;
 }
 
 non_null(1) nullable(2)
@@ -106,6 +106,26 @@ bool bin_pack_obj_array_b(bin_pack_array_cb *callback, const void *arr, uint32_t
             return false;
         }
     }
+    return true;
+}
+
+bool bin_pack_obj_array(Bin_Pack *bp, bin_pack_array_cb *callback, const void *arr, uint32_t arr_size, const Logger *logger)
+{
+    if (arr == nullptr) {
+        assert(arr_size == 0);
+        return bin_pack_array(bp, 0);
+    }
+
+    if (!bin_pack_array(bp, arr_size)) {
+        return false;
+    }
+
+    for (uint32_t i = 0; i < arr_size; ++i) {
+        if (!callback(arr, i, logger, bp)) {
+            return false;
+        }
+    }
+
     return true;
 }
 

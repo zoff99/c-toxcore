@@ -9,12 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef VANILLA_NACL
-// We use libsodium by default.
 #include <sodium.h>
-#else
-#include <randombytes.h>
-#endif
 
 #include "bwcontroller.h"
 #include "toxav_hacks.h"
@@ -433,7 +428,7 @@ static int handle_video_packet(const Logger *log, RTPSession *session, const str
 /**
  * receive custom lossypackets and process them. they can be incoming audio or video packets
  */
-void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_t pkt_length, void *object)
+void handle_rtp_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t pkt_length, void *object)
 {
     // TODO(Zoff): is this ok?
     uint16_t length = (uint16_t)pkt_length;
@@ -452,7 +447,7 @@ void handle_rtp_packet(Tox *tox, uint32_t friendnumber, const uint8_t *data, siz
         return;
     }
 
-    ToxAVCall *call = call_get(toxav, friendnumber);
+    ToxAVCall *call = call_get(toxav, friend_number);
 
     if (call == nullptr) {
         LOGGER_WARNING(log, "ToxAVCall is NULL!");

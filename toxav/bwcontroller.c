@@ -60,7 +60,7 @@ struct BWCMessage {
     uint32_t recv;
 };
 
-static void bwc_handle_data(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_t length, void *dummy);
+static void bwc_handle_data(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length, void *user_data);
 static void send_update(BWController *bwc);
 
 
@@ -192,7 +192,7 @@ static int on_update(BWController *bwc, const struct BWCMessage *msg)
     return 0;
 }
 
-static void bwc_handle_data(Tox *tox, uint32_t friendnumber, const uint8_t *data, size_t length, void *dummy)
+static void bwc_handle_data(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length, void *user_data)
 {
     /* get BWController object from Tox and friend number */
     ToxAV *toxav = (ToxAV *)tox_get_av_object(tox);
@@ -209,7 +209,7 @@ static void bwc_handle_data(Tox *tox, uint32_t friendnumber, const uint8_t *data
         return;
     }
 
-    const ToxAVCall *call = call_get(toxav, friendnumber);
+    const ToxAVCall *call = call_get(toxav, friend_number);
 
     if (call == nullptr) {
         LOGGER_ERROR(log, "Could not get ToxAVCall object from ToxAV");

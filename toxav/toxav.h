@@ -849,7 +849,7 @@ bool toxav_groupchat_av_enabled(Tox *tox, uint32_t groupnumber);
 /** @} */
 
 #ifdef __cplusplus
-}
+} /* extern "C" */
 #endif
 
 //!TOKSTYLE-
@@ -868,4 +868,4 @@ typedef enum Toxav_Friend_Call_State TOXAV_FRIEND_CALL_STATE;
 #endif
 //!TOKSTYLE+
 
-#endif // C_TOXCORE_TOXAV_TOXAV_H
+#endif /* C_TOXCORE_TOXAV_TOXAV_H */

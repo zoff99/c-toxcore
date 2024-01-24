@@ -127,11 +127,11 @@ struct ToxAV {
 
 static void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *user_data);
 
-static int callback_invite(void *toxav_inst, MSICall *call);
-static int callback_start(void *toxav_inst, MSICall *call);
-static int callback_end(void *toxav_inst, MSICall *call);
-static int callback_error(void *toxav_inst, MSICall *call);
-static int callback_capabilites(void *toxav_inst, MSICall *call);
+static int callback_invite(void *object, MSICall *call);
+static int callback_start(void *object, MSICall *call);
+static int callback_end(void *object, MSICall *call);
+static int callback_error(void *object, MSICall *call);
+static int callback_capabilites(void *object, MSICall *call);
 
 static bool audio_bit_rate_invalid(uint32_t bit_rate);
 static bool video_bit_rate_invalid(uint32_t bit_rate);
@@ -1179,9 +1179,9 @@ static void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, 
     pthread_mutex_unlock(call->av->mutex);
 }
 
-static int callback_invite(void *toxav_inst, MSICall *call)
+static int callback_invite(void *object, MSICall *call)
 {
-    ToxAV *toxav = (ToxAV *)toxav_inst;
+    ToxAV *toxav = (ToxAV *)object;
     pthread_mutex_lock(toxav->mutex);
 
     ToxAVCall *av_call = call_new(toxav, call->friend_number, nullptr);
@@ -1208,9 +1208,9 @@ static int callback_invite(void *toxav_inst, MSICall *call)
     return 0;
 }
 
-static int callback_start(void *toxav_inst, MSICall *call)
+static int callback_start(void *object, MSICall *call)
 {
-    ToxAV *toxav = (ToxAV *)toxav_inst;
+    ToxAV *toxav = (ToxAV *)object;
     pthread_mutex_lock(toxav->mutex);
 
     ToxAVCall *av_call = call_get(toxav, call->friend_number);
@@ -1222,13 +1222,13 @@ static int callback_start(void *toxav_inst, MSICall *call)
     }
 
     if (!call_prepare_transmission(av_call)) {
-        callback_error(toxav_inst, call);
+        callback_error(toxav, call);
         pthread_mutex_unlock(toxav->mutex);
         return -1;
     }
 
     if (!invoke_call_state_callback(toxav, call->friend_number, call->peer_capabilities)) {
-        callback_error(toxav_inst, call);
+        callback_error(toxav, call);
         pthread_mutex_unlock(toxav->mutex);
         return -1;
     }
@@ -1237,9 +1237,9 @@ static int callback_start(void *toxav_inst, MSICall *call)
     return 0;
 }
 
-static int callback_end(void *toxav_inst, MSICall *call)
+static int callback_end(void *object, MSICall *call)
 {
-    ToxAV *toxav = (ToxAV *)toxav_inst;
+    ToxAV *toxav = (ToxAV *)object;
     pthread_mutex_lock(toxav->mutex);
 
     invoke_call_state_callback(toxav, call->friend_number, TOXAV_FRIEND_CALL_STATE_FINISHED);
@@ -1253,9 +1253,9 @@ static int callback_end(void *toxav_inst, MSICall *call)
     return 0;
 }
 
-static int callback_error(void *toxav_inst, MSICall *call)
+static int callback_error(void *object, MSICall *call)
 {
-    ToxAV *toxav = (ToxAV *)toxav_inst;
+    ToxAV *toxav = (ToxAV *)object;
     pthread_mutex_lock(toxav->mutex);
 
     invoke_call_state_callback(toxav, call->friend_number, TOXAV_FRIEND_CALL_STATE_ERROR);
@@ -1269,9 +1269,9 @@ static int callback_error(void *toxav_inst, MSICall *call)
     return 0;
 }
 
-static int callback_capabilites(void *toxav_inst, MSICall *call)
+static int callback_capabilites(void *object, MSICall *call)
 {
-    ToxAV *toxav = (ToxAV *)toxav_inst;
+    ToxAV *toxav = (ToxAV *)object;
     pthread_mutex_lock(toxav->mutex);
 
     if ((call->peer_capabilities & MSI_CAP_S_AUDIO) != 0) {

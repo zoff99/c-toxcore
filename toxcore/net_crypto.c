@@ -2158,7 +2158,7 @@ int set_direct_ip_port(Net_Crypto *c, int crypt_connection_id, const IP_Port *ip
 
 
 non_null(1, 3) nullable(5)
-static int tcp_data_callback(void *object, int crypt_connection_id, const uint8_t *data, uint16_t length,
+static int tcp_data_callback(void *object, int crypt_connection_id, const uint8_t *packet, uint16_t length,
                              void *userdata)
 {
     Net_Crypto *c = (Net_Crypto *)object;
@@ -2173,11 +2173,11 @@ static int tcp_data_callback(void *object, int crypt_connection_id, const uint8_
         return -1;
     }
 
-    if (data[0] == NET_PACKET_COOKIE_REQUEST) {
-        return tcp_handle_cookie_request(c, conn->connection_number_tcp, data, length);
+    if (packet[0] == NET_PACKET_COOKIE_REQUEST) {
+        return tcp_handle_cookie_request(c, conn->connection_number_tcp, packet, length);
     }
 
-    const int ret = handle_packet_connection(c, crypt_connection_id, data, length, false, userdata);
+    const int ret = handle_packet_connection(c, crypt_connection_id, packet, length, false, userdata);
 
     if (ret != 0) {
         return -1;
@@ -2189,7 +2189,7 @@ static int tcp_data_callback(void *object, int crypt_connection_id, const uint8_
 
 non_null(1, 2, 4) nullable(6)
 static int tcp_oob_callback(void *object, const uint8_t *public_key, unsigned int tcp_connections_number,
-                            const uint8_t *data, uint16_t length, void *userdata)
+                            const uint8_t *packet, uint16_t length, void *userdata)
 {
     Net_Crypto *c = (Net_Crypto *)object;
 
@@ -2197,14 +2197,14 @@ static int tcp_oob_callback(void *object, const uint8_t *public_key, unsigned in
         return -1;
     }
 
-    if (data[0] == NET_PACKET_COOKIE_REQUEST) {
-        return tcp_oob_handle_cookie_request(c, tcp_connections_number, public_key, data, length);
+    if (packet[0] == NET_PACKET_COOKIE_REQUEST) {
+        return tcp_oob_handle_cookie_request(c, tcp_connections_number, public_key, packet, length);
     }
 
-    if (data[0] == NET_PACKET_CRYPTO_HS) {
-        IP_Port source = tcp_connections_number_to_ip_port(tcp_connections_number);
+    if (packet[0] == NET_PACKET_CRYPTO_HS) {
+        const IP_Port source = tcp_connections_number_to_ip_port(tcp_connections_number);
 
-        if (handle_new_connection_handshake(c, &source, data, length, userdata) != 0) {
+        if (handle_new_connection_handshake(c, &source, packet, length, userdata) != 0) {
             return -1;
         }
 
@@ -3062,7 +3062,7 @@ static void kill_timedout(Net_Crypto *c, void *userdata)
             /* do_timeout_here(); */
         }
 
-#endif
+#endif /* 0 */
     }
 }
 

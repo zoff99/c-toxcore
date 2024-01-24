@@ -41,7 +41,7 @@ typedef enum Message_Type {
 #ifndef MESSENGER_DEFINED
 #define MESSENGER_DEFINED
 typedef struct Messenger Messenger;
-#endif  // MESSENGER_DEFINED
+#endif /* MESSENGER_DEFINED */
 
 // Returns the size of the data
 typedef uint32_t m_state_size_cb(const Messenger *m);
@@ -195,9 +195,9 @@ typedef void m_friend_lossless_packet_cb(Messenger *m, uint32_t friend_number, u
         size_t length, void *user_data);
 typedef void m_conference_invite_cb(Messenger *m, uint32_t friend_number, const uint8_t *cookie, uint16_t length,
                                     void *user_data);
-typedef void m_group_invite_cb(const Messenger *m, uint32_t friendnumber, const uint8_t *data, size_t length,
-                               const uint8_t *group_name, size_t group_name_length, void *userdata);
-typedef int m_lossy_rtp_packet_cb(Messenger *m, uint32_t friendnumber, const uint8_t *data, uint16_t len, void *object);
+typedef void m_group_invite_cb(const Messenger *m, uint32_t friend_number, const uint8_t *data, size_t length,
+                               const uint8_t *group_name, size_t group_name_length, void *user_data);
+typedef int m_lossy_rtp_packet_cb(Messenger *m, uint32_t friend_number, const uint8_t *data, uint16_t len, void *object);
 
 typedef struct RTP_Packet_Handler {
     m_lossy_rtp_packet_cb *function;
@@ -630,7 +630,7 @@ bool send_conference_invite_packet(const Messenger *m, int32_t friendnumber, con
  *  return true on success
  */
 non_null()
-bool send_group_invite_packet(const Messenger *m, uint32_t friendnumber, const uint8_t *data, uint16_t length);
+bool send_group_invite_packet(const Messenger *m, uint32_t friendnumber, const uint8_t *packet, uint16_t length);
 
 
 /*** FILE SENDING */
@@ -844,4 +844,4 @@ uint32_t copy_friendlist(const Messenger *m, uint32_t *out_list, uint32_t list_s
 non_null()
 bool m_is_receiving_file(Messenger *m);
 
-#endif
+#endif /* C_TOXCORE_TOXCORE_MESSENGER_H */

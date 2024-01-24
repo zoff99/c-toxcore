@@ -32,4 +32,4 @@ Mono_Time *toxav_get_av_mono_time(const ToxAV *av);
 non_null()
 const Logger *toxav_get_logger(const ToxAV *av);
 
-#endif // C_TOXCORE_TOXAV_HACKS_H
+#endif /* C_TOXCORE_TOXAV_HACKS_H */

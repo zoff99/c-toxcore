@@ -8,7 +8,7 @@
  */
 #ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE 600
-#endif
+#endif /* _XOPEN_SOURCE */
 
 #include "tox.h"
 
@@ -612,8 +612,7 @@ static void tox_group_peer_exit_handler(const Messenger *m, uint32_t group_numbe
     if (tox_data->tox->group_peer_exit_callback != nullptr) {
         tox_unlock(tox_data->tox);
         tox_data->tox->group_peer_exit_callback(tox_data->tox, group_number, peer_id, (Tox_Group_Exit_Type) exit_type, name,
-                                                name_length,
-                                                part_message, length, tox_data->user_data);
+                                                name_length, part_message, length, tox_data->user_data);
         tox_lock(tox_data->tox);
     }
 }

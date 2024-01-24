@@ -145,7 +145,7 @@ non_null()
 int recv_tcp_relay_handler(Onion_Client *onion_c, int friend_num,
                            recv_tcp_relay_cb *callback, void *object, uint32_t number);
 
-typedef void onion_dht_pk_cb(void *data, int32_t number, const uint8_t *dht_public_key, void *userdata);
+typedef void onion_dht_pk_cb(void *object, int32_t number, const uint8_t *dht_public_key, void *userdata);
 
 /** @brief Set the function for this friend that will be callbacked with object and number
  * when that friend gives us their DHT temporary public key.
@@ -191,7 +191,7 @@ non_null()
 int send_onion_data(Onion_Client *onion_c, int friend_num, const uint8_t *data, uint16_t length);
 
 typedef int oniondata_handler_cb(void *object, const uint8_t *source_pubkey, const uint8_t *data,
-                                 uint16_t len, void *userdata);
+                                 uint16_t length, void *userdata);
 
 /** Function to call when onion data packet with contents beginning with byte is received. */
 non_null(1) nullable(3, 4)
@@ -237,4 +237,4 @@ non_null(1) nullable(2)
 void onion_friend_set_gc_data(Onion_Friend *onion_friend, const uint8_t *gc_data, uint16_t gc_data_length);
 non_null() bool onion_friend_is_groupchat(const Onion_Friend *onion_friend);
 
-#endif
+#endif /* C_TOXCORE_TOXCORE_ONION_CLIENT_H */
