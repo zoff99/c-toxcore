@@ -195,7 +195,7 @@ typedef void m_friend_lossless_packet_cb(Messenger *m, uint32_t friend_number, u
         size_t length, void *user_data);
 typedef void m_conference_invite_cb(Messenger *m, uint32_t friend_number, const uint8_t *cookie, uint16_t length,
                                     void *user_data);
-typedef void m_group_invite_cb(const Messenger *m, uint32_t friend_number, const uint8_t *data, size_t length,
+typedef void m_group_invite_cb(const Messenger *m, uint32_t friend_number, const uint8_t *invite_data, size_t length,
                                const uint8_t *group_name, size_t group_name_length, void *user_data);
 typedef int m_lossy_rtp_packet_cb(Messenger *m, uint32_t friend_number, const uint8_t *data, uint16_t len, void *object);
 

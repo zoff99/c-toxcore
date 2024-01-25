@@ -848,8 +848,9 @@ int rtp_send_data(const Logger *log, RTPSession *session, const uint8_t *data, u
         return -1;
     }
 
-    VLA(uint8_t, rdata, length + RTP_HEADER_SIZE + 1);
-    memset(rdata, 0, SIZEOF_VLA(rdata));
+    const uint16_t rdata_size = length + RTP_HEADER_SIZE + 1;
+    VLA(uint8_t, rdata, rdata_size);
+    memset(rdata, 0, rdata_size);
     rdata[0] = session->payload_type;  // packet id == payload_type
 
     struct RTPHeader header = rtp_default_header(session, length, is_keyframe);

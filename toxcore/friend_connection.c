@@ -21,6 +21,7 @@
 #include "net_crypto.h"
 #include "network.h"
 #include "onion_client.h"
+#include "util.h"
 
 #define PORTS_PER_DISCOVERY 10
 
@@ -885,18 +886,19 @@ int send_friend_request_packet(Friend_Connections *fr_c, int friendcon_id, uint3
         return -1;
     }
 
-    VLA(uint8_t, packet, 1 + sizeof(nospam_num) + length);
+    const uint16_t packet_size = 1 + sizeof(nospam_num) + length;
+    VLA(uint8_t, packet, packet_size);
     memcpy(packet + 1, &nospam_num, sizeof(nospam_num));
     memcpy(packet + 1 + sizeof(nospam_num), data, length);
 
     if (friend_con->status == FRIENDCONN_STATUS_CONNECTED) {
         packet[0] = PACKET_ID_FRIEND_REQUESTS;
-        return write_cryptpacket(fr_c->net_crypto, friend_con->crypt_connection_id, packet, SIZEOF_VLA(packet),
+        return write_cryptpacket(fr_c->net_crypto, friend_con->crypt_connection_id, packet, packet_size,
                                  false) != -1 ? 1 : 0;
     }
 
     packet[0] = CRYPTO_PACKET_FRIEND_REQ;
-    const int num = send_onion_data(fr_c->onion_c, friend_con->onion_friendnum, packet, SIZEOF_VLA(packet));
+    const int num = send_onion_data(fr_c->onion_c, friend_con->onion_friendnum, packet, packet_size);
 
     if (num <= 0) {
         return -1;
@@ -982,7 +984,7 @@ void do_friend_connections(Friend_Connections *fr_c, void *userdata)
                     if (friend_con->dht_lock_token > 0) {
                         dht_delfriend(fr_c->dht, friend_con->dht_temp_pk, friend_con->dht_lock_token);
                         friend_con->dht_lock_token = 0;
-                        memset(friend_con->dht_temp_pk, 0, CRYPTO_PUBLIC_KEY_SIZE);
+                        memzero(friend_con->dht_temp_pk, CRYPTO_PUBLIC_KEY_SIZE);
                     }
                 }
 

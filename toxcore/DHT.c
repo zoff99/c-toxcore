@@ -853,12 +853,14 @@ static void get_close_nodes_inner(
  */
 non_null()
 static int get_somewhat_close_nodes(
-        uint64_t cur_time, const uint8_t *public_key, Node_format *nodes_list,
+        uint64_t cur_time, const uint8_t *public_key, Node_format nodes_list[MAX_SENT_NODES],
         Family sa_family, const Client_data *close_clientlist,
         const DHT_Friend *friends_list, uint16_t friends_list_size,
         bool is_lan, bool want_announce)
 {
-    memset(nodes_list, 0, MAX_SENT_NODES * sizeof(Node_format));
+    for (uint16_t i = 0; i < MAX_SENT_NODES; ++i) {
+        nodes_list[i] = empty_node_format;
+    }
 
     uint32_t num_nodes = 0;
     get_close_nodes_inner(
@@ -882,7 +884,7 @@ static int get_somewhat_close_nodes(
 
 int get_close_nodes(
         const DHT *dht, const uint8_t *public_key,
-        Node_format *nodes_list, Family sa_family,
+        Node_format nodes_list[MAX_SENT_NODES], Family sa_family,
         bool is_lan, bool want_announce)
 {
     return get_somewhat_close_nodes(
@@ -1101,7 +1103,8 @@ static void update_client_with_reset(const Mono_Time *mono_time, Client_data *cl
     ipptp_write->ret_ip_self = false;
 
     /* zero out other address */
-    memset(ipptp_clear, 0, sizeof(*ipptp_clear));
+    const IPPTsPng empty_ipptp = {{{{0}}}};
+    *ipptp_clear = empty_ipptp;
 }
 
 /**
@@ -1484,13 +1487,14 @@ static int sendnodes_ipv6(const DHT *dht, const IP_Port *ip_port, const uint8_t 
     memcpy(plain + 1 + nodes_length, sendback_data, length);
 
     const uint32_t crypto_size = 1 + CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + CRYPTO_MAC_SIZE;
-    VLA(uint8_t, data, 1 + nodes_length + length + crypto_size);
+    const uint32_t data_size = 1 + nodes_length + length + crypto_size;
+    VLA(uint8_t, data, data_size);
 
     const int len = dht_create_packet(dht->mem, dht->rng,
                                       dht->self_public_key, shared_encryption_key, NET_PACKET_SEND_NODES_IPV6,
-                                      plain, 1 + nodes_length + length, data, SIZEOF_VLA(data));
+                                      plain, 1 + nodes_length + length, data, data_size);
 
-    if (len != SIZEOF_VLA(data)) {
+    if (len != data_size) {
         return -1;
     }
 
@@ -1573,7 +1577,8 @@ static bool handle_sendnodes_core(void *object, const IP_Port *source, const uin
         return false;
     }
 
-    VLA(uint8_t, plain, 1 + data_size + sizeof(uint64_t));
+    const uint32_t plain_size = 1 + data_size + sizeof(uint64_t);
+    VLA(uint8_t, plain, plain_size);
     const uint8_t *shared_key = dht_get_shared_key_sent(dht, packet + 1);
     const int len = decrypt_data_symmetric(
                         shared_key,
@@ -1582,7 +1587,7 @@ static bool handle_sendnodes_core(void *object, const IP_Port *source, const uin
                         1 + data_size + sizeof(uint64_t) + CRYPTO_MAC_SIZE,
                         plain);
 
-    if ((unsigned int)len != SIZEOF_VLA(plain)) {
+    if ((uint32_t)len != plain_size) {
         return false;
     }
 

@@ -853,7 +853,7 @@ int m_copy_statusmessage(const Messenger *m, int32_t friendnumber, uint8_t *buf,
     const uint32_t msglen = min_u32(maxlen, m->friendlist[friendnumber].statusmessage_length);
 
     memcpy(buf, m->friendlist[friendnumber].statusmessage, msglen);
-    memset(buf + msglen, 0, maxlen - msglen);
+    memzero(buf + msglen, maxlen - msglen);
     return msglen;
 }
 
@@ -1207,7 +1207,8 @@ static bool file_sendrequest(const Messenger *m, int32_t friendnumber, uint8_t f
         return false;
     }
 
-    VLA(uint8_t, packet, 1 + sizeof(file_type) + sizeof(filesize) + FILE_ID_LENGTH + filename_length);
+    const uint16_t packet_size = 1 + sizeof(file_type) + sizeof(filesize) + FILE_ID_LENGTH + filename_length;
+    VLA(uint8_t, packet, packet_size);
     packet[0] = filenumber;
     file_type = net_htonl(file_type);
     memcpy(packet + 1, &file_type, sizeof(file_type));
@@ -1218,7 +1219,7 @@ static bool file_sendrequest(const Messenger *m, int32_t friendnumber, uint8_t f
         memcpy(packet + 1 + sizeof(file_type) + sizeof(filesize) + FILE_ID_LENGTH, filename, filename_length);
     }
 
-    return write_cryptpacket_id(m, friendnumber, PACKET_ID_FILE_SENDREQUEST, packet, SIZEOF_VLA(packet), false);
+    return write_cryptpacket_id(m, friendnumber, PACKET_ID_FILE_SENDREQUEST, packet, packet_size, false);
 }
 
 /** @brief Send a file send request.
@@ -1285,7 +1286,8 @@ static bool send_file_control_packet(const Messenger *m, int32_t friendnumber, b
         return false;
     }
 
-    VLA(uint8_t, packet, 3 + data_length);
+    const uint16_t packet_size = 3 + data_length;
+    VLA(uint8_t, packet, packet_size);
 
     packet[0] = inbound ? 1 : 0;
     packet[1] = filenumber;
@@ -1295,7 +1297,7 @@ static bool send_file_control_packet(const Messenger *m, int32_t friendnumber, b
         memcpy(packet + 3, data, data_length);
     }
 
-    return write_cryptpacket_id(m, friendnumber, PACKET_ID_FILE_CONTROL, packet, SIZEOF_VLA(packet), false);
+    return write_cryptpacket_id(m, friendnumber, PACKET_ID_FILE_CONTROL, packet, packet_size, false);
 }
 
 /** @brief Send a file control request.
@@ -1485,7 +1487,8 @@ static int64_t send_file_data_packet(const Messenger *m, int32_t friendnumber, u
         return -1;
     }
 
-    VLA(uint8_t, packet, 2 + length);
+    const uint16_t packet_size = 2 + length;
+    VLA(uint8_t, packet, packet_size);
     packet[0] = PACKET_ID_FILE_DATA;
     packet[1] = filenumber;
 
@@ -1494,7 +1497,7 @@ static int64_t send_file_data_packet(const Messenger *m, int32_t friendnumber, u
     }
 
     return write_cryptpacket(m->net_crypto, friend_connection_crypt_connection_id(m->fr_c,
-                             m->friendlist[friendnumber].friendcon_id), packet, SIZEOF_VLA(packet), true);
+                             m->friendlist[friendnumber].friendcon_id), packet, packet_size, true);
 }
 
 #define MAX_FILE_DATA_SIZE (MAX_CRYPTO_DATA_SIZE - 2)
@@ -2531,7 +2534,7 @@ static bool self_announce_group(const Messenger *m, GC_Chat *chat, Onion_Friend 
     if (tcp_num > 0) {
         pk_copy(chat->announced_tcp_relay_pk, announce.base_announce.tcp_relays[0].public_key);
     } else {
-        memset(chat->announced_tcp_relay_pk, 0, sizeof(chat->announced_tcp_relay_pk));
+        memzero(chat->announced_tcp_relay_pk, sizeof(chat->announced_tcp_relay_pk));
     }
 
     LOGGER_DEBUG(chat->log, "Published group announce. TCP relays: %d, UDP status: %d", tcp_num,
@@ -3327,10 +3330,9 @@ static uint32_t path_node_size(const Messenger *m)
 non_null()
 static uint8_t *save_path_nodes(const Messenger *m, uint8_t *data)
 {
-    Node_format nodes[NUM_SAVED_PATH_NODES];
+    Node_format nodes[NUM_SAVED_PATH_NODES] = {{{0}}};
     uint8_t *temp_data = data;
     data = state_write_section_header(data, STATE_COOKIE_TYPE, 0, STATE_TYPE_PATH_NODE);
-    memset(nodes, 0, sizeof(nodes));
     const unsigned int num = onion_backup_nodes(m->onion_c, nodes, NUM_SAVED_PATH_NODES);
     const int l = pack_nodes(m->log, data, NUM_SAVED_PATH_NODES * packed_node_size(net_family_tcp_ipv6()), nodes, num);
 

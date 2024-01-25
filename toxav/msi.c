@@ -81,7 +81,7 @@ static bool invoke_callback(const Logger *log, MSICall *call, MSICallbackID cb);
 static void handle_init(const Logger *log, MSICall *call, const MSIMessage *msg);
 static void handle_push(const Logger *log, MSICall *call, const MSIMessage *msg);
 static void handle_pop(const Logger *log, MSICall *call, const MSIMessage *msg);
-static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length_with_pkt_id,
+static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length,
                               void *user_data);
 
 
@@ -924,7 +924,7 @@ static void handle_pop(const Logger *log, MSICall *call, const MSIMessage *msg)
     kill_call(log, call);
 }
 
-static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length_with_pkt_id,
+static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length,
                               void *user_data)
 {
     const ToxAV *toxav = (ToxAV *)tox_get_av_object(tox);
@@ -935,13 +935,13 @@ static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *d
 
     const Logger *log = toxav_get_logger(toxav);
 
-    if (length_with_pkt_id < 2) {
+    if (length < 2) {
         LOGGER_ERROR(log, "MSI packet is less than 2 bytes in size");
         // we need more than the ID byte for MSI messages
         return;
     }
 
-    const uint16_t length = (uint16_t)(length_with_pkt_id - 1);
+    const uint16_t payload_length = (uint16_t)(length - 1);
 
     // Zoff: do not show the first byte, its always "PACKET_ID_MSI"
     const uint8_t *data_strip_id_byte = data + 1;
@@ -956,7 +956,7 @@ static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *d
 
     MSIMessage msg;
 
-    if (msg_parse_in(log, &msg, data_strip_id_byte, length) == -1) {
+    if (msg_parse_in(log, &msg, data_strip_id_byte, payload_length) == -1) {
         LOGGER_WARNING(log, "Error parsing message");
         send_error(log, tox, friend_number, MSI_E_INVALID_MESSAGE);
         return;
