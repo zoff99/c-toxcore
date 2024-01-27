@@ -7205,6 +7205,10 @@ void do_gc(GC_Session *c, void *userdata)
                 c->connection_status_change(c->messenger, chat->group_number, chat->connection_state, userdata);
             }
         }
+
+        if (chat->flag_exit) {  // should always come last as it modifies the chats array
+            group_delete(c, chat);
+        }
     }
 }
 
@@ -8186,14 +8190,21 @@ static void group_delete(GC_Session *c, GC_Chat *chat)
         c->chats_index = i;
 
         if (!realloc_groupchats(c, c->chats_index)) {
-            LOGGER_ERROR(chat->log, "Failed to reallocate groupchats array");
+            LOGGER_ERROR(c->messenger->log, "Failed to reallocate groupchats array");
         }
     }
 }
 
 int gc_group_exit(GC_Session *c, GC_Chat *chat, const uint8_t *message, uint16_t length)
 {
-    const int ret =  group_can_handle_packets(chat) ? send_gc_self_exit(chat, message, length) : 0;
+    chat->flag_exit = true;
+    return group_can_handle_packets(chat) ? send_gc_self_exit(chat, message, length) : 0;
+}
+
+non_null()
+static int kill_group(GC_Session *c, GC_Chat *chat)
+{
+    const int ret = gc_group_exit(c, chat, nullptr, 0);
     group_delete(c, chat);
     return ret;
 }
@@ -8211,11 +8222,9 @@ void kill_dht_groupchats(GC_Session *c)
             continue;
         }
 
-        if (group_can_handle_packets(chat)) {
-            send_gc_self_exit(chat, nullptr, 0);
+        if (kill_group(c, chat) != 0) {
+            LOGGER_WARNING(c->messenger->log, "Failed to send group exit packet");
         }
-
-        group_cleanup(c, chat);
     }
 
     networking_registerhandler(c->messenger->net, NET_PACKET_GC_LOSSY, nullptr, nullptr);
