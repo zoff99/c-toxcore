@@ -170,6 +170,7 @@ int main(int argc, char *argv[])
 
     if (!(onion && forwarding && onion_a)) {
         printf("Something failed to initialize.\n");
+        // cppcheck-suppress resourceLeak
         return 1;
     }
 
@@ -178,17 +179,19 @@ int main(int argc, char *argv[])
     perror("Initialization");
 
     if (!manage_keys(dht)) {
+        // cppcheck-suppress resourceLeak
         return 1;
     }
     printf("Public key: ");
 
 #ifdef TCP_RELAY_ENABLED
 #define NUM_PORTS 3
-    uint16_t ports[NUM_PORTS] = {443, 3389, PORT};
+    const uint16_t ports[NUM_PORTS] = {443, 3389, PORT};
     TCP_Server *tcp_s = new_tcp_server(logger, mem, rng, ns, ipv6enabled, NUM_PORTS, ports, dht_get_self_secret_key(dht), onion, forwarding);
 
     if (tcp_s == nullptr) {
         printf("TCP server failed to initialize.\n");
+        // cppcheck-suppress resourceLeak
         return 1;
     }
 
@@ -199,6 +202,7 @@ int main(int argc, char *argv[])
 
     if (file == nullptr) {
         printf("Could not open file \"%s\" for writing. Exiting...\n", public_id_filename);
+        // cppcheck-suppress resourceLeak
         return 1;
     }
 
