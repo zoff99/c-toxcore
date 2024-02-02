@@ -10,15 +10,25 @@
 #ifndef C_TOXCORE_TOXCORE_MESSENGER_H
 #define C_TOXCORE_TOXCORE_MESSENGER_H
 
+#include "DHT.h"
+#include "TCP_client.h"
 #include "TCP_server.h"
 #include "announce.h"
+#include "attributes.h"
+#include "crypto_core.h"
 #include "forwarding.h"
 #include "friend_connection.h"
 #include "friend_requests.h"
 #include "group_announce.h"
 #include "group_common.h"
 #include "logger.h"
+#include "mem.h"
+#include "mono_time.h"
 #include "net_crypto.h"
+#include "network.h"
+#include "onion.h"
+#include "onion_announce.h"
+#include "onion_client.h"
 #include "state.h"
 
 #define MAX_NAME_LENGTH 128
@@ -28,7 +38,6 @@
 #define NUM_SAVED_TCP_RELAYS 8
 /* This cannot be bigger than 256 */
 #define MAX_CONCURRENT_FILE_PIPES 256
-
 
 #define FRIEND_ADDRESS_SIZE (CRYPTO_PUBLIC_KEY_SIZE + sizeof(uint32_t) + sizeof(uint16_t))
 
@@ -78,7 +87,6 @@ typedef struct Messenger_Options {
     uint8_t state_plugins_length;
 } Messenger_Options;
 
-
 struct Receipts {
     uint32_t packet_num;
     uint32_t msg_id;
@@ -107,7 +115,6 @@ typedef enum Friend_Add_Error {
     FAERR_SETNEWNOSPAM = -7,
     FAERR_NOMEM = -8,
 } Friend_Add_Error;
-
 
 /** Default start timeout in seconds between friend requests. */
 #define FRIENDREQUEST_TIMEOUT 5
@@ -165,7 +172,6 @@ typedef enum Filekind {
     FILEKIND_DATA,
     FILEKIND_AVATAR,
 } Filekind;
-
 
 typedef void m_self_connection_status_cb(Messenger *m, Onion_Connection_Status connection_status, void *user_data);
 typedef void m_friend_status_cb(Messenger *m, uint32_t friend_number, unsigned int status, void *user_data);
@@ -348,7 +354,6 @@ void getaddress(const Messenger *m, uint8_t *address);
 non_null()
 int32_t m_addfriend(Messenger *m, const uint8_t *address, const uint8_t *data, uint16_t length);
 
-
 /** @brief Add a friend without sending a friendrequest.
  * @return the friend number if success.
  * @retval -3 if user's own key.
@@ -437,7 +442,6 @@ bool m_friend_exists(const Messenger *m, int32_t friendnumber);
 non_null(1, 4) nullable(6)
 int m_send_message_generic(Messenger *m, int32_t friendnumber, uint8_t type, const uint8_t *message, uint32_t length,
                            uint32_t *message_id);
-
 
 /** @brief Set the name and name_length of a friend.
  *
@@ -529,7 +533,6 @@ non_null() int m_copy_self_statusmessage(const Messenger *m, uint8_t *buf);
 non_null() uint8_t m_get_userstatus(const Messenger *m, int32_t friendnumber);
 non_null() uint8_t m_get_self_userstatus(const Messenger *m);
 
-
 /** @brief returns timestamp of last time friendnumber was seen online or 0 if never seen.
  * if friendnumber is invalid this function will return UINT64_MAX.
  */
@@ -613,7 +616,6 @@ void m_callback_conference_invite(Messenger *m, m_conference_invite_cb *function
 non_null(1) nullable(2)
 void m_callback_group_invite(Messenger *m, m_group_invite_cb *function);
 
-
 /** @brief Send a conference invite packet.
  *
  * return true on success
@@ -632,13 +634,10 @@ bool send_conference_invite_packet(const Messenger *m, int32_t friendnumber, con
 non_null()
 bool send_group_invite_packet(const Messenger *m, uint32_t friendnumber, const uint8_t *packet, uint16_t length);
 
-
 /*** FILE SENDING */
-
 
 /** @brief Set the callback for file send requests. */
 non_null() void callback_file_sendrequest(Messenger *m, m_file_recv_cb *function);
-
 
 /** @brief Set the callback for file control requests. */
 non_null() void callback_file_control(Messenger *m, m_file_recv_control_cb *function);
@@ -648,7 +647,6 @@ non_null() void callback_file_data(Messenger *m, m_file_recv_chunk_cb *function)
 
 /** @brief Set the callback for file request chunk. */
 non_null() void callback_file_reqchunk(Messenger *m, m_file_chunk_request_cb *function);
-
 
 /** @brief Copy the file transfer file id to file_id
  *
@@ -733,7 +731,6 @@ non_null() void custom_lossy_packet_registerhandler(Messenger *m, m_friend_lossy
  */
 non_null()
 int m_send_custom_lossy_packet(const Messenger *m, int32_t friendnumber, const uint8_t *data, uint32_t length);
-
 
 /** @brief Set handlers for custom lossless packets. */
 non_null()

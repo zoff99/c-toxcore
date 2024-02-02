@@ -14,7 +14,13 @@
 
 #include "DHT.h"
 #include "TCP_connection.h"
+#include "attributes.h"
+#include "crypto_core.h"
 #include "group_moderation.h"
+#include "logger.h"
+#include "mem.h"
+#include "mono_time.h"
+#include "network.h"
 
 #define MAX_GC_PART_MESSAGE_SIZE 128
 #define MAX_GC_NICK_SIZE 128
@@ -337,7 +343,7 @@ typedef void gc_private_message_cb(const Messenger *m, uint32_t group_number, ui
 typedef void gc_custom_packet_cb(const Messenger *m, uint32_t group_number, uint32_t peer_id, const uint8_t *data,
                                  size_t length, void *user_data);
 typedef void gc_custom_private_packet_cb(const Messenger *m, uint32_t group_number, uint32_t peer_id,
-                                         const uint8_t *data, size_t length, void *user_data);
+        const uint8_t *data, size_t length, void *user_data);
 typedef void gc_moderation_cb(const Messenger *m, uint32_t group_number, uint32_t source_peer_number,
                               uint32_t target_peer_number, unsigned int mod_type, void *user_data);
 typedef void gc_nick_change_cb(const Messenger *m, uint32_t group_number, uint32_t peer_id, const uint8_t *name,

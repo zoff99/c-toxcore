@@ -14,12 +14,15 @@
 #include <stdint.h>
 
 #include "TCP_connection.h"
+#include "attributes.h"
 #include "bin_pack.h"
 #include "bin_unpack.h"
+#include "crypto_core.h"
 #include "group_announce.h"
 #include "group_common.h"
 #include "group_connection.h"
 #include "logger.h"
+#include "network.h"
 
 #define GC_PING_TIMEOUT 12
 #define GC_SEND_IP_PORT_INTERVAL (GC_PING_TIMEOUT * 5)
@@ -568,7 +571,6 @@ int gc_kick_peer(const Messenger *m, int group_number, uint32_t peer_id);
  */
 non_null(1) nullable(2)
 void gc_get_chat_id(const GC_Chat *chat, uint8_t *dest);
-
 
 /** Group callbacks */
 non_null(1) nullable(2) void gc_callback_message(const Messenger *m, gc_message_cb *function);

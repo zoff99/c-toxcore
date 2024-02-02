@@ -16,6 +16,7 @@
 
 #include <sodium.h>
 
+#include "attributes.h"
 #include "ccompat.h"
 #include "util.h"
 
@@ -135,11 +136,7 @@ bool crypto_memlock(void *data, size_t length)
     return false;
 #else
 
-    if (sodium_mlock(data, length) != 0) {
-        return false;
-    }
-
-    return true;
+    return sodium_mlock(data, length) == 0;
 #endif /* FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION */
 }
 
@@ -149,11 +146,7 @@ bool crypto_memunlock(void *data, size_t length)
     return false;
 #else
 
-    if (sodium_munlock(data, length) != 0) {
-        return false;
-    }
-
-    return true;
+    return sodium_munlock(data, length) == 0;
 #endif /* FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION */
 }
 

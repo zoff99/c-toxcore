@@ -50,7 +50,6 @@ static const char *motd_str = ""; //Change this to anything within 256 bytes(but
 
 #define PORT 33445
 
-
 static bool manage_keys(DHT *dht)
 {
     enum { KEYS_SIZE = CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_SECRET_KEY_SIZE };
@@ -61,7 +60,7 @@ static bool manage_keys(DHT *dht)
     if (keys_file != nullptr) {
         /* If file was opened successfully -- load keys,
            otherwise save new keys */
-        size_t read_size = fread(keys, sizeof(uint8_t), KEYS_SIZE, keys_file);
+        const size_t read_size = fread(keys, sizeof(uint8_t), KEYS_SIZE, keys_file);
 
         if (read_size != KEYS_SIZE) {
             printf("Error while reading the key file\nExiting.\n");
@@ -126,7 +125,7 @@ static void print_log(void *context, Logger_Level level, const char *file, int l
 
 int main(int argc, char *argv[])
 {
-    if (argc == 2 && !tox_strncasecmp(argv[1], "-h", 3)) {
+    if (argc == 2 && tox_strncasecmp(argv[1], "-h", 3) == 0) {
         printf("Usage (connected)  : %s [--ipv4|--ipv6] IP PORT KEY\n", argv[0]);
         printf("Usage (unconnected): %s [--ipv4|--ipv6]\n", argv[0]);
         return 0;
@@ -134,7 +133,7 @@ int main(int argc, char *argv[])
 
     /* let user override default by cmdline */
     bool ipv6enabled = TOX_ENABLE_IPV6_DEFAULT; /* x */
-    int argvoffset = cmdline_parsefor_ipv46(argc, argv, &ipv6enabled);
+    const int argvoffset = cmdline_parsefor_ipv46(argc, argv, &ipv6enabled);
 
     if (argvoffset < 0) {
         return 1;
@@ -165,10 +164,10 @@ int main(int argc, char *argv[])
     Onion_Announce *onion_a = new_onion_announce(logger, mem, rng, mono_time, dht);
 
 #ifdef DHT_NODE_EXTRA_PACKETS
-    bootstrap_set_callbacks(dht_get_net(dht), (uint32_t)DAEMON_VERSION_NUMBER, (const uint8_t *) motd_str, strlen(motd_str)+1);
+    bootstrap_set_callbacks(dht_get_net(dht), (uint32_t)DAEMON_VERSION_NUMBER, (const uint8_t *) motd_str, strlen(motd_str) + 1);
 #endif
 
-    if (!(onion && forwarding && onion_a)) {
+    if (onion == nullptr || forwarding == nullptr || onion_a == nullptr) {
         printf("Something failed to initialize.\n");
         // cppcheck-suppress resourceLeak
         return 1;
@@ -230,8 +229,8 @@ int main(int argc, char *argv[])
         const uint16_t port = net_htons((uint16_t)port_conv);
 
         uint8_t *bootstrap_key = hex_string_to_bin(argv[argvoffset + 3]);
-        int res = dht_bootstrap_from_address(dht, argv[argvoffset + 1],
-                                             ipv6enabled, port, bootstrap_key);
+        const bool res = dht_bootstrap_from_address(dht, argv[argvoffset + 1],
+                         ipv6enabled, port, bootstrap_key);
         free(bootstrap_key);
 
         if (!res) {
@@ -240,17 +239,17 @@ int main(int argc, char *argv[])
         }
     }
 
-    int is_waiting_for_dht_connection = 1;
+    bool is_waiting_for_dht_connection = true;
 
     uint64_t last_lan_discovery = 0;
     const Broadcast_Info *broadcast = lan_discovery_init(ns);
 
-    while (1) {
+    while (true) {
         mono_time_update(mono_time);
 
         if (is_waiting_for_dht_connection && dht_isconnected(dht)) {
             printf("Connected to other bootstrap node successfully.\n");
-            is_waiting_for_dht_connection = 0;
+            is_waiting_for_dht_connection = false;
         }
 
         do_dht(dht);

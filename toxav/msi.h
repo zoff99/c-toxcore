@@ -37,7 +37,6 @@ typedef enum MSICapabilities {
     MSI_CAP_R_VIDEO = 32, /* receiving video */
 } MSICapabilities;
 
-
 /**
  * Call state identifiers.
  */
@@ -78,7 +77,6 @@ typedef struct MSICall {
     struct MSICall       *next;
     struct MSICall       *prev;
 } MSICall;
-
 
 /**
  * Expected return on success is 0, if any other number is

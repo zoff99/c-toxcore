@@ -11,9 +11,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "attributes.h"
 #include "ccompat.h"
 #include "crypto_core.h"
 #include "friend_connection.h"
+#include "network.h"
+#include "onion.h"
+#include "onion_announce.h"
 #include "onion_client.h"
 
 /**
@@ -49,7 +53,6 @@ uint32_t get_nospam(const Friend_Requests *fr)
 {
     return fr->nospam;
 }
-
 
 /** Set the function that will be executed when a friend request for us is received. */
 void callback_friendrequest(Friend_Requests *fr, fr_friend_request_cb *function, void *object)
@@ -113,7 +116,6 @@ int remove_request_received(Friend_Requests *fr, const uint8_t *real_pk)
 
     return -1;
 }
-
 
 non_null()
 static int friendreq_handlepacket(void *object, const uint8_t *source_pubkey, const uint8_t *data, uint16_t length,

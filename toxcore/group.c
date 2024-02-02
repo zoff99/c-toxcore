@@ -14,6 +14,7 @@
 
 #include "DHT.h"
 #include "Messenger.h"
+#include "attributes.h"
 #include "ccompat.h"
 #include "crypto_core.h"
 #include "friend_connection.h"
@@ -243,7 +244,6 @@ static bool is_groupnumber_valid(const Group_Chats *g_c, uint32_t groupnumber)
            && g_c->chats[groupnumber].status != GROUPCHAT_STATUS_NONE;
 }
 
-
 /** @brief Set the size of the groupchat list to num.
  *
  * @retval false if realloc fails.
@@ -429,7 +429,6 @@ static int get_peer_index(const Group_c *g, uint16_t peer_number)
     return -1;
 }
 
-
 non_null()
 static uint64_t calculate_comp_value(const uint8_t *pk1, const uint8_t *pk2)
 {
@@ -488,7 +487,7 @@ static bool add_to_closest(Group_c *g, const uint8_t *real_pk, const uint8_t *te
         comp_val = calculate_comp_value(real_pk, g->real_pk);
 
         for (unsigned int i = DESIRED_CLOSEST / 2; i < DESIRED_CLOSEST; ++i) {
-            uint64_t comp = calculate_comp_value(g->closest_peers[i].real_pk, g->real_pk);
+            const uint64_t comp = calculate_comp_value(g->closest_peers[i].real_pk, g->real_pk);
 
             if (comp > comp_val && comp > comp_d) {
                 index = i;
@@ -1038,7 +1037,6 @@ static bool freeze_peer(Group_Chats *g_c, uint32_t groupnumber, int peer_index, 
     return true;
 }
 
-
 /** @brief Set the nick for a peer.
  *
  * do_gc_callback indicates whether we want to trigger callbacks set by the client
@@ -1399,7 +1397,6 @@ static const Group_Peer *peer_in_list(const Group_c *g, uint32_t peernumber, boo
 
     return &list[peernumber];
 }
-
 
 /**
  * @brief Copy the public key of (frozen, if frozen is true) peernumber who is in
@@ -2011,7 +2008,6 @@ static bool group_leave(const Group_Chats *g_c, uint32_t groupnumber, bool perma
     }
 }
 
-
 /** @brief set the group's title, limited to MAX_NAME_LENGTH.
  * @retval 0 on success
  * @retval -1 if groupnumber is invalid.
@@ -2384,7 +2380,6 @@ static int handle_packet_rejoin(Group_Chats *g_c, int friendcon_id, const uint8_
     return 0;
 }
 
-
 // we could send title with invite, but then if it changes between sending and accepting inv, joinee won't see it
 
 /**
@@ -2397,7 +2392,6 @@ static bool send_peer_introduced(const Group_Chats *g_c, int friendcon_id, uint1
     packet[0] = PEER_INTRODUCED_ID;
     return send_packet_group_peer(g_c->fr_c, friendcon_id, PACKET_ID_DIRECT_CONFERENCE, group_num, packet, sizeof(packet));
 }
-
 
 /**
  * @retval true on success.
@@ -2553,12 +2547,10 @@ static void handle_direct_packet(Group_Chats *g_c, uint32_t groupnumber, const u
             break;
         }
 
-
         case PEER_RESPONSE_ID: {
             handle_send_peers(g_c, groupnumber, data + 1, length - 1, userdata);
             break;
         }
-
 
         case PEER_TITLE_ID: {
             if (!g->title_fresh) {
@@ -3758,7 +3750,6 @@ bool conferences_load_state_section(Group_Chats *g_c, const uint8_t *data, uint3
     *status = load_conferences(g_c, data, length);
     return true;
 }
-
 
 /** Create new groupchat instance. */
 Group_Chats *new_groupchats(const Mono_Time *mono_time, Messenger *m)

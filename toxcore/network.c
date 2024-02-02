@@ -81,6 +81,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "attributes.h"
 #include "bin_pack.h"
 #include "ccompat.h"
 #include "logger.h"
@@ -531,12 +532,14 @@ static int sys_send(void *obj, int sock, const uint8_t *buf, size_t len)
 }
 
 non_null()
-static int sys_sendto(void *obj, int sock, const uint8_t *buf, size_t len, const Network_Addr *addr) {
+static int sys_sendto(void *obj, int sock, const uint8_t *buf, size_t len, const Network_Addr *addr)
+{
     return sendto(sock, (const char *)buf, len, 0, (const struct sockaddr *)&addr->addr, addr->size);
 }
 
 non_null()
-static int sys_recvfrom(void *obj, int sock, uint8_t *buf, size_t len, Network_Addr *addr) {
+static int sys_recvfrom(void *obj, int sock, uint8_t *buf, size_t len, Network_Addr *addr)
+{
     socklen_t size = addr->size;
     const int ret = recvfrom(sock, (char *)buf, len, 0, (struct sockaddr *)&addr->addr, &size);
     addr->size = size;
@@ -810,8 +813,8 @@ int net_send(const Network *ns, const Logger *log,
 
 non_null()
 static int net_sendto(
-        const Network *ns,
-        Socket sock, const uint8_t *buf, size_t len, const Network_Addr *addr, const IP_Port *ip_port)
+    const Network *ns,
+    Socket sock, const uint8_t *buf, size_t len, const Network_Addr *addr, const IP_Port *ip_port)
 {
     return ns->funcs->sendto(ns->obj, sock.sock, buf, len, addr);
 }
@@ -888,7 +891,6 @@ bool set_socket_dualstack(const Network *ns, Socket sock)
     ipv6only = 0;
     return net_setsockopt(ns, sock, IPPROTO_IPV6, IPV6_V6ONLY, &ipv6only, sizeof(ipv6only)) == 0;
 }
-
 
 typedef struct Packet_Handler {
     packet_handler_cb *function;
@@ -1118,8 +1120,8 @@ void networking_poll(const Networking_Core *net, void *userdata)
  * If error is non NULL it is set to 0 if no issues, 1 if socket related error, 2 if other.
  */
 Networking_Core *new_networking_ex(
-        const Logger *log, const Memory *mem, const Network *ns, const IP *ip,
-        uint16_t port_from, uint16_t port_to, unsigned int *error)
+    const Logger *log, const Memory *mem, const Network *ns, const IP *ip,
+    uint16_t port_from, uint16_t port_to, unsigned int *error)
 {
     /* If both from and to are 0, use default port range
      * If one is 0 and the other is non-0, use the non-0 value as only port
@@ -1262,14 +1264,14 @@ Networking_Core *new_networking_ex(
 #ifndef ESP_PLATFORM
         /* multicast local nodes */
         struct ipv6_mreq mreq = {{{{0}}}};
-        mreq.ipv6mr_multiaddr.s6_addr[ 0] = 0xFF;
-        mreq.ipv6mr_multiaddr.s6_addr[ 1] = 0x02;
+        mreq.ipv6mr_multiaddr.s6_addr[0] = 0xFF;
+        mreq.ipv6mr_multiaddr.s6_addr[1] = 0x02;
         mreq.ipv6mr_multiaddr.s6_addr[15] = 0x01;
         mreq.ipv6mr_interface = 0;
 
         const int res = net_setsockopt(ns, temp->sock, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
 
-        int neterror = net_error();
+        const int neterror = net_error();
         char *strerror = net_new_strerror(neterror);
 
         if (res < 0) {
@@ -1335,7 +1337,7 @@ Networking_Core *new_networking_ex(
     }
 
     Ip_Ntoa ip_str;
-    int neterror = net_error();
+    const int neterror = net_error();
     char *strerror = net_new_strerror(neterror);
     LOGGER_ERROR(log, "failed to bind socket: %d, %s IP: %s port_from: %u port_to: %u",
                  neterror, strerror, net_ip_ntoa(ip, &ip_str), port_from, port_to);
@@ -1379,7 +1381,6 @@ void kill_networking(Networking_Core *net)
 
     mem_delete(net->mem, net);
 }
-
 
 bool ip_equal(const IP *a, const IP *b)
 {
@@ -2013,7 +2014,7 @@ int32_t net_getipport(const Memory *mem, const char *node, IP_Port **res, int to
     size_t count = 0;
 
     for (struct addrinfo *cur = infos; count < max_count && cur != nullptr; cur = cur->ai_next) {
-        if (cur->ai_socktype && type > 0 && cur->ai_socktype != type) {
+        if (cur->ai_socktype != 0 && type > 0 && cur->ai_socktype != type) {
             continue;
         }
 
@@ -2042,7 +2043,7 @@ int32_t net_getipport(const Memory *mem, const char *node, IP_Port **res, int to
     *res = ip_port;
 
     for (struct addrinfo *cur = infos; cur != nullptr; cur = cur->ai_next) {
-        if (cur->ai_socktype && type > 0 && cur->ai_socktype != type) {
+        if (cur->ai_socktype != 0 && type > 0 && cur->ai_socktype != type) {
             continue;
         }
 

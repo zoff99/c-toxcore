@@ -14,12 +14,15 @@
 #include "DHT.h"
 #include "LAN_discovery.h"
 #include "TCP_connection.h"
+#include "attributes.h"
 #include "ccompat.h"
 #include "crypto_core.h"
 #include "logger.h"
 #include "mono_time.h"
 #include "net_crypto.h"
 #include "network.h"
+#include "onion.h"
+#include "onion_announce.h"
 #include "onion_client.h"
 #include "util.h"
 
@@ -64,7 +67,6 @@ struct Friend_Conn {
 
 static const Friend_Conn empty_friend_conn = {0};
 
-
 struct Friend_Connections {
     const Mono_Time *mono_time;
     const Logger *logger;
@@ -103,7 +105,6 @@ const IP_Port *friend_conn_get_dht_ip_port(const Friend_Conn *fc)
     return &fc->dht_ip_port;
 }
 
-
 /**
  * @retval true if the friendcon_id is valid.
  * @retval false if the friendcon_id is not valid.
@@ -115,7 +116,6 @@ static bool friendconn_id_valid(const Friend_Connections *fr_c, int friendcon_id
            fr_c->conns != nullptr &&
            fr_c->conns[friendcon_id].status != FRIENDCONN_STATUS_NONE;
 }
-
 
 /** @brief Set the size of the friend connections list to num.
  *
@@ -246,7 +246,7 @@ static int friend_add_tcp_relay(Friend_Connections *fr_c, int friendcon_id, cons
         if (!net_family_is_unspec(friend_con->dht_ip_port.ip.family)) {
             ipp_copy.ip = friend_con->dht_ip_port.ip;
         } else {
-            friend_con->hosting_tcp_relay = 0;
+            friend_con->hosting_tcp_relay = false;
         }
     }
 
@@ -370,7 +370,7 @@ static void dht_ip_callback(void *object, int32_t number, const IP_Port *ip_port
 
     if (friend_con->hosting_tcp_relay) {
         friend_add_tcp_relay(fr_c, number, ip_port, friend_con->dht_temp_pk);
-        friend_con->hosting_tcp_relay = 0;
+        friend_con->hosting_tcp_relay = false;
     }
 }
 
@@ -424,7 +424,7 @@ static int handle_status(void *object, int id, bool status, void *userdata)
 
         friend_con->status = FRIENDCONN_STATUS_CONNECTING;
         friend_con->crypt_connection_id = -1;
-        friend_con->hosting_tcp_relay = 0;
+        friend_con->hosting_tcp_relay = false;
     }
 
     if (status_changed) {
@@ -855,7 +855,6 @@ int kill_friend_connection(Friend_Connections *fr_c, int friendcon_id)
     return wipe_friend_conn(fr_c, friendcon_id);
 }
 
-
 /** @brief Set friend request callback.
  *
  * This function will be called every time a friend request packet is received.
@@ -909,8 +908,8 @@ int send_friend_request_packet(Friend_Connections *fr_c, int friendcon_id, uint3
 
 /** Create new friend_connections instance. */
 Friend_Connections *new_friend_connections(
-        const Logger *logger, const Mono_Time *mono_time, const Network *ns,
-        Onion_Client *onion_c, bool local_discovery_enabled)
+    const Logger *logger, const Mono_Time *mono_time, const Network *ns,
+    Onion_Client *onion_c, bool local_discovery_enabled)
 {
     if (onion_c == nullptr) {
         return nullptr;

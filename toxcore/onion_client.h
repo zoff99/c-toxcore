@@ -12,7 +12,14 @@
 
 #include <stdbool.h>
 
+#include "DHT.h"
+#include "attributes.h"
+#include "crypto_core.h"
+#include "logger.h"
+#include "mem.h"
+#include "mono_time.h"
 #include "net_crypto.h"
+#include "network.h"
 #include "onion_announce.h"
 #include "ping_array.h"
 
@@ -212,7 +219,6 @@ Onion_Client *new_onion_client(const Logger *logger, const Memory *mem, const Ra
 
 nullable(1)
 void kill_onion_client(Onion_Client *onion_c);
-
 
 typedef enum Onion_Connection_Status {
     /** We are not connected to the network. */

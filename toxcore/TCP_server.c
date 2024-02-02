@@ -19,6 +19,7 @@
 #endif /* TCP_SERVER_USE_EPOLL */
 
 #include "TCP_common.h"
+#include "attributes.h"
 #include "ccompat.h"
 #include "crypto_core.h"
 #include "forwarding.h"
@@ -60,7 +61,6 @@ typedef struct TCP_Secure_Connection {
 } TCP_Secure_Connection;
 
 static const TCP_Secure_Connection empty_tcp_secure_connection = {{nullptr}};
-
 
 struct TCP_Server {
     const Logger *logger;
@@ -186,7 +186,6 @@ static int get_tcp_connection_index(const TCP_Server *tcp_server, const uint8_t 
 {
     return bs_list_find(&tcp_server->accepted_key_list, public_key);
 }
-
 
 non_null()
 static int kill_accepted(TCP_Server *tcp_server, int index);
@@ -356,7 +355,7 @@ static int handle_tcp_handshake(const Logger *logger, TCP_Secure_Connection *con
         return -1;
     }
 
-    IP_Port ipp = {{{0}}};
+    const IP_Port ipp = {{{0}}};
 
     if (TCP_SERVER_HANDSHAKE_SIZE != net_send(con->con.ns, logger, con->con.sock, response, TCP_SERVER_HANDSHAKE_SIZE, &ipp)) {
         crypto_memzero(shared_key, sizeof(shared_key));
@@ -764,7 +763,7 @@ static int handle_tcp_packet(TCP_Server *tcp_server, uint32_t con_id, const uint
                     return -1;
                 }
 
-                IP_Port source = con_id_to_ip_port(con_id, con->identifier);
+                const IP_Port source = con_id_to_ip_port(con_id, con->identifier);
                 onion_send_1(tcp_server->onion, data + 1 + CRYPTO_NONCE_SIZE, length - (1 + CRYPTO_NONCE_SIZE), &source,
                              data + 1);
             }
@@ -848,7 +847,6 @@ static int handle_tcp_packet(TCP_Server *tcp_server, uint32_t con_id, const uint
 
     return 0;
 }
-
 
 non_null()
 static int confirm_tcp_connection(TCP_Server *tcp_server, const Mono_Time *mono_time, TCP_Secure_Connection *con,
@@ -1114,7 +1112,8 @@ static int do_unconfirmed(TCP_Server *tcp_server, const Mono_Time *mono_time, ui
     LOGGER_TRACE(tcp_server->logger, "handling unconfirmed TCP connection %d", i);
 
     uint8_t packet[MAX_PACKET_SIZE];
-    const int len = read_packet_tcp_secure_connection(tcp_server->logger, conn->con.mem, conn->con.ns, conn->con.sock, &conn->next_packet_length, conn->con.shared_key, conn->recv_nonce, packet, sizeof(packet), &conn->con.ip_port);
+    const int len = read_packet_tcp_secure_connection(tcp_server->logger, conn->con.mem, conn->con.ns, conn->con.sock, &conn->next_packet_length, conn->con.shared_key, conn->recv_nonce, packet,
+                    sizeof(packet), &conn->con.ip_port);
 
     if (len == 0) {
         return -1;
@@ -1134,7 +1133,8 @@ static bool tcp_process_secure_packet(TCP_Server *tcp_server, uint32_t i)
     TCP_Secure_Connection *const conn = &tcp_server->accepted_connection_array[i];
 
     uint8_t packet[MAX_PACKET_SIZE];
-    const int len = read_packet_tcp_secure_connection(tcp_server->logger, conn->con.mem, conn->con.ns, conn->con.sock, &conn->next_packet_length, conn->con.shared_key, conn->recv_nonce, packet, sizeof(packet), &conn->con.ip_port);
+    const int len = read_packet_tcp_secure_connection(tcp_server->logger, conn->con.mem, conn->con.ns, conn->con.sock, &conn->next_packet_length, conn->con.shared_key, conn->recv_nonce, packet,
+                    sizeof(packet), &conn->con.ip_port);
     LOGGER_TRACE(tcp_server->logger, "processing packet for %d: %d", i, len);
 
     if (len == 0) {
@@ -1281,7 +1281,6 @@ static bool tcp_epoll_process(TCP_Server *tcp_server, const Mono_Time *mono_time
 
             continue;
         }
-
 
         if ((events[n].events & EPOLLIN) == 0) {
             continue;

@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../attributes.h"
 #include "../bin_pack.h"
 #include "../bin_unpack.h"
 #include "../ccompat.h"
@@ -15,13 +16,11 @@
 #include "../tox.h"
 #include "../tox_events.h"
 
-
 /*****************************************************
  *
  * :: struct and accessors
  *
  *****************************************************/
-
 
 struct Tox_Event_Friend_Name {
     uint32_t friend_number;
@@ -115,7 +114,6 @@ static bool tox_event_friend_name_unpack_into(
            && bin_unpack_bin(bu, &event->name, &event->name_length);
 }
 
-
 /*****************************************************
  *
  * :: new/free/add/get/size/unpack
@@ -199,16 +197,15 @@ static Tox_Event_Friend_Name *tox_event_friend_name_alloc(void *user_data)
     return friend_name;
 }
 
-
 /*****************************************************
  *
  * :: event handler
  *
  *****************************************************/
 
-
-void tox_events_handle_friend_name(Tox *tox, uint32_t friend_number, const uint8_t *name, size_t length,
-        void *user_data)
+void tox_events_handle_friend_name(
+    Tox *tox, uint32_t friend_number, const uint8_t *name, size_t length,
+    void *user_data)
 {
     Tox_Event_Friend_Name *friend_name = tox_event_friend_name_alloc(user_data);
 

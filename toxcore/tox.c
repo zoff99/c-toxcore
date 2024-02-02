@@ -18,6 +18,7 @@
 #include "DHT.h"
 #include "Messenger.h"
 #include "TCP_client.h"
+#include "attributes.h"
 #include "ccompat.h"
 #include "crypto_core.h"
 #include "friend_requests.h"
@@ -749,7 +750,7 @@ Tox *tox_new(const struct Tox_Options *options, Tox_Err_New *error)
         return nullptr;
     }
 
-    Messenger_Options m_options = {0};
+    Messenger_Options m_options = {false};
 
     bool load_savedata_sk = false;
     bool load_savedata_tox = false;
@@ -1238,7 +1239,6 @@ Tox_Connection tox_self_get_connection_status(const Tox *tox)
     LOGGER_FATAL(tox->m->log, "impossible return value: %d", ret);
     return TOX_CONNECTION_NONE;
 }
-
 
 void tox_callback_self_connection_status(Tox *tox, tox_self_connection_status_cb *callback)
 {
@@ -3191,7 +3191,6 @@ bool tox_group_disconnect(const Tox *tox, uint32_t group_number, Tox_Err_Group_D
         return false;
     }
 
-
     const bool ret = gc_disconnect_from_group(tox->m->group_handler, chat);
 
     tox_unlock(tox);
@@ -3942,8 +3941,8 @@ bool tox_group_get_password(const Tox *tox, uint32_t group_number, uint8_t *pass
 }
 
 Tox_Group_Message_Id tox_group_send_message(
-        const Tox *tox, uint32_t group_number, Tox_Message_Type type, const uint8_t *message,
-        size_t length, Tox_Err_Group_Send_Message *error)
+    const Tox *tox, uint32_t group_number, Tox_Message_Type type, const uint8_t *message,
+    size_t length, Tox_Err_Group_Send_Message *error)
 {
     assert(tox != nullptr);
 

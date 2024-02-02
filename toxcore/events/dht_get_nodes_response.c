@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <string.h>
 
+#include "../attributes.h"
 #include "../bin_pack.h"
 #include "../bin_unpack.h"
 #include "../ccompat.h"
@@ -15,13 +16,11 @@
 #include "../tox_events.h"
 #include "../tox_private.h"
 
-
 /*****************************************************
  *
  * :: struct and accessors
  *
  *****************************************************/
-
 
 struct Tox_Event_Dht_Get_Nodes_Response {
     uint8_t public_key[TOX_PUBLIC_KEY_SIZE];
@@ -86,7 +85,9 @@ non_null()
 static void tox_event_dht_get_nodes_response_construct(Tox_Event_Dht_Get_Nodes_Response *dht_get_nodes_response)
 {
     *dht_get_nodes_response = (Tox_Event_Dht_Get_Nodes_Response) {
-        0
+        {
+            0
+        }
     };
 }
 non_null()
@@ -193,17 +194,15 @@ static Tox_Event_Dht_Get_Nodes_Response *tox_event_dht_get_nodes_response_alloc(
     return dht_get_nodes_response;
 }
 
-
 /*****************************************************
  *
  * :: event handler
  *
  *****************************************************/
 
-
 void tox_events_handle_dht_get_nodes_response(
-        Tox *tox, const uint8_t public_key[TOX_PUBLIC_KEY_SIZE],
-        const char *ip, uint16_t port, void *user_data)
+    Tox *tox, const uint8_t public_key[TOX_PUBLIC_KEY_SIZE],
+    const char *ip, uint16_t port, void *user_data)
 {
     Tox_Event_Dht_Get_Nodes_Response *dht_get_nodes_response = tox_event_dht_get_nodes_response_alloc(user_data);
 

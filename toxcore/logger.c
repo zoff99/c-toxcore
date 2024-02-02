@@ -14,6 +14,7 @@
 #include <string.h>
 #include <sys/types.h>
 
+#include "attributes.h"
 #include "ccompat.h"
 
 struct Logger {

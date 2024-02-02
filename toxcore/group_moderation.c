@@ -16,6 +16,7 @@
 #include <time.h>
 
 #include "DHT.h"
+#include "attributes.h"
 #include "ccompat.h"
 #include "crypto_core.h"
 #include "logger.h"
@@ -394,7 +395,6 @@ int sanctions_list_unpack(Mod_Sanction *sanctions, Mod_Sanction_Creds *creds, ui
 
     return num;
 }
-
 
 /** @brief Creates a new sanction list hash and puts it in hash.
  *

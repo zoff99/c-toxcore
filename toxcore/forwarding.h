@@ -6,6 +6,10 @@
 #define C_TOXCORE_TOXCORE_FORWARDING_H
 
 #include "DHT.h"
+#include "attributes.h"
+#include "crypto_core.h"
+#include "logger.h"
+#include "mono_time.h"
 #include "network.h"
 
 #ifdef __cplusplus
@@ -78,7 +82,6 @@ non_null()
 bool forward_reply(const Networking_Core *net, const IP_Port *forwarder,
                    const uint8_t *sendback, uint16_t sendback_length,
                    const uint8_t *data, uint16_t length);
-
 
 /**
  * @brief Set callback to handle a forwarded request.

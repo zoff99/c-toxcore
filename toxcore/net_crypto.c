@@ -16,6 +16,7 @@
 #include "LAN_discovery.h"
 #include "TCP_client.h"
 #include "TCP_connection.h"
+#include "attributes.h"
 #include "ccompat.h"
 #include "crypto_core.h"
 #include "list.h"
@@ -291,7 +292,6 @@ static int open_cookie(const Mono_Time *mono_time, uint8_t *bytes, const uint8_t
     return 0;
 }
 
-
 /** @brief Create a cookie response packet and put it in packet.
  * @param request_plain must be COOKIE_REQUEST_PLAIN_LENGTH bytes.
  * @param packet must be of size COOKIE_RESPONSE_LENGTH or bigger.
@@ -560,7 +560,6 @@ static bool handle_crypto_handshake(const Net_Crypto *c, uint8_t *nonce, uint8_t
     return true;
 }
 
-
 non_null()
 static Crypto_Connection *get_crypto_connection(const Net_Crypto *c, int crypt_connection_id)
 {
@@ -570,7 +569,6 @@ static Crypto_Connection *get_crypto_connection(const Net_Crypto *c, int crypt_c
 
     return &c->crypto_connections[crypt_connection_id];
 }
-
 
 /** @brief Associate an ip_port to a connection.
  *
@@ -686,7 +684,7 @@ static int send_packet_to(Net_Crypto *c, int crypt_connection_id, const uint8_t 
 
     bool direct_send_attempt = false;
 
-    IP_Port ip_port = return_ip_port_connection(c, crypt_connection_id);
+    const IP_Port ip_port = return_ip_port_connection(c, crypt_connection_id);
 
     // TODO(irungentoo): on bad networks, direct connections might not last indefinitely.
     if (!net_family_is_unspec(ip_port.ip.family)) {
@@ -730,7 +728,6 @@ static int send_packet_to(Net_Crypto *c, int crypt_connection_id, const uint8_t 
 }
 
 /*** START: Array Related functions */
-
 
 /** @brief Return number of packets in array
  * Note that holes are counted too.
@@ -1350,7 +1347,6 @@ static int send_requested_packets(Net_Crypto *c, int crypt_connection_id, uint32
     return num_sent;
 }
 
-
 /** @brief Add a new temp packet to send repeatedly.
  *
  * @retval -1 on failure.
@@ -1411,7 +1407,6 @@ static int clear_temp_packet(const Net_Crypto *c, int crypt_connection_id)
     conn->temp_packet_num_sent = 0;
     return 0;
 }
-
 
 /** @brief Send the temp packet.
  *
@@ -1485,9 +1480,9 @@ static int send_kill_packet(Net_Crypto *c, int crypt_connection_id)
         return -1;
     }
 
-    uint8_t kill_packet = PACKET_ID_KILL;
+    const uint8_t kill_packet[1] = {PACKET_ID_KILL};
     return send_data_packet_helper(c, crypt_connection_id, conn->recv_array.buffer_start, conn->send_array.buffer_end,
-                                   &kill_packet, sizeof(kill_packet));
+                                   kill_packet, sizeof(kill_packet));
 }
 
 non_null(1) nullable(3)
@@ -1641,7 +1636,7 @@ static int handle_data_packet_core(Net_Crypto *c, int crypt_connection_id, const
     }
 
     if (rtt_calc_time != 0) {
-        uint64_t rtt_time = current_time_monotonic(c->mono_time) - rtt_calc_time;
+        const uint64_t rtt_time = current_time_monotonic(c->mono_time) - rtt_calc_time;
 
         if (rtt_time < conn->rtt_time) {
             conn->rtt_time = rtt_time;
@@ -1787,7 +1782,7 @@ static int realloc_cryptoconnection(Net_Crypto *c, uint32_t num)
     }
 
     Crypto_Connection *newcrypto_connections = (Crypto_Connection *)mem_vrealloc(
-            c->mem, c->crypto_connections, num, sizeof(Crypto_Connection));
+                c->mem, c->crypto_connections, num, sizeof(Crypto_Connection));
 
     if (newcrypto_connections == nullptr) {
         return -1;
@@ -1796,7 +1791,6 @@ static int realloc_cryptoconnection(Net_Crypto *c, uint32_t num)
     c->crypto_connections = newcrypto_connections;
     return 0;
 }
-
 
 /** @brief Create a new empty crypto connection.
  *
@@ -1937,7 +1931,6 @@ static int crypto_connection_add_source(Net_Crypto *c, int crypt_connection_id, 
 
     return -1;
 }
-
 
 /** @brief Set function to be called when someone requests a new connection to us.
  *
@@ -2156,7 +2149,6 @@ int set_direct_ip_port(Net_Crypto *c, int crypt_connection_id, const IP_Port *ip
 
     return 0;
 }
-
 
 non_null(1, 3) nullable(5)
 static int tcp_data_callback(void *object, int crypt_connection_id, const uint8_t *packet, uint16_t length,
@@ -2412,7 +2404,6 @@ int connection_lossy_data_handler(const Net_Crypto *c, int crypt_connection_id,
     conn->connection_lossy_data_callback_id = id;
     return 0;
 }
-
 
 /** @brief Set the function for this friend that will be callbacked with object and number if
  * the friend sends us a different dht public key than we have associated to him.
@@ -2704,8 +2695,8 @@ static void send_crypto_packets(Net_Crypto *c)
                                        1000.0);
                     n_packets += conn->last_packets_left_requested_rem;
 
-                    uint32_t num_packets = n_packets;
-                    double rem = n_packets - (double)num_packets;
+                    const uint32_t num_packets = n_packets;
+                    const double rem = n_packets - (double)num_packets;
                     conn->packets_left_requested = num_packets;
 
                     conn->last_packets_left_requested_set = temp_time;

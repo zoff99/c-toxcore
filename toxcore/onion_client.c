@@ -16,8 +16,10 @@
 #include "DHT.h"
 #include "LAN_discovery.h"
 #include "TCP_connection.h"
+#include "attributes.h"
 #include "ccompat.h"
 #include "crypto_core.h"
+#include "group_announce.h"
 #include "group_onion_announce.h"
 #include "logger.h"
 #include "mem.h"
@@ -27,6 +29,7 @@
 #include "onion.h"
 #include "onion_announce.h"
 #include "ping_array.h"
+#include "timed_auth.h"
 #include "util.h"
 
 /** @brief defines for the array size and timeout for onion announce packets. */
@@ -478,17 +481,6 @@ static int random_path(const Onion_Client *onion_c, Onion_Client_Paths *onion_pa
     ++onion_paths->last_path_used_times[pathnum];
     *path = onion_paths->paths[pathnum];
     return 0;
-}
-
-/** Does path with path_num exist. */
-non_null()
-static bool path_exists(const Mono_Time *mono_time, const Onion_Client_Paths *onion_paths, uint32_t path_num)
-{
-    if (path_timed_out(mono_time, onion_paths, path_num)) {
-        return false;
-    }
-
-    return onion_paths->paths[path_num % NUMBER_ONION_PATHS].path_num == path_num;
 }
 
 /** Set path timeouts, return the path number. */
@@ -1711,7 +1703,6 @@ int onion_getfriendip(const Onion_Client *onion_c, int friend_num, IP_Port *ip_p
     return dht_getfriendip(onion_c->dht, dht_public_key, ip_port);
 }
 
-
 /** @brief Set if friend is online or not.
  *
  * NOTE: This function is there and should be used so that we don't send
@@ -1884,7 +1875,6 @@ static void do_friend(Onion_Client *onion_c, uint16_t friendnum)
     }
 }
 
-
 /** Function to call when onion data packet with contents beginning with byte is received. */
 void oniondata_registerhandler(Onion_Client *onion_c, uint8_t byte, oniondata_handler_cb *cb, void *object)
 {
@@ -1916,6 +1906,33 @@ static bool key_list_contains(const uint8_t *const *keys, uint16_t keys_size, co
     return false;
 }
 
+/** Does path with path_num exist. */
+non_null()
+static bool path_exists(const Mono_Time *mono_time, const Onion_Client_Paths *onion_paths, uint32_t path_num)
+{
+    if (path_timed_out(mono_time, onion_paths, path_num)) {
+        return false;
+    }
+
+    return onion_paths->paths[path_num % NUMBER_ONION_PATHS].path_num == path_num;
+}
+
+/**
+ * A node/path is considered "stable" if it has survived for at least TIME_TO_STABLE
+ * and the latest packets sent to it are not timing out.
+ */
+non_null()
+static bool path_is_stable(const Mono_Time *mono_time, const Onion_Client_Paths *paths,
+                           uint32_t pathnum, const Onion_Node *node)
+{
+    return mono_time_is_timeout(mono_time, node->added_time, TIME_TO_STABLE)
+           && !(node->pings_since_last_response > 0
+                && mono_time_is_timeout(mono_time, node->last_pinged, ONION_NODE_TIMEOUT))
+           && mono_time_is_timeout(mono_time, paths->path_creation_time[pathnum], TIME_TO_STABLE)
+           && !(paths->last_path_used_times[pathnum] > 0
+                && mono_time_is_timeout(mono_time, paths->last_path_used[pathnum], ONION_PATH_TIMEOUT));
+}
+
 non_null()
 static void do_announce(Onion_Client *onion_c)
 {
@@ -1939,7 +1956,6 @@ static void do_announce(Onion_Client *onion_c)
             continue;
         }
 
-
         unsigned int interval = ANNOUNCE_INTERVAL_NOT_ANNOUNCED;
 
         if (node_list[i].is_stored != 0
@@ -1948,16 +1964,8 @@ static void do_announce(Onion_Client *onion_c)
 
             const uint32_t pathnum = node_list[i].path_used % NUMBER_ONION_PATHS;
 
-            /* A node/path is considered "stable", and can be pinged less
-             * aggressively, if it has survived for at least TIME_TO_STABLE
-             * and the latest packets sent to it are not timing out.
-             */
-            if (mono_time_is_timeout(onion_c->mono_time, node_list[i].added_time, TIME_TO_STABLE)
-                    && !(node_list[i].pings_since_last_response > 0
-                         && mono_time_is_timeout(onion_c->mono_time, node_list[i].last_pinged, ONION_NODE_TIMEOUT))
-                    && mono_time_is_timeout(onion_c->mono_time, onion_c->onion_paths_self.path_creation_time[pathnum], TIME_TO_STABLE)
-                    && !(onion_c->onion_paths_self.last_path_used_times[pathnum] > 0
-                         && mono_time_is_timeout(onion_c->mono_time, onion_c->onion_paths_self.last_path_used[pathnum], ONION_PATH_TIMEOUT))) {
+            /* If a node/path is considered "stable", it can be pinged less aggressively. */
+            if (path_is_stable(onion_c->mono_time, &onion_c->onion_paths_self, pathnum, &node_list[i])) {
                 interval = ANNOUNCE_INTERVAL_STABLE;
             }
         }
@@ -2026,7 +2034,7 @@ static void do_announce(Onion_Client *onion_c)
             } else {
                 Ip_Ntoa ip_str;
                 LOGGER_TRACE(onion_c->logger, "not sending repeated announce request to %s:%d",
-                        net_ip_ntoa(&target->ip_port.ip, &ip_str), net_ntohs(target->ip_port.port));
+                             net_ip_ntoa(&target->ip_port.ip, &ip_str), net_ntohs(target->ip_port.port));
             }
         }
     }

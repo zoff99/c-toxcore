@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <string.h>
 
+#include "attributes.h"
 #include "bin_pack.h"
 #include "bin_unpack.h"
 #include "ccompat.h"
@@ -18,13 +19,11 @@
 #include "tox_private.h"
 #include "tox_struct.h"
 
-
 /*****************************************************
  *
  * :: Set up event handlers.
  *
  *****************************************************/
-
 
 void tox_events_init(Tox *tox)
 {

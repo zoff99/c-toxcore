@@ -243,8 +243,6 @@ int ac_reconfigure_encoder(ACSession *ac, uint32_t bit_rate, uint32_t sampling_r
     return 0;
 }
 
-
-
 struct JitterBuffer {
     struct RTPMessage **queue;
     uint32_t size;
@@ -374,7 +372,6 @@ static OpusEncoder *create_audio_encoder(const Logger *log, uint32_t bit_rate, u
         return nullptr;
     }
 
-
     /*
      * Rates from 500 to 512000 bits per second are meaningful as well as the special
      * values OPUS_BITRATE_AUTO and OPUS_BITRATE_MAX. The value OPUS_BITRATE_MAX can
@@ -391,7 +388,6 @@ static OpusEncoder *create_audio_encoder(const Logger *log, uint32_t bit_rate, u
         goto FAILURE;
     }
 
-
     /*
      * Configures the encoder's use of inband forward error correction.
      * Note:
@@ -406,7 +402,6 @@ static OpusEncoder *create_audio_encoder(const Logger *log, uint32_t bit_rate, u
         LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
         goto FAILURE;
     }
-
 
     /*
      * Configures the encoder's expected packet loss percentage.
@@ -426,7 +421,6 @@ static OpusEncoder *create_audio_encoder(const Logger *log, uint32_t bit_rate, u
         LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
         goto FAILURE;
     }
-
 
     /*
      * Configures the encoder's computational complexity.

@@ -9,7 +9,9 @@
 #include <string.h>
 
 #include "DHT.h"
+#include "attributes.h"
 #include "ccompat.h"
+#include "crypto_core.h"
 #include "logger.h"
 #include "mono_time.h"
 #include "network.h"
@@ -341,8 +343,8 @@ int gca_unpack_announces_list(const Logger *log, const uint8_t *data, uint16_t l
 
 non_null()
 static GC_Announces *gca_new_announces(
-        GC_Announces_List *gc_announces_list,
-        const GC_Public_Announce *public_announce)
+    GC_Announces_List *gc_announces_list,
+    const GC_Public_Announce *public_announce)
 {
     GC_Announces *announces = (GC_Announces *)calloc(1, sizeof(GC_Announces));
 

@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include "LAN_discovery.h"
+#include "attributes.h"
 #include "bin_pack.h"
 #include "ccompat.h"
 #include "crypto_core.h"
@@ -83,7 +84,7 @@ struct DHT_Friend {
 static const DHT_Friend empty_dht_friend = {{0}};
 const Node_format empty_node_format = {{0}};
 
-static_assert(sizeof (empty_dht_friend.lock_flags) * 8 == DHT_FRIEND_MAX_LOCKS, "Bitfield size and number of locks don't match");
+static_assert(sizeof(empty_dht_friend.lock_flags) * 8 == DHT_FRIEND_MAX_LOCKS, "Bitfield size and number of locks don't match");
 
 typedef struct Cryptopacket_Handler {
     cryptopacket_handler_cb *function;
@@ -362,7 +363,6 @@ int packed_node_size(Family ip_family)
     return -1;
 }
 
-
 int dht_create_packet(const Memory *mem, const Random *rng,
                       const uint8_t public_key[CRYPTO_PUBLIC_KEY_SIZE],
                       const uint8_t *shared_key, const uint8_t type,
@@ -612,8 +612,8 @@ static bool client_or_ip_port_in_list(const Logger *log, const Mono_Time *mono_t
 }
 
 bool add_to_list(
-        Node_format *nodes_list, uint32_t length, const uint8_t pk[CRYPTO_PUBLIC_KEY_SIZE],
-        const IP_Port *ip_port, const uint8_t cmp_pk[CRYPTO_PUBLIC_KEY_SIZE])
+    Node_format *nodes_list, uint32_t length, const uint8_t pk[CRYPTO_PUBLIC_KEY_SIZE],
+    const IP_Port *ip_port, const uint8_t cmp_pk[CRYPTO_PUBLIC_KEY_SIZE])
 {
     for (uint32_t i = 0; i < length; ++i) {
         Node_format *node = &nodes_list[i];
@@ -643,10 +643,10 @@ bool add_to_list(
  */
 non_null()
 static void get_close_nodes_inner(
-        uint64_t cur_time, const uint8_t *public_key,
-        Node_format *nodes_list, uint32_t *num_nodes_ptr,
-        Family sa_family, const Client_data *client_list, uint32_t client_list_length,
-        bool is_lan, bool want_announce)
+    uint64_t cur_time, const uint8_t *public_key,
+    Node_format *nodes_list, uint32_t *num_nodes_ptr,
+    Family sa_family, const Client_data *client_list, uint32_t client_list_length,
+    bool is_lan, bool want_announce)
 {
     if (!net_family_is_ipv4(sa_family) && !net_family_is_ipv6(sa_family) && !net_family_is_unspec(sa_family)) {
         return;
@@ -714,10 +714,10 @@ static void get_close_nodes_inner(
  */
 non_null()
 static int get_somewhat_close_nodes(
-        uint64_t cur_time, const uint8_t *public_key, Node_format nodes_list[MAX_SENT_NODES],
-        Family sa_family, const Client_data *close_clientlist,
-        const DHT_Friend *friends_list, uint16_t friends_list_size,
-        bool is_lan, bool want_announce)
+    uint64_t cur_time, const uint8_t *public_key, Node_format nodes_list[MAX_SENT_NODES],
+    Family sa_family, const Client_data *close_clientlist,
+    const DHT_Friend *friends_list, uint16_t friends_list_size,
+    bool is_lan, bool want_announce)
 {
     for (uint16_t i = 0; i < MAX_SENT_NODES; ++i) {
         nodes_list[i] = empty_node_format;
@@ -725,34 +725,34 @@ static int get_somewhat_close_nodes(
 
     uint32_t num_nodes = 0;
     get_close_nodes_inner(
-            cur_time, public_key,
-            nodes_list, &num_nodes,
-            sa_family, close_clientlist, LCLIENT_LIST,
-            is_lan, want_announce);
+        cur_time, public_key,
+        nodes_list, &num_nodes,
+        sa_family, close_clientlist, LCLIENT_LIST,
+        is_lan, want_announce);
 
     for (uint16_t i = 0; i < friends_list_size; ++i) {
         const DHT_Friend *dht_friend = &friends_list[i];
 
         get_close_nodes_inner(
-                cur_time, public_key,
-                nodes_list, &num_nodes,
-                sa_family, dht_friend->client_list, MAX_FRIEND_CLIENTS,
-                is_lan, want_announce);
+            cur_time, public_key,
+            nodes_list, &num_nodes,
+            sa_family, dht_friend->client_list, MAX_FRIEND_CLIENTS,
+            is_lan, want_announce);
     }
 
     return num_nodes;
 }
 
 int get_close_nodes(
-        const DHT *dht, const uint8_t *public_key,
-        Node_format nodes_list[MAX_SENT_NODES], Family sa_family,
-        bool is_lan, bool want_announce)
+    const DHT *dht, const uint8_t *public_key,
+    Node_format nodes_list[MAX_SENT_NODES], Family sa_family,
+    bool is_lan, bool want_announce)
 {
     return get_somewhat_close_nodes(
-            dht->cur_time, public_key, nodes_list,
-            sa_family, dht->close_clientlist,
-            dht->friends_list, dht->num_friends,
-            is_lan, want_announce);
+               dht->cur_time, public_key, nodes_list,
+               sa_family, dht->close_clientlist,
+               dht->friends_list, dht->num_friends,
+               is_lan, want_announce);
 }
 
 typedef struct DHT_Cmp_Data {
@@ -1162,7 +1162,7 @@ static bool ping_node_from_getnodes_ok(DHT *dht, const uint8_t *public_key, cons
  */
 uint32_t addto_lists(DHT *dht, const IP_Port *ip_port, const uint8_t *public_key)
 {
-    IP_Port ipp_copy = ip_port_normalize(ip_port);
+    const IP_Port ipp_copy = ip_port_normalize(ip_port);
 
     uint32_t used = 0;
 
@@ -1248,7 +1248,7 @@ static bool update_client_data(const Mono_Time *mono_time, Client_data *array, s
 non_null()
 static void returnedip_ports(DHT *dht, const IP_Port *ip_port, const uint8_t *public_key, const uint8_t *nodepublic_key)
 {
-    IP_Port ipp_copy = ip_port_normalize(ip_port);
+    const IP_Port ipp_copy = ip_port_normalize(ip_port);
 
     if (pk_equal(public_key, dht->self_public_key)) {
         update_client_data(dht->mono_time, dht->close_clientlist, LCLIENT_LIST, &ipp_copy, nodepublic_key, true);
@@ -1521,7 +1521,7 @@ static int handle_sendnodes_ipv6(void *object, const IP_Port *source, const uint
 
 non_null(1) nullable(2, 3)
 static uint32_t dht_friend_lock(DHT_Friend *const dht_friend, dht_ip_cb *ip_callback,
-                            void *data, int32_t number)
+                                void *data, int32_t number)
 {
     // find first free slot
     uint8_t lock_num;
@@ -1840,8 +1840,8 @@ bool dht_bootstrap(DHT *dht, const IP_Port *ip_port, const uint8_t *public_key)
     return dht_getnodes(dht, ip_port, public_key, dht->self_public_key);
 }
 
-int dht_bootstrap_from_address(DHT *dht, const char *address, bool ipv6enabled,
-                               uint16_t port, const uint8_t *public_key)
+bool dht_bootstrap_from_address(DHT *dht, const char *address, bool ipv6enabled,
+                                uint16_t port, const uint8_t *public_key)
 {
     IP_Port ip_port_v64;
     IP *ip_extra = nullptr;
@@ -1864,10 +1864,10 @@ int dht_bootstrap_from_address(DHT *dht, const char *address, bool ipv6enabled,
             dht_bootstrap(dht, &ip_port_v4, public_key);
         }
 
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 int route_packet(const DHT *dht, const uint8_t *public_key, const uint8_t *packet, uint16_t length)
@@ -1969,7 +1969,6 @@ static int friend_iplist(const DHT *dht, IP_Port *ip_portlist, uint16_t friend_n
 #endif /* !FRIEND_IPLIST_PAD */
 }
 
-
 /**
  * Callback invoked for each IP/port of each client of a friend.
  *
@@ -2055,7 +2054,6 @@ uint32_t route_to_friend(const DHT *dht, const uint8_t *friend_id, const Packet 
     if (num == UINT32_MAX) {
         return 0;
     }
-
 
     IP_Port ip_list[MAX_FRIEND_CLIENTS];
     const int ip_num = friend_iplist(dht, ip_list, num);
@@ -2292,7 +2290,7 @@ static void punch_holes(DHT *dht, const IP *ip, const uint16_t *port_list, uint1
 
         uint16_t i;
         for (i = 0; i < MAX_PUNCHING_PORTS; ++i) {
-            uint32_t it = i + dht->friends_list[friend_num].nat.punching_index2;
+            const uint32_t it = i + dht->friends_list[friend_num].nat.punching_index2;
             const uint16_t port = 1024;
             pinging.port = net_htons(port + it);
             ping_send_request(dht->ping, &pinging, dht->friends_list[friend_num].public_key);
@@ -2570,7 +2568,6 @@ DHT *new_dht(const Logger *log, const Memory *mem, const Random *rng, const Netw
         return nullptr;
     }
 
-
     dht->dht_ping_array = ping_array_new(mem, DHT_PING_ARRAY_SIZE, PING_TIMEOUT);
 
     if (dht->dht_ping_array == nullptr) {
@@ -2661,21 +2658,21 @@ uint32_t dht_size(const DHT *dht)
     uint32_t numv6 = 0;
 
     for (uint32_t i = 0; i < dht->loaded_num_nodes; ++i) {
-        numv4 += net_family_is_ipv4(dht->loaded_nodes_list[i].ip_port.ip.family);
-        numv6 += net_family_is_ipv6(dht->loaded_nodes_list[i].ip_port.ip.family);
+        numv4 += net_family_is_ipv4(dht->loaded_nodes_list[i].ip_port.ip.family) ? 1 : 0;
+        numv6 += net_family_is_ipv6(dht->loaded_nodes_list[i].ip_port.ip.family) ? 1 : 0;
     }
 
     for (uint32_t i = 0; i < LCLIENT_LIST; ++i) {
-        numv4 += dht->close_clientlist[i].assoc4.timestamp != 0;
-        numv6 += dht->close_clientlist[i].assoc6.timestamp != 0;
+        numv4 += dht->close_clientlist[i].assoc4.timestamp != 0 ? 1 : 0;
+        numv6 += dht->close_clientlist[i].assoc6.timestamp != 0 ? 1 : 0;
     }
 
     for (uint32_t i = 0; i < DHT_FAKE_FRIEND_NUMBER && i < dht->num_friends; ++i) {
         const DHT_Friend *const fr = &dht->friends_list[i];
 
         for (uint32_t j = 0; j < MAX_FRIEND_CLIENTS; ++j) {
-            numv4 += fr->client_list[j].assoc4.timestamp != 0;
-            numv6 += fr->client_list[j].assoc6.timestamp != 0;
+            numv4 += fr->client_list[j].assoc4.timestamp != 0 ? 1 : 0;
+            numv6 += fr->client_list[j].assoc6.timestamp != 0 ? 1 : 0;
         }
     }
 
@@ -2743,8 +2740,8 @@ void dht_save(const DHT *dht, uint8_t *data)
     }
 
     state_write_section_header(
-            old_data, DHT_STATE_COOKIE_TYPE, pack_nodes(dht->log, data, sizeof(Node_format) * num, clients, num),
-            DHT_STATE_TYPE_NODES);
+        old_data, DHT_STATE_COOKIE_TYPE, pack_nodes(dht->log, data, sizeof(Node_format) * num, clients, num),
+        DHT_STATE_TYPE_NODES);
 
     mem_delete(dht->mem, clients);
 }
@@ -2883,7 +2880,8 @@ bool dht_non_lan_connected(const DHT *dht)
     return false;
 }
 
-uint16_t dht_get_num_closelist(const DHT *dht) {
+uint16_t dht_get_num_closelist(const DHT *dht)
+{
     uint16_t num_valid_close_clients = 0;
     for (uint32_t i = 0; i < LCLIENT_LIST; ++i) {
         const Client_data *const client = dht_get_close_client(dht, i);
@@ -2897,7 +2895,8 @@ uint16_t dht_get_num_closelist(const DHT *dht) {
     return num_valid_close_clients;
 }
 
-uint16_t dht_get_num_closelist_announce_capable(const DHT *dht) {
+uint16_t dht_get_num_closelist_announce_capable(const DHT *dht)
+{
     uint16_t num_valid_close_clients_with_cap = 0;
     for (uint32_t i = 0; i < LCLIENT_LIST; ++i) {
         const Client_data *const client = dht_get_close_client(dht, i);

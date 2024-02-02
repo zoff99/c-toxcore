@@ -37,13 +37,11 @@ typedef enum MSIHeaderID {
     ID_CAPABILITIES,
 } MSIHeaderID;
 
-
 typedef enum MSIRequest {
     REQU_INIT,
     REQU_PUSH,
     REQU_POP,
 } MSIRequest;
-
 
 typedef struct MSIHeaderRequest {
     MSIRequest value;
@@ -60,13 +58,11 @@ typedef struct MSIHeaderCapabilities {
     bool exists;
 } MSIHeaderCapabilities;
 
-
 typedef struct MSIMessage {
     MSIHeaderRequest      request;
     MSIHeaderError        error;
     MSIHeaderCapabilities capabilities;
 } MSIMessage;
-
 
 static void msg_init(MSIMessage *dest, MSIRequest request);
 static void kill_call(const Logger *log, MSICall *call);
@@ -83,7 +79,6 @@ static void handle_push(const Logger *log, MSICall *call, const MSIMessage *msg)
 static void handle_pop(const Logger *log, MSICall *call, const MSIMessage *msg);
 static void handle_msi_packet(Tox *tox, uint32_t friend_number, const uint8_t *data, size_t length,
                               void *user_data);
-
 
 /*
  * Public functions
@@ -366,7 +361,6 @@ int msi_change_capabilities(const Logger *log, MSICall *call, uint8_t capabiliti
     pthread_mutex_unlock(session->mutex);
     return 0;
 }
-
 
 /**
  * Private functions
@@ -683,7 +677,7 @@ static MSICall *new_call(MSISession *session, uint32_t friend_number)
         session->calls_tail = friend_number;
         session->calls_head = friend_number;
     } else if (session->calls_tail < friend_number) { /* Appending */
-        MSICall **tmp = (MSICall **)realloc(session->calls,  (friend_number + 1) * sizeof(MSICall *));
+        MSICall **tmp = (MSICall **)realloc(session->calls, (friend_number + 1) * sizeof(MSICall *));
 
         if (tmp == nullptr) {
             free(rc);

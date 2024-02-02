@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../attributes.h"
 #include "../bin_pack.h"
 #include "../bin_unpack.h"
 #include "../ccompat.h"
@@ -15,13 +16,11 @@
 #include "../tox.h"
 #include "../tox_events.h"
 
-
 /*****************************************************
  *
  * :: struct and accessors
  *
  *****************************************************/
-
 
 struct Tox_Event_Group_Topic {
     uint32_t group_number;
@@ -131,7 +130,6 @@ static bool tox_event_group_topic_unpack_into(
            && bin_unpack_bin(bu, &event->topic, &event->topic_length);
 }
 
-
 /*****************************************************
  *
  * :: new/free/add/get/size/unpack
@@ -215,16 +213,15 @@ static Tox_Event_Group_Topic *tox_event_group_topic_alloc(void *user_data)
     return group_topic;
 }
 
-
 /*****************************************************
  *
  * :: event handler
  *
  *****************************************************/
 
-
-void tox_events_handle_group_topic(Tox *tox, uint32_t group_number, uint32_t peer_id, const uint8_t *topic, size_t length,
-        void *user_data)
+void tox_events_handle_group_topic(
+    Tox *tox, uint32_t group_number, uint32_t peer_id, const uint8_t *topic, size_t length,
+    void *user_data)
 {
     Tox_Event_Group_Topic *group_topic = tox_event_group_topic_alloc(user_data);
 

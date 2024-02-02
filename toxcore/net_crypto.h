@@ -13,8 +13,14 @@
 
 #include "DHT.h"
 #include "LAN_discovery.h"
+#include "TCP_client.h"
 #include "TCP_connection.h"
+#include "attributes.h"
+#include "crypto_core.h"
 #include "logger.h"
+#include "mem.h"
+#include "mono_time.h"
+#include "network.h"
 
 /*** Crypto payloads. */
 
@@ -197,7 +203,6 @@ int connection_status_handler(const Net_Crypto *c, int crypt_connection_id,
 non_null()
 int connection_data_handler(const Net_Crypto *c, int crypt_connection_id,
                             connection_data_cb *connection_data_callback, void *object, int id);
-
 
 /** @brief Set function to be called when connection with crypt_connection_id receives a lossy data packet of length.
  *
