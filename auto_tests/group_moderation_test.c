@@ -155,13 +155,13 @@ static size_t get_state_index_by_nick(const AutoTox *autotoxes, size_t num_peers
     ck_assert_msg(0, "Failed to find index");
 }
 
-static void group_join_fail_handler(Tox *tox, const Tox_Event_Group_Join_Fail *event, void *user_data)
+static void group_join_fail_handler(const Tox_Event_Group_Join_Fail *event, void *user_data)
 {
     const Tox_Group_Join_Fail fail_type = tox_event_group_join_fail_get_fail_type(event);
     fprintf(stderr, "Failed to join group: %d", fail_type);
 }
 
-static void group_peer_join_handler(Tox *tox, const Tox_Event_Group_Peer_Join *event, void *user_data)
+static void group_peer_join_handler(const Tox_Event_Group_Peer_Join *event, void *user_data)
 {
     AutoTox *autotox = (AutoTox *)user_data;
     ck_assert(autotox != nullptr);
@@ -176,12 +176,12 @@ static void group_peer_join_handler(Tox *tox, const Tox_Event_Group_Peer_Join *e
     char peer_name[TOX_MAX_NAME_LENGTH + 1];
 
     Tox_Err_Group_Peer_Query q_err;
-    size_t peer_name_len = tox_group_peer_get_name_size(tox, group_number, peer_id, &q_err);
+    size_t peer_name_len = tox_group_peer_get_name_size(autotox->tox, group_number, peer_id, &q_err);
 
     ck_assert(q_err == TOX_ERR_GROUP_PEER_QUERY_OK);
     ck_assert(peer_name_len <= TOX_MAX_NAME_LENGTH);
 
-    tox_group_peer_get_name(tox, group_number, peer_id, (uint8_t *) peer_name, &q_err);
+    tox_group_peer_get_name(autotox->tox, group_number, peer_id, (uint8_t *) peer_name, &q_err);
     peer_name[peer_name_len] = 0;
     ck_assert(q_err == TOX_ERR_GROUP_PEER_QUERY_OK);
 
@@ -246,7 +246,7 @@ static void handle_user(State *state, const char *peer_name, size_t peer_name_le
     state->user_check = true;
 }
 
-static void group_mod_event_handler(Tox *tox, const Tox_Event_Group_Moderation *event, void *user_data)
+static void group_mod_event_handler(const Tox_Event_Group_Moderation *event, void *user_data)
 {
     AutoTox *autotox = (AutoTox *)user_data;
     ck_assert(autotox != nullptr);
@@ -262,7 +262,7 @@ static void group_mod_event_handler(Tox *tox, const Tox_Event_Group_Moderation *
     char peer_name[TOX_MAX_NAME_LENGTH + 1];
 
     Tox_Err_Group_Peer_Query q_err;
-    size_t peer_name_len = tox_group_peer_get_name_size(tox, group_number, target_peer_id, &q_err);
+    size_t peer_name_len = tox_group_peer_get_name_size(autotox->tox, group_number, target_peer_id, &q_err);
 
     if (q_err == TOX_ERR_GROUP_PEER_QUERY_PEER_NOT_FOUND) {  // may occurr on sync attempts
         return;
@@ -271,11 +271,11 @@ static void group_mod_event_handler(Tox *tox, const Tox_Event_Group_Moderation *
     ck_assert_msg(q_err == TOX_ERR_GROUP_PEER_QUERY_OK, "error %d", q_err);
     ck_assert(peer_name_len <= TOX_MAX_NAME_LENGTH);
 
-    tox_group_peer_get_name(tox, group_number, target_peer_id, (uint8_t *) peer_name, &q_err);
+    tox_group_peer_get_name(autotox->tox, group_number, target_peer_id, (uint8_t *) peer_name, &q_err);
     peer_name[peer_name_len] = 0;
     ck_assert(q_err == TOX_ERR_GROUP_PEER_QUERY_OK);
 
-    Tox_Group_Role role = tox_group_peer_get_role(tox, group_number, target_peer_id, &q_err);
+    Tox_Group_Role role = tox_group_peer_get_role(autotox->tox, group_number, target_peer_id, &q_err);
     ck_assert(q_err == TOX_ERR_GROUP_PEER_QUERY_OK);
     ck_assert(role <= TOX_GROUP_ROLE_OBSERVER);
 

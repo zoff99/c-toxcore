@@ -12,7 +12,7 @@ typedef struct State {
 #include "auto_test_support.h"
 
 static void handle_conference_invite(
-    Tox *tox, const Tox_Event_Conference_Invite *event, void *user_data)
+    const Tox_Event_Conference_Invite *event, void *user_data)
 {
     const AutoTox *autotox = (AutoTox *)user_data;
     State *state = (State *)autotox->state;
@@ -23,7 +23,7 @@ static void handle_conference_invite(
 
     if (friend_number != -1) {
         Tox_Err_Conference_Join err;
-        state->conference = tox_conference_join(tox, friend_number, cookie, length, &err);
+        state->conference = tox_conference_join(autotox->tox, friend_number, cookie, length, &err);
         ck_assert_msg(err == TOX_ERR_CONFERENCE_JOIN_OK,
                       "attempting to join the conference returned with an error: %d", err);
         fprintf(stderr, "#%u accepted invite to conference %u\n", autotox->index, state->conference);
@@ -31,7 +31,7 @@ static void handle_conference_invite(
 }
 
 static void handle_conference_connected(
-    Tox *tox, const Tox_Event_Conference_Connected *event, void *user_data)
+    const Tox_Event_Conference_Connected *event, void *user_data)
 {
     const AutoTox *autotox = (AutoTox *)user_data;
     State *state = (State *)autotox->state;
