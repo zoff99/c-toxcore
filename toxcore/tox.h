@@ -895,16 +895,6 @@ Tox *tox_new(const Tox_Options *options, Tox_Err_New *error);
 void tox_kill(Tox *tox);
 
 /**
- * @brief Get a Tox_Options similar to the one used to create the Tox.
- *
- * Initialises the `options` object such that `tox_new` called with the passed
- * options will recreate the current @ref Tox instance.
- *
- * @param options the options object we want to initialise.
- */
-void tox_get_options(Tox *tox, struct Tox_Options *options);
-
-/**
  * @brief Calculates the number of bytes required to store the tox instance with
  *   tox_get_savedata.
  *

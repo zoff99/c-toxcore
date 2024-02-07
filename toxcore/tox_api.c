@@ -274,7 +274,6 @@ void tox_options_set_operating_system(Tox_Options *options, const Tox_System *op
     options->operating_system = operating_system;
 }
 
-
 const uint8_t *tox_options_get_savedata_data(const Tox_Options *options)
 {
     return options->savedata_data;
@@ -297,7 +296,7 @@ void tox_options_default(Tox_Options *options)
         tox_options_set_hole_punching_enabled(options, true);
         tox_options_set_local_discovery_enabled(options, true);
         tox_options_set_dht_announcements_enabled(options, true);
-        tox_options_set_experimental_thread_safety(options, true);
+        tox_options_set_experimental_thread_safety(options, false);
     }
 }
 

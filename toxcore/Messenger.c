@@ -1839,7 +1839,7 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, bool outbound,
     }
 }
 
-static int m_handle_lossy_packet(void *object, int friendcon_id, const uint8_t *packet, uint16_t length,
+static int m_handle_lossy_packet(void *object, int friendcon_id, const uint8_t *data, uint16_t length,
                                  void *userdata)
 {
     Messenger *m = (Messenger *)object;
@@ -1849,7 +1849,7 @@ static int m_handle_lossy_packet(void *object, int friendcon_id, const uint8_t *
     }
 
     if (m->lossy_packethandler != nullptr) {
-        m->lossy_packethandler(m, friendcon_id, packet[0], packet, length, userdata);
+        m->lossy_packethandler(m, friendcon_id, data[0], data, length, userdata);
     }
 
     return 1;

@@ -10,8 +10,6 @@
 #define C_TOXCORE_TOXCORE_LOGGER_H
 
 #include <stdint.h>
-#include <stdarg.h>
-#include <pthread.h>
 
 #include "attributes.h"
 
