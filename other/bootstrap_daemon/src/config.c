@@ -45,8 +45,12 @@ static void parse_tcp_relay_ports_config(config_t *cfg, uint16_t **tcp_relay_por
             log_write(LOG_LEVEL_INFO, "Port #%d: %u\n", i, default_ports[i]);
         }
 
-        // similar procedure to the one of reading config file below
+        // Similar procedure to the one of reading config file below
         *tcp_relay_ports = (uint16_t *)malloc(DEFAULT_TCP_RELAY_PORTS_COUNT * sizeof(uint16_t));
+        if (*tcp_relay_ports == nullptr) {
+            log_write(LOG_LEVEL_ERROR, "Allocation failure.\n");
+            return;
+        }
 
         for (int i = 0; i < DEFAULT_TCP_RELAY_PORTS_COUNT; ++i) {
 
@@ -62,10 +66,8 @@ static void parse_tcp_relay_ports_config(config_t *cfg, uint16_t **tcp_relay_por
             ++*tcp_relay_port_count;
         }
 
-        // the loop above skips invalid ports, so we adjust the allocated memory size
-        if ((*tcp_relay_port_count) > 0) {
-            *tcp_relay_ports = (uint16_t *)realloc(*tcp_relay_ports, (*tcp_relay_port_count) * sizeof(uint16_t));
-        } else {
+        // No ports, so we free the array.
+        if (*tcp_relay_port_count == 0) {
             free(*tcp_relay_ports);
             *tcp_relay_ports = nullptr;
         }
@@ -87,6 +89,10 @@ static void parse_tcp_relay_ports_config(config_t *cfg, uint16_t **tcp_relay_por
     }
 
     *tcp_relay_ports = (uint16_t *)malloc(config_port_count * sizeof(uint16_t));
+    if (*tcp_relay_ports == nullptr) {
+        log_write(LOG_LEVEL_ERROR, "Allocation failure.\n");
+        return;
+    }
 
     for (int i = 0; i < config_port_count; ++i) {
         config_setting_t *elem = config_setting_get_elem(ports_array, i);
@@ -114,10 +120,8 @@ static void parse_tcp_relay_ports_config(config_t *cfg, uint16_t **tcp_relay_por
         ++*tcp_relay_port_count;
     }
 
-    // the loop above skips invalid ports, so we adjust the allocated memory size
-    if ((*tcp_relay_port_count) > 0) {
-        *tcp_relay_ports = (uint16_t *)realloc(*tcp_relay_ports, (*tcp_relay_port_count) * sizeof(uint16_t));
-    } else {
+    // No ports, so we free the array.
+    if (*tcp_relay_port_count == 0) {
         free(*tcp_relay_ports);
         *tcp_relay_ports = nullptr;
     }
@@ -166,6 +170,10 @@ int get_general_config(const char *cfg_file_path, char **pid_file_path, char **k
 
     const size_t pid_file_path_len = strlen(tmp_pid_file) + 1;
     *pid_file_path = (char *)malloc(pid_file_path_len);
+    if (*pid_file_path == nullptr) {
+        log_write(LOG_LEVEL_ERROR, "Allocation failure.\n");
+        return false;
+    }
     memcpy(*pid_file_path, tmp_pid_file, pid_file_path_len);
 
     // Get keys file location
@@ -179,6 +187,10 @@ int get_general_config(const char *cfg_file_path, char **pid_file_path, char **k
 
     const size_t keys_file_path_len = strlen(tmp_keys_file) + 1;
     *keys_file_path = (char *)malloc(keys_file_path_len);
+    if (*keys_file_path == nullptr) {
+        log_write(LOG_LEVEL_ERROR, "Allocation failure.\n");
+        return false;
+    }
     memcpy(*keys_file_path, tmp_keys_file, keys_file_path_len);
 
     // Get IPv6 option
@@ -293,6 +305,10 @@ static uint8_t *bootstrap_hex_string_to_bin(const char *hex_string)
 
     size_t len = strlen(hex_string) / 2;
     uint8_t *ret = (uint8_t *)malloc(len);
+    if (ret == nullptr) {
+        log_write(LOG_LEVEL_ERROR, "Allocation failure.\n");
+        return nullptr;
+    }
 
     const char *pos = hex_string;
 
