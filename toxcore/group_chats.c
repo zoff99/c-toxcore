@@ -8190,7 +8190,7 @@ static void group_delete(GC_Session *c, GC_Chat *chat)
         c->chats_index = i;
 
         if (!realloc_groupchats(c, c->chats_index)) {
-            LOGGER_ERROR(c->messenger->log, "Failed to reallocate groupchats array");
+            LOGGER_ERROR(chat->log, "Failed to reallocate groupchats array");
         }
     }
 }
@@ -8223,7 +8223,7 @@ void kill_dht_groupchats(GC_Session *c)
         }
 
         if (kill_group(c, chat) != 0) {
-            LOGGER_WARNING(c->messenger->log, "Failed to send group exit packet");
+            LOGGER_WARNING(chat->log, "Failed to send group exit packet");
         }
     }
 
