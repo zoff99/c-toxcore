@@ -16,6 +16,7 @@
 #include "../toxcore/logger.h"
 #include "../toxcore/mono_time.h"
 
+extern bool global_do_not_sync_av;
 
 static struct TSBuffer *jbuf_new(int size);
 static void jbuf_free(struct TSBuffer *q);
@@ -205,7 +206,12 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     uint32_t tsb_range_ms_used = tsb_range_ms;
     uint32_t timestamp_want_get_used = want_remote_video_ts;
 
-    if ((ac->audio_received_first_frame) == 0 || (video_has_rountrip_time_ms == 0)) {
+    if (
+        (global_do_not_sync_av) ||
+        (ac->audio_received_first_frame) == 0 ||
+        (video_has_rountrip_time_ms == 0)
+        )
+    {
         LOGGER_API_DEBUG(ac->tox, "AA:%d %d", (int)ac->audio_received_first_frame, (int)video_has_rountrip_time_ms);
         tsb_range_ms_used = UINT32_MAX;
         timestamp_want_get_used = UINT32_MAX;
