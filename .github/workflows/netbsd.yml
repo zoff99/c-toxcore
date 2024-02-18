@@ -30,10 +30,28 @@ jobs:
         envs: 'MYTOKEN MYTOKEN2'
         usesh: true
         prepare: |
-          /usr/sbin/pkg_add curl
+          /usr/sbin/pkg_add
+            curl
+            cmake
+            googletest
+            libconfig
+            libopus
+            libsodium
+            libvpx
+            x264
+            libavcodec
+            libavformat
+            libavdevice
+            pkg-config
 
         run: |
-          pwd
-          ls -lah
-          whoami
-          env
+           pwd
+           cmake . \
+              -DMUST_BUILD_TOXAV=ON \
+              -DNON_HERMETIC_TESTS=ON \
+              -DTEST_TIMEOUT_SECONDS=300 \
+              -DUSE_IPV6=OFF \
+              -DAUTOTEST=ON
+            cmake --build . --target install
+            ctest -j50 --output-on-failure --rerun-failed --repeat until-pass:6
+
