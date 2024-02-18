@@ -39,9 +39,7 @@ jobs:
             libsodium
             libvpx
             x264
-            libavcodec
-            libavformat
-            libavdevice
+            ffmpeg6
             pkg-config
 
         run: |
