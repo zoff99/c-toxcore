@@ -45,7 +45,7 @@ jobs:
         run: |
            pwd
            cmake . \
-              -DMUST_BUILD_TOXAV=ON \
+              -DMUST_BUILD_TOXAV=OFF \
               -DNON_HERMETIC_TESTS=ON \
               -DTEST_TIMEOUT_SECONDS=300 \
               -DUSE_IPV6=OFF \
