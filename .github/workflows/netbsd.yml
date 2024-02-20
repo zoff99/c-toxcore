@@ -39,7 +39,7 @@ jobs:
             libsodium
             libvpx
             x264
-            multimedia/ffmpeg6
+            "multimedia/ffmpeg5"
             pkg-config
 
         run: |
