@@ -434,7 +434,7 @@ elif test "x$LIBSODIUM_FOUND" = "xno"; then
         AC_CHECK_HEADER(sodium.h,
             [],
             [
-                AC_MSG_ERROR([header files for required library libsodium was not found on your system, please check http://download.libsodium.org/libsodium/releases/])
+                AC_MSG_ERROR([header files for required library libsodium was not found on your system, please check https://github.com/jedisct1/libsodium])
             ]
         )
     fi
