@@ -1181,7 +1181,7 @@ Networking_Core *new_networking_ex(
      */
     int n = 1024 * 1024 * 2;
 
-#if !defined(__FreeBSD__)
+#if !(defined(__NetBSD__))
     if (net_setsockopt(ns, temp->sock, SOL_SOCKET, SO_RCVBUF, &n, sizeof(n)) != 0) {
         LOGGER_ERROR(log, "failed to set socket option %d", SO_RCVBUF);
     }
