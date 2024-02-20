@@ -3,6 +3,8 @@ name: custom_tests_asan
 on:
   push:
   pull_request:
+  schedule:
+    - cron: '3 */8 * * *'
 
 jobs:
   linux-custom-tests:
