@@ -39,15 +39,15 @@ jobs:
             libsodium
             libvpx
             x264
-            ffmpeg5
+            multimedia/ffmpeg6
             pkg-config
 
         run: |
            pwd
            cmake . \
-              -DMUST_BUILD_TOXAV=OFF \
+              -DMUST_BUILD_TOXAV=ON \
               -DNON_HERMETIC_TESTS=ON \
-              -DTEST_TIMEOUT_SECONDS=300 \
+              -DTEST_TIMEOUT_SECONDS=200 \
               -DUSE_IPV6=OFF \
               -DAUTOTEST=ON
             cmake --build . --target install
