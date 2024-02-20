@@ -47,7 +47,7 @@ jobs:
            cmake . \
               -DMUST_BUILD_TOXAV=OFF \
               -DNON_HERMETIC_TESTS=ON \
-              -DTEST_TIMEOUT_SECONDS=200 \
+              -DTEST_TIMEOUT_SECONDS=300 \
               -DUSE_IPV6=OFF \
               -DAUTOTEST=ON
             cmake --build . --target install
