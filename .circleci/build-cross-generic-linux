@@ -138,10 +138,7 @@ cd ..
 
 
 # ---------------------------------------------------------------------------------
-SODIUM_FILENAME="libsodium-$SODIUM_VERSION.tar.gz"
-rm -f libsodium-*.tar.gz
-wget $WGET_OPTIONS "https://download.libsodium.org/libsodium/releases/$SODIUM_FILENAME" -O "$SODIUM_FILENAME"
-tar -xf "$SODIUM_FILENAME"
+git clone --depth=1 --branch="$SODIUM_VERSION" https://github.com/jedisct1/libsodium.git
 cd libsodium*/
 
     ./configure --host="$CROSS_TRIPLE" \
