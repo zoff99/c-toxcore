@@ -374,7 +374,7 @@ elif test "x$LIBSODIUM_FOUND" = "xno"; then
         AC_CHECK_LIB(sodium, crypto_pwhash_scryptsalsa208sha256,
             [],
             [
-                AC_MSG_ERROR([required library libsodium was not found on your system, please check http://download.libsodium.org/libsodium/releases/ or library version is too old])
+                AC_MSG_ERROR([required library libsodium was not found on your system, please check https://github.com/jedisct1/libsodium or library version is too old])
             ]
         )
     fi

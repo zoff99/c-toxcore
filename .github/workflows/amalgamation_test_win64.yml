@@ -50,8 +50,8 @@ jobs:
           cd "$HOME"/sodium/
           rm -f libsodium.tgz
           rm -Rf libsodium-*
-          SODIUM_VERSION=1.0.18
-          wget "https://download.libsodium.org/libsodium/releases/libsodium-${SODIUM_VERSION}.tar.gz" -O libsodium.tgz
+          SODIUM_VERSION=1.0.19
+          wget "https://github.com/jedisct1/libsodium/releases/download/${SODIUM_VERSION}-RELEASE/libsodium-${SODIUM_VERSION}.tar.gz" -O libsodium.tgz
           tar -xzvf libsodium.tgz
           cd libsodium-*
           MINGW_ARCH="x86_64"

@@ -60,9 +60,8 @@ cd sodium/
 
 rm -f libsodium.tgz
 rm -Rf libsodium-*
-SODIUM_VERSION=1.0.18
-SODIUM_HASH=6f504490b342a4f8a4c4a02fc9b866cbef8622d5df4e5452b46be121e46636c1
-wget "https://download.libsodium.org/libsodium/releases/libsodium-${SODIUM_VERSION}.tar.gz" -O libsodium.tgz
+SODIUM_VERSION=1.0.19
+wget "https://github.com/jedisct1/libsodium/releases/download/${SODIUM_VERSION}-RELEASE/libsodium-${SODIUM_VERSION}.tar.gz" -O libsodium.tgz
 tar -xzvf libsodium.tgz
 cd libsodium-*
 
