@@ -8,7 +8,7 @@ jobs:
   linux-asan:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: |
           sudo apt-get update && \
           sudo DEBIAN_FRONTEND=noninteractive apt-get remove g++ && \
@@ -37,7 +37,7 @@ jobs:
   linux-tsan:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: |
           sudo apt-get update && \
           sudo DEBIAN_FRONTEND=noninteractive apt-get remove g++ && \
