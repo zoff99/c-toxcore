@@ -564,6 +564,37 @@ int m_get_friend_connectionstatus(const Messenger *m, int32_t friendnumber)
     return m->friendlist[friendnumber].last_connection_udp_tcp;
 }
 
+
+void m_get_friend_connection_ip(const Messenger *m, int32_t friendnumber, uint8_t *ip_str)
+{
+    if (!m_friend_exists(m, friendnumber)) {
+        return;
+    }
+
+    if (m->friendlist[friendnumber].status != FRIEND_ONLINE) {
+        return;
+    }
+
+    bool direct_connected = false;
+    uint32_t num_online_relays = 0;
+    const int crypt_conn_id = friend_connection_crypt_connection_id(m->fr_c, m->friendlist[friendnumber].friendcon_id);
+
+    if (!crypto_connection_status(m->net_crypto, crypt_conn_id, &direct_connected, &num_online_relays)) {
+        return;
+    }
+
+    if (direct_connected) {
+        // CONNECTION_UDP;
+        if (ip_str != nullptr) {
+            copy_friend_ip_port(m->net_crypto, crypt_conn_id, ip_str);
+        }
+    }
+
+    if (num_online_relays != 0) {
+        // CONNECTION_TCP;
+    }
+}
+
 /**
  * Checks if there exists a friend with given friendnumber.
  *

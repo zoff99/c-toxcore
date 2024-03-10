@@ -1724,6 +1724,9 @@ void tox_callback_friend_status(Tox *tox, tox_friend_status_cb *callback);
  */
 Tox_Connection tox_friend_get_connection_status(const Tox *tox, uint32_t friend_number, Tox_Err_Friend_Query *error);
 
+void tox_friend_get_connection_ip(const Tox *tox, uint32_t friend_number, uint8_t *ip_str);
+
+
 /**
  * @param friend_number The friend number of the friend whose connection status
  *   changed.

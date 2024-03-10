@@ -418,6 +418,8 @@ char *copy_all_connected_relays(Net_Crypto *c, char* relays_report_string, uint1
 non_null()
 char *copy_all_udp_connections(Net_Crypto *c, char *connections_report_string, uint16_t max_num, uint32_t* num);
 
+void copy_friend_ip_port(Net_Crypto *c, const int crypt_conn_id, char *report_string);
+
 non_null()
 char *udp_copy_all_connected(IP_Port conn_ip_port, char *connections_report_string, uint16_t max_num, uint32_t* num);
 

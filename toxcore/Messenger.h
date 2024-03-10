@@ -448,6 +448,8 @@ int m_delfriend(Messenger *m, int32_t friendnumber);
 non_null()
 int m_get_friend_connectionstatus(const Messenger *m, int32_t friendnumber);
 
+void m_get_friend_connection_ip(const Messenger *m, int32_t friendnumber, uint8_t *ip_str);
+
 /**
  * Checks if there exists a friend with given friendnumber.
  *

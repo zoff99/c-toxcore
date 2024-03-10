@@ -1794,6 +1794,18 @@ Tox_Connection tox_friend_get_connection_status(const Tox *tox, uint32_t friend_
     return (Tox_Connection)ret;
 }
 
+void tox_friend_get_connection_ip(const Tox *tox, uint32_t friend_number, uint8_t *ip_str)
+{
+    if (ip_str == nullptr) {
+        return;
+    }
+    assert(tox != nullptr);
+    tox_lock(tox);
+    m_get_friend_connection_ip(tox->m, friend_number, ip_str);
+    tox_unlock(tox);
+}
+
+
 void tox_callback_friend_connection_status(Tox *tox, tox_friend_connection_status_cb *callback)
 {
     assert(tox != nullptr);

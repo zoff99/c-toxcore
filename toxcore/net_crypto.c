@@ -2341,6 +2341,37 @@ char *udp_copy_all_connected(IP_Port conn_ip_port, char *connections_report_stri
     return p;
 }
 
+void copy_friend_ip_port(Net_Crypto *c, const int crypt_conn_id, char *report_string)
+{
+    if (report_string == nullptr) {
+        return;
+    }
+    char *p = report_string;
+    const IP_Port conn_ip_port = return_ip_port_connection(c, crypt_conn_id);
+
+    if (!net_family_is_unspec(conn_ip_port.ip.family)) {
+        if (net_family_is_ipv4(conn_ip_port.ip.family)) {
+            char ipv4[20];
+            memset(ipv4, 0, 20);
+            snprintf(ipv4, 16, "%d.%d.%d.%d",
+                conn_ip_port.ip.ip.v4.uint8[0],
+                conn_ip_port.ip.ip.v4.uint8[1],
+                conn_ip_port.ip.ip.v4.uint8[2],
+                conn_ip_port.ip.ip.v4.uint8[3]
+            );
+            p += snprintf(p, 60, "%s %5d\n", ipv4, net_ntohs(conn_ip_port.port));
+        } else if (net_family_is_ipv6(conn_ip_port.ip.family)) {
+            char ipv6[401];
+            memset(ipv6, 0, 401);
+            bool res = ip_parse_addr(&conn_ip_port.ip, ipv6, 400);
+            if (!res) {
+                snprintf(ipv6, 16, "<error in ipv6>");
+            }
+            p += snprintf(p, 60, "%s %5d\n", ipv6, net_ntohs(conn_ip_port.port));
+        }
+    }
+}
+
 non_null()
 char *copy_all_udp_connections(Net_Crypto *c, char *connections_report_string, uint16_t max_num, uint32_t* num)
 {

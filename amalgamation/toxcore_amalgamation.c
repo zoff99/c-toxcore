@@ -3194,6 +3194,8 @@ char *copy_all_connected_relays(Net_Crypto *c, char* relays_report_string, uint1
 non_null()
 char *copy_all_udp_connections(Net_Crypto *c, char *connections_report_string, uint16_t max_num, uint32_t* num);
 
+void copy_friend_ip_port(Net_Crypto *c, const int crypt_conn_id, char *report_string);
+
 non_null()
 char *udp_copy_all_connected(IP_Port conn_ip_port, char *connections_report_string, uint16_t max_num, uint32_t* num);
 
@@ -7672,6 +7674,9 @@ void tox_callback_friend_status(Tox *tox, tox_friend_status_cb *callback);
  *   in the client state.
  */
 Tox_Connection tox_friend_get_connection_status(const Tox *tox, uint32_t friend_number, Tox_Err_Friend_Query *error);
+
+void tox_friend_get_connection_ip(const Tox *tox, uint32_t friend_number, uint8_t *ip_str);
+
 
 /**
  * @param friend_number The friend number of the friend whose connection status
@@ -14546,6 +14551,8 @@ int m_delfriend(Messenger *m, int32_t friendnumber);
  */
 non_null()
 int m_get_friend_connectionstatus(const Messenger *m, int32_t friendnumber);
+
+void m_get_friend_connection_ip(const Messenger *m, int32_t friendnumber, uint8_t *ip_str);
 
 /**
  * Checks if there exists a friend with given friendnumber.
@@ -40923,6 +40930,37 @@ int m_get_friend_connectionstatus(const Messenger *m, int32_t friendnumber)
     return m->friendlist[friendnumber].last_connection_udp_tcp;
 }
 
+
+void m_get_friend_connection_ip(const Messenger *m, int32_t friendnumber, uint8_t *ip_str)
+{
+    if (!m_friend_exists(m, friendnumber)) {
+        return;
+    }
+
+    if (m->friendlist[friendnumber].status != FRIEND_ONLINE) {
+        return;
+    }
+
+    bool direct_connected = false;
+    uint32_t num_online_relays = 0;
+    const int crypt_conn_id = friend_connection_crypt_connection_id(m->fr_c, m->friendlist[friendnumber].friendcon_id);
+
+    if (!crypto_connection_status(m->net_crypto, crypt_conn_id, &direct_connected, &num_online_relays)) {
+        return;
+    }
+
+    if (direct_connected) {
+        // CONNECTION_UDP;
+        if (ip_str != nullptr) {
+            copy_friend_ip_port(m->net_crypto, crypt_conn_id, ip_str);
+        }
+    }
+
+    if (num_online_relays != 0) {
+        // CONNECTION_TCP;
+    }
+}
+
 /**
  * Checks if there exists a friend with given friendnumber.
  *
@@ -47188,6 +47226,37 @@ char *udp_copy_all_connected(IP_Port conn_ip_port, char *connections_report_stri
 
     *num = *num + copied;
     return p;
+}
+
+void copy_friend_ip_port(Net_Crypto *c, const int crypt_conn_id, char *report_string)
+{
+    if (report_string == nullptr) {
+        return;
+    }
+    char *p = report_string;
+    const IP_Port conn_ip_port = return_ip_port_connection(c, crypt_conn_id);
+
+    if (!net_family_is_unspec(conn_ip_port.ip.family)) {
+        if (net_family_is_ipv4(conn_ip_port.ip.family)) {
+            char ipv4[20];
+            memset(ipv4, 0, 20);
+            snprintf(ipv4, 16, "%d.%d.%d.%d",
+                conn_ip_port.ip.ip.v4.uint8[0],
+                conn_ip_port.ip.ip.v4.uint8[1],
+                conn_ip_port.ip.ip.v4.uint8[2],
+                conn_ip_port.ip.ip.v4.uint8[3]
+            );
+            p += snprintf(p, 60, "%s %5d\n", ipv4, net_ntohs(conn_ip_port.port));
+        } else if (net_family_is_ipv6(conn_ip_port.ip.family)) {
+            char ipv6[401];
+            memset(ipv6, 0, 401);
+            bool res = ip_parse_addr(&conn_ip_port.ip, ipv6, 400);
+            if (!res) {
+                snprintf(ipv6, 16, "<error in ipv6>");
+            }
+            p += snprintf(p, 60, "%s %5d\n", ipv6, net_ntohs(conn_ip_port.port));
+        }
+    }
 }
 
 non_null()
@@ -60979,6 +61048,18 @@ Tox_Connection tox_friend_get_connection_status(const Tox *tox, uint32_t friend_
     SET_ERROR_PARAMETER(error, TOX_ERR_FRIEND_QUERY_OK);
     return (Tox_Connection)ret;
 }
+
+void tox_friend_get_connection_ip(const Tox *tox, uint32_t friend_number, uint8_t *ip_str)
+{
+    if (ip_str == nullptr) {
+        return;
+    }
+    assert(tox != nullptr);
+    tox_lock(tox);
+    m_get_friend_connection_ip(tox->m, friend_number, ip_str);
+    tox_unlock(tox);
+}
+
 
 void tox_callback_friend_connection_status(Tox *tox, tox_friend_connection_status_cb *callback)
 {
