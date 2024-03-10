@@ -38518,7 +38518,7 @@ void m_get_friend_connection_ip(const Messenger *m, int32_t friendnumber, uint8_
     if (direct_connected) {
         // CONNECTION_UDP;
         if (ip_str != nullptr) {
-            copy_friend_ip_port(m->net_crypto, crypt_conn_id, ip_str);
+            copy_friend_ip_port(m->net_crypto, crypt_conn_id, (char *)ip_str);
         }
     }
 
