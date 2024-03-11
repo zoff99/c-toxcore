@@ -2777,6 +2777,12 @@ void kill_tcp_connections(TCP_Connections *tcp_c);
 non_null()
 char *tcp_copy_all_connected_relays(const TCP_Connections *tcp_c, char* relays_report_string, uint16_t max_num, uint32_t* num);
 
+non_null()
+TCP_Connection_to *get_connection(const TCP_Connections *tcp_c, int connections_number);
+
+non_null()
+TCP_con *get_tcp_connection(const TCP_Connections *tcp_c, int tcp_connections_number);
+
 #endif
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright © 2016-2018 The TokTok team.
@@ -3194,7 +3200,7 @@ char *copy_all_connected_relays(Net_Crypto *c, char* relays_report_string, uint1
 non_null()
 char *copy_all_udp_connections(Net_Crypto *c, char *connections_report_string, uint16_t max_num, uint32_t* num);
 
-void copy_friend_ip_port(Net_Crypto *c, const int crypt_conn_id, char *report_string);
+void copy_friend_ip_port(Net_Crypto *c, const int crypt_conn_id, char *report_string, bool direct_connected);
 
 non_null()
 char *udp_copy_all_connected(IP_Port conn_ip_port, char *connections_report_string, uint16_t max_num, uint32_t* num);
@@ -38499,6 +38505,10 @@ int m_get_friend_connectionstatus(const Messenger *m, int32_t friendnumber)
 
 void m_get_friend_connection_ip(const Messenger *m, int32_t friendnumber, uint8_t *ip_str)
 {
+    if (ip_str == nullptr) {
+        return;
+    }
+
     if (!m_friend_exists(m, friendnumber)) {
         return;
     }
@@ -38517,13 +38527,13 @@ void m_get_friend_connection_ip(const Messenger *m, int32_t friendnumber, uint8_
 
     if (direct_connected) {
         // CONNECTION_UDP;
-        if (ip_str != nullptr) {
-            copy_friend_ip_port(m->net_crypto, crypt_conn_id, (char *)ip_str);
-        }
+        copy_friend_ip_port(m->net_crypto, crypt_conn_id, (char *)ip_str, direct_connected);
+        return;
     }
 
     if (num_online_relays != 0) {
         // CONNECTION_TCP;
+        copy_friend_ip_port(m->net_crypto, crypt_conn_id, (char *)ip_str, direct_connected);
     }
 }
 
@@ -44794,34 +44804,83 @@ char *udp_copy_all_connected(IP_Port conn_ip_port, char *connections_report_stri
     return p;
 }
 
-void copy_friend_ip_port(Net_Crypto *c, const int crypt_conn_id, char *report_string)
+void copy_friend_ip_port(Net_Crypto *c, const int crypt_conn_id, char *report_string, bool direct_connected)
 {
     if (report_string == nullptr) {
         return;
     }
     char *p = report_string;
-    const IP_Port conn_ip_port = return_ip_port_connection(c, crypt_conn_id);
 
-    if (!net_family_is_unspec(conn_ip_port.ip.family)) {
-        if (net_family_is_ipv4(conn_ip_port.ip.family)) {
-            char ipv4[20];
-            memset(ipv4, 0, 20);
-            snprintf(ipv4, 16, "%d.%d.%d.%d",
-                conn_ip_port.ip.ip.v4.uint8[0],
-                conn_ip_port.ip.ip.v4.uint8[1],
-                conn_ip_port.ip.ip.v4.uint8[2],
-                conn_ip_port.ip.ip.v4.uint8[3]
-            );
-            p += snprintf(p, 60, "%s %5d\n", ipv4, net_ntohs(conn_ip_port.port));
-        } else if (net_family_is_ipv6(conn_ip_port.ip.family)) {
-            char ipv6[401];
-            memset(ipv6, 0, 401);
-            bool res = ip_parse_addr(&conn_ip_port.ip, ipv6, 400);
-            if (!res) {
-                snprintf(ipv6, 16, "<error in ipv6>");
+    if (direct_connected) {
+        const IP_Port conn_ip_port = return_ip_port_connection(c, crypt_conn_id);
+
+        if (!net_family_is_unspec(conn_ip_port.ip.family)) {
+            if (net_family_is_ipv4(conn_ip_port.ip.family)) {
+                char ipv4[20];
+                memset(ipv4, 0, 20);
+                snprintf(ipv4, 16, "%d.%d.%d.%d",
+                    conn_ip_port.ip.ip.v4.uint8[0],
+                    conn_ip_port.ip.ip.v4.uint8[1],
+                    conn_ip_port.ip.ip.v4.uint8[2],
+                    conn_ip_port.ip.ip.v4.uint8[3]
+                );
+                p += snprintf(p, 60, "%s %5d\n", ipv4, net_ntohs(conn_ip_port.port));
+            } else if (net_family_is_ipv6(conn_ip_port.ip.family)) {
+                char ipv6[401];
+                memset(ipv6, 0, 401);
+                bool res = ip_parse_addr(&conn_ip_port.ip, ipv6, 400);
+                if (!res) {
+                    snprintf(ipv6, 16, "<error in ipv6>");
+                }
+                p += snprintf(p, 60, "%s %5d\n", ipv6, net_ntohs(conn_ip_port.port));
             }
-            p += snprintf(p, 60, "%s %5d\n", ipv6, net_ntohs(conn_ip_port.port));
         }
+
+    } else {
+        // get tcp connections
+        Crypto_Connection *conn = get_crypto_connection(c, crypt_conn_id);
+        unsigned int conn_num_tcp = conn->connection_number_tcp;
+        const TCP_Connection_to *con_to = get_connection(c->tcp_c, conn_num_tcp);
+
+        for (uint32_t i = 0; i < MAX_FRIEND_TCP_CONNECTIONS; ++i) {
+            uint32_t tcp_con_num = con_to->connections[i].tcp_connection;
+            const uint8_t status = con_to->connections[i].status;
+            const uint8_t connection_id = con_to->connections[i].connection_id;
+
+            if (tcp_con_num > 0 && status == TCP_CONNECTIONS_STATUS_ONLINE) {
+                tcp_con_num -= 1;
+                TCP_con *tcp_con = get_tcp_connection(c->tcp_c, tcp_con_num);
+
+                if (tcp_con == nullptr) {
+                    continue;
+                }
+
+                const IP_Port conn_ip_port = tcp_con_ip_port(tcp_con->connection);
+
+                if (!net_family_is_unspec(conn_ip_port.ip.family)) {
+                    if (net_family_is_ipv4(conn_ip_port.ip.family)) {
+                        char ipv4[20];
+                        memset(ipv4, 0, 20);
+                        snprintf(ipv4, 16, "%d.%d.%d.%d",
+                            conn_ip_port.ip.ip.v4.uint8[0],
+                            conn_ip_port.ip.ip.v4.uint8[1],
+                            conn_ip_port.ip.ip.v4.uint8[2],
+                            conn_ip_port.ip.ip.v4.uint8[3]
+                        );
+                        p += snprintf(p, 60, "%s %5d\n", ipv4, net_ntohs(conn_ip_port.port));
+                    } else if (net_family_is_ipv6(conn_ip_port.ip.family)) {
+                        char ipv6[401];
+                        memset(ipv6, 0, 401);
+                        bool res = ip_parse_addr(&conn_ip_port.ip, ipv6, 400);
+                        if (!res) {
+                            snprintf(ipv6, 16, "<error in ipv6>");
+                        }
+                        p += snprintf(p, 60, "%s %5d\n", ipv6, net_ntohs(conn_ip_port.port));
+                    }
+                }
+            }
+        }
+
     }
 }
 
@@ -53715,7 +53774,7 @@ static int wipe_tcp_connection(TCP_Connections *tcp_c, int tcp_connections_numbe
 }
 
 non_null()
-static TCP_Connection_to *get_connection(const TCP_Connections *tcp_c, int connections_number)
+TCP_Connection_to *get_connection(const TCP_Connections *tcp_c, int connections_number)
 {
     if (!connections_number_is_valid(tcp_c, connections_number)) {
         return nullptr;
@@ -53725,7 +53784,7 @@ static TCP_Connection_to *get_connection(const TCP_Connections *tcp_c, int conne
 }
 
 non_null()
-static TCP_con *get_tcp_connection(const TCP_Connections *tcp_c, int tcp_connections_number)
+TCP_con *get_tcp_connection(const TCP_Connections *tcp_c, int tcp_connections_number)
 {
     if (!tcp_connections_number_is_valid(tcp_c, tcp_connections_number)) {
         return nullptr;

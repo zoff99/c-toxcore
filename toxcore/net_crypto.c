@@ -2341,34 +2341,83 @@ char *udp_copy_all_connected(IP_Port conn_ip_port, char *connections_report_stri
     return p;
 }
 
-void copy_friend_ip_port(Net_Crypto *c, const int crypt_conn_id, char *report_string)
+void copy_friend_ip_port(Net_Crypto *c, const int crypt_conn_id, char *report_string, bool direct_connected)
 {
     if (report_string == nullptr) {
         return;
     }
     char *p = report_string;
-    const IP_Port conn_ip_port = return_ip_port_connection(c, crypt_conn_id);
 
-    if (!net_family_is_unspec(conn_ip_port.ip.family)) {
-        if (net_family_is_ipv4(conn_ip_port.ip.family)) {
-            char ipv4[20];
-            memset(ipv4, 0, 20);
-            snprintf(ipv4, 16, "%d.%d.%d.%d",
-                conn_ip_port.ip.ip.v4.uint8[0],
-                conn_ip_port.ip.ip.v4.uint8[1],
-                conn_ip_port.ip.ip.v4.uint8[2],
-                conn_ip_port.ip.ip.v4.uint8[3]
-            );
-            p += snprintf(p, 60, "%s %5d\n", ipv4, net_ntohs(conn_ip_port.port));
-        } else if (net_family_is_ipv6(conn_ip_port.ip.family)) {
-            char ipv6[401];
-            memset(ipv6, 0, 401);
-            bool res = ip_parse_addr(&conn_ip_port.ip, ipv6, 400);
-            if (!res) {
-                snprintf(ipv6, 16, "<error in ipv6>");
+    if (direct_connected) {
+        const IP_Port conn_ip_port = return_ip_port_connection(c, crypt_conn_id);
+
+        if (!net_family_is_unspec(conn_ip_port.ip.family)) {
+            if (net_family_is_ipv4(conn_ip_port.ip.family)) {
+                char ipv4[20];
+                memset(ipv4, 0, 20);
+                snprintf(ipv4, 16, "%d.%d.%d.%d",
+                    conn_ip_port.ip.ip.v4.uint8[0],
+                    conn_ip_port.ip.ip.v4.uint8[1],
+                    conn_ip_port.ip.ip.v4.uint8[2],
+                    conn_ip_port.ip.ip.v4.uint8[3]
+                );
+                p += snprintf(p, 60, "%s %5d\n", ipv4, net_ntohs(conn_ip_port.port));
+            } else if (net_family_is_ipv6(conn_ip_port.ip.family)) {
+                char ipv6[401];
+                memset(ipv6, 0, 401);
+                bool res = ip_parse_addr(&conn_ip_port.ip, ipv6, 400);
+                if (!res) {
+                    snprintf(ipv6, 16, "<error in ipv6>");
+                }
+                p += snprintf(p, 60, "%s %5d\n", ipv6, net_ntohs(conn_ip_port.port));
             }
-            p += snprintf(p, 60, "%s %5d\n", ipv6, net_ntohs(conn_ip_port.port));
         }
+
+    } else {
+        // get tcp connections
+        Crypto_Connection *conn = get_crypto_connection(c, crypt_conn_id);
+        unsigned int conn_num_tcp = conn->connection_number_tcp;
+        const TCP_Connection_to *con_to = get_connection(c->tcp_c, conn_num_tcp);
+
+        for (uint32_t i = 0; i < MAX_FRIEND_TCP_CONNECTIONS; ++i) {
+            uint32_t tcp_con_num = con_to->connections[i].tcp_connection;
+            const uint8_t status = con_to->connections[i].status;
+            const uint8_t connection_id = con_to->connections[i].connection_id;
+
+            if (tcp_con_num > 0 && status == TCP_CONNECTIONS_STATUS_ONLINE) {
+                tcp_con_num -= 1;
+                TCP_con *tcp_con = get_tcp_connection(c->tcp_c, tcp_con_num);
+
+                if (tcp_con == nullptr) {
+                    continue;
+                }
+
+                const IP_Port conn_ip_port = tcp_con_ip_port(tcp_con->connection);
+
+                if (!net_family_is_unspec(conn_ip_port.ip.family)) {
+                    if (net_family_is_ipv4(conn_ip_port.ip.family)) {
+                        char ipv4[20];
+                        memset(ipv4, 0, 20);
+                        snprintf(ipv4, 16, "%d.%d.%d.%d",
+                            conn_ip_port.ip.ip.v4.uint8[0],
+                            conn_ip_port.ip.ip.v4.uint8[1],
+                            conn_ip_port.ip.ip.v4.uint8[2],
+                            conn_ip_port.ip.ip.v4.uint8[3]
+                        );
+                        p += snprintf(p, 60, "%s %5d\n", ipv4, net_ntohs(conn_ip_port.port));
+                    } else if (net_family_is_ipv6(conn_ip_port.ip.family)) {
+                        char ipv6[401];
+                        memset(ipv6, 0, 401);
+                        bool res = ip_parse_addr(&conn_ip_port.ip, ipv6, 400);
+                        if (!res) {
+                            snprintf(ipv6, 16, "<error in ipv6>");
+                        }
+                        p += snprintf(p, 60, "%s %5d\n", ipv6, net_ntohs(conn_ip_port.port));
+                    }
+                }
+            }
+        }
+
     }
 }
 

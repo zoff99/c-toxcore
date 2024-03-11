@@ -259,7 +259,7 @@ static int wipe_tcp_connection(TCP_Connections *tcp_c, int tcp_connections_numbe
 }
 
 non_null()
-static TCP_Connection_to *get_connection(const TCP_Connections *tcp_c, int connections_number)
+TCP_Connection_to *get_connection(const TCP_Connections *tcp_c, int connections_number)
 {
     if (!connections_number_is_valid(tcp_c, connections_number)) {
         return nullptr;
@@ -269,7 +269,7 @@ static TCP_Connection_to *get_connection(const TCP_Connections *tcp_c, int conne
 }
 
 non_null()
-static TCP_con *get_tcp_connection(const TCP_Connections *tcp_c, int tcp_connections_number)
+TCP_con *get_tcp_connection(const TCP_Connections *tcp_c, int tcp_connections_number)
 {
     if (!tcp_connections_number_is_valid(tcp_c, tcp_connections_number)) {
         return nullptr;

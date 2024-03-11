@@ -314,4 +314,10 @@ void kill_tcp_connections(TCP_Connections *tcp_c);
 non_null()
 char *tcp_copy_all_connected_relays(const TCP_Connections *tcp_c, char* relays_report_string, uint16_t max_num, uint32_t* num);
 
+non_null()
+TCP_Connection_to *get_connection(const TCP_Connections *tcp_c, int connections_number);
+
+non_null()
+TCP_con *get_tcp_connection(const TCP_Connections *tcp_c, int tcp_connections_number);
+
 #endif

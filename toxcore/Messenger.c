@@ -567,6 +567,10 @@ int m_get_friend_connectionstatus(const Messenger *m, int32_t friendnumber)
 
 void m_get_friend_connection_ip(const Messenger *m, int32_t friendnumber, uint8_t *ip_str)
 {
+    if (ip_str == nullptr) {
+        return;
+    }
+
     if (!m_friend_exists(m, friendnumber)) {
         return;
     }
@@ -585,13 +589,13 @@ void m_get_friend_connection_ip(const Messenger *m, int32_t friendnumber, uint8_
 
     if (direct_connected) {
         // CONNECTION_UDP;
-        if (ip_str != nullptr) {
-            copy_friend_ip_port(m->net_crypto, crypt_conn_id, (char *)ip_str);
-        }
+        copy_friend_ip_port(m->net_crypto, crypt_conn_id, (char *)ip_str, direct_connected);
+        return;
     }
 
     if (num_online_relays != 0) {
         // CONNECTION_TCP;
+        copy_friend_ip_port(m->net_crypto, crypt_conn_id, (char *)ip_str, direct_connected);
     }
 }
 
