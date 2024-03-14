@@ -303,6 +303,8 @@ Group_Voice_State gc_get_voice_state(const GC_Chat *chat);
 non_null()
 uint16_t gc_get_max_peers(const GC_Chat *chat);
 
+void gc_get_group_peer_connection_ip(const Messenger *m, int group_number, uint32_t peer_id, uint8_t *ip_str);
+
 /** @brief Sets your own nick to `nick`.
  *
  * `length` cannot exceed MAX_GC_NICK_SIZE. if `length` is zero or `name` is a

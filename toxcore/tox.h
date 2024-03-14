@@ -3625,6 +3625,8 @@ typedef enum Tox_Group_Role {
  ******************************************************************************/
 
 
+void tox_group_get_connection_ip(const Tox *tox, uint32_t group_number, uint32_t peer_id, uint8_t *ip_str);
+
 
 typedef enum Tox_Err_Group_New {
 

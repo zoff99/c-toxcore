@@ -3102,6 +3102,17 @@ void tox_callback_group_join_fail(Tox *tox, tox_group_join_fail_cb *callback)
     tox->group_join_fail_callback = callback;
 }
 
+void tox_group_get_connection_ip(const Tox *tox, uint32_t group_number, uint32_t peer_id, uint8_t *ip_str)
+{
+    if (ip_str == nullptr) {
+        return;
+    }
+    assert(tox != nullptr);
+    tox_lock(tox);
+    gc_get_group_peer_connection_ip(tox->m, group_number, peer_id, ip_str);
+    tox_unlock(tox);
+}
+
 uint32_t tox_group_new(Tox *tox, Tox_Group_Privacy_State privacy_state, const uint8_t *group_name,
                        size_t group_name_length, const uint8_t *name, size_t name_length, Tox_Err_Group_New *error)
 {

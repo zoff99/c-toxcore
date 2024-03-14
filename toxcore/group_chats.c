@@ -3366,6 +3366,100 @@ static void handle_gc_peer_exit(const GC_Chat *chat, GC_Connection *gconn, const
     gcc_mark_for_deletion(gconn, chat->tcp_conn, GC_EXIT_TYPE_QUIT, data, length);
 }
 
+void gc_get_group_peer_connection_ip(const Messenger *m, int group_number, uint32_t peer_id, uint8_t *ip_str)
+{
+    if (ip_str == nullptr) {
+        return;
+    }
+    char *p = ip_str;
+
+    const GC_Session *c = m->group_handler;
+    const GC_Chat *chat = gc_get_group(c, group_number);
+    if (chat == nullptr) {
+        return;
+    }
+    if (chat->connection_state != CS_CONNECTED) {
+        return;
+    }
+
+    const int peer_number = get_peer_number_of_peer_id(chat, peer_id);
+    const GC_Connection *gconn = get_gc_connection(chat, peer_number);
+    if (gconn == nullptr) {
+        return;
+    }
+
+    if (gcc_direct_conn_is_possible(chat, gconn)) {
+        if (gcc_conn_is_direct(chat->mono_time, gconn)) {
+            if (!net_family_is_unspec(gconn->addr.ip_port.ip.family)) {
+                if (net_family_is_ipv4(gconn->addr.ip_port.ip.family)) {
+                    char ipv4[20];
+                    memset(ipv4, 0, 20);
+                    snprintf(ipv4, 16, "%d.%d.%d.%d",
+                        gconn->addr.ip_port.ip.ip.v4.uint8[0],
+                        gconn->addr.ip_port.ip.ip.v4.uint8[1],
+                        gconn->addr.ip_port.ip.ip.v4.uint8[2],
+                        gconn->addr.ip_port.ip.ip.v4.uint8[3]
+                    );
+                    p += snprintf(p, 60, "%s %5d\n", ipv4, net_ntohs(gconn->addr.ip_port.port));
+                } else if (net_family_is_ipv6(gconn->addr.ip_port.ip.family)) {
+                    char ipv6[401];
+                    memset(ipv6, 0, 401);
+                    bool res = ip_parse_addr(&gconn->addr.ip_port.ip, ipv6, 400);
+                    if (!res) {
+                        snprintf(ipv6, 16, "<error in ipv6>");
+                    }
+                    p += snprintf(p, 60, "%s %5d\n", ipv6, net_ntohs(gconn->addr.ip_port.port));
+                }
+            }
+            return;
+        }
+    }
+
+    if (gconn->tcp_relays_count > 0) {
+        // get tcp connections
+        const TCP_Connection_to *con_to = get_connection(chat->tcp_conn, gconn->tcp_connection_num);
+
+        for (uint32_t i = 0; i < MAX_FRIEND_TCP_CONNECTIONS; ++i) {
+            uint32_t tcp_con_num = con_to->connections[i].tcp_connection;
+            const uint8_t status = con_to->connections[i].status;
+            const uint8_t connection_id = con_to->connections[i].connection_id;
+
+            if (tcp_con_num > 0 && status == TCP_CONNECTIONS_STATUS_ONLINE) {
+                tcp_con_num -= 1;
+                TCP_con *tcp_con = get_tcp_connection(chat->tcp_conn, tcp_con_num);
+
+                if (tcp_con == nullptr) {
+                    continue;
+                }
+
+                const IP_Port conn_ip_port = tcp_con_ip_port(tcp_con->connection);
+
+                if (!net_family_is_unspec(conn_ip_port.ip.family)) {
+                    if (net_family_is_ipv4(conn_ip_port.ip.family)) {
+                        char ipv4[20];
+                        memset(ipv4, 0, 20);
+                        snprintf(ipv4, 16, "%d.%d.%d.%d",
+                            conn_ip_port.ip.ip.v4.uint8[0],
+                            conn_ip_port.ip.ip.v4.uint8[1],
+                            conn_ip_port.ip.ip.v4.uint8[2],
+                            conn_ip_port.ip.ip.v4.uint8[3]
+                        );
+                        p += snprintf(p, 60, "%s %5d\n", ipv4, net_ntohs(conn_ip_port.port));
+                    } else if (net_family_is_ipv6(conn_ip_port.ip.family)) {
+                        char ipv6[401];
+                        memset(ipv6, 0, 401);
+                        bool res = ip_parse_addr(&conn_ip_port.ip, ipv6, 400);
+                        if (!res) {
+                            snprintf(ipv6, 16, "<error in ipv6>");
+                        }
+                        p += snprintf(p, 60, "%s %5d\n", ipv6, net_ntohs(conn_ip_port.port));
+                    }
+                }
+            }
+        }
+    }
+}
+
 int gc_set_self_nick(const Messenger *m, int group_number, const uint8_t *nick, uint16_t length)
 {
     const GC_Session *c = m->group_handler;
