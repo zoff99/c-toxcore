@@ -23,6 +23,7 @@ RUN apt-get update && \
         llvm-dev \
         llvm-runtime \
         llvm-spirv \
+        libx265-dev \
         libx264-dev \
         net-tools \
         curl \
@@ -90,6 +91,8 @@ RUN cd /workspace2/build/ && mkdir /workspace2/build/inst/ && \
               --disable-libxcb-shm \
               --disable-libxcb-xfixes \
               --enable-pthreads \
+              --enable-parser=h265 \
+              --enable-decoder=h265 \
               --enable-parser=h264 \
               --enable-runtime-cpudetect \
               --enable-gpl --enable-decoder=h264 \

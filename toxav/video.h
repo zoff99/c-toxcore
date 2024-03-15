@@ -31,6 +31,13 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/common.h>
 // for H264 ----------
+
+#ifdef HAVE_H265_ENCODER
+// for H265 ----------
+#include <x265.h>
+// for H265 ----------
+#endif
+
 #ifdef __cplusplus
 }
 #endif
@@ -161,6 +168,13 @@ typedef struct VCSession_s {
     int h264_enc_height;
     uint32_t h264_enc_bitrate;
 
+#ifdef HAVE_H265_ENCODER
+// ------ h265 encoder ------
+    x265_encoder *h265_encoder;
+    x265_picture *h265_in_pic;
+// ------ h265 encoder ------
+#endif
+
 // ------ ffmpeg encoder ------
     AVCodecContext *h264_encoder2;
     AVPacket *h264_out_pic2;
@@ -172,6 +186,7 @@ typedef struct VCSession_s {
     /* decoding */
     vpx_codec_ctx_t decoder[1];
     AVCodecContext *h264_decoder;
+    AVCodecContext *h265_decoder;
     struct TSBuffer *vbuf_raw; /* Un-decoded data */
 
     uint32_t tsb_range_ms;

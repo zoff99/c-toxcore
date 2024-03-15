@@ -209,6 +209,11 @@ void toxav_kill(ToxAV *av)
 
     pthread_mutex_lock(av->mutex);
 
+#ifdef HAVE_H265_ENCODER
+    // HINT: to prevent leaks, cleanup x265
+    x265_cleanup();
+#endif
+
     // unregister callbacks
     for (uint8_t i = PACKET_ID_RANGE_LOSSY_AV_START; i <= PACKET_ID_RANGE_LOSSY_AV_END; ++i) {
         tox_callback_friend_lossy_packet_per_pktid(av->tox, nullptr, i);

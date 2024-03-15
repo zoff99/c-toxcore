@@ -97,6 +97,8 @@ export ARCH2="$ARCH"
               --disable-bsfs \
               --disable-libxcb \
               --disable-libxcb-shm \
+              --enable-parser=h265 \
+              --enable-decoder=h265 \
               --enable-parser=h264 \
               --enable-decoder=h264 || exit 1
 
