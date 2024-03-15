@@ -123,7 +123,7 @@ expect \"localhost:~#\"
 send -- \"/bin/bash\r\"
 
 expect \"localhost:~#\"
-send -- \"apk add git autoconf automake libtool make pkgconf gcc ffmpeg-dev x264-dev opus-dev libvpx-dev libsodium-dev linux-headers musl-dev\r\"
+send -- \"apk add git autoconf automake libtool make pkgconf gcc ffmpeg-dev x265-dev x264-dev opus-dev libvpx-dev libsodium-dev linux-headers musl-dev\r\"
 
 expect \"localhost:~#\"
 send -- \"export PS1=12345x:\r\"

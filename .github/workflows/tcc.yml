@@ -26,7 +26,8 @@ jobs:
           libavcodec-dev \
           libavformat-dev \
           libavfilter-dev \
-          libx264-dev
+          libx264-dev \
+          libx265-dev
       - run: .localrun/run_tcc.sh
 
       - name: Run the test

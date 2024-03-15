@@ -30,7 +30,8 @@ jobs:
           libavcodec-dev \
           libavformat-dev \
           libavfilter-dev \
-          libx264-dev
+          libx264-dev \
+          libx265-dev
       - run: git submodule update --init --recursive
       - run: CC=clang .circleci/cmake-asan
 
@@ -59,6 +60,7 @@ jobs:
           libavcodec-dev \
           libavformat-dev \
           libavfilter-dev \
-          libx264-dev
+          libx264-dev \
+          libx265-dev
       - run: git submodule update --init --recursive
       - run: CC=clang .circleci/cmake-tsan

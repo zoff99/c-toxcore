@@ -73,6 +73,7 @@ pkgs="
     libsodium-dev
     opus-dev
     libvpx-dev
+    x265-dev
     x264-dev
     ffmpeg4-dev
     ninja

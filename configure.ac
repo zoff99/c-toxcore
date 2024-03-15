@@ -19,6 +19,7 @@ BUILD_DHT_BOOTSTRAP_DAEMON="no"
 BUILD_DHT_BOOTSTRAP="no"
 BUILD_TESTS="yes"
 BUILD_AV="yes"
+BUILD_H265="yes"
 BUILD_TESTING="yes"
 
 LIBCONFIG_FOUND="no"
@@ -95,6 +96,17 @@ AC_ARG_ENABLE([av],
             BUILD_AV="no"
         elif test "x$enableval" = "xyes"; then
             BUILD_AV="yes"
+        fi
+    ]
+)
+
+AC_ARG_ENABLE([h265],
+    [AC_HELP_STRING([--disable-h265], [build AV support libraries with H265 support(default: auto)]) ],
+    [
+        if test "x$enableval" = "xno"; then
+            BUILD_H265="no"
+        elif test "x$enableval" = "xyes"; then
+            BUILD_H265="yes"
         fi
     ]
 )
@@ -492,6 +504,16 @@ if test "x$BUILD_AV" = "xyes"; then
 fi
 
 if test "x$BUILD_AV" = "xyes"; then
+    PKG_CHECK_MODULES([X265], [x265],
+        [],
+        [
+            AC_MSG_WARN([disabling AV support for H265 encoding $X265_PKG_ERRORS])
+            BUILD_H265="no"
+        ]
+    )
+fi
+
+if test "x$BUILD_AV" = "xyes"; then
     PKG_CHECK_MODULES([OPUS], [opus],
         [],
         [
@@ -514,11 +536,19 @@ fi
 if test "x$BUILD_AV" = "xyes"; then
     # toxcore lib needs an global?
     # So far this works okay
-    AV_LIBS="$OPUS_LIBS $VPX_LIBS $LIBAVCODEC_LIBS $X264_LIBS"
-    AC_SUBST(AV_LIBS)
+    if test "x$BUILD_H265" = "xyes"; then
+        AV_LIBS="$OPUS_LIBS $VPX_LIBS $LIBAVCODEC_LIBS $X264_LIBS $X265_LIBS"
+        AC_SUBST(AV_LIBS)
 
-    AV_CFLAGS="$OPUS_CFLAGS $VPX_CFLAGS $LIBAVCODEC_CFLAGS $X264_CFLAGS"
-    AC_SUBST(AV_CFLAGS)
+        AV_CFLAGS="$OPUS_CFLAGS $VPX_CFLAGS $LIBAVCODEC_CFLAGS $X264_CFLAGS $X265_CFLAGS -DHAVE_H265_ENCODER"
+        AC_SUBST(AV_CFLAGS)
+    else
+        AV_LIBS="$OPUS_LIBS $VPX_LIBS $LIBAVCODEC_LIBS $X264_LIBS"
+        AC_SUBST(AV_LIBS)
+
+        AV_CFLAGS="$OPUS_CFLAGS $VPX_CFLAGS $LIBAVCODEC_CFLAGS $X264_CFLAGS"
+        AC_SUBST(AV_CFLAGS)
+    fi
 fi
 
 if test -n "$PKG_CONFIG"; then
@@ -574,6 +604,7 @@ AM_CONDITIONAL(BUILD_DHT_BOOTSTRAP_DAEMON, test "x$BUILD_DHT_BOOTSTRAP_DAEMON" =
 AM_CONDITIONAL(BUILD_DHT_BOOTSTRAP, test "x$BUILD_DHT_BOOTSTRAP" = "xyes")
 AM_CONDITIONAL(BUILD_TESTS, test "x$BUILD_TESTS" = "xyes")
 AM_CONDITIONAL(BUILD_AV, test "x$BUILD_AV" = "xyes")
+AM_CONDITIONAL(BUILD_H265, test "x$BUILD_H265" = "xyes")
 AM_CONDITIONAL(BUILD_TESTING, test "x$BUILD_TESTING" = "xyes")
 AM_CONDITIONAL(WITH_NACL, test "x$WANT_NACL" = "xyes")
 AM_CONDITIONAL(WIN32, test "x$WIN32" = "xyes")

@@ -37,6 +37,7 @@ jobs:
             libavformat-dev
             libavfilter-dev
             libx264-dev
+            libx265-dev
       - checkout
       - run: git submodule update --init --recursive
       - run: CC=clang .circleci/cmake-asan
@@ -83,6 +84,7 @@ jobs:
           opus-dev \
           libvpx-dev \
           x264-dev \
+          x265-dev \
           ffmpeg4-dev \
           ninja \
           pkgconf-dev \

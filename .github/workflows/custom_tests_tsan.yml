@@ -35,7 +35,8 @@ jobs:
           libavcodec-dev \
           libavformat-dev \
           libavfilter-dev \
-          libx264-dev
+          libx264-dev \
+          libx265-dev
       - name: setup tor
         run: |
            sudo /etc/init.d/tor restart
@@ -88,8 +89,8 @@ jobs:
           rm -f test
           clang -g -O1 -fno-omit-frame-pointer -fsanitize=thread \
           -Wno-everything -Wno-missing-variable-declarations \
-          $(pkg-config --cflags toxcore libavcodec libavutil x264 opus vpx libsodium) \
-          $(pkg-config --libs toxcore libavcodec libavutil x264 opus vpx libsodium) \
+          $(pkg-config --cflags toxcore libavcodec libavutil x264 x265 opus vpx libsodium) \
+          $(pkg-config --libs toxcore libavcodec libavutil x264 x265 opus vpx libsodium) \
           "$i" \
           -o test
           echo "RUN:--------------- ""$i"" ---------------"

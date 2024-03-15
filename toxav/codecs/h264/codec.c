@@ -1918,3 +1918,179 @@ void vc_kill_h264(VCSession *vc)
 
     avcodec_free_context(&vc->h264_decoder);
 }
+
+
+
+
+
+// --------- H265 ---------
+// --------- H265 ---------
+// --------- H265 ---------
+
+VCSession *vc_new_h265(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data,
+                       VCSession *vc)
+{
+#ifdef HAVE_H265_ENCODER
+    // ENCODER -------
+
+    LOGGER_API_WARNING(av->tox, "H265 encoder init");
+
+    x265_param *param = x265_param_alloc();
+    if (x265_param_default_preset(param, "ultrafast", "zerolatency,fastdecode") < 0) {
+        LOGGER_API_WARNING(av->tox, "H265 encoder:x265_param_default_preset error");
+        // goto fail;
+    }
+
+    vc->h264_enc_width = 1920;
+    vc->h264_enc_height = 1080;
+
+    x265_param_parse(param, "fps", "30");
+    x265_param_parse(param, "repeat-headers", "1");
+    x265_param_parse(param, "annexb", "1");
+    x265_param_parse(param, "input-res", "1920x1080");
+    x265_param_parse(param, "input-csp", "i420");
+
+    vc->h264_enc_bitrate = VIDEO_BITRATE_INITIAL_VALUE_H264 * 1000;
+
+    vc->h265_in_pic = x265_picture_alloc();
+    x265_picture_init(param, vc->h265_in_pic);
+
+    vc->h265_encoder = x265_encoder_open(param);
+    LOGGER_API_WARNING(av->tox, "H265 encoder:h265_encoder=%p", (void *)vc->h265_encoder);
+
+    x265_param_free(param);
+    LOGGER_API_WARNING(av->tox, "H265 encoder:h265_encoder:ready");
+    // ENCODER -------
+#endif
+
+
+    // DECODER -------
+    AVCodec *codec = NULL;
+    vc->h265_decoder = NULL;
+
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
+    avcodec_register_all();
+#endif
+
+    codec = NULL;
+    codec = avcodec_find_decoder(AV_CODEC_ID_H265);
+
+
+    if (!codec) {
+        LOGGER_API_WARNING(av->tox, "codec not found H265 on decoder");
+        assert(!"codec not found H265 on decoder");
+    }
+
+    vc->h265_decoder = avcodec_alloc_context3(codec);
+
+    if (codec) {
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59, 0, 0)
+        vc->h265_decoder->refcounted_frames = 0;
+#endif
+        /*   When AVCodecContext.refcounted_frames is set to 0, the returned
+        *             reference belongs to the decoder and is valid only until the
+        *             next call to this function or until closing or flushing the
+        *             decoder. The caller may not write to it.
+        */
+#pragma GCC diagnostic pop
+
+        vc->h265_decoder->delay = 0;
+        av_opt_set_int(vc->h264_decoder->priv_data, "delay", 0, AV_OPT_SEARCH_CHILDREN);
+
+        vc->h265_decoder->time_base = (AVRational) {
+            1, 30
+        };
+        vc->h265_decoder->framerate = (AVRational) {
+            30, 1
+        };
+
+        if (avcodec_open2(vc->h265_decoder, codec, NULL) < 0) {
+            LOGGER_API_WARNING(av->tox, "could not open codec H265 on decoder");
+            assert(!"could not open codec H265 on decoder");
+        }
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59, 0, 0)
+        vc->h265_decoder->refcounted_frames = 0;
+#endif
+#pragma GCC diagnostic pop
+        /*   When AVCodecContext.refcounted_frames is set to 0, the returned
+        *             reference belongs to the decoder and is valid only until the
+        *             next call to this function or until closing or flushing the
+        *             decoder. The caller may not write to it.
+        */
+    }
+
+
+    // DECODER -------
+
+    return vc;
+}
+
+int vc_reconfigure_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
+                                uint16_t width, uint16_t height,
+                                int16_t kf_max_dist)
+{
+#ifdef HAVE_H265_ENCODER
+#endif
+    return 0;
+}
+
+void decode_frame_h265(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a_r_timestamp,
+                       uint64_t *a_l_timestamp,
+                       uint64_t *v_r_timestamp, uint64_t *v_l_timestamp,
+                       const struct RTPHeader *header_v3,
+                       struct RTPMessage *p, vpx_codec_err_t rc,
+                       uint32_t full_data_len,
+                       uint8_t *ret_value)
+{
+    return;
+}
+
+uint32_t encode_frame_h265(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height,
+                           const uint8_t *y,
+                           const uint8_t *u, const uint8_t *v, ToxAVCall *call,
+                           uint64_t *video_frame_record_timestamp,
+                           int vpx_encode_flags,
+                           x264_nal_t **nal,
+                           int *i_frame_size)
+{
+#ifdef HAVE_H265_ENCODER
+#endif
+    return 0;
+}
+
+uint32_t send_frames_h265(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height,
+                          const uint8_t *y,
+                          const uint8_t *u, const uint8_t *v, ToxAVCall *call,
+                          uint64_t *video_frame_record_timestamp,
+                          int vpx_encode_flags,
+                          x264_nal_t **nal,
+                          int *i_frame_size,
+                          TOXAV_ERR_SEND_FRAME *rc)
+{
+#ifdef HAVE_H265_ENCODER
+#endif
+    return 0;
+}
+
+void vc_kill_h265(VCSession *vc)
+{
+#ifdef HAVE_H265_ENCODER
+    // encoder
+    x265_encoder_close(vc->h265_encoder);
+    x265_picture_free(vc->h265_in_pic);
+#endif
+
+    // decoder
+    if (vc->h265_decoder->extradata) {
+        av_free(vc->h265_decoder->extradata);
+        vc->h265_decoder->extradata = NULL;
+    }
+
+    avcodec_free_context(&vc->h265_decoder);
+}

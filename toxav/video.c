@@ -198,6 +198,8 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
 #pragma GCC diagnostic ignored "-Wcast-qual"
     // HINT: initialize H264 encoder and decoder
     vc = vc_new_h264((Logger *)log, av, friend_number, cb, cb_data, vc);
+    // HINT: initialize H265 encoder and decoder
+    vc = vc_new_h265((Logger *)log, av, friend_number, cb, cb_data, vc);
     // HINT: initialize VP8 encoder and decoder
     vc = vc_new_vpx((Logger *)log, av, friend_number, cb, cb_data, vc);
     return vc;
@@ -220,6 +222,7 @@ void vc_kill(VCSession *vc)
     }
 
     vc_kill_h264(vc);
+    vc_kill_h265(vc);
     vc_kill_vpx(vc);
 
     if (vc->encoder_codec_used_name)
