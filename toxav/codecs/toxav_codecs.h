@@ -138,13 +138,15 @@ void decode_frame_h265(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                        uint32_t full_data_len,
                        uint8_t *ret_value);
 
+#ifdef HAVE_H265_ENCODER
 uint32_t encode_frame_h265(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height,
                            const uint8_t *y,
                            const uint8_t *u, const uint8_t *v, ToxAVCall *call,
                            uint64_t *video_frame_record_timestamp,
                            int vpx_encode_flags,
+                           int *x265_num_nals,
                            x264_nal_t **nal,
-                           int *i_frame_size);
+                           int *i_frame_size, x265_nal** h265_nals);
 
 uint32_t send_frames_h265(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height,
                           const uint8_t *y,
@@ -153,7 +155,10 @@ uint32_t send_frames_h265(ToxAV *av, uint32_t friend_number, uint16_t width, uin
                           int vpx_encode_flags,
                           x264_nal_t **nal,
                           int *i_frame_size,
+                          int x265_num_nals,
+                          x265_nal** h265_nals,
                           TOXAV_ERR_SEND_FRAME *rc);
+#endif
 
 void vc_kill_h265(VCSession *vc);
 
