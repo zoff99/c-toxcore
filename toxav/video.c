@@ -794,12 +794,25 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                              rc, full_data_len,
                              &ret_value);
         } else {
+
+// --- H265 --- H265 --- H265 --- H265 --- H265 --- H265 --- H265 ---
+// --- H265 --- H265 --- H265 --- H265 --- H265 --- H265 --- H265 ---
+            decode_frame_h265(vc, tox, skip_video_flag, a_r_timestamp,
+                              a_l_timestamp,
+                              v_r_timestamp, v_l_timestamp,
+                              header_v3, p,
+                              rc, full_data_len,
+                              &ret_value);
+// --- H265 --- H265 --- H265 --- H265 --- H265 --- H265 --- H265 ---
+// --- H265 --- H265 --- H265 --- H265 --- H265 --- H265 --- H265 ---
+/*
             decode_frame_h264(vc, tox, skip_video_flag, a_r_timestamp,
                               a_l_timestamp,
                               v_r_timestamp, v_l_timestamp,
                               header_v3, p,
                               rc, full_data_len,
                               &ret_value);
+*/
         }
 
         //* NEW UNLOCK *//
@@ -1033,6 +1046,9 @@ int vc_reconfigure_encoder(Logger *log, VCSession *vc, uint32_t bit_rate, uint16
     if (vc->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8) {
         ret = vc_reconfigure_encoder_vpx(log, vc, bit_rate, width, height, kf_max_dist);
     } else {
+#ifdef HAVE_H265_ENCODER
+        vc_reconfigure_encoder_h265(log, vc, bit_rate, width, height, kf_max_dist);
+#endif
         ret = vc_reconfigure_encoder_h264(log, vc, bit_rate, width, height, kf_max_dist);
     }
 

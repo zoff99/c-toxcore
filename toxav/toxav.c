@@ -209,11 +209,6 @@ void toxav_kill(ToxAV *av)
 
     pthread_mutex_lock(av->mutex);
 
-#ifdef HAVE_H265_ENCODER
-    // HINT: to prevent leaks, cleanup x265
-    x265_cleanup();
-#endif
-
     // unregister callbacks
     for (uint8_t i = PACKET_ID_RANGE_LOSSY_AV_START; i <= PACKET_ID_RANGE_LOSSY_AV_END; ++i) {
         tox_callback_friend_lossy_packet_per_pktid(av->tox, nullptr, i);
@@ -1597,7 +1592,7 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
             goto END;
         }
     } else {
-        // HINT: H264
+        // HINT: H264 (and H265)
         if (vc_reconfigure_encoder(nullptr, call->video, call->video_bit_rate * 1000,
                                    width, height, force_reinit_encoder) != 0) {
             pthread_mutex_unlock(call->toxav_call_mutex);
@@ -1680,7 +1675,30 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
     int i_frame_size = 0;
     // for the H264 encoder -------
 
+#ifdef HAVE_H265_ENCODER
+    // for the H265 encoder -------
+    x265_nal* h265_nals = NULL;
+    // for the H265 encoder -------
+#endif
+
+    uint32_t result2_h265 = 1;
+    int h265_num_nals = 0;
+
     { /* Encode */
+
+#ifdef HAVE_H265_ENCODER
+            LOGGER_API_DEBUG(av->tox, "**__** encoding H265 frame **__**");
+            result2_h265 = encode_frame_h265(av, friend_number, width, height,
+                                       y, u, v, call,
+                                       &video_frame_record_timestamp,
+                                       vpx_encode_flags,
+                                       &h265_num_nals,
+                                       &nal,
+                                       &i_frame_size, &h265_nals);
+#endif
+
+
+        /*
         if ((call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8)
                 || (call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP9)) {
 
@@ -1698,7 +1716,6 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
                 goto END;
             }
         } else {
-
             LOGGER_API_DEBUG(av->tox, "**##** encoding H264 frame **##**");
             uint32_t result = encode_frame_h264(av, friend_number, width, height,
                                                 y, u, v, call,
@@ -1713,7 +1730,9 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
                 goto END;
             }
         }
+        */
     }
+
 
     ++call->video->frame_counter;
 
@@ -1721,6 +1740,22 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
     LOGGER_API_DEBUG(av->tox, "VPXENC:frame num=%ld\n", (long)call->video->frame_counter);
 
     { /* Send frames */
+
+#ifdef HAVE_H265_ENCODER
+        if (result2_h265 == 0) {
+            uint32_t result3 = send_frames_h265(av, friend_number, width, height,
+                                               y, u, v, call,
+                                               &video_frame_record_timestamp,
+                                               vpx_encode_flags,
+                                               &nal,
+                                               &i_frame_size,
+                                               h265_num_nals,
+                                               &h265_nals,
+                                               &rc);
+        }
+#endif
+
+        /*
         if ((call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8)
                 || (call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP9)) {
 
@@ -1751,6 +1786,7 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
                 goto END;
             }
         }
+        */
     }
 
     pthread_mutex_unlock(call->mutex_video);

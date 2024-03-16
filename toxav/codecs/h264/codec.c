@@ -1927,44 +1927,79 @@ void vc_kill_h264(VCSession *vc)
 // --------- H265 ---------
 // --------- H265 ---------
 
+#ifdef HAVE_H265_ENCODER
+static void vc_init_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
+                                uint16_t width, uint16_t height)
+{
+    // HINT: vc->av may be NULL here
+    // LOGGER_API_WARNING(vc->av->tox, "H265 encoder init");
+
+    x265_param *param = x265_param_alloc();
+    if (x265_param_default_preset(param, "ultrafast", "zerolatency") != 0) {
+        //LOGGER_API_WARNING(vc->av->tox, "H265 encoder:x265_param_default_preset error");
+        // goto fail;
+    }
+
+    vc->h265_enc_width = width;
+    vc->h265_enc_height = height;
+
+    param->sourceWidth = vc->h265_enc_width;
+    param->sourceHeight = vc->h265_enc_height;
+    param->fpsNum = 30;
+    param->fpsDenom = 1;
+    param->internalCsp = X265_CSP_I420;
+    param->bframes = 0;
+    param->bRepeatHeaders = 1;
+    param->bAnnexB = 1;
+    param->keyframeMax = 60; // every n-th frame is an I-frame
+    param->bIntraRefresh = 1;
+
+
+    // x265_param_parse(param, "fps", "30");
+    x265_param_parse(param, "repeat-headers", "1");
+    x265_param_parse(param, "annexb", "1");
+    // x265_param_parse(param, "input-res", "1920x1080");
+    x265_param_parse(param, "input-csp", "i420");
+
+    vc->h264_enc_bitrate = bit_rate / 1000;
+    //******// param->bitrate = 
+
+    vc->h265_in_pic = x265_picture_alloc();
+    x265_picture_init(param, vc->h265_in_pic);
+
+    vc->h265_out_pic = x265_picture_alloc();
+    x265_picture_init(param, vc->h265_out_pic);
+
+    // Allocate memory for YUV frame
+    vc->h265_in_pic->colorSpace = X265_CSP_I420;
+    vc->h265_in_pic->stride[0] = vc->h265_enc_width;
+    vc->h265_in_pic->stride[1] = vc->h265_enc_width / 2;
+    vc->h265_in_pic->stride[2] = vc->h265_enc_width / 2;
+    vc->h265_in_pic->planes[0] = (uint8_t *)calloc(1, (vc->h265_enc_width * vc->h265_enc_height));
+    vc->h265_in_pic->planes[1] = (uint8_t *)calloc(1, (vc->h265_enc_width * vc->h265_enc_height) / 4);
+    vc->h265_in_pic->planes[2] = (uint8_t *)calloc(1, (vc->h265_enc_width * vc->h265_enc_height) / 4);
+
+    vc->h265_encoder = x265_encoder_open(param);
+    // LOGGER_API_WARNING(vc->av->tox, "H265 encoder:h265_encoder=%p", (void *)vc->h265_encoder);
+
+    x265_param_free(param);
+    // LOGGER_API_WARNING(vc->av->tox, "H265 encoder:h265_encoder:ready");
+}
+#endif
+
 VCSession *vc_new_h265(Logger *log, ToxAV *av, uint32_t friend_number, toxav_video_receive_frame_cb *cb, void *cb_data,
                        VCSession *vc)
 {
 #ifdef HAVE_H265_ENCODER
     // ENCODER -------
-
-    LOGGER_API_WARNING(av->tox, "H265 encoder init");
-
-    x265_param *param = x265_param_alloc();
-    if (x265_param_default_preset(param, "ultrafast", "zerolatency,fastdecode") < 0) {
-        LOGGER_API_WARNING(av->tox, "H265 encoder:x265_param_default_preset error");
-        // goto fail;
-    }
-
-    vc->h264_enc_width = 1920;
-    vc->h264_enc_height = 1080;
-
-    x265_param_parse(param, "fps", "30");
-    x265_param_parse(param, "repeat-headers", "1");
-    x265_param_parse(param, "annexb", "1");
-    x265_param_parse(param, "input-res", "1920x1080");
-    x265_param_parse(param, "input-csp", "i420");
-
-    vc->h264_enc_bitrate = VIDEO_BITRATE_INITIAL_VALUE_H264 * 1000;
-
-    vc->h265_in_pic = x265_picture_alloc();
-    x265_picture_init(param, vc->h265_in_pic);
-
-    vc->h265_encoder = x265_encoder_open(param);
-    LOGGER_API_WARNING(av->tox, "H265 encoder:h265_encoder=%p", (void *)vc->h265_encoder);
-
-    x265_param_free(param);
-    LOGGER_API_WARNING(av->tox, "H265 encoder:h265_encoder:ready");
+    vc_init_encoder_h265(log, vc, (VIDEO_BITRATE_INITIAL_VALUE_H264 * 1000), 1920, 1080);
     // ENCODER -------
 #endif
 
 
     // DECODER -------
+    LOGGER_API_INFO(av->tox, "H265 decoder init");
+
     AVCodec *codec = NULL;
     vc->h265_decoder = NULL;
 
@@ -1982,6 +2017,7 @@ VCSession *vc_new_h265(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     }
 
     vc->h265_decoder = avcodec_alloc_context3(codec);
+    LOGGER_API_INFO(av->tox, "H265 decoder:h265_decoder=%p", (void *)vc->h265_decoder);
 
     if (codec) {
 
@@ -1998,7 +2034,7 @@ VCSession *vc_new_h265(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 #pragma GCC diagnostic pop
 
         vc->h265_decoder->delay = 0;
-        av_opt_set_int(vc->h264_decoder->priv_data, "delay", 0, AV_OPT_SEARCH_CHILDREN);
+        av_opt_set_int(vc->h265_decoder->priv_data, "delay", 0, AV_OPT_SEARCH_CHILDREN);
 
         vc->h265_decoder->time_base = (AVRational) {
             1, 30
@@ -2023,6 +2059,8 @@ VCSession *vc_new_h265(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         *             next call to this function or until closing or flushing the
         *             decoder. The caller may not write to it.
         */
+
+        LOGGER_API_INFO(av->tox, "H265 decoder:h265_decoder:ready");
     }
 
 
@@ -2031,11 +2069,54 @@ VCSession *vc_new_h265(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     return vc;
 }
 
+#ifdef HAVE_H265_ENCODER
+static void vc_kill_encoder_h265(VCSession *vc)
+{
+    free(vc->h265_in_pic->planes[0]);
+    free(vc->h265_in_pic->planes[1]);
+    free(vc->h265_in_pic->planes[2]);
+    x265_picture_free(vc->h265_in_pic);
+    x265_picture_free(vc->h265_out_pic);
+    x265_encoder_close(vc->h265_encoder);
+    // HINT: to prevent leaks, cleanup x265
+    x265_cleanup();
+}
+#endif
+
 int vc_reconfigure_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
                                 uint16_t width, uint16_t height,
                                 int16_t kf_max_dist)
 {
 #ifdef HAVE_H265_ENCODER
+    if (!vc) {
+        return -1;
+    }
+
+    if ((vc->h265_enc_width == width) &&
+            (vc->h265_enc_height == height) &&
+            (vc->h264_enc_bitrate == bit_rate))
+    {
+        // no change
+        return 0;
+    }
+
+    if ((vc->h265_enc_width == width) &&
+            (vc->h265_enc_height == height) &&
+            (vc->h264_enc_bitrate != bit_rate))
+    {
+        // HINT: just bitrate has changed
+    }
+    else
+    {
+        // HINT: more has changed do a full encoder shutdown and re-init
+        vc_kill_encoder_h265(vc);
+        vc->h265_enc_height = height;
+        vc->h265_enc_width = width;
+        vc_init_encoder_h265(log, vc, bit_rate, width, height);
+    }
+
+    vc->h264_enc_bitrate = bit_rate;
+
 #endif
     return 0;
 }
@@ -2048,22 +2129,312 @@ void decode_frame_h265(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_
                        uint32_t full_data_len,
                        uint8_t *ret_value)
 {
+    LOGGER_API_DEBUG(vc->av->tox, "decode_frame_h265:fnum=%d,len=%d", vc->friend_number, full_data_len);
+
+    if (p == NULL) {
+        LOGGER_API_DEBUG(vc->av->tox, "decode_frame_h265:NO data");
+        return;
+    }
+
+    if (full_data_len < 1) {
+        LOGGER_API_DEBUG(vc->av->tox, "decode_frame_h265:not enough data");
+        free(p);
+        p = NULL;
+        return;
+    }
+
+    if (vc->h265_decoder == NULL) {
+        LOGGER_API_DEBUG(vc->av->tox, "vc->h265_decoder:not ready");
+        free(p);
+        p = NULL;
+        return;
+    }
+
+
+    if (vc->global_decode_first_frame_got == 0)
+    {
+        if (vc->global_decode_first_frame_delayed_by == 0)
+        {
+            vc->global_decode_first_frame_delayed_ms = current_time_monotonic(vc->av->toxav_mono_time);
+        }
+        vc->global_decode_first_frame_delayed_by++;
+    }
+
+    AVPacket *compr_data = NULL;
+    compr_data = av_packet_alloc();
+
+    if (compr_data == NULL) {
+        LOGGER_API_DEBUG(vc->av->tox, "av_packet_alloc:ERROR");
+        free(p);
+        p = NULL;
+        return;
+    }
+
+    uint64_t h_frame_record_timestamp = header_v3->frame_record_timestamp;
+
+    compr_data->data = p->data;
+    compr_data->size = (int)full_data_len; // hmm, "int" again
+
+    if (header_v3->frame_record_timestamp > 0) {
+        LOGGER_API_DEBUG(vc->av->tox, "in_pts:%lu", header_v3->frame_record_timestamp);
+        compr_data->dts = (int64_t)(header_v3->frame_record_timestamp) - 1;
+        compr_data->pts = (int64_t)(header_v3->frame_record_timestamp);
+        compr_data->duration = 0; // (int64_t)(header_v3->frame_record_timestamp) + 1; // 0;
+    }
+
+    int result_send_packet = avcodec_send_packet(vc->h265_decoder, compr_data);
+
+    if (result_send_packet != 0) {
+        LOGGER_API_DEBUG(vc->av->tox, "avcodec_send_packet:ERROR=%d", result_send_packet);
+        av_packet_free(&compr_data);
+        free(p);
+        p = NULL;
+        return;
+    }
+
+    /* HINT: this is the only part that takes all the time !!! */
+    /* HINT: this is the only part that takes all the time !!! */
+    /* HINT: this is the only part that takes all the time !!! */
+    /* ------------------------------------------------------- */
+    /* ------------------------------------------------------- */
+
+
+    int ret_ = 0;
+
+    while (ret_ >= 0) {
+
+        // start_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
+        AVFrame *frame = av_frame_alloc();
+
+        if (frame == NULL) {
+            // stop decoding
+            break;
+        }
+
+        ret_ = avcodec_receive_frame(vc->h265_decoder, frame);
+
+        if (ret_ == AVERROR(EAGAIN) || ret_ == AVERROR_EOF) {
+            // error
+            av_frame_free(&frame);
+            break;
+        } else if (ret_ < 0) {
+            // Error during decoding
+            av_frame_free(&frame);
+            break;
+        } else if (ret_ == 0) {
+
+
+        if (vc->global_decode_first_frame_got == 0)
+        {
+            vc->global_decode_first_frame_got = 1;
+            vc->global_decode_first_frame_delayed_ms =
+                current_time_monotonic(vc->av->toxav_mono_time) - vc->global_decode_first_frame_delayed_ms;
+            LOGGER_API_DEBUG(vc->av->tox, "X265 decoder delay: %d f, %d ms",
+                    (vc->global_decode_first_frame_delayed_by - 1),
+                    (int)vc->global_decode_first_frame_delayed_ms);
+        }
+
+
+            if (header_v3->frame_record_timestamp > 0) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 0, 0)
+                int32_t delta_value = (int32_t)(h_frame_record_timestamp - frame->pts);
+#else
+                int32_t delta_value = (int32_t)(h_frame_record_timestamp - frame->pkt_pts);
+#endif
+
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 0, 0)
+                LOGGER_API_DEBUG(vc->av->tox, "out_pts:%lu %lu %ld %ld",
+                        frame->pts, frame->pkt_dts, frame->best_effort_timestamp, frame->pkt_pos);
+#endif
+
+                LOGGER_API_DEBUG(vc->av->tox, "dec:XX:03:%d %d %d %d %d",
+                        delta_value,
+                        (int)h_frame_record_timestamp,
+
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 0, 0)
+                        (int)frame->pts,
+#else
+                        (int)frame->pkt_pts,
+#endif
+
+                        (int)frame->pkt_dts,
+                        (int)frame->pts);
+#pragma GCC diagnostic pop
+
+                if ((delta_value >= 0) && (delta_value <= 1000))
+                {
+                    vc->video_decoder_caused_delay_ms = delta_value;
+                    LOGGER_API_DEBUG(vc->av->tox, "dec:1:delta_value=%d", vc->video_decoder_caused_delay_ms);
+                }
+                else if (delta_value == -1)
+                {
+                    // since we do NOT have any idea how long the decoder delays frames,
+                    // and the decoder will lie to us, we just assume some random value
+                    // that works for our use cases (decoding on andriod via MediaCodec)
+                    vc->video_decoder_caused_delay_ms = 1;
+                    LOGGER_API_DEBUG(vc->av->tox, "dec:2:delta_value=%d", vc->video_decoder_caused_delay_ms);
+                }
+
+                // calc mean value
+                vc->video_decoder_caused_delay_ms_array[vc->video_decoder_caused_delay_ms_array_index] = vc->video_decoder_caused_delay_ms;
+                vc->video_decoder_caused_delay_ms_array_index = (vc->video_decoder_caused_delay_ms_array_index + 1) %
+                        VIDEO_DECODER_CAUSED_DELAY_MS_ENTRIES;
+
+                uint32_t mean_value = 0;
+
+                for (int k = 0; k < VIDEO_DECODER_CAUSED_DELAY_MS_ENTRIES; k++) {
+                    mean_value = mean_value + vc->video_decoder_caused_delay_ms_array[k];
+                }
+
+                if (mean_value == 0) {
+                    vc->video_decoder_caused_delay_ms_mean_value = 0;
+                } else {
+                    vc->video_decoder_caused_delay_ms_mean_value = (mean_value * 10) / (VIDEO_DECODER_CAUSED_DELAY_MS_ENTRIES * 10);
+                }
+
+                LOGGER_API_DEBUG(vc->av->tox, "dec:video_decoder_caused_delay_ms_mean_value=%d",
+                        vc->video_decoder_caused_delay_ms_mean_value);
+
+            }
+
+            // start_time_ms = current_time_monotonic(vc->av->toxav_mono_time);
+            if ((frame->data[0] != NULL) && (frame->data[1] != NULL) && (frame->data[2] != NULL)) {
+
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+                *v_r_timestamp = h_frame_record_timestamp;
+                *v_l_timestamp = current_time_monotonic(vc->av->toxav_mono_time);
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+// -------- DEBUG:AUDIO/VIDEO DELAY/LATENCY --------
+
+                if (vc->vcb_pts)
+                {
+                    uint64_t pts_for_client = h_frame_record_timestamp;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 0, 0)
+                    int32_t delta_check = (int32_t)(h_frame_record_timestamp - frame->pts);
+#else
+                    int32_t delta_check = (int32_t)(h_frame_record_timestamp - frame->pkt_pts);
+#endif
+
+                    if ((delta_check >= 0) && (delta_check <= 600))
+                    {
+
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 0, 0)
+                        pts_for_client = frame->pts;
+#else
+                        pts_for_client = frame->pkt_pts;
+#endif
+                    }
+#pragma GCC diagnostic pop
+
+                    LOGGER_API_DEBUG(vc->av->tox, "DDDDDDDDDD:%lu", pts_for_client);
+                    vc->vcb_pts(vc->av, vc->friend_number, frame->width, frame->height,
+                            (const uint8_t *)frame->data[0],
+                            (const uint8_t *)frame->data[1],
+                            (const uint8_t *)frame->data[2],
+                            frame->linesize[0], frame->linesize[1],
+                            frame->linesize[2], vc->vcb_pts_user_data,
+                            pts_for_client);
+                }
+                else
+                {
+                    vc->vcb(vc->av, vc->friend_number, frame->width, frame->height,
+                            (const uint8_t *)frame->data[0],
+                            (const uint8_t *)frame->data[1],
+                            (const uint8_t *)frame->data[2],
+                            frame->linesize[0], frame->linesize[1],
+                            frame->linesize[2], vc->vcb_user_data);
+                }
+            }
+
+        } else {
+            // some other error
+        }
+
+        av_frame_free(&frame);
+    }
+
+    av_packet_free(&compr_data);
+    free(p);
+
     return;
 }
 
+#ifdef HAVE_H265_ENCODER
 uint32_t encode_frame_h265(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height,
                            const uint8_t *y,
                            const uint8_t *u, const uint8_t *v, ToxAVCall *call,
                            uint64_t *video_frame_record_timestamp,
                            int vpx_encode_flags,
+                           int *x265_num_nals,
                            x264_nal_t **nal,
-                           int *i_frame_size)
+                           int *i_frame_size, x265_nal** h265_nals)
 {
-#ifdef HAVE_H265_ENCODER
-#endif
+    int i_nal;
+
+    LOGGER_API_DEBUG(av->tox, "encode_frame_h265:start");
+
+    call->video->h265_in_pic->pts = (int64_t)(*video_frame_record_timestamp);
+    LOGGER_API_DEBUG(av->tox, "X265:in_ts:%lu", (*video_frame_record_timestamp));
+
+
+    memcpy(call->video->h265_in_pic->planes[0], y, (width * height));
+    memcpy(call->video->h265_in_pic->planes[1], u, (width / 2) * (height / 2));
+    memcpy(call->video->h265_in_pic->planes[2], v, (width / 2) * (height / 2));
+    x265_encoder_encode(call->video->h265_encoder, h265_nals, &i_nal, call->video->h265_in_pic, call->video->h265_out_pic);
+
+    *video_frame_record_timestamp = (uint64_t)call->video->h265_out_pic->pts;
+    LOGGER_API_DEBUG(av->tox, "X265:out_ts:%lu", (*video_frame_record_timestamp));
+    LOGGER_API_DEBUG(av->tox, "X265:out_ts:dts:%d", (int)call->video->h265_out_pic->dts);
+    LOGGER_API_DEBUG(av->tox, "X265:out_ts:pts:%d", (int)call->video->h265_out_pic->pts);
+
+    *x265_num_nals = 0;
+
+    if (*h265_nals == NULL) {
+        return 1;
+    }
+
+    if (i_nal < 1) {
+        return 1;
+    }
+
+    *x265_num_nals = i_nal;
+
+    // Process the encoded data (NAL units)
+    for (uint32_t i = 0; i < i_nal; i++) {
+        LOGGER_API_DEBUG(av->tox, "nal #%d", i);
+        LOGGER_API_DEBUG(av->tox, "bytes: %d", (int)(*h265_nals)[i].sizeBytes);
+        // Process each NAL unit (e.g., write to file)
+        // h265_nals[i].payload points to the encoded data
+        // h265_nals[i].size specifies the size of the NAL unit
+    }
+
+    *i_frame_size = (*h265_nals)[0].sizeBytes;
+
+    if (*i_frame_size < 0) {
+        // some error
+    } else if (*i_frame_size == 0) {
+        // zero size output
+    }
+
+    if ((*h265_nals)[0].payload == NULL) {
+        LOGGER_API_WARNING(av->tox, "X265:ERR:099");
+        return 1;
+    }
+
+    LOGGER_API_DEBUG(av->tox, "X265:done");
     return 0;
 }
+#endif
 
+#ifdef HAVE_H265_ENCODER
 uint32_t send_frames_h265(ToxAV *av, uint32_t friend_number, uint16_t width, uint16_t height,
                           const uint8_t *y,
                           const uint8_t *u, const uint8_t *v, ToxAVCall *call,
@@ -2071,19 +2442,75 @@ uint32_t send_frames_h265(ToxAV *av, uint32_t friend_number, uint16_t width, uin
                           int vpx_encode_flags,
                           x264_nal_t **nal,
                           int *i_frame_size,
+                          int x265_num_nals,
+                          x265_nal** h265_nals,
                           TOXAV_ERR_SEND_FRAME *rc)
 {
-#ifdef HAVE_H265_ENCODER
-#endif
-    return 0;
+
+    // Process the encoded data (NAL units)
+    uint32_t need_buffer_bytes = 0;
+    for (uint32_t i = 0; i < x265_num_nals; i++) {
+        LOGGER_API_DEBUG(av->tox, "nal #%d", i);
+        LOGGER_API_DEBUG(av->tox, "bytes: %d", (int)(*h265_nals)[i].sizeBytes);
+        need_buffer_bytes = need_buffer_bytes + (*h265_nals)[i].sizeBytes;
+    }
+
+    if (need_buffer_bytes > 0) {
+        uint8_t *needed_buffer = malloc(need_buffer_bytes);
+        if (needed_buffer == nullptr) {
+            *rc = TOXAV_ERR_SEND_FRAME_RTP_FAILED;
+            return 1;
+        }
+
+        uint8_t *p1 = needed_buffer;
+        for (uint32_t i = 0; i < x265_num_nals; i++) {
+            memcpy(p1, (const uint8_t *)(*h265_nals)[i].payload, (*h265_nals)[i].sizeBytes);
+            p1 = p1 + (*h265_nals)[i].sizeBytes;
+        }
+
+        LOGGER_API_DEBUG(av->tox, "X265:send_ts:%lu", (*video_frame_record_timestamp));
+        const uint32_t frame_length_in_bytes = need_buffer_bytes;
+        LOGGER_API_DEBUG(av->tox, "X265:sizebytes:%d", need_buffer_bytes);
+
+        int res = rtp_send_data
+                  (
+                      call->video_rtp,
+                      needed_buffer,
+                      need_buffer_bytes,
+                      0,
+                      *video_frame_record_timestamp,
+                      (int32_t)0,
+                      TOXAV_ENCODER_CODEC_USED_H264,
+                      call->video_bit_rate,
+                      call->video->client_video_capture_delay_ms,
+                      call->video->video_encoder_frame_orientation_angle,
+                      nullptr
+                  );
+        (*video_frame_record_timestamp)++;
+
+        free(needed_buffer);
+
+        if (res < 0) {
+            LOGGER_API_WARNING(av->tox, "Could not send video frame: %s", strerror(errno));
+            *rc = TOXAV_ERR_SEND_FRAME_RTP_FAILED;
+            return 1;
+        } else {
+            LOGGER_API_DEBUG(av->tox, "send video frame OK");
+        }
+
+        return 0;
+    } else {
+        *rc = TOXAV_ERR_SEND_FRAME_RTP_FAILED;
+        return 1;
+    }
 }
+#endif
 
 void vc_kill_h265(VCSession *vc)
 {
 #ifdef HAVE_H265_ENCODER
     // encoder
-    x265_encoder_close(vc->h265_encoder);
-    x265_picture_free(vc->h265_in_pic);
+    vc_kill_encoder_h265(vc);
 #endif
 
     // decoder
@@ -2094,3 +2521,4 @@ void vc_kill_h265(VCSession *vc)
 
     avcodec_free_context(&vc->h265_decoder);
 }
+

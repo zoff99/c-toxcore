@@ -172,6 +172,9 @@ typedef struct VCSession_s {
 // ------ h265 encoder ------
     x265_encoder *h265_encoder;
     x265_picture *h265_in_pic;
+    x265_picture *h265_out_pic;
+    int h265_enc_width;
+    int h265_enc_height;
 // ------ h265 encoder ------
 #endif
 

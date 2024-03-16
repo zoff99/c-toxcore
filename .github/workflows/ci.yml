@@ -9,6 +9,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
+      - name: mmap rnd_bits workaround
+        run: |
+          sudo sysctl -w vm.mmap_rnd_bits=28
       - run: |
           sudo apt-get update && \
           sudo DEBIAN_FRONTEND=noninteractive apt-get remove g++ && \
@@ -39,6 +42,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
+      - name: mmap rnd_bits workaround
+        run: |
+          sudo sysctl -w vm.mmap_rnd_bits=28
       - run: |
           sudo apt-get update && \
           sudo DEBIAN_FRONTEND=noninteractive apt-get remove g++ && \
