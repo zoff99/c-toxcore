@@ -82980,7 +82980,7 @@ uint32_t encode_frame_h265(ToxAV *av, uint32_t friend_number, uint16_t width, ui
                            x264_nal_t **nal,
                            int *i_frame_size, x265_nal** h265_nals)
 {
-    int i_nal;
+    uint32_t i_nal;
 
     LOGGER_API_DEBUG(av->tox, "encode_frame_h265:start");
 
@@ -83008,17 +83008,7 @@ uint32_t encode_frame_h265(ToxAV *av, uint32_t friend_number, uint16_t width, ui
         return 1;
     }
 
-    *x265_num_nals = i_nal;
-
-    // Process the encoded data (NAL units)
-    for (uint32_t i = 0; i < i_nal; i++) {
-        LOGGER_API_DEBUG(av->tox, "nal #%d", i);
-        LOGGER_API_DEBUG(av->tox, "bytes: %d", (int)(*h265_nals)[i].sizeBytes);
-        // Process each NAL unit (e.g., write to file)
-        // h265_nals[i].payload points to the encoded data
-        // h265_nals[i].size specifies the size of the NAL unit
-    }
-
+    *x265_num_nals = (int)i_nal;
     *i_frame_size = (*h265_nals)[0].sizeBytes;
 
     if (*i_frame_size < 0) {
