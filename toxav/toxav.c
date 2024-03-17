@@ -246,6 +246,11 @@ void toxav_kill(ToxAV *av)
     pthread_mutex_unlock(av->toxav_endcall_mutex);
     pthread_mutex_destroy(av->toxav_endcall_mutex);
 
+#ifdef HAVE_H265_ENCODER
+    // HINT: to prevent leaks, cleanup x265
+    x265_cleanup();
+#endif
+
     free(av);
     av = nullptr;
 }

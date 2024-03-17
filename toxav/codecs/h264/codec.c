@@ -2078,8 +2078,6 @@ static void vc_kill_encoder_h265(VCSession *vc)
     x265_picture_free(vc->h265_in_pic);
     x265_picture_free(vc->h265_out_pic);
     x265_encoder_close(vc->h265_encoder);
-    // HINT: to prevent leaks, cleanup x265
-    x265_cleanup();
 }
 #endif
 
