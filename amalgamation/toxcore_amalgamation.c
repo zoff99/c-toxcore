@@ -75651,6 +75651,11 @@ void toxav_kill(ToxAV *av)
     pthread_mutex_unlock(av->toxav_endcall_mutex);
     pthread_mutex_destroy(av->toxav_endcall_mutex);
 
+#ifdef HAVE_H265_ENCODER
+    // HINT: to prevent leaks, cleanup x265
+    x265_cleanup();
+#endif
+
     free(av);
     av = nullptr;
 }
@@ -82678,8 +82683,6 @@ static void vc_kill_encoder_h265(VCSession *vc)
     x265_picture_free(vc->h265_in_pic);
     x265_picture_free(vc->h265_out_pic);
     x265_encoder_close(vc->h265_encoder);
-    // HINT: to prevent leaks, cleanup x265
-    x265_cleanup();
 }
 #endif
 
