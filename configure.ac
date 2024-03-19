@@ -20,6 +20,7 @@ BUILD_DHT_BOOTSTRAP="no"
 BUILD_TESTS="yes"
 BUILD_AV="yes"
 BUILD_H265="yes"
+FEATURE_H265="no"
 BUILD_TESTING="yes"
 
 LIBCONFIG_FOUND="no"
@@ -38,6 +39,19 @@ AC_ARG_ENABLE([soname-versions],
     ]
 )
 AM_CONDITIONAL(SET_SO_VERSION, test "x$SET_SO_VERSION" = "xyes")
+
+
+
+AC_ARG_ENABLE([feature-h265],
+    [AC_HELP_STRING([--enable-feature-h265], [use H265 encoder feature (default: disabled)]) ],
+    [
+        if test "x$enableval" = "xno"; then
+            FEATURE_H265="no"
+        elif test "x$enableval" = "xyes"; then
+            FEATURE_H265="yes"
+        fi
+    ]
+)
 
 AC_ARG_ENABLE([nacl],
     [AC_HELP_STRING([--enable-nacl], [use nacl instead of libsodium (default: disabled)]) ],
@@ -536,7 +550,9 @@ fi
 if test "x$BUILD_AV" = "xyes"; then
     # toxcore lib needs an global?
     # So far this works okay
-    if test "x$BUILD_H265" = "xyes"; then
+    if (test "x$BUILD_H265" = "xyes") && \
+       (test "x$FEATURE_H265" = "xyes"); then
+
         AV_LIBS="$OPUS_LIBS $VPX_LIBS $LIBAVCODEC_LIBS $X264_LIBS $X265_LIBS"
         AC_SUBST(AV_LIBS)
 
@@ -605,6 +621,7 @@ AM_CONDITIONAL(BUILD_DHT_BOOTSTRAP, test "x$BUILD_DHT_BOOTSTRAP" = "xyes")
 AM_CONDITIONAL(BUILD_TESTS, test "x$BUILD_TESTS" = "xyes")
 AM_CONDITIONAL(BUILD_AV, test "x$BUILD_AV" = "xyes")
 AM_CONDITIONAL(BUILD_H265, test "x$BUILD_H265" = "xyes")
+AM_CONDITIONAL(FEATURE_H265, test "x$FEATURE_H265" = "xyes")
 AM_CONDITIONAL(BUILD_TESTING, test "x$BUILD_TESTING" = "xyes")
 AM_CONDITIONAL(WITH_NACL, test "x$WANT_NACL" = "xyes")
 AM_CONDITIONAL(WIN32, test "x$WIN32" = "xyes")
