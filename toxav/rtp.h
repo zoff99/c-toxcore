@@ -105,6 +105,11 @@ typedef enum RTPFlags {
     RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT0 = 1 << 4,
     RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT1 = 1 << 5,
 
+    /**
+     * Whether H265 codec was used to encode this video frame
+     */
+    RTP_ENCODER_IS_H265 = 1 << 6,
+
 } RTPFlags;
 
 

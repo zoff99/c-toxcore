@@ -819,7 +819,7 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
         VCSession *vc = (VCSession *)call->video;
 
         if (((int32_t)value >= TOXAV_ENCODER_CODEC_USED_VP8)
-                && ((int32_t)value <= TOXAV_ENCODER_CODEC_USED_H264)) {
+                && ((int32_t)value <= TOXAV_ENCODER_CODEC_USED_H265)) {
 
             if (vc->video_encoder_coded_used == (int32_t)value) {
                 LOGGER_API_WARNING(av->tox, "video video_encoder_coded_used already set to: %d", (int)value);
@@ -1517,7 +1517,8 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
 
     pthread_mutex_lock(call->toxav_call_mutex);
     // HINT: auto switch encoder, if we got capabilities packet from friend ------
-    if (call->video->video_encoder_coded_used != TOXAV_ENCODER_CODEC_USED_H264) {
+    if ((call->video->video_encoder_coded_used != TOXAV_ENCODER_CODEC_USED_H264) &&
+        (call->video->video_encoder_coded_used != TOXAV_ENCODER_CODEC_USED_H265)) {
         const uint64_t friend_caps = tox_friend_get_capabilities(av->tox, friend_number);
         LOGGER_API_DEBUG(av->tox, "-------> CCCCCC:%ld", (long)friend_caps);
         if ((friend_caps & TOX_CAPABILITY_TOXAV_H264) != 0) {
@@ -1528,7 +1529,10 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
 
     if ((call->video->h264_video_capabilities_received == 1)
             &&
-            (call->video->video_encoder_coded_used != TOXAV_ENCODER_CODEC_USED_H264)) {
+            (call->video->video_encoder_coded_used != TOXAV_ENCODER_CODEC_USED_H264)
+            &&
+            (call->video->video_encoder_coded_used != TOXAV_ENCODER_CODEC_USED_H265)
+            ) {
         // when switching to H264 set default video bitrate
 
         if (call->video_bit_rate > 0) {
@@ -1686,24 +1690,10 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
     // for the H265 encoder -------
 #endif
 
-    uint32_t result2_h265 = 1;
     int h265_num_nals = 0;
 
     { /* Encode */
 
-#ifdef HAVE_H265_ENCODER
-            LOGGER_API_DEBUG(av->tox, "**__** encoding H265 frame **__**");
-            result2_h265 = encode_frame_h265(av, friend_number, width, height,
-                                       y, u, v, call,
-                                       &video_frame_record_timestamp,
-                                       vpx_encode_flags,
-                                       &h265_num_nals,
-                                       &nal,
-                                       &i_frame_size, &h265_nals);
-#endif
-
-
-        /*
         if ((call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8)
                 || (call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP9)) {
 
@@ -1721,21 +1711,42 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
                 goto END;
             }
         } else {
-            LOGGER_API_DEBUG(av->tox, "**##** encoding H264 frame **##**");
-            uint32_t result = encode_frame_h264(av, friend_number, width, height,
-                                                y, u, v, call,
-                                                &video_frame_record_timestamp,
-                                                vpx_encode_flags,
-                                                &nal,
-                                                &i_frame_size);
 
-            if (result != 0) {
-                pthread_mutex_unlock(call->mutex_video);
-                rc = TOXAV_ERR_SEND_FRAME_INVALID;
-                goto END;
+#ifdef HAVE_H265_ENCODER
+            if (call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H265)
+            {
+                LOGGER_API_DEBUG(av->tox, "**__** encoding H265 frame **__**");
+                uint32_t result = encode_frame_h265(av, friend_number, width, height,
+                                           y, u, v, call,
+                                           &video_frame_record_timestamp,
+                                           vpx_encode_flags,
+                                           &h265_num_nals,
+                                           &nal,
+                                           &i_frame_size, &h265_nals);
+                if (result != 0) {
+                    pthread_mutex_unlock(call->mutex_video);
+                    rc = TOXAV_ERR_SEND_FRAME_INVALID;
+                    goto END;
+                }
+            }
+#endif
+
+            if (call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H265)
+            {
+                LOGGER_API_DEBUG(av->tox, "**##** encoding H264 frame **##**");
+                uint32_t result = encode_frame_h264(av, friend_number, width, height,
+                                                    y, u, v, call,
+                                                    &video_frame_record_timestamp,
+                                                    vpx_encode_flags,
+                                                    &nal,
+                                                    &i_frame_size);
+                if (result != 0) {
+                    pthread_mutex_unlock(call->mutex_video);
+                    rc = TOXAV_ERR_SEND_FRAME_INVALID;
+                    goto END;
+                }
             }
         }
-        */
     }
 
 
@@ -1746,21 +1757,7 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
 
     { /* Send frames */
 
-#ifdef HAVE_H265_ENCODER
-        if (result2_h265 == 0) {
-            uint32_t result3 = send_frames_h265(av, friend_number, width, height,
-                                               y, u, v, call,
-                                               &video_frame_record_timestamp,
-                                               vpx_encode_flags,
-                                               &nal,
-                                               &i_frame_size,
-                                               h265_num_nals,
-                                               &h265_nals,
-                                               &rc);
-        }
-#endif
 
-        /*
         if ((call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP8)
                 || (call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_VP9)) {
 
@@ -1778,20 +1775,40 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
             }
 
         } else {
-            uint32_t result = send_frames_h264(av, friend_number, width, height,
-                                               y, u, v, call,
-                                               &video_frame_record_timestamp,
-                                               vpx_encode_flags,
-                                               &nal,
-                                               &i_frame_size,
-                                               &rc);
 
-            if (result != 0) {
-                pthread_mutex_unlock(call->mutex_video);
-                goto END;
+#ifdef HAVE_H265_ENCODER
+            if (call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H265) {
+                uint32_t result = send_frames_h265(av, friend_number, width, height,
+                                                   y, u, v, call,
+                                                   &video_frame_record_timestamp,
+                                                   vpx_encode_flags,
+                                                   &nal,
+                                                   &i_frame_size,
+                                                   h265_num_nals,
+                                                   &h265_nals,
+                                                   &rc);
+                if (result != 0) {
+                    pthread_mutex_unlock(call->mutex_video);
+                    goto END;
+                }
+            }
+#endif
+
+            if (call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H264) {
+                uint32_t result = send_frames_h264(av, friend_number, width, height,
+                                                   y, u, v, call,
+                                                   &video_frame_record_timestamp,
+                                                   vpx_encode_flags,
+                                                   &nal,
+                                                   &i_frame_size,
+                                                   &rc);
+
+                if (result != 0) {
+                    pthread_mutex_unlock(call->mutex_video);
+                    goto END;
+                }
             }
         }
-        */
     }
 
     pthread_mutex_unlock(call->mutex_video);
@@ -2174,7 +2191,8 @@ void callback_bwc(BWController *bwc, uint32_t friend_number, float loss, void *u
     }
 
     // HINT: sanity check --------------
-    if (call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H264) {
+    if ((call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H264) ||
+        (call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H265)) {
         if (call->video_bit_rate < VIDEO_BITRATE_MIN_AUTO_VALUE_H264) {
             call->video_bit_rate = VIDEO_BITRATE_MIN_AUTO_VALUE_H264;
         } else if (call->video_bit_rate > VIDEO_BITRATE_MAX_AUTO_VALUE_H264) {
