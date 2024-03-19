@@ -131,7 +131,7 @@ endif()
 option(BUILD_TOXAV "Whether to build the tox AV library" ON)
 option(MUST_BUILD_TOXAV "Fail the build if toxav cannot be built" OFF)
 
-option(BUILD_H265 "Whether to build the tox AV library with H265 support" ON)
+option(BUILD_H265 "Whether to build the tox AV library with H265 encoder support" OFF)
 
 option(DHT_BOOTSTRAP "Enable building of DHT_bootstrap" ON)
 option(BOOTSTRAP_DAEMON "Enable building of tox-bootstrapd" ON)
