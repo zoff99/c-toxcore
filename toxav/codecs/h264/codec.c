@@ -2468,7 +2468,7 @@ uint32_t send_frames_h265(ToxAV *av, uint32_t friend_number, uint16_t width, uin
                       0,
                       *video_frame_record_timestamp,
                       (int32_t)0,
-                      TOXAV_ENCODER_CODEC_USED_H264,
+                      TOXAV_ENCODER_CODEC_USED_H265,
                       call->video_bit_rate,
                       call->video->client_video_capture_delay_ms,
                       call->video->video_encoder_frame_orientation_angle,

@@ -1150,6 +1150,11 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
         header.flags = header.flags | RTP_ENCODER_IS_H264;
     }
 
+    if ((codec_used == TOXAV_ENCODER_CODEC_USED_H265) &&
+            (is_video_payload == 1)) {
+        header.flags = header.flags | RTP_ENCODER_IS_H265;
+    }
+
     if (video_frame_orientation_angle == TOXAV_CLIENT_INPUT_VIDEO_ORIENTATION_90) {
         header.flags = header.flags | RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT0;
     } else if (video_frame_orientation_angle == TOXAV_CLIENT_INPUT_VIDEO_ORIENTATION_180) {

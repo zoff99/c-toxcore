@@ -175,6 +175,9 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
         if (vc->video_decoder_codec_used == TOXAV_ENCODER_CODEC_USED_H264) {
             cmi = TOXAV_CALL_COMM_DECODER_IN_USE_H264;
         }
+        if (vc->video_decoder_codec_used == TOXAV_ENCODER_CODEC_USED_H265) {
+            cmi = TOXAV_CALL_COMM_DECODER_IN_USE_H265;
+        }
 
         av->call_comm_cb(av, friend_number, cmi, 0, av->call_comm_cb_user_data);
 
@@ -186,6 +189,9 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
             } else {
                 cmi = TOXAV_CALL_COMM_ENCODER_IN_USE_H264;
             }
+        }
+        if (vc->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H265) {
+            cmi = TOXAV_CALL_COMM_ENCODER_IN_USE_H265;
         }
 
         av->call_comm_cb(av, friend_number, cmi, 0, av->call_comm_cb_user_data);
@@ -250,6 +256,7 @@ void video_switch_decoder(VCSession *vc, TOXAV_ENCODER_CODEC_USED_VALUE decoder_
     if (vc->video_decoder_codec_used != (int32_t)decoder_to_use) {
         if ((decoder_to_use == TOXAV_ENCODER_CODEC_USED_VP8)
                 || (decoder_to_use == TOXAV_ENCODER_CODEC_USED_VP9)
+                || (decoder_to_use == TOXAV_ENCODER_CODEC_USED_H265)
                 || (decoder_to_use == TOXAV_ENCODER_CODEC_USED_H264)) {
 
             vc->video_decoder_codec_used = decoder_to_use;
@@ -264,6 +271,9 @@ void video_switch_decoder(VCSession *vc, TOXAV_ENCODER_CODEC_USED_VALUE decoder_
 
                     if (vc->video_decoder_codec_used == TOXAV_ENCODER_CODEC_USED_H264) {
                         cmi = TOXAV_CALL_COMM_DECODER_IN_USE_H264;
+                    }
+                    if (vc->video_decoder_codec_used == TOXAV_ENCODER_CODEC_USED_H265) {
+                        cmi = TOXAV_CALL_COMM_DECODER_IN_USE_H265;
                     }
 
                     vc->av->call_comm_cb(vc->av, vc->friend_number,
@@ -307,6 +317,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
     uint64_t frame_flags = 0;
     uint8_t data_type = 0;
     uint8_t h264_encoded_video_frame = 0;
+    uint8_t h265_encoded_video_frame = 0;
     uint32_t full_data_len = 0;
     uint32_t timestamp_out_ = 0;
     uint32_t timestamp_min = 0;
@@ -609,6 +620,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
 
         data_type = (uint8_t)((frame_flags & RTP_KEY_FRAME) != 0);
         h264_encoded_video_frame = (uint8_t)((frame_flags & RTP_ENCODER_IS_H264) != 0);
+        h265_encoded_video_frame = (uint8_t)((frame_flags & RTP_ENCODER_IS_H265) != 0);
 
         uint8_t video_orientation_bit0 = (uint8_t)((frame_flags & RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT0) != 0);
         uint8_t video_orientation_bit1 = (uint8_t)((frame_flags & RTP_ENCODER_VIDEO_ROTATION_ANGLE_BIT1) != 0);
@@ -684,7 +696,9 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                 LOGGER_API_WARNING(tox, "missing %d video frames (m1)", (int)missing_frames_count);
 #endif
 
-                if (vc->video_decoder_codec_used != TOXAV_ENCODER_CODEC_USED_H264) {
+                if ((vc->video_decoder_codec_used != TOXAV_ENCODER_CODEC_USED_H264) &&
+                    (vc->video_decoder_codec_used != TOXAV_ENCODER_CODEC_USED_H265))
+                {
                     rc = vpx_codec_decode(vc->decoder, NULL, 0, NULL, VPX_DL_REALTIME);
                 }
 
@@ -755,11 +769,18 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                     && (h264_encoded_video_frame == 1)) {
                 LOGGER_API_WARNING(tox, "h264_encoded_video_frame:AA");
                 video_switch_decoder(vc, TOXAV_ENCODER_CODEC_USED_H264);
-
-            } else if ((vc->video_decoder_codec_used == TOXAV_ENCODER_CODEC_USED_H264)
-                       && (h264_encoded_video_frame == 0)) {
-                LOGGER_API_WARNING(tox, "h264_encoded_video_frame:BB");
-                // HINT: once we switched to H264 never switch back to VP8 until this call ends
+            } else if ((vc->video_decoder_codec_used != TOXAV_ENCODER_CODEC_USED_H265)
+                    && (h265_encoded_video_frame == 1)) {
+                LOGGER_API_WARNING(tox, "h265_encoded_video_frame:AA");
+                video_switch_decoder(vc, TOXAV_ENCODER_CODEC_USED_H265);
+            } else if (
+                       ((vc->video_decoder_codec_used == TOXAV_ENCODER_CODEC_USED_H264) ||
+                       (vc->video_decoder_codec_used == TOXAV_ENCODER_CODEC_USED_H265))
+                       && ((h264_encoded_video_frame == 0) && (h265_encoded_video_frame == 0))
+                       )
+            {
+                LOGGER_API_WARNING(tox, "h26(4|5)_encoded_video_frame:BB");
+                // HINT: once we switched to H264 (or H265) never switch back to VP8 until this call ends
             }
         }
 
@@ -767,8 +788,11 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         //       as workaround send it again on the first 30 frames
 
         if (DISABLE_H264_DECODER_FEATURE != 1) {
-            if ((vc->video_decoder_codec_used != TOXAV_ENCODER_CODEC_USED_H264)
-                    && ((long)header_v3->sequnum < 30)) {
+            if (
+                 ((vc->video_decoder_codec_used != TOXAV_ENCODER_CODEC_USED_H264) &&
+                 (vc->video_decoder_codec_used != TOXAV_ENCODER_CODEC_USED_H265))
+                    && ((long)header_v3->sequnum < 30))
+            {
 
                 // HINT: tell friend that we have H264 decoder capabilities (3) -------
                 uint32_t pkg_buf_len = 2;
@@ -786,7 +810,7 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
         //* MID UNLOCK *//
         // pthread_mutex_unlock(vc->queue_mutex);
 
-        if (vc->video_decoder_codec_used != TOXAV_ENCODER_CODEC_USED_H264) {
+        if ((vc->video_decoder_codec_used != TOXAV_ENCODER_CODEC_USED_H264) && (vc->video_decoder_codec_used != TOXAV_ENCODER_CODEC_USED_H265)) {
             decode_frame_vpx(vc, tox, skip_video_flag, a_r_timestamp,
                              a_l_timestamp,
                              v_r_timestamp, v_l_timestamp,
@@ -794,25 +818,24 @@ uint8_t vc_iterate(VCSession *vc, Tox *tox, uint8_t skip_video_flag, uint64_t *a
                              rc, full_data_len,
                              &ret_value);
         } else {
-
-// --- H265 --- H265 --- H265 --- H265 --- H265 --- H265 --- H265 ---
-// --- H265 --- H265 --- H265 --- H265 --- H265 --- H265 --- H265 ---
-            decode_frame_h265(vc, tox, skip_video_flag, a_r_timestamp,
-                              a_l_timestamp,
-                              v_r_timestamp, v_l_timestamp,
-                              header_v3, p,
-                              rc, full_data_len,
-                              &ret_value);
-// --- H265 --- H265 --- H265 --- H265 --- H265 --- H265 --- H265 ---
-// --- H265 --- H265 --- H265 --- H265 --- H265 --- H265 --- H265 ---
-/*
-            decode_frame_h264(vc, tox, skip_video_flag, a_r_timestamp,
-                              a_l_timestamp,
-                              v_r_timestamp, v_l_timestamp,
-                              header_v3, p,
-                              rc, full_data_len,
-                              &ret_value);
-*/
+            if (vc->video_decoder_codec_used == TOXAV_ENCODER_CODEC_USED_H265)
+            {
+                decode_frame_h265(vc, tox, skip_video_flag, a_r_timestamp,
+                                  a_l_timestamp,
+                                  v_r_timestamp, v_l_timestamp,
+                                  header_v3, p,
+                                  rc, full_data_len,
+                                  &ret_value);
+            }
+            else
+            {
+                decode_frame_h264(vc, tox, skip_video_flag, a_r_timestamp,
+                                  a_l_timestamp,
+                                  v_r_timestamp, v_l_timestamp,
+                                  header_v3, p,
+                                  rc, full_data_len,
+                                  &ret_value);
+            }
         }
 
         //* NEW UNLOCK *//
@@ -1047,9 +1070,13 @@ int vc_reconfigure_encoder(Logger *log, VCSession *vc, uint32_t bit_rate, uint16
         ret = vc_reconfigure_encoder_vpx(log, vc, bit_rate, width, height, kf_max_dist);
     } else {
 #ifdef HAVE_H265_ENCODER
-        vc_reconfigure_encoder_h265(log, vc, bit_rate, width, height, kf_max_dist);
+        if (vc->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H265) {
+            vc_reconfigure_encoder_h265(log, vc, bit_rate, width, height, kf_max_dist);
+        }
 #endif
-        ret = vc_reconfigure_encoder_h264(log, vc, bit_rate, width, height, kf_max_dist);
+        if (vc->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H264) {
+            ret = vc_reconfigure_encoder_h264(log, vc, bit_rate, width, height, kf_max_dist);
+        }
     }
 
     vc->video_encoder_coded_used_prev = vc->video_encoder_coded_used;
