@@ -14206,6 +14206,7 @@ typedef struct Messenger_Options {
 #define TOX_CAPABILITY_TOXAV_H264 ((uint64_t)1) << 2
 #define TOX_CAPABILITY_MSGV3 ((uint64_t)1) << 3
 #define TOX_CAPABILITY_FTV2 ((uint64_t)1) << 4
+#define TOX_CAPABILITY_TOXAV_H265 ((uint64_t)1) << 5
 /* add new flags/bits here */
 /* if the TOX_CAPABILITY_NEXT_IMPLEMENTATION flag is set it means
  * we are using a different system for indicating capabilities now,
@@ -14215,9 +14216,9 @@ typedef struct Messenger_Options {
 #define TOX_CAPABILITY_NEXT_IMPLEMENTATION ((uint64_t)1) << 63
 /* hardcoded capabilities of this version/branch of toxcore */
 #ifdef TOX_CAPABILITIES_ACTIVE
-#define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_MSGV2 | TOX_CAPABILITY_MSGV3 | TOX_CAPABILITY_TOXAV_H264 | TOX_CAPABILITY_FTV2)
+#define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_MSGV2 | TOX_CAPABILITY_MSGV3 | TOX_CAPABILITY_TOXAV_H264 | TOX_CAPABILITY_TOXAV_H265 | TOX_CAPABILITY_FTV2)
 #else
-#define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_TOXAV_H264)
+#define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_TOXAV_H264 | TOX_CAPABILITY_TOXAV_H265)
 #endif
 /* size of the FLAGS in bytes */
 #define TOX_CAPABILITIES_SIZE sizeof(uint64_t)
@@ -29835,12 +29836,9 @@ void gc_get_group_peer_connection_ip(const Messenger *m, int group_number, uint3
         // get tcp connections
         const TCP_Connection_to *con_to = get_connection(chat->tcp_conn, gconn->tcp_connection_num);
 
-<<<<<<< HEAD
         if (con_to == nullptr) {
             return;
         }
-=======
->>>>>>> 4c64f61ea (WIP: 003)
         for (uint32_t i = 0; i < MAX_FRIEND_TCP_CONNECTIONS; ++i) {
             uint32_t tcp_con_num = con_to->connections[i].tcp_connection;
             const uint8_t status = con_to->connections[i].status;
@@ -29853,13 +29851,10 @@ void gc_get_group_peer_connection_ip(const Messenger *m, int group_number, uint3
                     continue;
                 }
 
-<<<<<<< HEAD
                 if (tcp_con->connection == nullptr) {
                     continue;
                 }
 
-=======
->>>>>>> 4c64f61ea (WIP: 003)
                 const IP_Port conn_ip_port = tcp_con_ip_port(tcp_con->connection);
 
                 if (!net_family_is_unspec(conn_ip_port.ip.family)) {
