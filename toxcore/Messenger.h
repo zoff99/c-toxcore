@@ -92,6 +92,7 @@ typedef struct Messenger_Options {
 #define TOX_CAPABILITY_TOXAV_H264 ((uint64_t)1) << 2
 #define TOX_CAPABILITY_MSGV3 ((uint64_t)1) << 3
 #define TOX_CAPABILITY_FTV2 ((uint64_t)1) << 4
+#define TOX_CAPABILITY_TOXAV_H265 ((uint64_t)1) << 5
 /* add new flags/bits here */
 /* if the TOX_CAPABILITY_NEXT_IMPLEMENTATION flag is set it means
  * we are using a different system for indicating capabilities now,
@@ -101,9 +102,9 @@ typedef struct Messenger_Options {
 #define TOX_CAPABILITY_NEXT_IMPLEMENTATION ((uint64_t)1) << 63
 /* hardcoded capabilities of this version/branch of toxcore */
 #ifdef TOX_CAPABILITIES_ACTIVE
-#define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_MSGV2 | TOX_CAPABILITY_MSGV3 | TOX_CAPABILITY_TOXAV_H264 | TOX_CAPABILITY_FTV2)
+#define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_MSGV2 | TOX_CAPABILITY_MSGV3 | TOX_CAPABILITY_TOXAV_H264 | TOX_CAPABILITY_TOXAV_H265 | TOX_CAPABILITY_FTV2)
 #else
-#define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_TOXAV_H264)
+#define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_TOXAV_H264 | TOX_CAPABILITY_TOXAV_H265)
 #endif
 /* size of the FLAGS in bytes */
 #define TOX_CAPABILITIES_SIZE sizeof(uint64_t)
