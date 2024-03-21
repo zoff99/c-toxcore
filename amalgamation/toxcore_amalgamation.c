@@ -47348,10 +47348,6 @@ void copy_friend_ip_port(Net_Crypto *c, const int crypt_conn_id, char *report_st
         return;
     }
 
-    if (crypt_conn_id == nullptr) {
-        return;
-    }
-
     char *p = report_string;
 
     if (direct_connected) {
@@ -75222,7 +75218,7 @@ void rtp_stop_receiving(Tox *tox)
 }
 
 /**
- * @param input is raw vpx data (or H264 data).
+ * @param data is raw vpx data (or H264 data).
  * @param length is the length of the raw data.
  */
 int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, bool is_keyframe,

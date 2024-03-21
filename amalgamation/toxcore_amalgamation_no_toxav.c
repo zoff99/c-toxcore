@@ -44914,10 +44914,6 @@ void copy_friend_ip_port(Net_Crypto *c, const int crypt_conn_id, char *report_st
         return;
     }
 
-    if (crypt_conn_id == nullptr) {
-        return;
-    }
-
     char *p = report_string;
 
     if (direct_connected) {

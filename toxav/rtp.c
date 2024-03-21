@@ -1108,7 +1108,7 @@ void rtp_stop_receiving(Tox *tox)
 }
 
 /**
- * @param input is raw vpx data (or H264 data).
+ * @param data is raw vpx data (or H264 data).
  * @param length is the length of the raw data.
  */
 int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, bool is_keyframe,
