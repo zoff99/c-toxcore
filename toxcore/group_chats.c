@@ -3419,6 +3419,9 @@ void gc_get_group_peer_connection_ip(const Messenger *m, int group_number, uint3
         // get tcp connections
         const TCP_Connection_to *con_to = get_connection(chat->tcp_conn, gconn->tcp_connection_num);
 
+        if (con_to == nullptr) {
+            return;
+        }
         for (uint32_t i = 0; i < MAX_FRIEND_TCP_CONNECTIONS; ++i) {
             uint32_t tcp_con_num = con_to->connections[i].tcp_connection;
             const uint8_t status = con_to->connections[i].status;
@@ -3428,6 +3431,10 @@ void gc_get_group_peer_connection_ip(const Messenger *m, int group_number, uint3
                 TCP_con *tcp_con = get_tcp_connection(chat->tcp_conn, tcp_con_num);
 
                 if (tcp_con == nullptr) {
+                    continue;
+                }
+
+                if (tcp_con->connection == nullptr) {
                     continue;
                 }
 

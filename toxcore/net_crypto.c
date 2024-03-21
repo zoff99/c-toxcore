@@ -2346,6 +2346,11 @@ void copy_friend_ip_port(Net_Crypto *c, const int crypt_conn_id, char *report_st
     if (report_string == nullptr) {
         return;
     }
+
+    if (crypt_conn_id == nullptr) {
+        return;
+    }
+
     char *p = report_string;
 
     if (direct_connected) {
@@ -2376,8 +2381,14 @@ void copy_friend_ip_port(Net_Crypto *c, const int crypt_conn_id, char *report_st
     } else {
         // get tcp connections
         Crypto_Connection *conn = get_crypto_connection(c, crypt_conn_id);
+        if (conn == nullptr) {
+            return;
+        }
         unsigned int conn_num_tcp = conn->connection_number_tcp;
         const TCP_Connection_to *con_to = get_connection(c->tcp_c, conn_num_tcp);
+        if (con_to == nullptr) {
+            return;
+        }
 
         for (uint32_t i = 0; i < MAX_FRIEND_TCP_CONNECTIONS; ++i) {
             uint32_t tcp_con_num = con_to->connections[i].tcp_connection;
@@ -2387,7 +2398,6 @@ void copy_friend_ip_port(Net_Crypto *c, const int crypt_conn_id, char *report_st
             if (tcp_con_num > 0 && status == TCP_CONNECTIONS_STATUS_ONLINE) {
                 tcp_con_num -= 1;
                 TCP_con *tcp_con = get_tcp_connection(c->tcp_c, tcp_con_num);
-
                 if (tcp_con == nullptr) {
                     continue;
                 }
