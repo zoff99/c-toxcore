@@ -2010,57 +2010,57 @@ VCSession *vc_new_h265(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     codec = NULL;
     codec = avcodec_find_decoder(AV_CODEC_ID_H265);
 
-
     if (!codec) {
         LOGGER_API_WARNING(av->tox, "codec not found H265 on decoder");
-        assert(!"codec not found H265 on decoder");
-    }
+        vc->h265_decoder = NULL;
+    } else {
 
-    vc->h265_decoder = avcodec_alloc_context3(codec);
-    LOGGER_API_INFO(av->tox, "H265 decoder:h265_decoder=%p", (void *)vc->h265_decoder);
+        vc->h265_decoder = avcodec_alloc_context3(codec);
+        LOGGER_API_INFO(av->tox, "H265 decoder:h265_decoder=%p", (void *)vc->h265_decoder);
 
-    if (codec) {
+        if (codec) {
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59, 0, 0)
-        vc->h265_decoder->refcounted_frames = 0;
+            vc->h265_decoder->refcounted_frames = 0;
 #endif
-        /*   When AVCodecContext.refcounted_frames is set to 0, the returned
-        *             reference belongs to the decoder and is valid only until the
-        *             next call to this function or until closing or flushing the
-        *             decoder. The caller may not write to it.
-        */
+            /*   When AVCodecContext.refcounted_frames is set to 0, the returned
+            *             reference belongs to the decoder and is valid only until the
+            *             next call to this function or until closing or flushing the
+            *             decoder. The caller may not write to it.
+            */
 #pragma GCC diagnostic pop
 
-        vc->h265_decoder->delay = 0;
-        av_opt_set_int(vc->h265_decoder->priv_data, "delay", 0, AV_OPT_SEARCH_CHILDREN);
+            vc->h265_decoder->delay = 0;
+            av_opt_set_int(vc->h265_decoder->priv_data, "delay", 0, AV_OPT_SEARCH_CHILDREN);
 
-        vc->h265_decoder->time_base = (AVRational) {
-            1, 30
-        };
-        vc->h265_decoder->framerate = (AVRational) {
-            30, 1
-        };
+            vc->h265_decoder->time_base = (AVRational) {
+                1, 30
+            };
+            vc->h265_decoder->framerate = (AVRational) {
+                30, 1
+            };
 
-        if (avcodec_open2(vc->h265_decoder, codec, NULL) < 0) {
-            LOGGER_API_WARNING(av->tox, "could not open codec H265 on decoder");
-            assert(!"could not open codec H265 on decoder");
+            if (avcodec_open2(vc->h265_decoder, codec, NULL) < 0) {
+                LOGGER_API_WARNING(av->tox, "could not open codec H265 on decoder");
+                assert(!"could not open codec H265 on decoder");
+            }
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59, 0, 0)
+            vc->h265_decoder->refcounted_frames = 0;
+#endif
+#pragma GCC diagnostic pop
+            /*   When AVCodecContext.refcounted_frames is set to 0, the returned
+            *             reference belongs to the decoder and is valid only until the
+            *             next call to this function or until closing or flushing the
+            *             decoder. The caller may not write to it.
+            */
+
+            LOGGER_API_INFO(av->tox, "H265 decoder:h265_decoder:ready");
         }
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59, 0, 0)
-        vc->h265_decoder->refcounted_frames = 0;
-#endif
-#pragma GCC diagnostic pop
-        /*   When AVCodecContext.refcounted_frames is set to 0, the returned
-        *             reference belongs to the decoder and is valid only until the
-        *             next call to this function or until closing or flushing the
-        *             decoder. The caller may not write to it.
-        */
-
-        LOGGER_API_INFO(av->tox, "H265 decoder:h265_decoder:ready");
     }
 
 
@@ -2502,11 +2502,13 @@ void vc_kill_h265(VCSession *vc)
 #endif
 
     // decoder
-    if (vc->h265_decoder->extradata) {
-        av_free(vc->h265_decoder->extradata);
-        vc->h265_decoder->extradata = NULL;
+    if (vc->h265_decoder != nullptr) {
+        if (vc->h265_decoder->extradata) {
+            av_free(vc->h265_decoder->extradata);
+            vc->h265_decoder->extradata = NULL;
+        }
+        avcodec_free_context(&vc->h265_decoder);
+        vc->h265_decoder = NULL;
     }
-
-    avcodec_free_context(&vc->h265_decoder);
 }
 
