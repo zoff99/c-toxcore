@@ -821,6 +821,17 @@ bool toxav_option_set(ToxAV *av, uint32_t friend_number, TOXAV_OPTIONS_OPTION op
         if (((int32_t)value >= TOXAV_ENCODER_CODEC_USED_VP8)
                 && ((int32_t)value <= TOXAV_ENCODER_CODEC_USED_H265)) {
 
+#ifndef HAVE_H265_ENCODER
+            if ((int32_t)value == TOXAV_ENCODER_CODEC_USED_H265) {
+
+                pthread_mutex_unlock(call->toxav_call_mutex);
+                pthread_mutex_unlock(av->mutex);
+                LOGGER_API_WARNING(av->tox, "trying to set H265 encoder when no H265 encoder is available in this toxcore library");
+                rc = TOXAV_ERR_OPTION_SET_OTHER_ERROR;
+                goto END;
+            }
+#endif
+
             if (vc->video_encoder_coded_used == (int32_t)value) {
                 LOGGER_API_WARNING(av->tox, "video video_encoder_coded_used already set to: %d", (int)value);
             } else {
@@ -1731,7 +1742,7 @@ bool toxav_video_send_frame_age(ToxAV *av, uint32_t friend_number, uint16_t widt
             }
 #endif
 
-            if (call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H265)
+            if (call->video->video_encoder_coded_used == TOXAV_ENCODER_CODEC_USED_H264)
             {
                 LOGGER_API_DEBUG(av->tox, "**##** encoding H264 frame **##**");
                 uint32_t result = encode_frame_h264(av, friend_number, width, height,
