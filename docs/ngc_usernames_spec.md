@@ -5,7 +5,7 @@ set the own peername on joing or creating an NGC group according to this spec.
 it avoids leaking the tox client you are using and also avoids leaking
 your language and character set.
 
-* get a 2 random integers between 0 and 64000 (inclusive)
+* get 2 random integers between 0 and 64000 (inclusive)
 * use 2 fixed lists
 
 list of firstnames:
