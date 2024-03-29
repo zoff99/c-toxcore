@@ -24,9 +24,9 @@ list of lastnames:
     };
 
 
-* use the first integer to select the name position modulo namelist length from firstname list
+* use the first integer to select the name position modulo firstNames length from firstname list
 
-* use the first integer to select the name position modulo namelist length from lastname list
+* use the second integer to select the name position modulo lastNames length from lastname list
 
 
 then use: `<firstname><SPACE><lastname>` as your own peername
