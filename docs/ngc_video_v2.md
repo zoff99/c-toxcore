@@ -34,6 +34,7 @@ data   size: 1 - 36986 bytes
 
 do this globally, so you can only send/receive video for 1 NGC group at a time!
 
+```c
 void* toxav_ngc_video_init(const uint16_t v_bitrate, const uint16_t max_quantizer);
 bool toxav_ngc_video_encode(void *vngc, const uint16_t vbitrate, const uint16_t width, const uint16_t height,
                             const uint8_t *y, const uint8_t *u, const uint8_t *v,
@@ -43,7 +44,7 @@ bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t e
                             uint8_t *y, uint8_t *u, uint8_t *v,
                             int32_t *ystride, int32_t *ustride, int32_t *vstride);
 void toxav_ngc_video_kill(void *vngc);
-
+```
 
 use `tox_group_send_custom_packet()` and `lossless` set to `true` to send video data
 unless the packet size including header is less than `TOX_MAX_CUSTOM_PACKET_SIZE`,
