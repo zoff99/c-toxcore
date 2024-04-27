@@ -83573,7 +83573,7 @@ int vc_reconfigure_encoder_vpx(Logger *log, VCSession *vc, uint32_t bit_rate,
     vpx_codec_enc_cfg_t cfg2 = *vc->encoder->config.enc;
     vpx_codec_err_t rc;
 
-    if (cfg2.rc_target_bitrate == bit_rate && cfg2.g_w == width && cfg2.g_h == height && kf_max_dist == -1
+    if (cfg2.rc_target_bitrate == (bit_rate / 1000) && cfg2.g_w == width && cfg2.g_h == height && kf_max_dist == -1
             && vc->video_encoder_cpu_used == vc->video_encoder_cpu_used_prev
             && vc->video_encoder_vp8_quality == vc->video_encoder_vp8_quality_prev
             && vc->video_rc_max_quantizer == vc->video_rc_max_quantizer_prev
