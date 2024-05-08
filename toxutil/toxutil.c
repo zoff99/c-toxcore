@@ -1274,8 +1274,8 @@ bool tox_util_friend_resend_message_v2(Tox *tox, uint32_t friend_number,
                                           (const uint8_t *)filename, (size_t)strlen(filename),
                                           &error_send);
 
+    free(msgid);
     if ((file_num_new == UINT32_MAX) || (error_send != TOX_ERR_FILE_SEND_OK)) {
-        free(msgid);
         return false;
     }
 
@@ -1357,8 +1357,9 @@ bool tox_util_friend_send_sync_message_v2(Tox *tox, uint32_t friend_number,
                                           (const uint8_t *)filename, (size_t)strlen(filename),
                                           &error_send);
 
+    free(msgid);
+
     if ((file_num_new == UINT32_MAX) || (error_send != TOX_ERR_FILE_SEND_OK)) {
-        free(msgid);
         return false;
     }
 
@@ -1554,13 +1555,13 @@ int64_t tox_util_friend_send_message_v2(Tox *tox, uint32_t friend_number, TOX_ME
                     }
                 }
 
-                free(raw_message);
-                free(msgid);
-
                 if (error) {
                     *error = TOX_ERR_FRIEND_SEND_MESSAGE_OK;
                 }
             }
+
+            free(raw_message);
+            free(msgid);
 
             return -1;
         } else {
