@@ -80,10 +80,10 @@ echo "#########################"
 
 CC=clang cmake -B_build -H. -GNinja \
     -DCMAKE_INSTALL_PREFIX:PATH="$PWD/_install" \
-    -DCMAKE_C_FLAGS="-g -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
-    -DCMAKE_CXX_FLAGS="-g -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
-    -DCMAKE_EXE_LINKER_FLAGS="-g -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
-    -DCMAKE_SHARED_LINKER_FLAGS="-g -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
+    -DCMAKE_C_FLAGS="-g -DTOX_CAPABILITIES_ACTIVE -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
+    -DCMAKE_CXX_FLAGS="-g -DTOX_CAPABILITIES_ACTIVE -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
+    -DCMAKE_EXE_LINKER_FLAGS="-g -DTOX_CAPABILITIES_ACTIVE -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
+    -DCMAKE_SHARED_LINKER_FLAGS="-g -DTOX_CAPABILITIES_ACTIVE -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
     -DMIN_LOGGER_LEVEL=INFO \
     -DMUST_BUILD_TOXAV=ON \
     -DNON_HERMETIC_TESTS=OFF \
