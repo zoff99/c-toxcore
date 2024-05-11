@@ -103,8 +103,18 @@ msgV2 type     |4          | what msgV2 type is this sync message
 msgv2 data     |[0, 4167]  | msgV2 raw data including header as raw bytes
 ```
 
-# 4167 = TOX_MESSAGEV2_MAX_NON_SYNC_HEADER_SIZE + TOX_MESSAGEV2_MAX_TEXT_LENGTH
-# 4241 = TOX_MAX_FILETRANSFER_SIZE_MSGV2
+#### 4167 = TOX_MESSAGEV2_MAX_NON_SYNC_HEADER_SIZE + TOX_MESSAGEV2_MAX_TEXT_LENGTH
+#### 4241 = TOX_MAX_FILETRANSFER_SIZE_MSGV2
+
+###### HINT:
+for group and conference messages, `orig sender` is the conference id / group id.<br>
+the sender peerpubkey is preprended to the actual text message.<br>
+for group messages also add the message id as hexstring.<br>
+in conference messages the message id is already prependend as hexstring.<br><br>
+`<sender peerpubkey as uppercase hex>` `<groupmessage id as lowercase hex>` `:` `<the actual message text>`
+
+
+
 
 add helper functions for sending:
 ---------------------------------
