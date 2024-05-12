@@ -3369,8 +3369,10 @@ bool toxav_ngc_video_decode(void *vngc, uint8_t *encoded_frame_bytes, uint32_t e
 }
 
 #define NGC__AUDIO_OPUS_COMPLEXITY (10)
+#define NGC__AUDIO_OPUS_PACKET_LOSS_PERC (4)
 #define NGC__AUDIO_MAX_ENCODED_DATA_BYTES (TOX_MAX_CUSTOM_PACKET_SIZE - 1 - 10) // 10 bytes for NGC audio packet header
 #define NGC__AUDIO_MAX_PCM_DATA_BYTES (5760)
+#define NGC__AUDIO_OPUS_PACKET_LOSS_PERC (4)
 
 struct ToxAV_NGC_acoders {
     OpusEncoder *ngc__opus_encoder;
@@ -3415,6 +3417,9 @@ void* toxav_ngc_audio_init(const int32_t bit_rate, const int32_t sampling_rate, 
         opus_encoder_destroy(opus_encoder);
         ngc_audio_coders->ngc__opus_encoder = nullptr;
     }
+
+    status_enc = opus_encoder_ctl(opus_encoder, OPUS_SET_INBAND_FEC(1));
+    status_enc = opus_encoder_ctl(opus_encoder, OPUS_SET_PACKET_LOSS_PERC(NGC__AUDIO_OPUS_PACKET_LOSS_PERC));
 
     printf("starting audio encoder complexity: %d\n", (int)NGC__AUDIO_OPUS_COMPLEXITY);
     status_enc = opus_encoder_ctl(opus_encoder, OPUS_SET_COMPLEXITY(NGC__AUDIO_OPUS_COMPLEXITY));
