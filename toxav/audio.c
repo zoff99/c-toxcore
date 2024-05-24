@@ -615,12 +615,14 @@ static OpusEncoder *create_audio_encoder(const Logger *log, int32_t bit_rate, in
         goto FAILURE;
     }
 
-#if 0
+#if 1
     status = opus_encoder_ctl(rc, OPUS_SET_VBR(0));
 
     if (status != OPUS_OK) {
-        // LOGGER_ERROR(log, "Error while setting encoder ctl: %s", opus_strerror(status));
-        goto FAILURE;
+        LOGGER_WARNING(log, "Error while setting encoder ctl (OPUS_SET_VBR off): %s", opus_strerror(status));
+        // goto FAILURE;
+    } else {
+        LOGGER_WARNING(log, "Setting encoder ctl (OPUS_SET_VBR off) OK: %s", opus_strerror(status));
     }
 
 #endif
