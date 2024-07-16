@@ -20,12 +20,19 @@ jobs:
         run: |
           vcpkg install pkgconf:x64-windows libsodium:x64-windows-static pthreads:x64-windows-static
 
+      - name: update vcpkg
+        shell: bash
+        run: |
+          cd C:/vcpkg
+          find . -name '*.pc'
+
       - name: test
         run: |
           cd C:/vcpkg
           vcpkg
-          C:/vcpkg/installed/x64-windows/tools/pkgconf/pkgconf.exe --list-all --with-path=C:/vcpkg/installed/x64-windows/lib/pkgconfig libsodium
-          C:/vcpkg/installed/x64-windows/tools/pkgconf/pkgconf.exe --libs  --cflags --with-path=C:/vcpkg/installed/x64-windows/lib/pkgconfig libsodium
+          C:/vcpkg/installed/x64-windows/tools/pkgconf/pkgconf.exe --list-all --with-path=C:/vcpkg/installed/x64-windows/lib/pkgconfig
+          C:/vcpkg/installed/x64-windows/tools/pkgconf/pkgconf.exe --list-all --with-path=C:/vcpkg/packages/libsodium_x64-windows-static/lib/pkgconfig
+          C:/vcpkg/installed/x64-windows/tools/pkgconf/pkgconf.exe --libs --cflags --with-path=C:/vcpkg/packages/libsodium_x64-windows-static/lib/pkgconfig libsodium
 
       - name: cc
         run: |
