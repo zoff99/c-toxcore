@@ -10,6 +10,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: find c compiler
+        shell: bash
+        run: |
+          cd C:/
+          find . -name 'cl.exe'
+
       - name: update vcpkg
         shell: bash
         run: |
@@ -25,13 +31,6 @@ jobs:
         run: |
           cd C:/vcpkg
           find . -name '*.pc'
-
-      - name: find c compiler
-        shell: bash
-        run: |
-          cd C:/
-          cd \
-          find . -name 'cl.exe'
 
       - name: test
         run: |
