@@ -26,6 +26,12 @@ jobs:
           cd C:/vcpkg
           find . -name '*.pc'
 
+      - name: find pthreads libs
+        shell: bash
+        run: |
+          cd C:/vcpkg/packages/pthreads_x64-windows-static/
+          find .
+
       - name: find sodium libs
         shell: bash
         run: |
