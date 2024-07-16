@@ -1,0 +1,28 @@
+name: amalgamation_test_win64_vcpkg
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  amalgamation_test_win64_vcpkg:
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: update vcpkg
+        shell: bash
+        run: |
+          cd C:/vcpkg
+          git pull
+
+      - name: Install Dependencies
+        run: |
+          vcpkg install pkgconf:x64-windows libsodium:x64-windows-static pthreads:x64-windows-static
+
+      - name: test
+        run: |
+          cd C:/vcpkg
+          vcpkg
+          pkgconf.exe  --list-all
+
