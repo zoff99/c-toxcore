@@ -24,5 +24,6 @@ jobs:
         run: |
           cd C:/vcpkg
           vcpkg
-          pkgconf.exe  --list-all
+          C:/vcpkg/installed/x64-windows/tools/pkgconf/pkgconf.exe --list-all
+          C:/vcpkg/installed/x64-windows/tools/pkgconf/pkgconf.exe --libs --cflags libsodium
 
