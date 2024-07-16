@@ -47,5 +47,6 @@ jobs:
         shell: bash
         run: |
           cd ./amalgamation/
-          cl amalgamation_test.c $(C:/vcpkg/installed/x64-windows/tools/pkgconf/pkgconf.exe --libs --cflags --with-path=C:/vcpkg/packages/libsodium_x64-windows-static/lib/pkgconfig libsodium)
+          ls -al
+          cl /EHsc /ZW amalgamation_test.c $(C:/vcpkg/installed/x64-windows/tools/pkgconf/pkgconf.exe --libs --cflags --with-path=C:/vcpkg/packages/libsodium_x64-windows-static/lib/pkgconfig libsodium) /link /SUBSYSTEM:CONSOLE
 
