@@ -10,11 +10,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: find c compiler
-        shell: bash
-        run: |
-          cd C:/
-          find . -name 'cl.exe'
+#      - name: find c compiler
+#        shell: bash
+#        run: |
+#          cd C:/
+#          find . -name 'cl.exe'
 
       - name: update vcpkg
         shell: bash
@@ -26,11 +26,11 @@ jobs:
         run: |
           vcpkg install pkgconf:x64-windows libsodium:x64-windows-static pthreads:x64-windows-static
 
-#      - name: find packages
-#        shell: bash
-#        run: |
-#          cd C:/vcpkg
-#          find . -name '*.pc'
+      - name: find packages
+        shell: bash
+        run: |
+          cd C:/vcpkg
+          find . -name '*.pc'
 
       - name: test
         run: |
