@@ -10,12 +10,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-#      - name: find c compiler
-#        shell: bash
-#        run: |
-#          cd C:/
-#          find . -name 'cl.exe'
-
       - name: update vcpkg
         shell: bash
         run: |
@@ -32,7 +26,7 @@ jobs:
           cd C:/vcpkg
           find . -name '*.pc'
 
-      - name: test
+      - name: checks
         run: |
           cd C:/vcpkg
           vcpkg
@@ -43,9 +37,15 @@ jobs:
       - name: Setup Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@release/v1
 
-      - name: compile
+      - name: compiler
         shell: cmd
         run: |
           echo %PATH%
           cl.exe
+
+      - name: compile
+        shell: bash
+        run: |
+          cd ./amalgamation/
+          cl amalgamation_test.c $(C:/vcpkg/installed/x64-windows/tools/pkgconf/pkgconf.exe --libs --cflags --with-path=C:/vcpkg/packages/libsodium_x64-windows-static/lib/pkgconfig libsodium)
 
