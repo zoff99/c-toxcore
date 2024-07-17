@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#if !defined(OS_WIN32)
+#if !defined(_WIN32)
 #include <unistd.h>
 #else
 
