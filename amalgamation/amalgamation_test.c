@@ -21,24 +21,14 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+
 #if !defined(_WIN32)
 #include <unistd.h>
 #else
-
-
-#include <windows.h>
-
-void usleep(int waitTime) {
-    __int64 time1 = 0, time2 = 0, freq = 0;
-
-    QueryPerformanceCounter((LARGE_INTEGER *) &time1);
-    QueryPerformanceFrequency((LARGE_INTEGER *)&freq);
-
-    do {
-        QueryPerformanceCounter((LARGE_INTEGER *) &time2);
-    } while((time2-time1) < waitTime);
+void usleep(int waitTime)
+{
+    // TODO: NOOP -> fix me
 }
-
 #endif
 
 #include <sodium.h>
