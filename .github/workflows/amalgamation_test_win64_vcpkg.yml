@@ -7,6 +7,8 @@ on:
 jobs:
   amalgamation_test_win64_vcpkg:
     runs-on: windows-2019
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -68,5 +70,11 @@ jobs:
           ls -al
           ./amalgamation_test.exe || echo "NO ERR"
           ls -al
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: win_msvc_amalgamation_test.exe
+          path: amalgamation/amalgamation_test.exe
 
 
