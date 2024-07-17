@@ -58,5 +58,5 @@ jobs:
       - name: compile
         run: |
           cd amalgamation
-          cl /MT toxcore_amalgamation_no_toxav.c User32.lib pthreadVC3.lib libsodium.lib /I"C:/vcpkg/packages/pthreads_x64-windows-static/include" /I"C:/vcpkg/packages/libsodium_x64-windows-static/include" /link /LIBPATH:"C:/vcpkg/packages/libsodium_x64-windows-static/lib" /LIBPATH:"C:/vcpkg/packages/pthreads_x64-windows-static/lib" /SUBSYSTEM:CONSOLE
+          cl /MT toxcore_amalgamation_no_toxav.c User32.lib Ws2_32.lib wsock32.lib iphlpapi.lib pthreadVC3.lib libsodium.lib /I"C:/vcpkg/packages/pthreads_x64-windows-static/include" /I"C:/vcpkg/packages/libsodium_x64-windows-static/include" /link /LIBPATH:"C:/vcpkg/packages/libsodium_x64-windows-static/lib" /LIBPATH:"C:/vcpkg/packages/pthreads_x64-windows-static/lib" /SUBSYSTEM:CONSOLE
 
