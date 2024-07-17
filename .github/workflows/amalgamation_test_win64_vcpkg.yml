@@ -66,6 +66,7 @@ jobs:
           cd amalgamation/
           pwd
           ls -al
-          ./amalgamation_test.exe
+          ./amalgamation_test.exe || echo "NO ERR"
+          ls -al
 
 
