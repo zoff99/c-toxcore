@@ -93,6 +93,7 @@ typedef struct Messenger_Options {
 #define TOX_CAPABILITY_MSGV3 ((uint64_t)1) << 3
 #define TOX_CAPABILITY_FTV2 ((uint64_t)1) << 4
 #define TOX_CAPABILITY_TOXAV_H265 ((uint64_t)1) << 5
+#define TOX_CAPABILITY_FTV2A ((uint64_t)1) << 6
 /* add new flags/bits here */
 /* if the TOX_CAPABILITY_NEXT_IMPLEMENTATION flag is set it means
  * we are using a different system for indicating capabilities now,
@@ -102,7 +103,7 @@ typedef struct Messenger_Options {
 #define TOX_CAPABILITY_NEXT_IMPLEMENTATION ((uint64_t)1) << 63
 /* hardcoded capabilities of this version/branch of toxcore */
 #ifdef TOX_CAPABILITIES_ACTIVE
-#define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_MSGV2 | TOX_CAPABILITY_MSGV3 | TOX_CAPABILITY_TOXAV_H264 | TOX_CAPABILITY_TOXAV_H265 | TOX_CAPABILITY_FTV2)
+#define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_MSGV2 | TOX_CAPABILITY_MSGV3 | TOX_CAPABILITY_TOXAV_H264 | TOX_CAPABILITY_TOXAV_H265 | TOX_CAPABILITY_FTV2 | TOX_CAPABILITY_FTV2A)
 #else
 #define TOX_CAPABILITIES_CURRENT (uint64_t)(TOX_CAPABILITY_CAPABILITIES | TOX_CAPABILITY_TOXAV_H264 | TOX_CAPABILITY_TOXAV_H265)
 #endif
@@ -173,6 +174,10 @@ struct File_Transfers {
     bool received_seek_control;
     uint8_t received_seek_control_counter;
     uint32_t file_receiver_last_received_chunk_this_many_iterations_ago;
+    uint32_t file_sender_started_this_many_iterations_ago;
+    bool ft_send_ackd;
+    uint8_t filename[255]; // "MAX_FILENAME_LENGTH 255" in Messenger.c and "TOX_MAX_FILENAME_LENGTH 255" in tox.h -> how can we keep that in sync?
+    uint32_t filename_length;
 };
 typedef enum Filestatus {
     FILESTATUS_NONE,
@@ -190,11 +195,12 @@ typedef enum File_Pause {
 } File_Pause;
 
 typedef enum Filecontrol {
-    FILECONTROL_ACCEPT,
-    FILECONTROL_PAUSE,
-    FILECONTROL_KILL,
-    FILECONTROL_SEEK,
-    FILECONTROL_FINISHED,
+    FILECONTROL_ACCEPT = 0,
+    FILECONTROL_PAUSE = 1,
+    FILECONTROL_KILL = 2,
+    FILECONTROL_SEEK = 3,
+    FILECONTROL_FINISHED = 4,
+    FILECONTROL_SEND_ACK = 8, // HINT: leave some free values just in case upstream will use then for something
 } Filecontrol;
 
 typedef enum Filekind {
