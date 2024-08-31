@@ -57,6 +57,7 @@ static_assert(MAX_CONCURRENT_FILE_PIPES <= UINT8_MAX + 1,
 
 #define PAUSE_CYCLES_ON_FTV2_SEEK_RECEIVED 20
 #define STALE_CYCLES_ON_FTV2_RECEIVER 2000
+#define STALE_CYCLES_ON_FTV2_SEND 1000
 
 static const Friend empty_friend = {{0}};
 
@@ -1310,9 +1311,17 @@ long int new_filesender(const Messenger *m, int32_t friendnumber, uint32_t file_
 
     ft->file_type = file_type;
 
+    memset(ft->filename, 0, MAX_FILENAME_LENGTH);
+    if (filename_length > 0) {
+        memcpy(ft->filename, filename, filename_length);
+    }
+    ft->filename_length = filename_length;
+
     ft->received_seek_control = false;
     ft->received_seek_control_counter = 0;
+    ft->ft_send_ackd = false;
     ft->file_receiver_last_received_chunk_this_many_iterations_ago = 0;
+    ft->file_sender_started_this_many_iterations_ago = 0;
 
     if ((file_type == HACK_TOX_FILE_KIND_MESSAGEV2_SEND)
             ||
@@ -1466,7 +1475,11 @@ int file_control(const Messenger *m, int32_t friendnumber, uint32_t filenumber, 
                 ft->file_type = 0;
                 ft->received_seek_control = false;
                 ft->received_seek_control_counter = 0;
+                ft->ft_send_ackd = false;
                 ft->file_receiver_last_received_chunk_this_many_iterations_ago = 0;
+                ft->file_sender_started_this_many_iterations_ago = 0;
+                memset(ft->filename, 0, MAX_FILENAME_LENGTH);
+                ft->filename_length = 0;
                 ft->status = FILESTATUS_NONE;
                 break;
             }
@@ -1476,7 +1489,7 @@ int file_control(const Messenger *m, int32_t friendnumber, uint32_t filenumber, 
             }
             case FILECONTROL_ACCEPT: {
                 ft->status = FILESTATUS_TRANSFERRING;
-
+                LOGGER_DEBUG(m->log, "ft->status set to FILESTATUS_TRANSFERRING");
                 if ((ft->paused & FILE_PAUSE_US) != 0) {
                     ft->paused ^= FILE_PAUSE_US;
                 }
@@ -1761,8 +1774,12 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
                 ft->status = FILESTATUS_NONE;
                 ft->file_type = 0;
                 ft->received_seek_control = false;
+                ft->ft_send_ackd = false;
                 ft->received_seek_control_counter = 0;
                 ft->file_receiver_last_received_chunk_this_many_iterations_ago = 0;
+                ft->file_sender_started_this_many_iterations_ago = 0;
+                memset(ft->filename, 0, MAX_FILENAME_LENGTH);
+                ft->filename_length = 0;
                 --friendcon->num_sending_files;
             } else if (ft->status == FILESTATUS_TRANSFERRING && ft->paused == FILE_PAUSE_NOT) {
                 if (ft->size == ft->requested) {
@@ -1774,7 +1791,7 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
                 }
 
                 if (ft->received_seek_control) {
-                    LOGGER_DEBUG(m->log, "we are processing a SEEK control, so do not send new chunks for %d tox_iterate() cycles", (int)PAUSE_CYCLES_ON_FTV2_SEEK_RECEIVED);
+                    LOGGER_TRACE(m->log, "we are processing a SEEK control, so do not send new chunks for %d tox_iterate() cycles", (int)PAUSE_CYCLES_ON_FTV2_SEEK_RECEIVED);
                     continue;
                 }
 
@@ -1800,8 +1817,12 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
                 ft->status = FILESTATUS_NONE;
                 ft->file_type = 0;
                 ft->received_seek_control = false;
+                ft->ft_send_ackd = false;
                 ft->received_seek_control_counter = 0;
                 ft->file_receiver_last_received_chunk_this_many_iterations_ago = 0;
+                ft->file_sender_started_this_many_iterations_ago = 0;
+                memset(ft->filename, 0, MAX_FILENAME_LENGTH);
+                ft->filename_length = 0;
                 --friendcon->num_sending_files;
             } else if (ft->status == FILESTATUS_TRANSFERRING && ft->paused == FILE_PAUSE_NOT) {
                 if (ft->size == 0) {
@@ -1835,6 +1856,36 @@ static bool do_all_filetransfers(Messenger *m, int32_t friendnumber, void *userd
 non_null(1) nullable(3)
 static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdata)
 {
+    // HINT: check if we need to send some sending file requests again
+    Friend *const friendcon2 = &m->friendlist[friendnumber];
+    // Iterate over file transfers
+    for (uint32_t i = 0; i < MAX_CONCURRENT_FILE_PIPES; ++i) {
+        struct File_Transfers *const ft_check_for_received = &friendcon2->file_sending[i];
+        if (ft_check_for_received->status == FILESTATUS_NOT_ACCEPTED) {
+            if (ft_check_for_received->file_type == FILEKIND_FTV2) {
+                // HINT: this is a sending filetransfer thats waiting to be started
+                //       lets check if the receiver has actually received our request
+                if (ft_check_for_received->ft_send_ackd == false) {
+                    if (ft_check_for_received->file_sender_started_this_many_iterations_ago > (uint32_t)STALE_CYCLES_ON_FTV2_SEND) {
+                        ft_check_for_received->file_sender_started_this_many_iterations_ago = 0;
+                        // HINT: try to send the FT again
+                        uint32_t real_filenumber;
+                        struct File_Transfers *ft_s = get_file_transfer(true, i, &real_filenumber, friendcon2);
+                        LOGGER_DEBUG(m->log, "sending FT again:friendnum: %d filenum: %d", friendnumber, real_filenumber);
+                        if (!file_sendrequest(m, friendnumber, i, ft_check_for_received->file_type,
+                            ft_check_for_received->size,
+                            ft_check_for_received->id, ft_check_for_received->filename,
+                            ft_check_for_received->filename_length)) {
+                            LOGGER_DEBUG(m->log, "ERROR on sending FT again:friendnum: %d filenum: %d", friendnumber, real_filenumber);
+                        }
+                    } else {
+                        ++ft_check_for_received->file_sender_started_this_many_iterations_ago;
+                    }
+                }
+            }
+        }
+    }
+
     // check stale receiving file transfers.
     if (m->friendlist[friendnumber].num_receiving_files > 0) {
         Friend *const friendcon = &m->friendlist[friendnumber];
@@ -1858,6 +1909,12 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
                         } else {
                             LOGGER_DEBUG(m->log, "stale receiving FT detected:sending SEEK file control to friendnum: %d filenum: %d",
                                 friendnumber, real_filenumber);
+                            send_file_control_packet(m, friendnumber, true, i, FILECONTROL_ACCEPT, wanted_offset, sizeof(wanted_offset));
+                            if (ft->status == FILESTATUS_TRANSFERRING) {
+                                // HINT: we need to send ACCEPT (==TRANSFERRING) again, since it could have been lost when the other party went offline
+                                LOGGER_DEBUG(m->log, "stale receiving FT detected:sending FILECONTROL_ACCEPT file control to friendnum: %d filenum: %d",
+                                    friendnumber, real_filenumber);
+                            }
                         }
                     } else {
                         ++ft->file_receiver_last_received_chunk_this_many_iterations_ago;
@@ -1940,8 +1997,12 @@ static void break_files(const Messenger *m, int32_t friendnumber)
             f->file_sending[i].status = FILESTATUS_NONE;
             f->file_sending[i].file_type = 0;
             f->file_sending[i].received_seek_control = false;
+            f->file_sending[i].ft_send_ackd = false;
             f->file_sending[i].received_seek_control_counter = 0;
             f->file_sending[i].file_receiver_last_received_chunk_this_many_iterations_ago = 0;
+            f->file_sending[i].file_sender_started_this_many_iterations_ago = 0;
+            memset(f->file_sending[i].filename, 0, MAX_FILENAME_LENGTH);
+            f->file_sending[i].filename_length = 0;
         }
 
         if (f->file_receiving[i].file_type != FILEKIND_FTV2)
@@ -1949,8 +2010,12 @@ static void break_files(const Messenger *m, int32_t friendnumber)
             f->file_receiving[i].status = FILESTATUS_NONE;
             f->file_receiving[i].file_type = 0;
             f->file_receiving[i].received_seek_control = false;
+            f->file_receiving[i].ft_send_ackd = false;
             f->file_receiving[i].received_seek_control_counter = 0;
             f->file_receiving[i].file_receiver_last_received_chunk_this_many_iterations_ago = 0;
+            f->file_receiving[i].file_sender_started_this_many_iterations_ago = 0;
+            memset(f->file_receiving[i].filename, 0, MAX_FILENAME_LENGTH);
+            f->file_receiving[i].filename_length = 0;
         }
     }
 }
@@ -2001,6 +2066,8 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, bool outbound,
 
     switch (control_type) {
         case FILECONTROL_ACCEPT: {
+            LOGGER_DEBUG(m->log, "file control FILECONTROL_ACCEPT incoming");
+            ft->ft_send_ackd = true;
             if (outbound && ft->status == FILESTATUS_NOT_ACCEPTED) {
                 ft->status = FILESTATUS_TRANSFERRING;
                 ++m->friendlist[friendnumber].num_sending_files;
@@ -2021,7 +2088,40 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, bool outbound,
             return 0;
         }
 
+        case FILECONTROL_SEND_ACK: {
+            if (ft->file_type == FILEKIND_FTV2) {
+                if (!outbound) {
+                    LOGGER_DEBUG(m->log,
+                                 "file control (friend %d, file %d): FILECONTROL_SEND_ACK was sent by a sender",
+                                 friendnumber, filenumber);
+                    return -1;
+                } else {
+                    LOGGER_DEBUG(m->log,
+                                 "file control (friend %d, file %d): FILECONTROL_SEND_ACK outbound=%d", friendnumber, filenumber, (int)outbound);
+                }
+
+                if (length != FILE_ID_LENGTH) {
+                    LOGGER_DEBUG(m->log, "file control (friend %d, file %d): FILECONTROL_SEND_ACK expected payload of length %d, but got %d",
+                                 friendnumber, filenumber, (uint32_t)FILE_ID_LENGTH, length);
+                    return -1;
+                }
+                // HINT: check that we are actually on the correct FT ID
+                if (memcmp(data, ft->id, FILE_ID_LENGTH) != 0)
+                {
+                    // 32byte file ID does not match received data file ID
+                    LOGGER_WARNING(m->log, "FILECONTROL_SEND_ACK: 32byte file ID does not match received data file ID. friendnum: %d filenum: %d",
+                        friendnumber, filenumber);
+                    return -1;
+                }
+                // HINT: the receiver has sent us confirmation the our file send request was received and also fully processed.
+                ft->ft_send_ackd = true;
+                LOGGER_DEBUG(m->log, "FILECONTROL_SEND_ACK: received");
+            }
+            return 0;
+        }
+
         case FILECONTROL_PAUSE: {
+            ft->ft_send_ackd = true;
             if ((ft->paused & FILE_PAUSE_OTHER) != 0 || ft->status != FILESTATUS_TRANSFERRING) {
                 LOGGER_DEBUG(m->log, "file control (friend %d, file %d): friend told us to pause file transfer that is already paused",
                              friendnumber, filenumber);
@@ -2038,6 +2138,7 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, bool outbound,
         }
 
         case FILECONTROL_KILL: {
+            ft->ft_send_ackd = true;
             if (outbound && (ft->status == FILESTATUS_FINISHED) && (ft->file_type == FILEKIND_FTV2)) {
                 LOGGER_DEBUG(m->log, "FILECONTROL_KILL:do not KILL a FINISHED sending FT. fnum=%d ftnum=%d", friendnumber, filenumber);
                 return 0;
@@ -2061,15 +2162,21 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, bool outbound,
             ft->status = FILESTATUS_NONE;
             ft->file_type = 0;
             ft->received_seek_control = false;
+            ft->ft_send_ackd = false;
             ft->received_seek_control_counter = 0;
             ft->file_receiver_last_received_chunk_this_many_iterations_ago = 0;
+            ft->file_sender_started_this_many_iterations_ago = 0;
+            memset(ft->filename, 0, MAX_FILENAME_LENGTH);
+            ft->filename_length = 0;
 
             return 0;
         }
 
         case FILECONTROL_SEEK: {
+            ft->ft_send_ackd = true;
             uint64_t position;
 
+            LOGGER_DEBUG(m->log, "file control SEEK **incoming** (friend %d, file %d)", friendnumber, filenumber);
             if (length != sizeof(position)) {
                 LOGGER_DEBUG(m->log, "file control (friend %d, file %d): expected payload of length %d, but got %d",
                              friendnumber, filenumber, (uint32_t)sizeof(position), length);
@@ -2110,12 +2217,14 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, bool outbound,
             ft->received_seek_control = true;
             ft->received_seek_control_counter = PAUSE_CYCLES_ON_FTV2_SEEK_RECEIVED;
             ft->file_receiver_last_received_chunk_this_many_iterations_ago = 0;
+            ft->file_sender_started_this_many_iterations_ago = 0;
             ft->requested = position;
             ft->transferred = position;
             return 0;
         }
 
         case FILECONTROL_FINISHED: {
+            ft->ft_send_ackd = true;
             if (outbound && (ft->status == FILESTATUS_TRANSFERRING) && (ft->file_type == FILEKIND_FTV2))
             {
                 /* Full file received by the receiver. stop sending.
@@ -2483,6 +2592,14 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
             struct File_Transfers *ft = &m->friendlist[i].file_receiving[filenumber];
 
             if (ft->status != FILESTATUS_NONE) {
+                // HINT: this ftnum "i" is already in use
+                if (ft->file_type == FILEKIND_FTV2) {
+                    LOGGER_DEBUG(m->log, "PACKET_ID_FILE_SENDREQUEST:already_in_use:file_type == FILEKIND_FTV2");
+                    if (send_file_control_packet(m, i, true, filenumber, FILECONTROL_SEND_ACK, ft->id, FILE_ID_LENGTH)) {
+                        // HINT: if this fails the sender will resend the FT anyway, so no need to handle any error here
+                        LOGGER_DEBUG(m->log, "PACKET_ID_FILE_SENDREQUEST:already_in_use:sent FILECONTROL_SEND_ACK to sender");
+                    }
+                }
                 break;
             }
 
@@ -2528,6 +2645,15 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
             if (m->file_sendrequest != nullptr) {
                 m->file_sendrequest(m, i, real_filenumber, file_type, filesize, filename, filename_length,
                                     userdata);
+            }
+
+            // HINT: ftv2a: tell the sender that we have actually received the file send request and have fully processed it
+            if (ft->file_type == FILEKIND_FTV2) {
+                LOGGER_DEBUG(m->log, "PACKET_ID_FILE_SENDREQUEST:file_type == FILEKIND_FTV2");
+                if (send_file_control_packet(m, i, true, filenumber, FILECONTROL_SEND_ACK, ft->id, FILE_ID_LENGTH)) {
+                    // HINT: if this fails the sender will resend the FT anyway, so no need to handle any error here
+                    LOGGER_DEBUG(m->log, "PACKET_ID_FILE_SENDREQUEST:sent FILECONTROL_SEND_ACK to sender");
+                }
             }
 
             break;
@@ -2603,6 +2729,8 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
             } else {
                 file_data = data + 1;
             }
+
+            ft->ft_send_ackd = true;
 
             if (ft->file_type == FILEKIND_FTV2)
             {
@@ -2701,8 +2829,12 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
                         ft->transferred = 0;
                         ft->file_type = 0;
                         ft->received_seek_control = false;
+                        ft->ft_send_ackd = false;
                         ft->received_seek_control_counter = 0;
                         ft->file_receiver_last_received_chunk_this_many_iterations_ago = 0;
+                        ft->file_sender_started_this_many_iterations_ago = 0;
+                        memset(ft->filename, 0, MAX_FILENAME_LENGTH);
+                        ft->filename_length = 0;
                     }
                 }
             }
