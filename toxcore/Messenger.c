@@ -2115,7 +2115,7 @@ static int handle_filecontrol(Messenger *m, int32_t friendnumber, bool outbound,
                 }
                 // HINT: the receiver has sent us confirmation the our file send request was received and also fully processed.
                 ft->ft_send_ackd = true;
-                LOGGER_DEBUG(m->log, "FILECONTROL_SEND_ACK: received");
+                LOGGER_INFO(m->log, "FILECONTROL_SEND_ACK: received");
             }
             return 0;
         }
@@ -2597,7 +2597,7 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
                     LOGGER_DEBUG(m->log, "PACKET_ID_FILE_SENDREQUEST:already_in_use:file_type == FILEKIND_FTV2");
                     if (send_file_control_packet(m, i, true, filenumber, FILECONTROL_SEND_ACK, ft->id, FILE_ID_LENGTH)) {
                         // HINT: if this fails the sender will resend the FT anyway, so no need to handle any error here
-                        LOGGER_DEBUG(m->log, "PACKET_ID_FILE_SENDREQUEST:already_in_use:sent FILECONTROL_SEND_ACK to sender");
+                        LOGGER_INFO(m->log, "PACKET_ID_FILE_SENDREQUEST:already_in_use:sent FILECONTROL_SEND_ACK to sender");
                     }
                 }
                 break;
@@ -2652,7 +2652,7 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
                 LOGGER_DEBUG(m->log, "PACKET_ID_FILE_SENDREQUEST:file_type == FILEKIND_FTV2");
                 if (send_file_control_packet(m, i, true, filenumber, FILECONTROL_SEND_ACK, ft->id, FILE_ID_LENGTH)) {
                     // HINT: if this fails the sender will resend the FT anyway, so no need to handle any error here
-                    LOGGER_DEBUG(m->log, "PACKET_ID_FILE_SENDREQUEST:sent FILECONTROL_SEND_ACK to sender");
+                    LOGGER_INFO(m->log, "PACKET_ID_FILE_SENDREQUEST:sent FILECONTROL_SEND_ACK to sender");
                 }
             }
 
