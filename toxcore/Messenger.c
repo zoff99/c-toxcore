@@ -1912,7 +1912,7 @@ static void do_reqchunk_filecb(Messenger *m, int32_t friendnumber, void *userdat
                             send_file_control_packet(m, friendnumber, true, i, FILECONTROL_ACCEPT, wanted_offset, sizeof(wanted_offset));
                             if (ft->status == FILESTATUS_TRANSFERRING) {
                                 // HINT: we need to send ACCEPT (==TRANSFERRING) again, since it could have been lost when the other party went offline
-                                LOGGER_DEBUG(m->log, "stale receiving FT detected:sending FILECONTROL_ACCEPT file control to friendnum: %d filenum: %d",
+                                LOGGER_INFO(m->log, "stale receiving FT detected:sending FILECONTROL_ACCEPT file control to friendnum: %d filenum: %d",
                                     friendnumber, real_filenumber);
                             }
                         }
