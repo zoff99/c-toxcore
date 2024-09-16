@@ -18078,8 +18078,8 @@ deadline parameter analogous to VPx BEST QUALITY mode.
 */
 
 // initialize encoder with this value. Target bandwidth to use for this stream, in kilobits per second.
-#define VIDEO_BITRATE_INITIAL_VALUE 1000
-#define VIDEO_BITRATE_INITIAL_VALUE_VP9 1000
+#define VIDEO_BITRATE_INITIAL_VALUE 180
+#define VIDEO_BITRATE_INITIAL_VALUE_VP9 180
 
 struct vpx_frame_user_data {
     uint64_t record_timestamp;
@@ -75459,13 +75459,15 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
         header.flags |= RTP_KEY_FRAME;
     }
 
-    VLA(uint8_t, rdata, length + RTP_HEADER_SIZE + 1);
-    memset(rdata, 0, SIZEOF_VLA(rdata));
+    uint8_t rdata[MAX_CRYPTO_DATA_SIZE];
+    memset(rdata, 0, MAX_CRYPTO_DATA_SIZE);
     rdata[0] = session->payload_type;  // packet id == payload_type
 
-    if (MAX_CRYPTO_DATA_SIZE > (length + RTP_HEADER_SIZE + 1)) {
+    LOGGER_API_DEBUG(session->tox, "check encoded video packet:length=%d MAX_CRYPTO_DATA_SIZE=%d", length, MAX_CRYPTO_DATA_SIZE);
+
+    if ((length + RTP_HEADER_SIZE + 1) <= MAX_CRYPTO_DATA_SIZE) {
         /**
-         * The length is less than the maximum allowed length (including header)
+         * The length is less or equal than the maximum allowed length (including header)
          * Send the packet in single piece.
          */
         header.rtp_packet_number = session->rtp_packet_num;
@@ -75473,8 +75475,8 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
         rtp_header_pack(rdata + 1, &header);
         memcpy(rdata + 1 + RTP_HEADER_SIZE, data, length);
 
-        if (rtp_send_custom_lossy_packet(session->tox, session->friend_number, rdata, SIZEOF_VLA(rdata)) == -1) {
-            LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %zu)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
+        if (rtp_send_custom_lossy_packet(session->tox, session->friend_number, rdata, length) == -1) {
+            LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %zu)! std error: %s", length, strerror(errno));
         }
     } else {
         /**
@@ -75484,7 +75486,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
         uint32_t sent = 0;
         uint16_t piece = MAX_CRYPTO_DATA_SIZE - (RTP_HEADER_SIZE + 1);
 
-        while ((length - sent) + RTP_HEADER_SIZE + 1 > MAX_CRYPTO_DATA_SIZE) {
+        while (((length - sent) + RTP_HEADER_SIZE + 1) > MAX_CRYPTO_DATA_SIZE) {
             header.rtp_packet_number = session->rtp_packet_num;
             session->rtp_packet_num++;
             rtp_header_pack(rdata + 1, &header);
@@ -75504,6 +75506,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
         piece = length - sent;
 
         if (piece) {
+            memset(rdata, 0, MAX_CRYPTO_DATA_SIZE);
             header.rtp_packet_number = session->rtp_packet_num;
             session->rtp_packet_num++;
             rtp_header_pack(rdata + 1, &header);
@@ -83761,6 +83764,7 @@ int vc_reconfigure_encoder_vpx(Logger *log, VCSession *vc, uint32_t bit_rate,
         // LOGGER_DEBUG(vc->log, "bitrate change from: %u to: %u", (uint32_t)(cfg2.rc_target_bitrate / 1000),
         //              (uint32_t)(bit_rate / 1000));
 
+        // VP8 needs this in kilobits per second!
         cfg2.rc_target_bitrate = (bit_rate / 1000);
 
         rc = vpx_codec_enc_config_set(vc->encoder, &cfg2);
@@ -83794,6 +83798,7 @@ int vc_reconfigure_encoder_vpx(Logger *log, VCSession *vc, uint32_t bit_rate,
         vc->video_rc_min_quantizer_prev = vc->video_rc_min_quantizer;
         vc->video_keyframe_method_prev = vc->video_keyframe_method;
 
+        // VP8 needs this in kilobits per second!
         cfg.rc_target_bitrate = (bit_rate / 1000);
         cfg.g_w = width;
         cfg.g_h = height;
