@@ -1203,7 +1203,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
         memcpy(rdata + 1 + RTP_HEADER_SIZE, data, length);
 
         if (rtp_send_custom_lossy_packet(session->tox, session->friend_number, rdata, length) == -1) {
-            LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %zu)! std error: %s", length, strerror(errno));
+            LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %d)! std error: %s", (int)length, strerror(errno));
         }
     } else {
         /**
