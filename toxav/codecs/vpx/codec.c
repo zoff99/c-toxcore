@@ -487,6 +487,7 @@ int vc_reconfigure_encoder_vpx(Logger *log, VCSession *vc, uint32_t bit_rate,
         // LOGGER_DEBUG(vc->log, "bitrate change from: %u to: %u", (uint32_t)(cfg2.rc_target_bitrate / 1000),
         //              (uint32_t)(bit_rate / 1000));
 
+        // VP8 needs this in kilobits per second!
         cfg2.rc_target_bitrate = (bit_rate / 1000);
 
         rc = vpx_codec_enc_config_set(vc->encoder, &cfg2);
@@ -520,6 +521,7 @@ int vc_reconfigure_encoder_vpx(Logger *log, VCSession *vc, uint32_t bit_rate,
         vc->video_rc_min_quantizer_prev = vc->video_rc_min_quantizer;
         vc->video_keyframe_method_prev = vc->video_keyframe_method;
 
+        // VP8 needs this in kilobits per second!
         cfg.rc_target_bitrate = (bit_rate / 1000);
         cfg.g_w = width;
         cfg.g_h = height;
