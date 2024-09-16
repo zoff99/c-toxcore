@@ -1186,15 +1186,13 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
         header.flags |= RTP_KEY_FRAME;
     }
 
-    uint8_t rdata[MAX_CRYPTO_DATA_SIZE];
-    memset(rdata, 0, MAX_CRYPTO_DATA_SIZE);
+    VLA(uint8_t, rdata, length + RTP_HEADER_SIZE + 1);
+    memset(rdata, 0, SIZEOF_VLA(rdata));
     rdata[0] = session->payload_type;  // packet id == payload_type
 
-    LOGGER_API_DEBUG(session->tox, "check encoded video packet:length=%d MAX_CRYPTO_DATA_SIZE=%d", length, MAX_CRYPTO_DATA_SIZE);
-
-    if ((length + RTP_HEADER_SIZE + 1) <= MAX_CRYPTO_DATA_SIZE) {
+    if (MAX_CRYPTO_DATA_SIZE > (length + RTP_HEADER_SIZE + 1)) {
         /**
-         * The length is less or equal than the maximum allowed length (including header)
+         * The length is less than the maximum allowed length (including header)
          * Send the packet in single piece.
          */
         header.rtp_packet_number = session->rtp_packet_num;
@@ -1202,8 +1200,8 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
         rtp_header_pack(rdata + 1, &header);
         memcpy(rdata + 1 + RTP_HEADER_SIZE, data, length);
 
-        if (rtp_send_custom_lossy_packet(session->tox, session->friend_number, rdata, length) == -1) {
-            LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %d)! std error: %s", (int)length, strerror(errno));
+        if (rtp_send_custom_lossy_packet(session->tox, session->friend_number, rdata, SIZEOF_VLA(rdata)) == -1) {
+            LOGGER_API_DEBUG(session->tox, "RTP send failed (len: %zu)! std error: %s", SIZEOF_VLA(rdata), strerror(errno));
         }
     } else {
         /**
@@ -1213,7 +1211,7 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
         uint32_t sent = 0;
         uint16_t piece = MAX_CRYPTO_DATA_SIZE - (RTP_HEADER_SIZE + 1);
 
-        while (((length - sent) + RTP_HEADER_SIZE + 1) > MAX_CRYPTO_DATA_SIZE) {
+        while ((length - sent) + RTP_HEADER_SIZE + 1 > MAX_CRYPTO_DATA_SIZE) {
             header.rtp_packet_number = session->rtp_packet_num;
             session->rtp_packet_num++;
             rtp_header_pack(rdata + 1, &header);
@@ -1233,7 +1231,6 @@ int rtp_send_data(RTPSession *session, const uint8_t *data, uint32_t length, boo
         piece = length - sent;
 
         if (piece) {
-            memset(rdata, 0, MAX_CRYPTO_DATA_SIZE);
             header.rtp_packet_number = session->rtp_packet_num;
             session->rtp_packet_num++;
             rtp_header_pack(rdata + 1, &header);
