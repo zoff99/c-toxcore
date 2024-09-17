@@ -334,7 +334,7 @@ int main(int argc, char *argv[])
 
     TOXAV_ERR_SEND_FRAME *error_v;
 
-    for (int j = 0; j < 2000; j++) {
+    for (int j = 0; j < 100; j++) {
         tox_iterate(tox, NULL);
         toxav_iterate(mytox_av);
         toxav_audio_iterate(mytox_av);
@@ -342,7 +342,7 @@ int main(int argc, char *argv[])
         rvbuf0(v, bufsize);
         toxav_video_send_frame(mytox_av, 0, w, h , v, v, v, &error_v);
 
-        usleep(10*1000);
+        usleep(2*1000);
     }
 
     free(v);

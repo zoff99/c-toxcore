@@ -273,7 +273,7 @@ int main(int argc, char *argv[])
 
     printf("RCV:friend online\n");
 
-    for (int j = 0; j < 3000; j++) {
+    for (int j = 0; j < 1000; j++) {
         tox_iterate(tox, NULL);
         toxav_iterate(mytox_av);
         usleep(10*1000);
