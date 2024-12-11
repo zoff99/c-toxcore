@@ -1974,7 +1974,7 @@ static void vc_init_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
 
     // logLevelNames = "none", "error", "warning", "info", "debug", "full"
     // default is "info"
-    // x265_param_parse(param, "log-level", "debug");
+    x265_param_parse(param, "log-level", "debug");
 
     // printf("vc_init_encoder_h265:vc->h264_enc_bitrate = %d\n", (int)vc->h264_enc_bitrate);
     uint32_t bit_rate_override = 800 * 1000;
