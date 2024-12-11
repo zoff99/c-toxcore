@@ -1981,6 +1981,14 @@ static void vc_init_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
     vc->h264_enc_bitrate = bit_rate_override;
     //******// param->bitrate = 
 
+
+    param->bConfigRCFrame = 1 // --frame-rc
+    /*
+     * This option allows configuring Rate control parameter of the chosen Rate Control mode(CRF or QP or Bitrate) at frame level. This option is recommended to be enabled only when planning to invoke the API function x265_encoder_reconfig() to configure Rate control parameter value for each frame. Default: disabled.
+     */
+
+
+
     // https://x265.readthedocs.io/en/master/cli.html#quality-rate-control-and-rate-distortion-options
     // Specify the target bitrate in kbps. Default is 0 (CRF)
 
@@ -2152,7 +2160,7 @@ int vc_reconfigure_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
         param->rc.vbvMaxBitrate = ((int)(bit_rate / 1000)) - 1;
 
         int res = x265_encoder_reconfig(vc->h265_encoder, param);
-        // printf("x265 [****] x265_encoder_reconfig:res=%d bitrate=%d\n", (int)res, (int)(bit_rate / 1000));
+        printf("x265 [****] x265_encoder_reconfig:res=%d bitrate=%d\n", (int)res, (int)(bit_rate / 1000));
         x265_param_free(param);
     }
     else
