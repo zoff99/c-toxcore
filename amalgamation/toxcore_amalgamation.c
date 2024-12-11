@@ -82742,9 +82742,10 @@ static void vc_init_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
     x265_param_parse(param, "log-level", "debug");
 
     // printf("vc_init_encoder_h265:vc->h264_enc_bitrate = %d\n", (int)vc->h264_enc_bitrate);
-    uint32_t bit_rate_override = 800 * 1000;
-    vc->h264_enc_bitrate = bit_rate_override;
+    //**//uint32_t bit_rate_override = 800 * 1000;
+    vc->h264_enc_bitrate = bit_rate;
     //******// param->bitrate = 
+    printf("x265 [###] vc_init_encoder_h265:bit_rate = %d\n", (int)(bit_rate / 1000));
 
 
     // param->bConfigRCFrame = 1; // --frame-rc
@@ -82758,10 +82759,9 @@ static void vc_init_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
     // https://x265.readthedocs.io/en/master/cli.html#quality-rate-control-and-rate-distortion-options
     // Specify the target bitrate in kbps. Default is 0 (CRF)
 
-    // printf("vc_init_encoder_h265:bit_rate_override = %d\n", (int)(bit_rate_override / 1000));
-    param->rc.bitrate = (int)(bit_rate_override / 1000);
-    param->rc.vbvBufferSize = 50 + (((int)(bit_rate_override / 1000)) * VIDEO_BUF_FACTOR_H264);
-    param->rc.vbvMaxBitrate = ((int)(bit_rate_override / 1000)) - 1;
+    param->rc.bitrate = (int)(bit_rate / 1000);
+    param->rc.vbvBufferSize = 50 + (((int)(bit_rate / 1000)) * VIDEO_BUF_FACTOR_H264);
+    param->rc.vbvMaxBitrate = ((int)(bit_rate / 1000)) - 1;
 
     /*
     m_isCbr = m_param->rc.rateControlMode == X265_RC_ABR && m_isVbv && m_param->rc.vbvMaxBitrate <= m_param->rc.bitrate;
