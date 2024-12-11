@@ -1982,7 +1982,8 @@ static void vc_init_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
     //******// param->bitrate = 
 
 
-    param->bConfigRCFrame = 1 // --frame-rc
+    // param->bConfigRCFrame = 1; // --frame-rc
+    x265_param_parse(param, "frame-rc", "1");
     /*
      * This option allows configuring Rate control parameter of the chosen Rate Control mode(CRF or QP or Bitrate) at frame level. This option is recommended to be enabled only when planning to invoke the API function x265_encoder_reconfig() to configure Rate control parameter value for each frame. Default: disabled.
      */
@@ -2120,6 +2121,10 @@ VCSession *vc_new_h265(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 #ifdef HAVE_H265_ENCODER
 static void vc_kill_encoder_h265(VCSession *vc)
 {
+    // TODO:
+    // When the last of the raw input pictures has been sent to the encoder, x265_encoder_encode() must still be called repeatedly with a pic_in argument of 0, indicating a pipeline flush, until the function returns a value less than or equal to 0 (indicating the output bitstream is complete).
+    // do we need this here?
+
     free(vc->h265_in_pic->planes[0]);
     free(vc->h265_in_pic->planes[1]);
     free(vc->h265_in_pic->planes[2]);
