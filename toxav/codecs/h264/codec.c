@@ -2006,7 +2006,7 @@ static void vc_init_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
         m_param->rc.bStrictCbr = 0;
     }
     */
-    // param->rc.rateControlMode = X265_RC_ABR;
+    param->rc.rateControlMode = X265_RC_ABR;
     // param->rc.bStrictCbr = 1;
 
     // Range of values: an integer from 0 to 51
