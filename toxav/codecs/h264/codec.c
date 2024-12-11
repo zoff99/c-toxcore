@@ -2147,19 +2147,6 @@ int vc_reconfigure_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
             (vc->h265_enc_height == height) &&
             (vc->h264_enc_bitrate == bit_rate))
     {
-        x265_param *param = x265_param_alloc();
-        x265_encoder_parameters(vc->h265_encoder, param);
-
-        param->rc.bitrate = (int)(bit_rate / 1000);
-        param->rc.vbvBufferSize = 50 + (((int)(bit_rate / 1000)) * VIDEO_BUF_FACTOR_H264);
-        param->rc.vbvMaxBitrate = ((int)(bit_rate / 1000)) - 1;
-
-        int res = x265_encoder_reconfig(vc->h265_encoder, param);
-        x265_param_free(param);
-        setvbuf(stdout, NULL, _IOLBF, 0);
-        setvbuf(stderr, NULL, _IOLBF, 0);
-        printf("x265 [*F**] x265_encoder_reconfig:res=%d bitrate=%d\n", (int)res, (int)(bit_rate / 1000));
-
         // no change
         return 0;
     }
