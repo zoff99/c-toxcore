@@ -82734,6 +82734,7 @@ static void vc_init_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
     x265_param_parse(param, "annexb", "1");
     // x265_param_parse(param, "input-res", "1920x1080");
     x265_param_parse(param, "input-csp", "i420");
+    x265_param_parse(param, "fast-intra", "1");
 
     // x265_param_parse(param, "rd", "1");
     // x265_param_parse(param, "pools", "3");
@@ -82750,7 +82751,7 @@ static void vc_init_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
 
 
     // param->bConfigRCFrame = 1; // --frame-rc
-    //*2*// x265_param_parse(param, "frame-rc", "1");
+    x265_param_parse(param, "frame-rc", "1");
     /*
      * This option allows configuring Rate control parameter of the chosen Rate Control mode(CRF or QP or Bitrate) at frame level. This option is recommended to be enabled only when planning to invoke the API function x265_encoder_reconfig() to configure Rate control parameter value for each frame. Default: disabled.
      */
@@ -82930,6 +82931,14 @@ int vc_reconfigure_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
         param->rc.vbvMaxBitrate = (int)(bit_rate / 1000);
         param->rc.vbvBufferSize = (int)(bit_rate / 1000);
         param->rc.bitrate = (int)(bit_rate / 1000);
+
+        char bit_rate_str[100];
+        memset(bit_rate_str, 0, 100);
+        snprintf(bit_rate_str, 90, "%d", (int)(bit_rate / 1000));
+        x265_param_parse(param, "bitrate", bit_rate_str);
+
+        param->rc.vbvMaxBitrate = (int)(bit_rate / 1000);
+        param->rc.vbvBufferSize = 50 + (int)(bit_rate / 1000);
 
         int res = x265_encoder_reconfig(vc->h265_encoder, param);
         x265_param_free(param);
