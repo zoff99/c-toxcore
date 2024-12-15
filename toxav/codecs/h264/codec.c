@@ -1969,7 +1969,7 @@ static void vc_init_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
     x265_param_parse(param, "annexb", "1");
     // x265_param_parse(param, "input-res", "1920x1080");
     x265_param_parse(param, "input-csp", "i420");
-    x265_param_parse(param, "fast-intra", "1");
+    //**33**// x265_param_parse(param, "fast-intra", "1");
 
     // x265_param_parse(param, "rd", "1");
     // x265_param_parse(param, "pools", "3");
