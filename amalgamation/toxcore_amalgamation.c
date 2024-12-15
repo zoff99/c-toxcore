@@ -82760,7 +82760,7 @@ static void vc_init_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
     // Specify the target bitrate in kbps. Default is 0 (CRF)
 
     param->rc.bitrate = (int)(bit_rate / 1000);
-    param->rc.vbvBufferSize = 50 + (((int)(bit_rate / 1000)) * VIDEO_BUF_FACTOR_H264);
+    param->rc.vbvBufferSize = (((int)(bit_rate / 1000)) * VIDEO_BUF_FACTOR_H264);
     param->rc.vbvMaxBitrate = ((int)(bit_rate / 1000));
 
     /*
@@ -82917,18 +82917,17 @@ int vc_reconfigure_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
     }
 
     if ((vc->h265_enc_width == width) &&
-            (vc->h265_enc_height == height)
-            // && (vc->h264_enc_bitrate != bit_rate)
+            (vc->h265_enc_height == height) &&
+            (vc->h264_enc_bitrate != bit_rate)
             )
     {
-#if 1
         // HINT: just bitrate has changed
         // LOGGER_API_WARNING(vc->av->tox, "vc_reconfigure_encoder_h265:1:bit_rate = %d vc->h264_enc_bitrate = %d", (int)bit_rate, (int)vc->h264_enc_bitrate);
         x265_param *param = x265_param_alloc();
         x265_encoder_parameters(vc->h265_encoder, param);
 
         param->rc.bitrate = (int)(bit_rate / 1000);
-        param->rc.vbvBufferSize = 50 + (((int)(bit_rate / 1000)) * VIDEO_BUF_FACTOR_H264);
+        param->rc.vbvBufferSize = (((int)(bit_rate / 1000)) * VIDEO_BUF_FACTOR_H264);
         param->rc.vbvMaxBitrate = ((int)(bit_rate / 1000));
 
         int res = x265_encoder_reconfig(vc->h265_encoder, param);
@@ -82936,7 +82935,6 @@ int vc_reconfigure_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
         setvbuf(stdout, NULL, _IOLBF, 0);
         setvbuf(stderr, NULL, _IOLBF, 0);
         printf("x265 [*R**] x265_encoder_reconfig:res=%d bitrate=%d\n", (int)res, (int)(bit_rate / 1000));
-#endif
     }
     else
     {
