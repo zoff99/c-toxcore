@@ -82726,7 +82726,6 @@ static void vc_init_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
     param->bAnnexB = 1;
     param->keyframeMax = 60; // every n-th frame is an I-frame
     param->bIntraRefresh = 1;
-    x265_param_parse(param, "intra-refresh", "1");
 
 
     // x265_param_parse(param, "fps", "20");
@@ -82762,7 +82761,7 @@ static void vc_init_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
     // Specify the target bitrate in kbps. Default is 0 (CRF)
 
     param->rc.bitrate = (int)(bit_rate / 1000);
-    param->rc.vbvBufferSize = ((int)(bit_rate / 1000));
+    param->rc.vbvBufferSize = 50 + ((int)(bit_rate / 1000));
     param->rc.vbvMaxBitrate = (int)(bit_rate / 1000);
 
     /*
@@ -82929,16 +82928,15 @@ int vc_reconfigure_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
         x265_encoder_parameters(vc->h265_encoder, param);
 
         param->rc.vbvMaxBitrate = (int)(bit_rate / 1000);
-        param->rc.vbvBufferSize = (int)(bit_rate / 1000);
+        param->rc.vbvBufferSize = 50 + (int)(bit_rate / 1000);
         param->rc.bitrate = (int)(bit_rate / 1000);
 
+        /*
         char bit_rate_str[100];
         memset(bit_rate_str, 0, 100);
         snprintf(bit_rate_str, 90, "%d", (int)(bit_rate / 1000));
         x265_param_parse(param, "bitrate", bit_rate_str);
-
-        param->rc.vbvMaxBitrate = (int)(bit_rate / 1000);
-        param->rc.vbvBufferSize = 50 + (int)(bit_rate / 1000);
+        */
 
         int res = x265_encoder_reconfig(vc->h265_encoder, param);
         x265_param_free(param);
