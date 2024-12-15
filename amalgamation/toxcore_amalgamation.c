@@ -82749,7 +82749,7 @@ static void vc_init_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
 
 
     // param->bConfigRCFrame = 1; // --frame-rc
-    x265_param_parse(param, "frame-rc", "1");
+    //*2*// x265_param_parse(param, "frame-rc", "1");
     /*
      * This option allows configuring Rate control parameter of the chosen Rate Control mode(CRF or QP or Bitrate) at frame level. This option is recommended to be enabled only when planning to invoke the API function x265_encoder_reconfig() to configure Rate control parameter value for each frame. Default: disabled.
      */
@@ -82772,7 +82772,7 @@ static void vc_init_encoder_h265(Logger *log, VCSession *vc, uint32_t bit_rate,
     }
     */
     param->rc.rateControlMode = X265_RC_ABR;
-    param->rc.bStrictCbr = 1;
+    //*2*// param->rc.bStrictCbr = 1;
 
     // Range of values: an integer from 0 to 51
     // x265_param_parse(param, "qp", "50");
