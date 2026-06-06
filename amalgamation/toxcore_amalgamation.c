@@ -81770,7 +81770,9 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
         const uint8_t pps[] = {0x00, 0x00, 0x00, 0x01,      0x68, 0xCE, 0x38, 0x80};
         const size_t sps_pps_size = sizeof(sps) + sizeof(pps);
 
+        LOGGER_API_WARNING(av->tox, "setting up h264_mediacodec decoder: allocating vc->h264_decoder->extradata ...");
         vc->h264_decoder->extradata = (uint8_t *)av_mallocz(sps_pps_size + AV_INPUT_BUFFER_PADDING_SIZE);
+        LOGGER_API_WARNING(av->tox, "setting up h264_mediacodec decoder: allocating vc->h264_decoder->extradata ... DONE %p", (void*)vc->h264_decoder->extradata);
         vc->h264_decoder->extradata_size = sps_pps_size;
         // memset(&vc->h264_decoder->extradata[vc->h264_decoder->extradata_size], 0, AV_INPUT_BUFFER_PADDING_SIZE);
         memcpy(vc->h264_decoder->extradata, sps, sizeof(sps));
@@ -82808,9 +82810,13 @@ void vc_kill_h264(VCSession *vc)
     }
 
     // decoder
-    if (vc->h264_decoder->extradata) {
-        av_free(vc->h264_decoder->extradata);
-        vc->h264_decoder->extradata = NULL;
+    if (vc->vcb_h264 != NULL) {
+        if (vc->h264_decoder->extradata) {
+            av_free(vc->h264_decoder->extradata);
+            vc->h264_decoder->extradata = NULL;
+        }
+    } else {
+        // HINT: vcb_h264 is used, do not free vc->h264_decoder->extradata
     }
 
     avcodec_free_context(&vc->h264_decoder);
