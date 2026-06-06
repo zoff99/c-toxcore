@@ -1927,7 +1927,7 @@ void vc_kill_h264(VCSession *vc)
     }
 
     // decoder
-    if (vc->vcb_h264 != NULL) {
+    if (vc->vcb_h264 == NULL) {
         if (vc->h264_decoder->extradata) {
             av_free(vc->h264_decoder->extradata);
             vc->h264_decoder->extradata = NULL;
