@@ -7,7 +7,7 @@ on:
     - cron: '3 */8 * * *'
 
 jobs:
-  linux-custom-tests:
+  linux-custom-tests-asan-arm64:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v6
