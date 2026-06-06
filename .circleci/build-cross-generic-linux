@@ -8,7 +8,7 @@
 echo "_INST_="$(pwd)
 export _INST_=$(pwd)
 
-FFMPEG_VERSION="n6.1"
+FFMPEG_VERSION="n8.1.1"
 OPUS_VERSION="v1.4"
 SODIUM_VERSION="1.0.19"
 VPX_VERSION="v1.13.1"
