@@ -82796,6 +82796,8 @@ uint32_t send_frames_h264(ToxAV *av, uint32_t friend_number, uint16_t width, uin
 
 void vc_kill_h264(VCSession *vc)
 {
+    LOGGER_API_WARNING(vc->av->tox, "vc_kill_h264");
+
     // encoder
     if (vc->x264_software_encoder_used == 1) {
         if (vc->h264_encoder) {
@@ -82808,18 +82810,18 @@ void vc_kill_h264(VCSession *vc)
         avcodec_free_context(&(vc->h264_encoder2));
         // --- ffmpeg encoder ---
     }
+    LOGGER_API_WARNING(vc->av->tox, "vc_kill_h264: encoder killed");
 
     // decoder
-    if (vc->vcb_h264 == NULL) {
+    if (vc->h264_decoder != nullptr) {
+        LOGGER_API_WARNING(vc->av->tox, "vc->h264_decoder->extradata %p", (void*)vc->h264_decoder->extradata);
         if (vc->h264_decoder->extradata) {
             av_free(vc->h264_decoder->extradata);
             vc->h264_decoder->extradata = NULL;
         }
-    } else {
-        // HINT: vcb_h264 is used, do not free vc->h264_decoder->extradata
+        avcodec_free_context(&vc->h264_decoder);
     }
-
-    avcodec_free_context(&vc->h264_decoder);
+    LOGGER_API_WARNING(vc->av->tox, "vc_kill_h264: decoder killed");
 }
 
 
@@ -83439,13 +83441,18 @@ uint32_t send_frames_h265(ToxAV *av, uint32_t friend_number, uint16_t width, uin
 
 void vc_kill_h265(VCSession *vc)
 {
+    LOGGER_API_WARNING(vc->av->tox, "vc_kill_h265");
+
 #ifdef HAVE_H265_ENCODER
+    LOGGER_API_WARNING(vc->av->tox, "vc_kill_h265: trying to kill encoder ...");
     // encoder
     vc_kill_encoder_h265(vc);
+    LOGGER_API_WARNING(vc->av->tox, "vc_kill_h265: encoder killed");
 #endif
 
     // decoder
     if (vc->h265_decoder != nullptr) {
+        LOGGER_API_WARNING(vc->av->tox, "vc->h265_decoder->extradata %p", (void*)vc->h265_decoder->extradata);
         if (vc->h265_decoder->extradata) {
             av_free(vc->h265_decoder->extradata);
             vc->h265_decoder->extradata = NULL;
@@ -83453,6 +83460,7 @@ void vc_kill_h265(VCSession *vc)
         avcodec_free_context(&vc->h265_decoder);
         vc->h265_decoder = NULL;
     }
+    LOGGER_API_WARNING(vc->av->tox, "vc_kill_h265: decoder killed");
 }
 
 /*
