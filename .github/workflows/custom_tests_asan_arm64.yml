@@ -1,4 +1,4 @@
-name: custom_tests_asan
+name: custom_tests_asan_arm64
 
 on:
   push:
