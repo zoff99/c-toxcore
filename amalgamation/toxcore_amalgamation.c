@@ -81690,6 +81690,9 @@ VCSession *vc_new_h264(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
     }
 
     vc->h264_decoder = avcodec_alloc_context3(codec);
+    // HINT: make sure this is set to NULL in start
+    vc->h264_decoder->extradata = NULL;
+    vc->h264_decoder->extradata_size = 0;
 
     if (codec) {
 #if LIBAVCODEC_VERSION_MAJOR < 60
@@ -82814,8 +82817,8 @@ void vc_kill_h264(VCSession *vc)
 
     // decoder
     if (vc->h264_decoder != nullptr) {
-        LOGGER_API_WARNING(vc->av->tox, "vc->h264_decoder->extradata %p", (void*)vc->h264_decoder->extradata);
-        if (vc->h264_decoder->extradata) {
+        LOGGER_API_WARNING(vc->av->tox, "vc->h264_decoder->extradata %p size=%d", (void*)vc->h264_decoder->extradata, (int)vc->h264_decoder->extradata_size);
+        if ((vc->h264_decoder->extradata) && (vc->h264_decoder->extradata_size > 0)) {
             av_free(vc->h264_decoder->extradata);
             vc->h264_decoder->extradata = NULL;
         }
@@ -82956,6 +82959,8 @@ VCSession *vc_new_h265(Logger *log, ToxAV *av, uint32_t friend_number, toxav_vid
 
         vc->h265_decoder = avcodec_alloc_context3(codec);
         LOGGER_API_INFO(av->tox, "H265 decoder:h265_decoder=%p", (void *)vc->h265_decoder);
+        vc->h265_decoder->extradata = NULL;
+        vc->h265_decoder->extradata_size = 0;
 
         if (codec) {
 
@@ -83452,8 +83457,8 @@ void vc_kill_h265(VCSession *vc)
 
     // decoder
     if (vc->h265_decoder != nullptr) {
-        LOGGER_API_WARNING(vc->av->tox, "vc->h265_decoder->extradata %p", (void*)vc->h265_decoder->extradata);
-        if (vc->h265_decoder->extradata) {
+        LOGGER_API_WARNING(vc->av->tox, "vc->h265_decoder->extradata %p size=%d", (void*)vc->h265_decoder->extradata, (int)vc->h265_decoder->extradata_size);
+        if ((vc->h265_decoder->extradata) && (vc->h265_decoder->extradata_size > 0)) {
             av_free(vc->h265_decoder->extradata);
             vc->h265_decoder->extradata = NULL;
         }
