@@ -8,7 +8,7 @@ jobs:
   amalgamation_test_win64:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: install dependencies
         run: |
           export ARCH=x86_64
