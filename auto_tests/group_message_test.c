@@ -269,7 +269,7 @@ static void group_private_message_handler(Tox *tox, uint32_t groupnumber, uint32
     ck_assert(s_err == TOX_ERR_GROUP_SELF_QUERY_OK);
     ck_assert(memcmp(self_name, PEER1_NICK, self_name_len) == 0);
 
-    printf("%s sent private action to %s: (id: %u) %s\n", peer_name, message_id, self_name, message_buf);
+    printf("%s sent private action to %s: (id: %u) %s\n", peer_name, self_name, message_id, message_buf);
     ck_assert(memcmp(message_buf, TEST_PRIVATE_MESSAGE, length) == 0);
 
     ck_assert(type == TOX_MESSAGE_TYPE_ACTION);
