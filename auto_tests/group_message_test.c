@@ -236,7 +236,7 @@ static void group_message_handler(Tox *tox, uint32_t groupnumber, uint32_t peer_
 }
 
 static void group_private_message_handler(Tox *tox, uint32_t groupnumber, uint32_t peer_id, TOX_MESSAGE_TYPE type,
-        const uint8_t *message, size_t length, void *user_data)
+        const uint8_t *message, size_t length, uint32_t message_id, void *user_data)
 {
     ck_assert_msg(length == TEST_PRIVATE_MESSAGE_LEN, "Failed to receive message. Invalid length: %zu\n", length);
 
@@ -269,7 +269,7 @@ static void group_private_message_handler(Tox *tox, uint32_t groupnumber, uint32
     ck_assert(s_err == TOX_ERR_GROUP_SELF_QUERY_OK);
     ck_assert(memcmp(self_name, PEER1_NICK, self_name_len) == 0);
 
-    printf("%s sent private action to %s: %s\n", peer_name, self_name, message_buf);
+    printf("%s sent private action to %s: (id: %u) %s\n", peer_name, message_id, self_name, message_buf);
     ck_assert(memcmp(message_buf, TEST_PRIVATE_MESSAGE, length) == 0);
 
     ck_assert(type == TOX_MESSAGE_TYPE_ACTION);
@@ -413,7 +413,7 @@ static void group_message_test(AutoTox *autotoxes)
 
     // tox0 sends a private action to tox1
     Tox_Err_Group_Send_Private_Message m_err;
-    tox_group_send_private_message(tox1, group_number, state1->peer_id, TOX_MESSAGE_TYPE_ACTION,
+    int64_t pseudo_msg_id = tox_group_send_private_message(tox1, group_number, state1->peer_id, TOX_MESSAGE_TYPE_ACTION,
                                    (const uint8_t *)TEST_PRIVATE_MESSAGE, TEST_PRIVATE_MESSAGE_LEN, &m_err);
     ck_assert_msg(m_err == TOX_ERR_GROUP_SEND_PRIVATE_MESSAGE_OK, "%d", m_err);
 
