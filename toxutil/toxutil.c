@@ -1033,11 +1033,14 @@ void tox_utils_file_recv_chunk_cb(Tox *tox, uint32_t friend_number, uint32_t fil
                 if (((global_msgv2_incoming_ft_entry *)(n->data))->kind == TOX_FILE_KIND_MESSAGEV2_SEND) {
                     if (length == 0) {
                         // FT finished
-                        if (tox_utils_friend_message_v2) {
-                            const uint8_t *data_ = ((uint8_t *)((global_msgv2_incoming_ft_entry *)
-                                                                (n->data))->msg_data);
-                            const uint64_t size_ = ((global_msgv2_incoming_ft_entry *)
-                                                    (n->data))->file_size;
+                        const uint8_t *data_ = ((uint8_t *)((global_msgv2_incoming_ft_entry *)
+                                                            (n->data))->msg_data);
+                        const uint64_t size_ = ((global_msgv2_incoming_ft_entry *)
+                                                (n->data))->file_size;
+                        /* FIX: Verify the message is large enough before passing to callback.
+                         * Prevents user callbacks from reading garbage/truncated data. */
+                        uint32_t min_size = tox_messagev2_size(0, TOX_FILE_KIND_MESSAGEV2_SEND, 0);
+                        if (size_ >= min_size && tox_utils_friend_message_v2) {
                             tox_utils_friend_message_v2(tox, friend_number, data_, (size_t)size_);
                         }
 
@@ -1063,11 +1066,14 @@ void tox_utils_file_recv_chunk_cb(Tox *tox, uint32_t friend_number, uint32_t fil
                 } else if (((global_msgv2_incoming_ft_entry *)(n->data))->kind == TOX_FILE_KIND_MESSAGEV2_SYNC) {
                     if (length == 0) {
                         // FT finished
-                        if (tox_utils_friend_sync_message_v2) {
-                            const uint8_t *data_ = ((uint8_t *)((global_msgv2_incoming_ft_entry *)
-                                                                (n->data))->msg_data);
-                            const uint64_t size_ = ((global_msgv2_incoming_ft_entry *)
-                                                    (n->data))->file_size;
+                        const uint8_t *data_ = ((uint8_t *)((global_msgv2_incoming_ft_entry *)
+                                                            (n->data))->msg_data);
+                        const uint64_t size_ = ((global_msgv2_incoming_ft_entry *)
+                                                (n->data))->file_size;
+                        /* FIX: Verify the message is large enough before passing to callback.
+                         * Prevents user callbacks from reading garbage/truncated data. */
+                        uint32_t min_size = tox_messagev2_size(0, TOX_FILE_KIND_MESSAGEV2_SYNC, 0);
+                        if (size_ >= min_size && tox_utils_friend_sync_message_v2) {
                             tox_utils_friend_sync_message_v2(tox, friend_number, data_, (size_t)size_);
                         }
 
