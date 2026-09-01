@@ -1,0 +1,11 @@
+*
+!.gitignore
+
+#########
+
+!fuzz_toxutil.c
+!replay_main.c
+!Makefile
+!README.md
+!crash-*
+!regressions/
