@@ -1,0 +1,8 @@
+*
+!.gitignore
+
+#########
+
+!Makefile
+!test_framework.h
+!test_*c
