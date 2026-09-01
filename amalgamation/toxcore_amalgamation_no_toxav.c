@@ -17861,7 +17861,7 @@ int dht_create_packet(const Random *rng, const uint8_t public_key[CRYPTO_PUBLIC_
  */
 int unpack_ip_port(IP_Port *ip_port, const uint8_t *data, uint16_t length, bool tcp_enabled)
 {
-    if (data == nullptr) {
+    if (data == nullptr || length == 0 || ip_port == nullptr) {
         return -1;
     }
 
@@ -17963,6 +17963,10 @@ int pack_nodes(const Logger *logger, uint8_t *data, uint16_t length, const Node_
 int unpack_nodes(Node_format *nodes, uint16_t max_num_nodes, uint16_t *processed_data_len, const uint8_t *data,
                  uint16_t length, bool tcp_enabled)
 {
+    if (nodes == nullptr && max_num_nodes > 0) {
+        return -1;
+    }
+
     uint32_t num = 0;
     uint32_t len_processed = 0;
 
@@ -73526,6 +73530,14 @@ void tox_utils_file_recv_chunk_cb(Tox *tox, uint32_t friend_number, uint32_t fil
                     } else {
                         // copy chunk into buffer
                         uint8_t *data_ = ((uint8_t *)((global_msgv2_incoming_ft_entry *)(n->data))->msg_data);
+                        /* FIX: bounds check to prevent heap-buffer-overflow. Reject chunks
+                         * where position starts past the buffer end, or where position+length
+                         * would exceed the buffer size. The subtraction form avoids overflow. */
+                        if (position >= TOX_MAX_FILETRANSFER_SIZE_MSGV2 ||
+                            length > TOX_MAX_FILETRANSFER_SIZE_MSGV2 - position) {
+                            free(friend_pubkey);
+                            return;
+                        }
                         memcpy((data_ + position), data, length);
                     }
 
@@ -73548,6 +73560,14 @@ void tox_utils_file_recv_chunk_cb(Tox *tox, uint32_t friend_number, uint32_t fil
                     } else {
                         // copy chunk into buffer
                         uint8_t *data_ = ((uint8_t *)((global_msgv2_incoming_ft_entry *)(n->data))->msg_data);
+                        /* FIX: bounds check to prevent heap-buffer-overflow. Reject chunks
+                         * where position starts past the buffer end, or where position+length
+                         * would exceed the buffer size. The subtraction form avoids overflow. */
+                        if (position >= TOX_MAX_FILETRANSFER_SIZE_MSGV2 ||
+                            length > TOX_MAX_FILETRANSFER_SIZE_MSGV2 - position) {
+                            free(friend_pubkey);
+                            return;
+                        }
                         memcpy((data_ + position), data, length);
                     }
 
@@ -73591,6 +73611,14 @@ void tox_utils_file_recv_chunk_cb(Tox *tox, uint32_t friend_number, uint32_t fil
                     } else {
                         // copy chunk into buffer
                         uint8_t *data_ = ((uint8_t *)((global_msgv2_incoming_ft_entry *)(n->data))->msg_data);
+                        /* FIX: bounds check to prevent heap-buffer-overflow. Reject chunks
+                         * where position starts past the buffer end, or where position+length
+                         * would exceed the buffer size. The subtraction form avoids overflow. */
+                        if (position >= TOX_MAX_FILETRANSFER_SIZE_MSGV2 ||
+                            length > TOX_MAX_FILETRANSFER_SIZE_MSGV2 - position) {
+                            free(friend_pubkey);
+                            return;
+                        }
                         memcpy((data_ + position), data, length);
                     }
 
