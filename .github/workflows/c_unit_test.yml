@@ -20,6 +20,24 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
+    - run: |
+          sudo apt-get update && \
+          sudo DEBIAN_FRONTEND=noninteractive apt-get remove g++ && \
+          sudo DEBIAN_FRONTEND=noninteractive \
+          apt-get install -y --no-install-recommends \
+          ca-certificates \
+          libconfig-dev \
+          libopus-dev \
+          libsodium-dev \
+          libvpx-dev \
+          pkg-config \
+          libavutil-dev \
+          libavcodec-dev \
+          libavformat-dev \
+          libavfilter-dev \
+          libx264-dev \
+          libx265-dev
+
     - uses: actions/setup-java@v6
       with:
         distribution: 'temurin'
