@@ -42860,23 +42860,27 @@ uint64_t current_time_monotonic(Mono_Time *mono_time)
 
 
 
-/* [ADDED] Health scoring thresholds.
+/* [CHANGED] Health scoring thresholds - tuned for mobile networks.
  *
- * These values were chosen so that:
- *   - healthy direct UDP links (RTT ~50-150 ms, <5% retransmits) land in EXCELLENT/GOOD,
- *   - congested links with rising RTT and frequent retransmits slide into POOR/BAD,
- *   - and purely-relayed TCP sessions (which we know get hot on mobile) tend toward POOR.
+ * Mobile networks inherently have higher jitter, more packet loss during
+ * cell handoffs, and variable latency due to radio power state transitions.
+ * These thresholds account for that normal mobile behavior.
+ *
+ * Desktop/wired: 5% resend is bad. Mobile: 10-25% resend is normal.
+ * Desktop/wired: 150ms RTT is slow. Mobile: 200ms RTT is typical 4G.
  */
-#define HEALTH_RTT_EXCELLENT_MS     150
-#define HEALTH_RTT_GOOD_MS          400
-#define HEALTH_RTT_FAIR_MS         1000
-#define HEALTH_RTT_POOR_MS         3000
+#define HEALTH_RTT_EXCELLENT_MS     200
+#define HEALTH_RTT_GOOD_MS          500
+#define HEALTH_RTT_FAIR_MS         1500
+#define HEALTH_RTT_POOR_MS         4000
 
-/* Resend ratios (resent / sent), as percentages 0..100. */
-#define HEALTH_RESEND_EXCELLENT_PCT   5
-#define HEALTH_RESEND_GOOD_PCT       15
-#define HEALTH_RESEND_FAIR_PCT       35
-#define HEALTH_RESEND_POOR_PCT       60
+/* Resend ratios (resent / sent), as percentages 0..100.
+ * Mobile networks routinely see 10-25% retransmits during tower handoffs
+ * and NAT keepalive cycles without any actual quality problem. */
+#define HEALTH_RESEND_EXCELLENT_PCT  10
+#define HEALTH_RESEND_GOOD_PCT       25
+#define HEALTH_RESEND_FAIR_PCT       50
+#define HEALTH_RESEND_POOR_PCT       75
 
 /* How long (ms) a congestion event keeps the "recent congestion" penalty active. */
 #define HEALTH_CONGESTION_PENALTY_MS 5000
@@ -46008,6 +46012,10 @@ static void compute_overall_health(Net_Crypto *c)
         case NET_CRYPTO_HEALTH_BAD:       final_state_name = "BAD";       break;
         default:                          final_state_name = "UNKNOWN";   break;
     }
+
+    /* [ADDED] Log which specific metric determined the final score */
+    LOGGER_WARNING(c->log, "health: score breakdown: worst=%d direct=%u relayed=%u congestion=%d",
+                 (int)worst, num_direct, num_relayed, (int)had_recent_congestion);
 
     LOGGER_WARNING(c->log, "health: FINAL RESULT = %s", final_state_name);
 }
