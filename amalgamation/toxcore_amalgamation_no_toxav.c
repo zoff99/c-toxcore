@@ -45834,14 +45834,20 @@ static void send_crypto_packets(Net_Crypto *c)
 /* [ADDED] Compute the overall health of the crypto layer across all established
  * connections, and store the result in c->overall_health.
  *
- * The score is derived from three signals per connection:
- *   1. measured RTT (conn->rtt_time)
- *   2. resend ratio  (packets_resent vs packets_sent over the measurement window)
- *   3. transport     (direct UDP vs TCP relay, via crypto_connection_status())
+ * The score is derived from the following signals per connection:
+ *   1. transport     (direct UDP vs TCP relay, via crypto_connection_status())
+ *   2. congestion    (a recent congestion event caps the score at POOR or worse)
+ *   3. measured RTT  (conn->rtt_time)
+ *   4. resend ratio  (packets_resent vs packets_sent over the measurement window)
  *
- * We take the WORST per-connection state across the whole set, because a single
- * hot flapping connection can overheat the device even if others are fine.
- * A recent congestion event also caps the score at POOR or worse.
+ * Connections that sent nothing in the measurement window are considered idle
+ * and are skipped before RTT/resend scoring: their rtt_time has not been
+ * refreshed by acknowledgments and may be stale, so letting it influence the
+ * score would produce false readings. Transport and congestion are still
+ * evaluated for idle connections.
+ *
+ * We take the WORST state seen across the connections, because a single hot
+ * flapping connection can overheat the device even if others are fine.
  *
  * NOTE: TCP relay alone does NOT make the health POOR. On mobile devices,
  * TCP relay is the normal transport due to carrier NAT. Only RTT, packet loss,
@@ -45900,6 +45906,29 @@ static void compute_overall_health(Net_Crypto *c)
             }
         }
 
+        /* --- 4. recent congestion event penalty --- */
+        if (conn->last_congestion_event != 0 &&
+            (now - conn->last_congestion_event) < HEALTH_CONGESTION_PENALTY_MS) {
+            had_recent_congestion = true;
+            LOGGER_WARNING(c->log, "health: conn %u congestion event %llu ms ago",
+                         i, (unsigned long long)(now - conn->last_congestion_event));
+        }
+
+        /* --- 3. resend ratio over the measurement window --- */
+        uint64_t total_sent   = 0;
+        uint64_t total_resent = 0;
+        for (unsigned j = 0; j < CONGESTION_LAST_SENT_ARRAY_SIZE; ++j) {
+            total_sent   += conn->last_num_packets_sent[j];
+            total_resent += conn->last_num_packets_resent[j];
+        }
+
+        /* [ADDED] Option A: idle connection -> its rtt_time is stale, skip it */
+        if (total_sent == 0 && total_resent == 0) {
+            LOGGER_WARNING(c->log, "health: conn %u idle, skipping stale rtt=%llu ms",
+                         i, (unsigned long long)conn->rtt_time);
+            continue;
+        }
+
         /* --- 2. RTT --- */
         const uint64_t rtt = conn->rtt_time;
         Net_Crypto_Health rtt_state;
@@ -45919,13 +45948,6 @@ static void compute_overall_health(Net_Crypto *c)
             LOGGER_WARNING(c->log, "health: conn %u RTT raised worst to %s", i, rtt_state_name);
         }
 
-        /* --- 3. resend ratio over the measurement window --- */
-        uint64_t total_sent   = 0;
-        uint64_t total_resent = 0;
-        for (unsigned j = 0; j < CONGESTION_LAST_SENT_ARRAY_SIZE; ++j) {
-            total_sent   += conn->last_num_packets_sent[j];
-            total_resent += conn->last_num_packets_resent[j];
-        }
 
         LOGGER_WARNING(c->log, "health: conn %u sent=%llu resent=%llu",
                      i, (unsigned long long)total_sent, (unsigned long long)total_resent);
@@ -45952,14 +45974,6 @@ static void compute_overall_health(Net_Crypto *c)
         } else {
             LOGGER_WARNING(c->log, "health: conn %u insufficient sample (%llu < %d), skip resend",
                          i, (unsigned long long)total_sent, HEALTH_MIN_PACKET_SAMPLE);
-        }
-
-        /* --- 4. recent congestion event penalty --- */
-        if (conn->last_congestion_event != 0 &&
-            (now - conn->last_congestion_event) < HEALTH_CONGESTION_PENALTY_MS) {
-            had_recent_congestion = true;
-            LOGGER_WARNING(c->log, "health: conn %u congestion event %llu ms ago",
-                         i, (unsigned long long)(now - conn->last_congestion_event));
         }
     }
 
