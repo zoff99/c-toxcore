@@ -1743,6 +1743,82 @@ Tox_Connection tox_friend_get_connection_status(const Tox *tox, uint32_t friend_
 void tox_friend_get_connection_ip(const Tox *tox, uint32_t friend_number, uint8_t *ip_str);
 
 
+
+
+/**
+ * Represents the overall health/quality of the network connection as measured
+ * by the crypto layer.
+ *
+ * This is a composite score based on:
+ *   - RTT (round-trip time) across all established connections
+ *   - Packet resend ratio (how many packets had to be retransmitted)
+ *   - Transport type (direct UDP vs TCP relays)
+ *   - Recent congestion events
+ *
+ * Use this to adapt your application's behavior on mobile devices:
+ *   - UNKNOWN: No connections yet, cannot determine health
+ *   - EXCELLENT: Direct UDP, low RTT (<150ms), <5% retransmits
+ *   - GOOD: Direct UDP, moderate RTT (150-400ms), <15% retransmits
+ *   - FAIR: Mixed TCP/UDP or rising RTT (400-1000ms), <35% retransmits
+ *   - POOR: Mostly TCP relays or high RTT (1-3s), <60% retransmits
+ *   - BAD: Very high RTT (>3s) or >60% retransmits, active congestion
+ *
+ * When the health is POOR or BAD, consider increasing your tox_iterate()
+ * interval to reduce battery drain and thermal load on mobile devices.
+ */
+typedef enum TOX_NETWORK_HEALTH {
+
+    /**
+     * No established connections yet, or not enough data to determine health.
+     */
+    TOX_NETWORK_HEALTH_UNKNOWN,
+
+    /**
+     * Excellent connection: direct UDP, very low latency, almost no packet loss.
+     */
+    TOX_NETWORK_HEALTH_EXCELLENT,
+
+    /**
+     * Good connection: direct UDP, acceptable latency, minimal retransmits.
+     */
+    TOX_NETWORK_HEALTH_GOOD,
+
+    /**
+     * Fair connection: mixed TCP/UDP or moderate latency, some retransmits.
+     */
+    TOX_NETWORK_HEALTH_FAIR,
+
+    /**
+     * Poor connection: mostly TCP relays or high latency, frequent retransmits.
+     * The device may run warm on mobile networks.
+     */
+    TOX_NETWORK_HEALTH_POOR,
+
+    /**
+     * Bad connection: very high latency or severe packet loss, active congestion.
+     * The device will likely overheat on mobile networks.
+     */
+    TOX_NETWORK_HEALTH_BAD,
+
+} TOX_NETWORK_HEALTH;
+
+
+/**
+ * Get the overall health/quality of the network connection as measured by toxcore.
+ *
+ * This returns a composite score based on RTT, packet loss, transport type,
+ * and recent congestion events across all established connections.
+ *
+ * Thread-safe: Yes. This function acquires the Tox lock before reading the value.
+ *
+ * @param tox The Tox instance.
+ * @return The current network health status.
+ */
+TOX_NETWORK_HEALTH tox_self_get_network_health(const Tox *tox);
+
+
+
+
 /**
  * @param friend_number The friend number of the friend whose connection status
  *   changed.

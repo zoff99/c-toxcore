@@ -131,6 +131,26 @@ typedef struct New_Connection {
     uint8_t cookie_length;
 } New_Connection;
 
+/* [ADDED] Overall health of the crypto-layer network, computed across all active connections.
+ *
+ * UNKNOWN  - no established connections yet, or not enough data
+ * EXCELLENT - direct UDP, low RTT, almost no retransmits
+ * GOOD     - direct UDP, moderate RTT, few retransmits
+ * FAIR     - mixed TCP/UDP, or RTT rising, some retransmits
+ * POOR     - mostly TCP relays, high RTT, many retransmits
+ * BAD      - congestion events, very high RTT, almost all packets resent
+ */
+typedef enum {
+    NET_CRYPTO_HEALTH_UNKNOWN   = 0,
+    NET_CRYPTO_HEALTH_EXCELLENT = 1,
+    NET_CRYPTO_HEALTH_GOOD      = 2,
+    NET_CRYPTO_HEALTH_FAIR      = 3,
+    NET_CRYPTO_HEALTH_POOR      = 4,
+    NET_CRYPTO_HEALTH_BAD       = 5
+} Net_Crypto_Health;
+
+Net_Crypto_Health net_crypto_overall_health(const Net_Crypto *c);
+
 typedef int connection_status_cb(void *object, int id, bool status, void *userdata);
 typedef int connection_data_cb(void *object, int id, const uint8_t *data, uint16_t length, void *userdata);
 typedef int connection_lossy_data_cb(void *object, int id, const uint8_t *data, uint16_t length, void *userdata);

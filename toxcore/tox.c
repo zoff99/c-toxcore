@@ -1306,6 +1306,43 @@ Tox_Connection tox_self_get_connection_status(const Tox *tox)
     return TOX_CONNECTION_NONE;
 }
 
+TOX_NETWORK_HEALTH tox_self_get_network_health(const Tox *tox)
+{
+    assert(tox != nullptr);
+    tox_lock(tox);
+
+    Net_Crypto_Health internal_health = net_crypto_overall_health(tox->m->net_crypto);
+
+    TOX_NETWORK_HEALTH public_health;
+
+    /* Map internal Net_Crypto_Health to public TOX_NETWORK_HEALTH */
+    switch (internal_health) {
+        case NET_CRYPTO_HEALTH_UNKNOWN:
+            public_health = TOX_NETWORK_HEALTH_UNKNOWN;
+            break;
+        case NET_CRYPTO_HEALTH_EXCELLENT:
+            public_health = TOX_NETWORK_HEALTH_EXCELLENT;
+            break;
+        case NET_CRYPTO_HEALTH_GOOD:
+            public_health = TOX_NETWORK_HEALTH_GOOD;
+            break;
+        case NET_CRYPTO_HEALTH_FAIR:
+            public_health = TOX_NETWORK_HEALTH_FAIR;
+            break;
+        case NET_CRYPTO_HEALTH_POOR:
+            public_health = TOX_NETWORK_HEALTH_POOR;
+            break;
+        case NET_CRYPTO_HEALTH_BAD:
+            public_health = TOX_NETWORK_HEALTH_BAD;
+            break;
+        default:
+            public_health = TOX_NETWORK_HEALTH_UNKNOWN;
+            break;
+    }
+
+    tox_unlock(tox);
+    return public_health;
+}
 
 void tox_callback_self_connection_status(Tox *tox, tox_self_connection_status_cb *callback)
 {

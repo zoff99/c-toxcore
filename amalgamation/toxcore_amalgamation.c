@@ -2913,6 +2913,26 @@ typedef struct New_Connection {
     uint8_t cookie_length;
 } New_Connection;
 
+/* [ADDED] Overall health of the crypto-layer network, computed across all active connections.
+ *
+ * UNKNOWN  - no established connections yet, or not enough data
+ * EXCELLENT - direct UDP, low RTT, almost no retransmits
+ * GOOD     - direct UDP, moderate RTT, few retransmits
+ * FAIR     - mixed TCP/UDP, or RTT rising, some retransmits
+ * POOR     - mostly TCP relays, high RTT, many retransmits
+ * BAD      - congestion events, very high RTT, almost all packets resent
+ */
+typedef enum {
+    NET_CRYPTO_HEALTH_UNKNOWN   = 0,
+    NET_CRYPTO_HEALTH_EXCELLENT = 1,
+    NET_CRYPTO_HEALTH_GOOD      = 2,
+    NET_CRYPTO_HEALTH_FAIR      = 3,
+    NET_CRYPTO_HEALTH_POOR      = 4,
+    NET_CRYPTO_HEALTH_BAD       = 5
+} Net_Crypto_Health;
+
+Net_Crypto_Health net_crypto_overall_health(const Net_Crypto *c);
+
 typedef int connection_status_cb(void *object, int id, bool status, void *userdata);
 typedef int connection_data_cb(void *object, int id, const uint8_t *data, uint16_t length, void *userdata);
 typedef int connection_lossy_data_cb(void *object, int id, const uint8_t *data, uint16_t length, void *userdata);
@@ -7647,6 +7667,82 @@ void tox_callback_friend_status(Tox *tox, tox_friend_status_cb *callback);
 Tox_Connection tox_friend_get_connection_status(const Tox *tox, uint32_t friend_number, Tox_Err_Friend_Query *error);
 
 void tox_friend_get_connection_ip(const Tox *tox, uint32_t friend_number, uint8_t *ip_str);
+
+
+
+
+/**
+ * Represents the overall health/quality of the network connection as measured
+ * by the crypto layer.
+ *
+ * This is a composite score based on:
+ *   - RTT (round-trip time) across all established connections
+ *   - Packet resend ratio (how many packets had to be retransmitted)
+ *   - Transport type (direct UDP vs TCP relays)
+ *   - Recent congestion events
+ *
+ * Use this to adapt your application's behavior on mobile devices:
+ *   - UNKNOWN: No connections yet, cannot determine health
+ *   - EXCELLENT: Direct UDP, low RTT (<150ms), <5% retransmits
+ *   - GOOD: Direct UDP, moderate RTT (150-400ms), <15% retransmits
+ *   - FAIR: Mixed TCP/UDP or rising RTT (400-1000ms), <35% retransmits
+ *   - POOR: Mostly TCP relays or high RTT (1-3s), <60% retransmits
+ *   - BAD: Very high RTT (>3s) or >60% retransmits, active congestion
+ *
+ * When the health is POOR or BAD, consider increasing your tox_iterate()
+ * interval to reduce battery drain and thermal load on mobile devices.
+ */
+typedef enum TOX_NETWORK_HEALTH {
+
+    /**
+     * No established connections yet, or not enough data to determine health.
+     */
+    TOX_NETWORK_HEALTH_UNKNOWN,
+
+    /**
+     * Excellent connection: direct UDP, very low latency, almost no packet loss.
+     */
+    TOX_NETWORK_HEALTH_EXCELLENT,
+
+    /**
+     * Good connection: direct UDP, acceptable latency, minimal retransmits.
+     */
+    TOX_NETWORK_HEALTH_GOOD,
+
+    /**
+     * Fair connection: mixed TCP/UDP or moderate latency, some retransmits.
+     */
+    TOX_NETWORK_HEALTH_FAIR,
+
+    /**
+     * Poor connection: mostly TCP relays or high latency, frequent retransmits.
+     * The device may run warm on mobile networks.
+     */
+    TOX_NETWORK_HEALTH_POOR,
+
+    /**
+     * Bad connection: very high latency or severe packet loss, active congestion.
+     * The device will likely overheat on mobile networks.
+     */
+    TOX_NETWORK_HEALTH_BAD,
+
+} TOX_NETWORK_HEALTH;
+
+
+/**
+ * Get the overall health/quality of the network connection as measured by toxcore.
+ *
+ * This returns a composite score based on RTT, packet loss, transport type,
+ * and recent congestion events across all established connections.
+ *
+ * Thread-safe: Yes. This function acquires the Tox lock before reading the value.
+ *
+ * @param tox The Tox instance.
+ * @return The current network health status.
+ */
+TOX_NETWORK_HEALTH tox_self_get_network_health(const Tox *tox);
+
+
 
 
 /**
@@ -45263,6 +45359,38 @@ uint64_t current_time_monotonic(Mono_Time *mono_time)
 #include <string.h>
 
 
+
+/* [ADDED] Health scoring thresholds.
+ *
+ * These values were chosen so that:
+ *   - healthy direct UDP links (RTT ~50-150 ms, <5% retransmits) land in EXCELLENT/GOOD,
+ *   - congested links with rising RTT and frequent retransmits slide into POOR/BAD,
+ *   - and purely-relayed TCP sessions (which we know get hot on mobile) tend toward POOR.
+ */
+#define HEALTH_RTT_EXCELLENT_MS     150
+#define HEALTH_RTT_GOOD_MS          400
+#define HEALTH_RTT_FAIR_MS         1000
+#define HEALTH_RTT_POOR_MS         3000
+
+/* Resend ratios (resent / sent), as percentages 0..100. */
+#define HEALTH_RESEND_EXCELLENT_PCT   5
+#define HEALTH_RESEND_GOOD_PCT       15
+#define HEALTH_RESEND_FAIR_PCT       35
+#define HEALTH_RESEND_POOR_PCT       60
+
+/* How long (ms) a congestion event keeps the "recent congestion" penalty active. */
+#define HEALTH_CONGESTION_PENALTY_MS 5000
+
+/* Minimum number of established connections required before we trust the score. */
+#define HEALTH_MIN_CONNECTIONS        1
+
+/* Minimum number of packets we need to have observed before we trust the resend ratio. */
+#define HEALTH_MIN_PACKET_SAMPLE      8
+
+/* Recompute at most every HEALTH_RECOMPUTE_MS, even if do_net_crypto() runs faster. */
+#define HEALTH_RECOMPUTE_MS           200
+
+
 typedef struct Packet_Data {
     uint64_t sent_time;
     uint16_t length;
@@ -45393,6 +45521,12 @@ struct Net_Crypto {
     uint32_t current_sleep_time;
 
     BS_List ip_port_list;
+
+    /* [ADDED] Cached overall health of the crypto layer, updated in do_net_crypto(). */
+    Net_Crypto_Health overall_health;
+
+    /* [ADDED] When overall_health was last recomputed (mono_time ticks). */
+    uint64_t overall_health_last_update;
 };
 
 const uint8_t *nc_get_self_public_key(const Net_Crypto *c)
@@ -48191,6 +48325,179 @@ static void send_crypto_packets(Net_Crypto *c)
     }
 }
 
+
+
+/* [ADDED] Compute the overall health of the crypto layer across all established
+ * connections, and store the result in c->overall_health.
+ *
+ * The score is derived from three signals per connection:
+ *   1. measured RTT (conn->rtt_time)
+ *   2. resend ratio  (packets_resent vs packets_sent over the measurement window)
+ *   3. transport     (direct UDP vs TCP relay, via crypto_connection_status())
+ *
+ * We take the WORST per-connection state across the whole set, because a single
+ * hot flapping connection can overheat the device even if others are fine.
+ * A recent congestion event also caps the score at POOR or worse.
+ */
+static void compute_overall_health(Net_Crypto *c)
+{
+    const uint64_t now = current_time_monotonic(c->mono_time);
+
+    /* Throttle recomputes so we don't burn CPU computing a score every millisecond. */
+    if (c->overall_health_last_update != 0 &&
+        (now - c->overall_health_last_update) < HEALTH_RECOMPUTE_MS) {
+        return;
+    }
+    c->overall_health_last_update = now;
+
+    /* Worst state seen across all connections. Start optimistically. */
+    Net_Crypto_Health worst = NET_CRYPTO_HEALTH_EXCELLENT;
+    bool any_established = false;
+    bool had_recent_congestion = false;
+    uint32_t num_direct = 0;
+    uint32_t num_connections = 0;
+
+    for (uint32_t i = 0; i < c->crypto_connections_length; ++i) {
+        const Crypto_Connection *conn = get_crypto_connection(c, i);
+        if (conn == nullptr) {
+            continue;
+        }
+        if (conn->status != CRYPTO_CONN_ESTABLISHED) {
+            continue;
+        }
+
+        any_established = true;
+        num_connections++;
+
+        LOGGER_DEBUG(c->log, "health: evaluating connection %u", i);
+
+        /* --- 1. transport type (UDP direct vs TCP relay) --- */
+        bool direct = false;
+        crypto_connection_status(c, i, &direct, nullptr);
+        if (direct) {
+            num_direct++;
+            LOGGER_DEBUG(c->log, "health: conn %u transport = DIRECT UDP", i);
+        } else {
+            LOGGER_DEBUG(c->log, "health: conn %u transport = TCP RELAY", i);
+            /* TCP-relayed connections are structurally hotter on mobile because the
+             * crypto handshake is heavier and ACKs always flow through a third party.
+             * Cap this connection at FAIR unless other metrics are worse. */
+            if (worst < NET_CRYPTO_HEALTH_FAIR) {
+                worst = NET_CRYPTO_HEALTH_FAIR;
+                LOGGER_DEBUG(c->log, "health: conn %u TCP relay -> worst = FAIR", i);
+            }
+        }
+
+        /* --- 2. RTT --- */
+        /* rtt_time is stored as mono-time delta; treat it as milliseconds. */
+        const uint64_t rtt = conn->rtt_time;
+        Net_Crypto_Health rtt_state;
+        const char *rtt_state_name;
+
+        if      (rtt <= HEALTH_RTT_EXCELLENT_MS) { rtt_state = NET_CRYPTO_HEALTH_EXCELLENT; rtt_state_name = "EXCELLENT"; }
+        else if (rtt <= HEALTH_RTT_GOOD_MS)      { rtt_state = NET_CRYPTO_HEALTH_GOOD;      rtt_state_name = "GOOD"; }
+        else if (rtt <= HEALTH_RTT_FAIR_MS)      { rtt_state = NET_CRYPTO_HEALTH_FAIR;      rtt_state_name = "FAIR"; }
+        else if (rtt <= HEALTH_RTT_POOR_MS)      { rtt_state = NET_CRYPTO_HEALTH_POOR;      rtt_state_name = "POOR"; }
+        else                                     { rtt_state = NET_CRYPTO_HEALTH_BAD;       rtt_state_name = "BAD"; }
+
+        LOGGER_DEBUG(c->log, "health: conn %u rtt = %llu ms -> %s",
+                     i, (unsigned long long)rtt, rtt_state_name);
+
+        if (rtt_state > worst) {
+            worst = rtt_state;
+            LOGGER_DEBUG(c->log, "health: conn %u RTT raised worst to %s", i, rtt_state_name);
+        }
+
+        /* --- 3. resend ratio over the current measurement window --- */
+        /* packets_sent / packets_resent are per-window counters reset every
+         * PACKET_COUNTER_AVERAGE_INTERVAL inside send_crypto_packets().
+         * We use last_num_packets_sent / last_num_packets_resent arrays for
+         * a more stable windowed average. */
+        uint64_t total_sent   = 0;
+        uint64_t total_resent = 0;
+        for (unsigned j = 0; j < CONGESTION_LAST_SENT_ARRAY_SIZE; ++j) {
+            total_sent   += conn->last_num_packets_sent[j];
+            total_resent += conn->last_num_packets_resent[j];
+        }
+
+        LOGGER_DEBUG(c->log, "health: conn %u packets sent=%llu resent=%llu",
+                     i, (unsigned long long)total_sent, (unsigned long long)total_resent);
+
+        if (total_sent >= HEALTH_MIN_PACKET_SAMPLE) {
+            const uint32_t resend_pct = (uint32_t)((total_resent * 100) / total_sent);
+            Net_Crypto_Health resend_state;
+            const char *resend_state_name;
+
+            if      (resend_pct <= HEALTH_RESEND_EXCELLENT_PCT) { resend_state = NET_CRYPTO_HEALTH_EXCELLENT; resend_state_name = "EXCELLENT"; }
+            else if (resend_pct <= HEALTH_RESEND_GOOD_PCT)      { resend_state = NET_CRYPTO_HEALTH_GOOD;      resend_state_name = "GOOD"; }
+            else if (resend_pct <= HEALTH_RESEND_FAIR_PCT)      { resend_state = NET_CRYPTO_HEALTH_FAIR;      resend_state_name = "FAIR"; }
+            else if (resend_pct <= HEALTH_RESEND_POOR_PCT)      { resend_state = NET_CRYPTO_HEALTH_POOR;      resend_state_name = "POOR"; }
+            else                                                { resend_state = NET_CRYPTO_HEALTH_BAD;       resend_state_name = "BAD"; }
+
+            LOGGER_DEBUG(c->log, "health: conn %u resend ratio = %u%% -> %s",
+                         i, resend_pct, resend_state_name);
+
+            if (resend_state > worst) {
+                worst = resend_state;
+                LOGGER_DEBUG(c->log, "health: conn %u resend ratio raised worst to %s",
+                             i, resend_state_name);
+            }
+        } else {
+            LOGGER_DEBUG(c->log, "health: conn %u insufficient packet sample (%llu < %d), skipping resend ratio",
+                         i, (unsigned long long)total_sent, HEALTH_MIN_PACKET_SAMPLE);
+        }
+
+        /* --- 4. recent congestion event penalty --- */
+        if (conn->last_congestion_event != 0 &&
+            (now - conn->last_congestion_event) < HEALTH_CONGESTION_PENALTY_MS) {
+            had_recent_congestion = true;
+            LOGGER_DEBUG(c->log, "health: conn %u had congestion event %llu ms ago",
+                         i, (unsigned long long)(now - conn->last_congestion_event));
+        }
+    }
+
+    /* If there are no established connections we cannot judge anything. */
+    if (!any_established) {
+        LOGGER_DEBUG(c->log, "health: no established connections -> UNKNOWN");
+        c->overall_health = NET_CRYPTO_HEALTH_UNKNOWN;
+        return;
+    }
+
+    LOGGER_DEBUG(c->log, "health: evaluated %u connections, %u direct UDP",
+                 num_connections, num_direct);
+
+    /* A recent congestion event caps the score at POOR even if RTT/resend
+     * temporarily look okay - the link just collapsed recently. */
+    if (had_recent_congestion && worst < NET_CRYPTO_HEALTH_POOR) {
+        worst = NET_CRYPTO_HEALTH_POOR;
+        LOGGER_DEBUG(c->log, "health: recent congestion event -> capped at POOR");
+    }
+
+    /* If zero connections are direct UDP, cap at POOR: pure-relay mode is the
+     * regime where we know toxcore runs hottest on mobile devices. */
+    if (num_direct == 0 && worst < NET_CRYPTO_HEALTH_POOR) {
+        worst = NET_CRYPTO_HEALTH_POOR;
+        LOGGER_DEBUG(c->log, "health: no direct UDP connections -> capped at POOR");
+    }
+
+    c->overall_health = worst;
+
+    /* Log the final result */
+    const char *final_state_name;
+    switch (worst) {
+        case NET_CRYPTO_HEALTH_UNKNOWN:   final_state_name = "UNKNOWN";   break;
+        case NET_CRYPTO_HEALTH_EXCELLENT: final_state_name = "EXCELLENT"; break;
+        case NET_CRYPTO_HEALTH_GOOD:      final_state_name = "GOOD";      break;
+        case NET_CRYPTO_HEALTH_FAIR:      final_state_name = "FAIR";      break;
+        case NET_CRYPTO_HEALTH_POOR:      final_state_name = "POOR";      break;
+        case NET_CRYPTO_HEALTH_BAD:       final_state_name = "BAD";       break;
+        default:                          final_state_name = "UNKNOWN";   break;
+    }
+
+    LOGGER_DEBUG(c->log, "health: FINAL RESULT = %s", final_state_name);
+}
+
+
 /**
  * @retval 1 if max speed was reached for this connection (no more data can be physically through the pipe).
  * @retval 0 if it wasn't reached.
@@ -48457,6 +48764,8 @@ Net_Crypto *new_net_crypto(const Logger *log, const Random *rng, const Network *
     new_symmetric_key(rng, temp->secret_symmetric_key);
 
     temp->current_sleep_time = CRYPTO_SEND_PACKET_INTERVAL;
+    temp->overall_health = NET_CRYPTO_HEALTH_UNKNOWN;   /* [ADDED] */
+    temp->overall_health_last_update = 0;               /* [ADDED] */
 
     networking_registerhandler(dht_get_net(dht), NET_PACKET_COOKIE_REQUEST, &udp_handle_cookie_request, temp);
     networking_registerhandler(dht_get_net(dht), NET_PACKET_COOKIE_RESPONSE, &udp_handle_packet, temp);
@@ -48466,6 +48775,24 @@ Net_Crypto *new_net_crypto(const Logger *log, const Random *rng, const Network *
     bs_list_init(&temp->ip_port_list, sizeof(IP_Port), 8);
 
     return temp;
+}
+
+/* [ADDED] Public accessor for the overall crypto-layer health.
+ *
+ * Returns one of:
+ *   NET_CRYPTO_HEALTH_UNKNOWN    - no established connections yet
+ *   NET_CRYPTO_HEALTH_EXCELLENT  - direct UDP, low RTT, almost no retransmits
+ *   NET_CRYPTO_HEALTH_GOOD
+ *   NET_CRYPTO_HEALTH_FAIR
+ *   NET_CRYPTO_HEALTH_POOR
+ *   NET_CRYPTO_HEALTH_BAD
+ */
+Net_Crypto_Health net_crypto_overall_health(const Net_Crypto *c)
+{
+    if (c == nullptr) {
+        return NET_CRYPTO_HEALTH_UNKNOWN;
+    }
+    return c->overall_health;
 }
 
 non_null(1) nullable(2)
@@ -48510,6 +48837,9 @@ void do_net_crypto(Net_Crypto *c, void *userdata)
     kill_timedout(c, userdata);
     do_tcp(c, userdata);
     send_crypto_packets(c);
+
+    /* [ADDED] Update the cached overall health score. */
+    compute_overall_health(c);
 }
 
 void kill_net_crypto(Net_Crypto *c)
@@ -60990,6 +61320,43 @@ Tox_Connection tox_self_get_connection_status(const Tox *tox)
     return TOX_CONNECTION_NONE;
 }
 
+TOX_NETWORK_HEALTH tox_self_get_network_health(const Tox *tox)
+{
+    assert(tox != nullptr);
+    tox_lock(tox);
+
+    Net_Crypto_Health internal_health = net_crypto_overall_health(tox->m->net_crypto);
+
+    TOX_NETWORK_HEALTH public_health;
+
+    /* Map internal Net_Crypto_Health to public TOX_NETWORK_HEALTH */
+    switch (internal_health) {
+        case NET_CRYPTO_HEALTH_UNKNOWN:
+            public_health = TOX_NETWORK_HEALTH_UNKNOWN;
+            break;
+        case NET_CRYPTO_HEALTH_EXCELLENT:
+            public_health = TOX_NETWORK_HEALTH_EXCELLENT;
+            break;
+        case NET_CRYPTO_HEALTH_GOOD:
+            public_health = TOX_NETWORK_HEALTH_GOOD;
+            break;
+        case NET_CRYPTO_HEALTH_FAIR:
+            public_health = TOX_NETWORK_HEALTH_FAIR;
+            break;
+        case NET_CRYPTO_HEALTH_POOR:
+            public_health = TOX_NETWORK_HEALTH_POOR;
+            break;
+        case NET_CRYPTO_HEALTH_BAD:
+            public_health = TOX_NETWORK_HEALTH_BAD;
+            break;
+        default:
+            public_health = TOX_NETWORK_HEALTH_UNKNOWN;
+            break;
+    }
+
+    tox_unlock(tox);
+    return public_health;
+}
 
 void tox_callback_self_connection_status(Tox *tox, tox_self_connection_status_cb *callback)
 {
