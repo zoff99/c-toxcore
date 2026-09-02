@@ -985,6 +985,22 @@ size_t tox_get_savedata_size(const Tox *tox);
  */
 void tox_get_savedata(const Tox *tox, uint8_t *savedata);
 
+/**
+ * @brief Store all information associated with the tox instance to a byte array, safely checking the buffer size.
+ *
+ * This function is thread-safe and prevents Time-of-Check to Time-of-Use (TOCTOU) race conditions
+ * by holding the Tox instance lock during both the size calculation and the data writing.
+ *
+ * @param tox The Tox instance.
+ * @param savedata A memory region to store the tox instance data. If this parameter is NULL,
+ *   this function returns (size_t)-1.
+ * @param buf_len The size of the allocated `savedata` buffer in bytes.
+ *
+ * @return The actual number of bytes written to `savedata` on success. If the provided `buf_len`
+ *   is smaller than the required size, or if `savedata` is NULL, this function returns (size_t)-1.
+ */
+size_t tox_get_savedata_len(const Tox *tox, uint8_t *savedata, size_t buf_len);
+
 /** @} */
 
 

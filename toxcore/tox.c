@@ -1115,6 +1115,58 @@ void tox_get_savedata(const Tox *tox, uint8_t *savedata)
     tox_unlock(tox);
 }
 
+/**
+ * Gets the savedata and returns the actual size written.
+ * This function is thread-safe and prevents TOCTOU race conditions by holding
+ * the lock during both the size calculation and the data writing.
+ *
+ * @param tox      The Tox instance.
+ * @param savedata The buffer to write the savedata into.
+ * @param buf_len  The size of the allocated buffer.
+ * @return         The actual number of bytes written on success, or (size_t)-1
+ *                 if the buffer is too small or savedata is NULL.
+ */
+size_t tox_get_savedata_len(const Tox *tox, uint8_t *savedata, size_t buf_len)
+{
+    assert(tox != nullptr);
+
+    if (savedata == nullptr) {
+        return (size_t)-1;
+    }
+
+    tox_lock(tox);
+
+    // Calculate required size while holding the lock to prevent TOCTOU
+    const size_t required_size = 2 * sizeof(uint32_t)
+                                 + messenger_size(tox->m)
+                                 + conferences_size(tox->m->conferences_object)
+                                 + end_size();
+
+    // Check if the provided buffer is large enough
+    if (buf_len < required_size) {
+        tox_unlock(tox);
+        return (size_t)-1;
+    }
+
+    memset(savedata, 0, required_size);
+
+    const uint32_t size32 = sizeof(uint32_t);
+
+    // write cookie
+    memset(savedata, 0, size32);
+    savedata += size32;
+    host_to_lendian_bytes32(savedata, STATE_COOKIE_GLOBAL);
+    savedata += size32;
+
+    savedata = messenger_save(tox->m, savedata);
+    savedata = conferences_save(tox->m->conferences_object, savedata);
+    end_save(savedata);
+
+    tox_unlock(tox);
+
+    return required_size;
+}
+
 non_null(5) nullable(1, 2, 4, 6)
 static int32_t resolve_bootstrap_node(Tox *tox, const char *host, uint16_t port, const uint8_t *public_key,
                                       IP_Port **root, Tox_Err_Bootstrap *error)
