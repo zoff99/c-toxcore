@@ -47,6 +47,75 @@ static int _tests_failed = 0;
         return false; \
     } } while (0)
 
+#define T_ASSERT_INT_GT(a, b, msg) \
+    do { \
+        long long _va = (long long)(a), _vb = (long long)(b); \
+        if (_va <= _vb) { \
+            printf(C_RED "    FAIL  %s:%d  %s  (got %lld, want > %lld)\n" C_RESET, \
+                   __func__, __LINE__, (msg), _va, _vb); \
+            return false; \
+        } \
+    } while (0)
+
+#define T_ASSERT_INT_NE(a, b, msg) \
+    do { \
+        long long _va = (long long)(a), _vb = (long long)(b); \
+        if (_va == _vb) { \
+            printf(C_RED "    FAIL  %s:%d  %s  (both %lld)\n" C_RESET, \
+                   __func__, __LINE__, (msg), _va); \
+            return false; \
+        } \
+    } while (0)
+
+#define T_ASSERT_INT_LE(a, b, msg) \
+    do { \
+        long long _va = (long long)(a), _vb = (long long)(b); \
+        if (_va > _vb) { \
+            printf(C_RED "    FAIL  %s:%d  %s  (got %lld, want <= %lld)\n" C_RESET, \
+                   __func__, __LINE__, (msg), _va, _vb); \
+            return false; \
+        } \
+    } while (0)
+
+#define T_ASSERT_INT_LT(a, b, msg) \
+    do { \
+        long long _va = (long long)(a), _vb = (long long)(b); \
+        if (_va >= _vb) { \
+            printf(C_RED "    FAIL  %s:%d  %s  (got %lld, want < %lld)\n" C_RESET, \
+                   __func__, __LINE__, (msg), _va, _vb); \
+            return false; \
+        } \
+    } while (0)
+
+#define T_ASSERT_STR_EQ(a, b, msg) \
+    do { \
+        const char *_sa = (a), *_sb = (b); \
+        if (_sa == NULL || _sb == NULL || strcmp(_sa, _sb) != 0) { \
+            printf(C_RED "    FAIL  %s:%d  %s  (got \"%s\", want \"%s\")\n" C_RESET, \
+                   __func__, __LINE__, (msg), \
+                   _sa ? _sa : "(null)", _sb ? _sb : "(null)"); \
+            return false; \
+        } \
+    } while (0)
+
+#define T_ASSERT_PTR_NULL(p, msg) \
+    do { \
+        if ((p) != NULL) { \
+            printf(C_RED "    FAIL  %s:%d  %s  (not NULL)\n" C_RESET, \
+                   __func__, __LINE__, (msg)); \
+            return false; \
+        } \
+    } while (0)
+
+#define T_ASSERT_MEM_EQ(a, b, len, msg) \
+    do { \
+        if (memcmp((a), (b), (len)) != 0) { \
+            printf(C_RED "    FAIL  %s:%d  %s  (memory differs)\n" C_RESET, \
+                   __func__, __LINE__, (msg)); \
+            return false; \
+        } \
+    } while (0)
+
 #define T_ASSERT_PTR_NOT_NULL(p, msg) \
     do { if ((p)==NULL) { \
         printf(C_RED "      assertion failed: %s\n" C_RESET, (msg)); \
