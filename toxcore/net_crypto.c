@@ -3050,10 +3050,10 @@ static void compute_overall_health(Net_Crypto *c)
         crypto_connection_status(c, i, &direct, nullptr);
         if (direct) {
             num_direct++;
-            LOGGER_WARNING(c->log, "health: conn %u transport=DIRECT_UDP", i);
+            LOGGER_DEBUG(c->log, "health: conn %u transport=DIRECT_UDP", i);
         } else {
             num_relayed++;
-            LOGGER_WARNING(c->log, "health: conn %u transport=TCP_RELAY", i);
+            LOGGER_DEBUG(c->log, "health: conn %u transport=TCP_RELAY", i);
             /*
              * [CHANGED] TCP relay is NORMAL on mobile devices due to carrier NAT.
              * It does NOT indicate poor link quality by itself.
@@ -3063,7 +3063,7 @@ static void compute_overall_health(Net_Crypto *c)
              */
             if (worst < NET_CRYPTO_HEALTH_GOOD) {
                 worst = NET_CRYPTO_HEALTH_GOOD;
-                LOGGER_WARNING(c->log, "health: conn %u TCP relay (normal on mobile) -> worst=GOOD", i);
+                LOGGER_DEBUG(c->log, "health: conn %u TCP relay (normal on mobile) -> worst=GOOD", i);
             }
         }
 
@@ -3071,7 +3071,7 @@ static void compute_overall_health(Net_Crypto *c)
         if (conn->last_congestion_event != 0 &&
             (now - conn->last_congestion_event) < HEALTH_CONGESTION_PENALTY_MS) {
             had_recent_congestion = true;
-            LOGGER_WARNING(c->log, "health: conn %u congestion event %llu ms ago",
+            LOGGER_DEBUG(c->log, "health: conn %u congestion event %llu ms ago",
                          i, (unsigned long long)(now - conn->last_congestion_event));
         }
 
@@ -3085,7 +3085,7 @@ static void compute_overall_health(Net_Crypto *c)
 
         /* [ADDED] Option A: idle connection -> its rtt_time is stale, skip it */
         if (total_sent == 0 && total_resent == 0) {
-            LOGGER_WARNING(c->log, "health: conn %u idle, skipping stale rtt=%llu ms",
+            LOGGER_DEBUG(c->log, "health: conn %u idle, skipping stale rtt=%llu ms",
                          i, (unsigned long long)conn->rtt_time);
             continue;
         }
@@ -3101,16 +3101,16 @@ static void compute_overall_health(Net_Crypto *c)
         else if (rtt <= HEALTH_RTT_POOR_MS)      { rtt_state = NET_CRYPTO_HEALTH_POOR;      rtt_state_name = "POOR"; }
         else                                     { rtt_state = NET_CRYPTO_HEALTH_BAD;       rtt_state_name = "BAD"; }
 
-        LOGGER_WARNING(c->log, "health: conn %u rtt=%llu ms -> %s",
+        LOGGER_DEBUG(c->log, "health: conn %u rtt=%llu ms -> %s",
                      i, (unsigned long long)rtt, rtt_state_name);
 
         if (rtt_state > worst) {
             worst = rtt_state;
-            LOGGER_WARNING(c->log, "health: conn %u RTT raised worst to %s", i, rtt_state_name);
+            LOGGER_DEBUG(c->log, "health: conn %u RTT raised worst to %s", i, rtt_state_name);
         }
 
 
-        LOGGER_WARNING(c->log, "health: conn %u sent=%llu resent=%llu",
+        LOGGER_DEBUG(c->log, "health: conn %u sent=%llu resent=%llu",
                      i, (unsigned long long)total_sent, (unsigned long long)total_resent);
 
         if (total_sent >= HEALTH_MIN_PACKET_SAMPLE) {
@@ -3124,28 +3124,28 @@ static void compute_overall_health(Net_Crypto *c)
             else if (resend_pct <= HEALTH_RESEND_POOR_PCT)      { resend_state = NET_CRYPTO_HEALTH_POOR;      resend_state_name = "POOR"; }
             else                                                { resend_state = NET_CRYPTO_HEALTH_BAD;       resend_state_name = "BAD"; }
 
-            LOGGER_WARNING(c->log, "health: conn %u resend_ratio=%u%% -> %s",
+            LOGGER_DEBUG(c->log, "health: conn %u resend_ratio=%u%% -> %s",
                          i, resend_pct, resend_state_name);
 
             if (resend_state > worst) {
                 worst = resend_state;
-                LOGGER_WARNING(c->log, "health: conn %u resend ratio raised worst to %s",
+                LOGGER_DEBUG(c->log, "health: conn %u resend ratio raised worst to %s",
                              i, resend_state_name);
             }
         } else {
-            LOGGER_WARNING(c->log, "health: conn %u insufficient sample (%llu < %d), skip resend",
+            LOGGER_DEBUG(c->log, "health: conn %u insufficient sample (%llu < %d), skip resend",
                          i, (unsigned long long)total_sent, HEALTH_MIN_PACKET_SAMPLE);
         }
     }
 
     /* If there are no established connections we cannot judge anything. */
     if (!any_established) {
-        LOGGER_WARNING(c->log, "health: no established connections -> UNKNOWN");
+        LOGGER_DEBUG(c->log, "health: no established connections -> UNKNOWN");
         c->overall_health = NET_CRYPTO_HEALTH_UNKNOWN;
         return;
     }
 
-    LOGGER_WARNING(c->log, "health: %u connections (%u direct, %u relayed)",
+    LOGGER_DEBUG(c->log, "health: %u connections (%u direct, %u relayed)",
                  num_connections, num_direct, num_relayed);
 
     /*
@@ -3154,7 +3154,7 @@ static void compute_overall_health(Net_Crypto *c)
      */
     if (had_recent_congestion && worst < NET_CRYPTO_HEALTH_POOR) {
         worst = NET_CRYPTO_HEALTH_POOR;
-        LOGGER_WARNING(c->log, "health: recent congestion -> capped at POOR");
+        LOGGER_DEBUG(c->log, "health: recent congestion -> capped at POOR");
     }
 
     /*
@@ -3189,10 +3189,10 @@ static void compute_overall_health(Net_Crypto *c)
     }
 
     /* [ADDED] Log which specific metric determined the final score */
-    LOGGER_WARNING(c->log, "health: score breakdown: worst=%d direct=%u relayed=%u congestion=%d",
+    LOGGER_DEBUG(c->log, "health: score breakdown: worst=%d direct=%u relayed=%u congestion=%d",
                  (int)worst, num_direct, num_relayed, (int)had_recent_congestion);
 
-    LOGGER_WARNING(c->log, "health: FINAL RESULT = %s", final_state_name);
+    LOGGER_DEBUG(c->log, "health: FINAL RESULT = %s", final_state_name);
 }
 
 /**
