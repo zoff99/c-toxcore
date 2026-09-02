@@ -48338,6 +48338,10 @@ static void send_crypto_packets(Net_Crypto *c)
  * We take the WORST per-connection state across the whole set, because a single
  * hot flapping connection can overheat the device even if others are fine.
  * A recent congestion event also caps the score at POOR or worse.
+ *
+ * NOTE: TCP relay alone does NOT make the health POOR. On mobile devices,
+ * TCP relay is the normal transport due to carrier NAT. Only RTT, packet loss,
+ * and congestion events determine POOR/BAD status.
  */
 static void compute_overall_health(Net_Crypto *c)
 {
@@ -48355,6 +48359,7 @@ static void compute_overall_health(Net_Crypto *c)
     bool any_established = false;
     bool had_recent_congestion = false;
     uint32_t num_direct = 0;
+    uint32_t num_relayed = 0;
     uint32_t num_connections = 0;
 
     for (uint32_t i = 0; i < c->crypto_connections_length; ++i) {
@@ -48369,27 +48374,29 @@ static void compute_overall_health(Net_Crypto *c)
         any_established = true;
         num_connections++;
 
-        LOGGER_DEBUG(c->log, "health: evaluating connection %u", i);
-
         /* --- 1. transport type (UDP direct vs TCP relay) --- */
         bool direct = false;
         crypto_connection_status(c, i, &direct, nullptr);
         if (direct) {
             num_direct++;
-            LOGGER_DEBUG(c->log, "health: conn %u transport = DIRECT UDP", i);
+            LOGGER_WARNING(c->log, "health: conn %u transport=DIRECT_UDP", i);
         } else {
-            LOGGER_DEBUG(c->log, "health: conn %u transport = TCP RELAY", i);
-            /* TCP-relayed connections are structurally hotter on mobile because the
-             * crypto handshake is heavier and ACKs always flow through a third party.
-             * Cap this connection at FAIR unless other metrics are worse. */
-            if (worst < NET_CRYPTO_HEALTH_FAIR) {
-                worst = NET_CRYPTO_HEALTH_FAIR;
-                LOGGER_DEBUG(c->log, "health: conn %u TCP relay -> worst = FAIR", i);
+            num_relayed++;
+            LOGGER_WARNING(c->log, "health: conn %u transport=TCP_RELAY", i);
+            /*
+             * [CHANGED] TCP relay is NORMAL on mobile devices due to carrier NAT.
+             * It does NOT indicate poor link quality by itself.
+             * We only note it as a minor factor: cap at GOOD (not FAIR/POOR)
+             * because relayed connections have slightly higher overhead,
+             * but the actual quality is determined by RTT and resend ratio below.
+             */
+            if (worst < NET_CRYPTO_HEALTH_GOOD) {
+                worst = NET_CRYPTO_HEALTH_GOOD;
+                LOGGER_WARNING(c->log, "health: conn %u TCP relay (normal on mobile) -> worst=GOOD", i);
             }
         }
 
         /* --- 2. RTT --- */
-        /* rtt_time is stored as mono-time delta; treat it as milliseconds. */
         const uint64_t rtt = conn->rtt_time;
         Net_Crypto_Health rtt_state;
         const char *rtt_state_name;
@@ -48400,19 +48407,15 @@ static void compute_overall_health(Net_Crypto *c)
         else if (rtt <= HEALTH_RTT_POOR_MS)      { rtt_state = NET_CRYPTO_HEALTH_POOR;      rtt_state_name = "POOR"; }
         else                                     { rtt_state = NET_CRYPTO_HEALTH_BAD;       rtt_state_name = "BAD"; }
 
-        LOGGER_DEBUG(c->log, "health: conn %u rtt = %llu ms -> %s",
+        LOGGER_WARNING(c->log, "health: conn %u rtt=%llu ms -> %s",
                      i, (unsigned long long)rtt, rtt_state_name);
 
         if (rtt_state > worst) {
             worst = rtt_state;
-            LOGGER_DEBUG(c->log, "health: conn %u RTT raised worst to %s", i, rtt_state_name);
+            LOGGER_WARNING(c->log, "health: conn %u RTT raised worst to %s", i, rtt_state_name);
         }
 
-        /* --- 3. resend ratio over the current measurement window --- */
-        /* packets_sent / packets_resent are per-window counters reset every
-         * PACKET_COUNTER_AVERAGE_INTERVAL inside send_crypto_packets().
-         * We use last_num_packets_sent / last_num_packets_resent arrays for
-         * a more stable windowed average. */
+        /* --- 3. resend ratio over the measurement window --- */
         uint64_t total_sent   = 0;
         uint64_t total_resent = 0;
         for (unsigned j = 0; j < CONGESTION_LAST_SENT_ARRAY_SIZE; ++j) {
@@ -48420,7 +48423,7 @@ static void compute_overall_health(Net_Crypto *c)
             total_resent += conn->last_num_packets_resent[j];
         }
 
-        LOGGER_DEBUG(c->log, "health: conn %u packets sent=%llu resent=%llu",
+        LOGGER_WARNING(c->log, "health: conn %u sent=%llu resent=%llu",
                      i, (unsigned long long)total_sent, (unsigned long long)total_resent);
 
         if (total_sent >= HEALTH_MIN_PACKET_SAMPLE) {
@@ -48434,16 +48437,16 @@ static void compute_overall_health(Net_Crypto *c)
             else if (resend_pct <= HEALTH_RESEND_POOR_PCT)      { resend_state = NET_CRYPTO_HEALTH_POOR;      resend_state_name = "POOR"; }
             else                                                { resend_state = NET_CRYPTO_HEALTH_BAD;       resend_state_name = "BAD"; }
 
-            LOGGER_DEBUG(c->log, "health: conn %u resend ratio = %u%% -> %s",
+            LOGGER_WARNING(c->log, "health: conn %u resend_ratio=%u%% -> %s",
                          i, resend_pct, resend_state_name);
 
             if (resend_state > worst) {
                 worst = resend_state;
-                LOGGER_DEBUG(c->log, "health: conn %u resend ratio raised worst to %s",
+                LOGGER_WARNING(c->log, "health: conn %u resend ratio raised worst to %s",
                              i, resend_state_name);
             }
         } else {
-            LOGGER_DEBUG(c->log, "health: conn %u insufficient packet sample (%llu < %d), skipping resend ratio",
+            LOGGER_WARNING(c->log, "health: conn %u insufficient sample (%llu < %d), skip resend",
                          i, (unsigned long long)total_sent, HEALTH_MIN_PACKET_SAMPLE);
         }
 
@@ -48451,34 +48454,46 @@ static void compute_overall_health(Net_Crypto *c)
         if (conn->last_congestion_event != 0 &&
             (now - conn->last_congestion_event) < HEALTH_CONGESTION_PENALTY_MS) {
             had_recent_congestion = true;
-            LOGGER_DEBUG(c->log, "health: conn %u had congestion event %llu ms ago",
+            LOGGER_WARNING(c->log, "health: conn %u congestion event %llu ms ago",
                          i, (unsigned long long)(now - conn->last_congestion_event));
         }
     }
 
     /* If there are no established connections we cannot judge anything. */
     if (!any_established) {
-        LOGGER_DEBUG(c->log, "health: no established connections -> UNKNOWN");
+        LOGGER_WARNING(c->log, "health: no established connections -> UNKNOWN");
         c->overall_health = NET_CRYPTO_HEALTH_UNKNOWN;
         return;
     }
 
-    LOGGER_DEBUG(c->log, "health: evaluated %u connections, %u direct UDP",
-                 num_connections, num_direct);
+    LOGGER_WARNING(c->log, "health: %u connections (%u direct, %u relayed)",
+                 num_connections, num_direct, num_relayed);
 
-    /* A recent congestion event caps the score at POOR even if RTT/resend
-     * temporarily look okay - the link just collapsed recently. */
+    /*
+     * [CHANGED] Congestion event penalty: only cap at POOR if we had a recent
+     * congestion event AND the link otherwise looks okay.
+     */
     if (had_recent_congestion && worst < NET_CRYPTO_HEALTH_POOR) {
         worst = NET_CRYPTO_HEALTH_POOR;
-        LOGGER_DEBUG(c->log, "health: recent congestion event -> capped at POOR");
+        LOGGER_WARNING(c->log, "health: recent congestion -> capped at POOR");
     }
 
-    /* If zero connections are direct UDP, cap at POOR: pure-relay mode is the
-     * regime where we know toxcore runs hottest on mobile devices. */
-    if (num_direct == 0 && worst < NET_CRYPTO_HEALTH_POOR) {
-        worst = NET_CRYPTO_HEALTH_POOR;
-        LOGGER_DEBUG(c->log, "health: no direct UDP connections -> capped at POOR");
-    }
+    /*
+     * [REMOVED] The old "num_direct == 0 -> POOR" cap.
+     *
+     * On mobile devices, TCP relay is the NORMAL transport because carrier-grade
+     * NAT blocks UDP hole-punching. Having zero direct UDP connections does NOT
+     * mean the network quality is poor - it just means we're going through a relay.
+     * The actual quality is determined by RTT and resend ratio above.
+     *
+     * If you still want a small penalty for pure-relay mode, you can uncomment
+     * the following block, but cap at FAIR (not POOR):
+     *
+     * if (num_direct == 0 && num_relayed > 0 && worst < NET_CRYPTO_HEALTH_FAIR) {
+     *     worst = NET_CRYPTO_HEALTH_FAIR;
+     *     LOGGER_DEBUG(c->log, "health: pure relay mode -> capped at FAIR");
+     * }
+     */
 
     c->overall_health = worst;
 
@@ -48494,9 +48509,8 @@ static void compute_overall_health(Net_Crypto *c)
         default:                          final_state_name = "UNKNOWN";   break;
     }
 
-    LOGGER_DEBUG(c->log, "health: FINAL RESULT = %s", final_state_name);
+    LOGGER_WARNING(c->log, "health: FINAL RESULT = %s", final_state_name);
 }
-
 
 /**
  * @retval 1 if max speed was reached for this connection (no more data can be physically through the pipe).
