@@ -3709,6 +3709,56 @@ typedef enum Tox_Group_Role {
 } Tox_Group_Role;
 
 
+typedef enum Tox_Group_Health {
+
+    /**
+     * No active group peers, or not enough data to determine health.
+     */
+    TOX_GROUP_HEALTH_UNKNOWN,
+
+    /**
+     * Excellent group connections: direct UDP, no backlog, fresh receives.
+     */
+    TOX_GROUP_HEALTH_EXCELLENT,
+
+    /**
+     * Good group connections: healthy links, possibly TCP-relayed.
+     */
+    TOX_GROUP_HEALTH_GOOD,
+
+    /**
+     * Fair group connections: some degradation detected.
+     */
+    TOX_GROUP_HEALTH_FAIR,
+
+    /**
+     * Poor group connections: notable degradation, device may run warm.
+     */
+    TOX_GROUP_HEALTH_POOR,
+
+    /**
+     * Bad group connections: severe degradation, device will likely overheat.
+     */
+    TOX_GROUP_HEALTH_BAD,
+
+} Tox_Group_Health;
+
+
+/**
+ * Get the overall health/quality of the NGC group connections.
+ *
+ * Returns a composite score based on transport type, send queue depth,
+ * receive staleness, and handshake attempts across all active group peers.
+ * This is independent from tox_self_get_network_health(), which reflects
+ * friend connections only.
+ *
+ * Thread-safe: Yes.
+ *
+ * @param tox The Tox instance.
+ * @return The current group connection health status.
+ */
+Tox_Group_Health tox_group_get_health(const Tox *tox);
+
 
 /*******************************************************************************
  *

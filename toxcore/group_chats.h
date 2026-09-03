@@ -108,6 +108,7 @@ typedef enum Group_Message_Ack_Type {
     GR_ACK_REQ     = 0x01,  // indicates a message needs to be re-sent
 } Group_Message_Ack_Type;
 
+
 /** @brief Returns the GC_Connection object associated with `peer_number`.
  * Returns null if peer_number does not designate a valid peer.
  */
@@ -807,5 +808,36 @@ GC_Chat *gc_get_group_by_public_key(const GC_Session *c, const uint8_t *public_k
  */
 non_null()
 int gc_add_peers_from_announces(GC_Chat *chat, const GC_Announce *announces, uint8_t gc_announces_count);
+
+/**
+ * @brief Computes the overall health/quality of all active GC group connections.
+ *
+ * Evaluates transport type, send queue depth, receive staleness, and handshake
+ * attempts to determine if group chat links are degraded. Returns the MEAN
+ * health across all active peers.
+ *
+ * @param c The group chat session.
+ * @param log The logger instance for debug output.
+ * @return The mean health state across all active group peers.
+ */
+non_null(1, 2)
+GC_Health gc_compute_health(const GC_Session *c, const Logger *log);
+
+
+/**
+ * @brief Returns the cached overall health/quality of all active GC group connections.
+ *
+ * This value is computed periodically (every GC_HEALTH_RECOMPUTE_S seconds) in
+ * do_gc() and cached in the GC_Session struct. This function simply returns the
+ * cached value without recomputing.
+ *
+ * @param c The group chat session.
+ * @return The cached mean health state across all active group peers, or
+ *         GC_HEALTH_UNKNOWN if the session is null.
+ */
+non_null()
+GC_Health gc_get_overall_health(const GC_Session *c);
+
+
 
 #endif  // GROUP_CHATS_H

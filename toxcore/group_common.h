@@ -353,12 +353,30 @@ typedef void gc_peer_exit_cb(const Messenger *m, uint32_t group_number, uint32_t
 typedef void gc_self_join_cb(const Messenger *m, uint32_t group_number, void *user_data);
 typedef void gc_rejected_cb(const Messenger *m, uint32_t group_number, unsigned int type, void *user_data);
 
+/**
+ * @brief Represents the overall health/quality of GC (group chat) connections.
+ *
+ * This is evaluated independently from friend (Net_Crypto) connections.
+ */
+typedef enum GC_Health {
+    GC_HEALTH_UNKNOWN   = 0,
+    GC_HEALTH_EXCELLENT = 1,
+    GC_HEALTH_GOOD      = 2,
+    GC_HEALTH_FAIR      = 3,
+    GC_HEALTH_POOR      = 4,
+    GC_HEALTH_BAD       = 5
+} GC_Health;
+
 typedef struct GC_Session {
     Messenger                 *messenger;
     GC_Chat                   *chats;
     struct GC_Announces_List  *announces_list;
 
     uint32_t     chats_index;
+
+    /* [ADDED] Cached GC health, recomputed periodically in do_gc(). */
+    GC_Health  gc_overall_health;
+    uint64_t    gc_health_last_update;
 
     gc_message_cb *message;
     gc_private_message_cb *private_message;

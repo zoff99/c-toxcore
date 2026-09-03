@@ -1344,6 +1344,31 @@ TOX_NETWORK_HEALTH tox_self_get_network_health(const Tox *tox)
     return public_health;
 }
 
+Tox_Group_Health tox_group_get_health(const Tox *tox)
+{
+    assert(tox != nullptr);
+    tox_lock(tox);
+
+    Tox_Group_Health public_health = TOX_GROUP_HEALTH_UNKNOWN;
+
+    if (tox->m->group_handler != nullptr) {
+        const GC_Health internal_health = gc_get_overall_health(tox->m->group_handler);
+
+        switch (internal_health) {
+            case GC_HEALTH_UNKNOWN:   public_health = TOX_GROUP_HEALTH_UNKNOWN;   break;
+            case GC_HEALTH_EXCELLENT: public_health = TOX_GROUP_HEALTH_EXCELLENT; break;
+            case GC_HEALTH_GOOD:      public_health = TOX_GROUP_HEALTH_GOOD;      break;
+            case GC_HEALTH_FAIR:      public_health = TOX_GROUP_HEALTH_FAIR;      break;
+            case GC_HEALTH_POOR:      public_health = TOX_GROUP_HEALTH_POOR;      break;
+            case GC_HEALTH_BAD:       public_health = TOX_GROUP_HEALTH_BAD;       break;
+            default:                   public_health = TOX_GROUP_HEALTH_UNKNOWN;   break;
+        }
+    }
+
+    tox_unlock(tox);
+    return public_health;
+}
+
 void tox_callback_self_connection_status(Tox *tox, tox_self_connection_status_cb *callback)
 {
     assert(tox != nullptr);
