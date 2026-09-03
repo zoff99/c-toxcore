@@ -3,7 +3,8 @@
 
 #########
 
-!fuzz_toxutil.c
+!fuzz_*.c
+!fuzz_static_*.c
 !replay_main.c
 !Makefile
 !README.md
