@@ -6,3 +6,4 @@
 !Makefile
 !test_framework.h
 !test_*c
+!static_test_*.c
