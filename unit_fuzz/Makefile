@@ -17,13 +17,8 @@ SAN      := -fsanitize=fuzzer,address,undefined -fno-omit-frame-pointer \
 
 LDLIBS   := $(shell pkg-config --libs libsodium) -lpthread
 
-# Auto-detect number of CPU cores (works on Linux and macOS)
-NPROC ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
-
-# -jobs=1000000  -> run effectively forever (1 million individual fuzzing jobs)
-# -workers=$(NPROC) -> spawn one worker process per CPU core
-FUZZ_ARGS := -max_len=4096 -timeout=10 -rss_limit_mb=2048 -print_final_stats=1 \
-             -jobs=1000000 -workers=$(NPROC)
+# Single-threaded fuzzer, output to stdout
+FUZZ_ARGS := -max_len=4096 -timeout=10 -rss_limit_mb=2048 -print_final_stats=1
 
 # ── Fuzz binaries ────────────────────────────────────────────────
 # Normal fuzz targets (link against toxcore.o)
