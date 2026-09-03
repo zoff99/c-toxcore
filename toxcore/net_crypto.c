@@ -53,7 +53,7 @@
 #define HEALTH_MIN_PACKET_SAMPLE      8
 
 /* Recompute at most every HEALTH_RECOMPUTE_MS, even if do_net_crypto() runs faster. */
-#define HEALTH_RECOMPUTE_MS           200
+#define HEALTH_RECOMPUTE_MS           2000
 
 
 typedef struct Packet_Data {
