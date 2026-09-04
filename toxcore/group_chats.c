@@ -350,6 +350,33 @@ void gc_get_self_public_key(const GC_Chat *chat, uint8_t *public_key)
     }
 }
 
+void gc_get_self_signing_secret_key(const GC_Chat *chat, uint8_t *secret_key)
+{
+    if (secret_key != nullptr) {
+        memcpy(secret_key, get_sig_sk(chat->self_secret_key), SIG_SECRET_KEY_SIZE);
+    }
+}
+
+void gc_get_self_signing_public_key(const GC_Chat *chat, uint8_t *public_key)
+{
+    if (public_key == nullptr) {
+        return;
+    }
+
+    /*
+     * Peer 0 is always self.
+     */
+    const GC_Connection *gconn = get_gc_connection(chat, 0);
+
+    if (gconn == nullptr) {
+        return;
+    }
+
+    memcpy(public_key,
+           get_sig_pk(gconn->addr.public_key),
+           SIG_PUBLIC_KEY_SIZE);
+}
+
 /** @brief Sets self extended public key to `ext_public_key`.
  *
  * If `ext_public_key` is null this function has no effect.
@@ -687,6 +714,31 @@ static int get_peer_number_of_peer_id(const GC_Chat *chat, uint32_t peer_id)
     }
 
     return -1;
+}
+
+bool gc_get_peer_signing_public_key(const GC_Chat *chat,
+                                    uint32_t peer_id,
+                                    uint8_t *public_key)
+{
+    const int peer_number = get_peer_number_of_peer_id(chat, peer_id);
+
+    if (peer_number == -1) {
+        return false;
+    }
+
+    const GC_Connection *gconn = get_gc_connection(chat, peer_number);
+
+    if (gconn == nullptr) {
+        return false;
+    }
+
+    if (public_key != nullptr) {
+        memcpy(public_key,
+               get_sig_pk(gconn->addr.public_key),
+               SIG_PUBLIC_KEY_SIZE);
+    }
+
+    return true;
 }
 
 /** @brief Returns a unique peer ID.
@@ -2534,6 +2586,13 @@ uint8_t gc_get_role(const GC_Chat *chat, uint32_t peer_id)
     }
 
     return peer->role;
+}
+
+void gc_get_founder_public_key(const GC_Chat *chat, uint8_t *public_key)
+{
+    if (public_key != nullptr) {
+        memcpy(public_key, get_enc_key(chat->shared_state.founder_public_key), ENC_PUBLIC_KEY_SIZE);
+    }
 }
 
 void gc_get_chat_id(const GC_Chat *chat, uint8_t *dest)

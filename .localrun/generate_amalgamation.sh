@@ -92,6 +92,8 @@ toxcore/util.h \
 \
 toxutil/toxutil.h \
 \
+ngc_ppeerlist/mid_roster.h \
+\
 toxav/ring_buffer.h \
 toxav/bwcontroller.h \
 toxav/msi.h \
@@ -108,6 +110,7 @@ toxav/codecs/toxav_codecs.h \
     toxcore/*.c toxcore/*/*.c toxencryptsave/*.c \
     toxav/*.c toxav/codecs/*/*.c third_party/cmp/*.c \
     toxutil/toxutil.c \
+    ngc_ppeerlist/mid_roster.c \
     |grep -v '#include "' >> amalgamation/toxcore_amalgamation.c
 #
 #
@@ -194,9 +197,12 @@ toxcore/util.h \
 \
 toxutil/toxutil.h \
 \
+ngc_ppeerlist/mid_roster.h \
+\
     toxcore/*.c toxcore/*/*.c toxencryptsave/*.c \
     third_party/cmp/*.c \
     toxutil/toxutil.c \
+    ngc_ppeerlist/mid_roster.c \
     |grep -v '#include "' >> amalgamation/toxcore_amalgamation_no_toxav.c
 #
 #

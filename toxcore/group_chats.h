@@ -357,6 +357,35 @@ uint32_t gc_get_self_peer_id(const GC_Chat *chat);
 non_null(1) nullable(2)
 void gc_get_self_public_key(const GC_Chat *chat, uint8_t *public_key);
 
+/**
+ * Copies the client's group Ed25519 secret signing key to `secret_key`.
+ *
+ * `secret_key` must have room for SIG_SECRET_KEY_SIZE bytes.
+ */
+non_null() nullable(2)
+void gc_get_self_signing_secret_key(const GC_Chat *chat, uint8_t *secret_key);
+
+/**
+ * Copies self Ed25519 group signing public key to `public_key`.
+ *
+ * If `public_key` is null this function has no effect.
+ */
+non_null(1) nullable(2)
+void gc_get_self_signing_public_key(const GC_Chat *chat, uint8_t *public_key);
+
+/**
+ * Copies the Ed25519 signing public key of peer `peer_id` to `public_key`.
+ *
+ * If `public_key` is null this function has no effect.
+ *
+ * Returns true on success.
+ * Returns false if the peer is not found.
+ */
+non_null(1) nullable(3)
+bool gc_get_peer_signing_public_key(const GC_Chat *chat,
+                                    uint32_t peer_id,
+                                    uint8_t *public_key);
+
 /** @brief Copies nick designated by `peer_id` to `name`.
  *
  * Call `gc_get_peer_nick_size` to determine the allocation size for the `name` parameter.
@@ -443,6 +472,10 @@ uint8_t gc_get_status(const GC_Chat *chat, uint32_t peer_id);
  */
 non_null()
 uint8_t gc_get_role(const GC_Chat *chat, uint32_t peer_id);
+
+
+void gc_get_founder_public_key(const GC_Chat *chat, uint8_t *public_key);
+
 
 /** @brief Sets the role of peer_id. role must be one of: GR_MODERATOR, GR_USER, GR_OBSERVER
  *
