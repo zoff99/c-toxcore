@@ -3626,6 +3626,7 @@ Tox_Group_Role tox_group_self_get_role(const Tox *tox, uint32_t group_number, To
     return (Tox_Group_Role)role;
 }
 
+
 uint32_t tox_group_self_get_peer_id(const Tox *tox, uint32_t group_number, Tox_Err_Group_Self_Query *error)
 {
     assert(tox != nullptr);
@@ -3664,6 +3665,105 @@ bool tox_group_self_get_public_key(const Tox *tox, uint32_t group_number, uint8_
     SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SELF_QUERY_OK);
 
     gc_get_self_public_key(chat, public_key);
+    tox_unlock(tox);
+
+    return true;
+}
+
+bool tox_group_self_get_signing_secret_key(const Tox *tox,
+                                           uint32_t group_number,
+                                           uint8_t *secret_key,
+                                           Tox_Err_Group_Self_Query *error)
+{
+    assert(tox != nullptr);
+
+    tox_lock(tox);
+    const GC_Chat *chat = gc_get_group(tox->m->group_handler, group_number);
+
+    if (chat == nullptr) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SELF_QUERY_GROUP_NOT_FOUND);
+        tox_unlock(tox);
+        return false;
+    }
+
+    SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SELF_QUERY_OK);
+
+    gc_get_self_signing_secret_key(chat, secret_key);
+    tox_unlock(tox);
+
+    return true;
+}
+
+bool tox_group_self_get_signing_public_key(const Tox *tox,
+                                           uint32_t group_number,
+                                           uint8_t *public_key,
+                                           Tox_Err_Group_Self_Query *error)
+{
+    assert(tox != nullptr);
+
+    tox_lock(tox);
+    const GC_Chat *chat = gc_get_group(tox->m->group_handler, group_number);
+
+    if (chat == nullptr) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SELF_QUERY_GROUP_NOT_FOUND);
+        tox_unlock(tox);
+        return false;
+    }
+
+    SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_SELF_QUERY_OK);
+
+    gc_get_self_signing_public_key(chat, public_key);
+    tox_unlock(tox);
+
+    return true;
+}
+
+bool tox_group_peer_get_signing_public_key(const Tox *tox,
+                                           uint32_t group_number,
+                                           uint32_t peer_id,
+                                           uint8_t *public_key,
+                                           Tox_Err_Group_Peer_Query *error)
+{
+    assert(tox != nullptr);
+
+    tox_lock(tox);
+    const GC_Chat *chat = gc_get_group(tox->m->group_handler, group_number);
+
+    if (chat == nullptr) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_GROUP_NOT_FOUND);
+        tox_unlock(tox);
+        return false;
+    }
+
+    const bool ret = gc_get_peer_signing_public_key(chat, peer_id, public_key);
+    tox_unlock(tox);
+
+    if (!ret) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_PEER_NOT_FOUND);
+        return false;
+    }
+
+    SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_PEER_QUERY_OK);
+    return true;
+}
+
+bool tox_group_get_founder_public_key(const Tox *tox, uint32_t group_number, uint8_t *public_key,
+                                      Tox_Err_Group_State_Queries *error)
+{
+    assert(tox != nullptr);
+
+    tox_lock(tox);
+    const GC_Chat *chat = gc_get_group(tox->m->group_handler, group_number);
+
+    if (chat == nullptr) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_STATE_QUERIES_GROUP_NOT_FOUND);
+        tox_unlock(tox);
+        return false;
+    }
+
+    SET_ERROR_PARAMETER(error, TOX_ERR_GROUP_STATE_QUERIES_OK);
+
+    gc_get_founder_public_key(chat, public_key);
     tox_unlock(tox);
 
     return true;

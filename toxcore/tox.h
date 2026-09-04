@@ -3601,6 +3601,19 @@ uint32_t tox_group_chat_id_size(void);
 
 uint32_t tox_group_peer_public_key_size(void);
 
+/**
+ * The size of an Ed25519 group signing public key.
+ */
+#define TOX_GROUP_SIGNING_PUBLIC_KEY_SIZE 32
+
+/**
+ * The size of a peer's group secret signing key.
+ *
+ * This is the size of the Ed25519 secret signing key used for the client's
+ * group identity in an NGC group.
+ */
+#define TOX_GROUP_SIGNING_SECRET_KEY_SIZE 64
+
 
 /*******************************************************************************
  *
@@ -4182,6 +4195,53 @@ uint32_t tox_group_self_get_peer_id(const Tox *tox, uint32_t group_number, Tox_E
 bool tox_group_self_get_public_key(const Tox *tox, uint32_t group_number, uint8_t *public_key,
                                    Tox_Err_Group_Self_Query *error);
 
+/**
+ * Write the client's group Ed25519 signing public key designated by the given
+ * group number to a byte array.
+ *
+ * This is the public signing key that corresponds to the group secret signing
+ * key returned by tox_group_self_get_signing_secret_key().
+ *
+ * `public_key` should have room for at least TOX_GROUP_SIGNING_PUBLIC_KEY_SIZE
+ * bytes.
+ *
+ * If `public_key` is NULL, this function call has no effect.
+ *
+ * @return true on success.
+ */
+bool tox_group_self_get_signing_public_key(const Tox *tox,
+                                           uint32_t group_number,
+                                           uint8_t *public_key,
+                                           Tox_Err_Group_Self_Query *error);
+
+/**
+ * Write the client's group secret signing key designated by the given group
+ * number to a byte array.
+ *
+ * This key is the Ed25519 secret signing key for the client's group identity.
+ * It is permanently tied to the client's identity for this particular group
+ * until the client explicitly leaves the group.
+ *
+ * This key can be used to sign application-level group packets, for example
+ * membership / presence events.
+ *
+ * `secret_key` should have room for at least TOX_GROUP_SIGNING_SECRET_KEY_SIZE
+ * bytes.
+ *
+ * If `secret_key` is NULL, this function call has no effect.
+ *
+ * @param secret_key A valid memory region large enough to store the secret key.
+ *   If this parameter is NULL, this function call has no effect.
+ *
+ * @return true on success.
+ */
+bool tox_group_self_get_signing_secret_key(const Tox *tox,
+                                           uint32_t group_number,
+                                           uint8_t *secret_key,
+                                           Tox_Err_Group_Self_Query *error);
+
+
+
 
 /*******************************************************************************
  *
@@ -4309,6 +4369,26 @@ bool tox_group_peer_get_public_key(const Tox *tox, uint32_t group_number, uint32
 
 bool tox_group_savedpeer_get_public_key(const Tox *tox, uint32_t group_number, uint32_t slot_number, uint8_t *public_key,
                                    Tox_Err_Group_Peer_Query *error);
+
+/**
+ * Write the Ed25519 signing public key of the peer designated by `peer_id`
+ * to `public_key`.
+ *
+ * This key can be used to verify signatures created by that peer's group
+ * secret signing key.
+ *
+ * `public_key` should have room for at least TOX_GROUP_SIGNING_PUBLIC_KEY_SIZE
+ * bytes.
+ *
+ * If `public_key` is NULL, this function call has no effect.
+ *
+ * @return true on success.
+ */
+bool tox_group_peer_get_signing_public_key(const Tox *tox,
+                                           uint32_t group_number,
+                                           uint32_t peer_id,
+                                           uint8_t *public_key,
+                                           Tox_Err_Group_Peer_Query *error);
 
 /**
  * @brief Return the peer number associated with that NGC Peer Public Key.
@@ -4455,6 +4535,24 @@ bool tox_group_set_topic(const Tox *tox, uint32_t group_number, const uint8_t *t
  * `group_topic` callback.
  */
 size_t tox_group_get_topic_size(const Tox *tox, uint32_t group_number, Tox_Err_Group_State_Queries *error);
+
+/**
+ * Write the group founder's public key designated by the given group number to a byte array.
+ *
+ * This key is permanently tied to the group's identity and represents the peer who originally
+ * created the group. It remains valid for the entire lifetime of the group and cannot be
+ * changed or reassigned. This key allows peers to reliably identify the group founder even
+ * when the founder is offline.
+ *
+ * `public_key` should have room for at least TOX_GROUP_PEER_PUBLIC_KEY_SIZE bytes.
+ *
+ * @param public_key A valid memory region large enough to store the public key.
+ *   If this parameter is NULL, this function call has no effect.
+ *
+ * @return true on success.
+ */
+bool tox_group_get_founder_public_key(const Tox *tox, uint32_t group_number, uint8_t *public_key,
+                                      Tox_Err_Group_State_Queries *error);
 
 /**
  * Write the topic designated by the given group number to a byte array.

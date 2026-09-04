@@ -2,7 +2,8 @@ lib_LTLIBRARIES += libtoxcore.la
 
 libtoxcore_la_include_HEADERS = \
                         ../toxcore/tox.h \
-                        ../toxutil/toxutil.h
+                        ../toxutil/toxutil.h \
+                        ../ngc_ppeerlist/mid_roster.h
 
 libtoxcore_la_includedir = $(includedir)/tox
 
@@ -117,7 +118,8 @@ libtoxcore_la_SOURCES = ../third_party/cmp/cmp.c \
                         ../toxcore/TCP_connection.c \
                         ../toxcore/list.c \
                         ../toxcore/list.h \
-                        ../toxutil/toxutil.c
+                        ../toxutil/toxutil.c \
+                        ../ngc_ppeerlist/mid_roster.c
 
 libtoxcore_la_CFLAGS =  -I$(top_srcdir) \
                         -I$(top_srcdir)/toxcore \

@@ -1,0 +1,13 @@
+*
+!.gitignore
+
+#########
+
+!Makefile
+!mid_roster.c
+!mid_roster.h
+!tox
+!tox_ngc_tcp_test.c
+!README.md
+!README_pre.md
+!unit_test/

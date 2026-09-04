@@ -1,0 +1,9 @@
+*
+!.gitignore
+
+#########
+
+!Makefile
+!test_framework.h 
+!tox_mocks.c
+!test_*.c
