@@ -91279,6 +91279,7 @@ tox_group_peer_get_signing_public_key()      [patched]
 libsodium
 */
 
+#define _GNU_SOURCE
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
