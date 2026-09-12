@@ -1,0 +1,72 @@
+name: ngcmid unit test
+on:
+  push:
+    paths-ignore:
+     - 'README.md'
+  pull_request:
+    paths-ignore:
+     - 'README.md'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: dummy
+        default: dummy
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v7
+
+    - run: |
+          sudo apt-get update && \
+          sudo DEBIAN_FRONTEND=noninteractive apt-get remove g++ && \
+          sudo DEBIAN_FRONTEND=noninteractive \
+          apt-get install -y --no-install-recommends \
+          ca-certificates \
+          libconfig-dev \
+          libopus-dev \
+          libsodium-dev \
+          libvpx-dev \
+          pkg-config \
+          libavutil-dev \
+          libavcodec-dev \
+          libavformat-dev \
+          libavfilter-dev \
+          libx264-dev \
+          libx265-dev
+
+    - uses: actions/setup-java@v6
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: run unit tests
+      run: |
+        pwd
+        cd ngc_ppeerlist/unit_test/
+        make
+
+    - name: run asan unit tests
+      run: |
+        pwd
+        cd ngc_ppeerlist/unit_test/
+        make clean
+        make asan
+
+    - name: run tsan unit tests
+      run: |
+        pwd
+        cd ngc_ppeerlist/unit_test/
+        make clean
+        make tsan
+
+    - name: run ubsan unit tests
+      run: |
+        pwd
+        cd ngc_ppeerlist/unit_test/
+        make clean
+        make ubsan
+
