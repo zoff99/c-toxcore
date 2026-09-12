@@ -51812,6 +51812,12 @@ static int client_send_announce_request(Onion_Client *onion_c, uint32_t num, con
     uint64_t sendback;
     Onion_Path path;
 
+    // FIX: Declare onion_friend at the function scope so it's available at the bottom
+    Onion_Friend *onion_friend = nullptr;
+    if (num > 0) {
+        onion_friend = &onion_c->friends_list[num - 1];
+    }
+
     if (num == 0) {
         if (random_path(onion_c, &onion_c->onion_paths_self, pathnum, &path) == -1) {
             return -1;
@@ -51833,7 +51839,7 @@ static int client_send_announce_request(Onion_Client *onion_c, uint32_t num, con
     }
 
     uint8_t request[ONION_ANNOUNCE_REQUEST_MAX_SIZE];
-    int len;
+    int len = -1;
 
     if (num == 0) {
         len = create_announce_request(
@@ -51841,8 +51847,6 @@ static int client_send_announce_request(Onion_Client *onion_c, uint32_t num, con
                   nc_get_self_secret_key(onion_c->c), ping_id, nc_get_self_public_key(onion_c->c),
                   onion_c->temp_public_key, sendback);
     } else {
-        Onion_Friend *onion_friend = &onion_c->friends_list[num - 1];
-
         if (onion_friend->gc_data_length == 0) { // contact is a friend
             len = create_announce_request(
                       onion_c->rng, request, sizeof(request), dest_pubkey, onion_friend->temp_public_key,
@@ -51857,6 +51861,13 @@ static int client_send_announce_request(Onion_Client *onion_c, uint32_t num, con
                       onion_friend->temp_secret_key, ping_id, onion_friend->real_public_key,
                       zero_ping_id, sendback, onion_friend->gc_data,
                       onion_friend->gc_data_length);
+
+#ifdef NGC_DEBUG
+            LOGGER_WARNING(onion_c->logger,
+                "[_NGC_DEBUG_] NGC DHT search request BUILT: friend_num=%u dest_pk=%02x%02x%02x%02x len=%d",
+                num - 1, dest_pubkey[0], dest_pubkey[1], dest_pubkey[2], dest_pubkey[3], len);
+#endif
+
 #else
             return -1;
 #endif  // VANILLA_NACL
@@ -51867,7 +51878,16 @@ static int client_send_announce_request(Onion_Client *onion_c, uint32_t num, con
         return -1;
     }
 
-    return send_onion_packet_tcp_udp(onion_c, &path, dest, request, len);
+    int ret = send_onion_packet_tcp_udp(onion_c, &path, dest, request, len);
+#ifdef NGC_DEBUG
+    // FIX: Now onion_friend is in scope, but we add a null check just to be safe
+    if (num > 0 && onion_friend != nullptr && onion_friend->gc_data_length > 0) {
+        LOGGER_WARNING(onion_c->logger,
+            "[_NGC_DEBUG_] NGC DHT search request SENT: friend_num=%u dest_pk=%02x%02x%02x%02x send_result=%d",
+            num - 1, dest_pubkey[0], dest_pubkey[1], dest_pubkey[2], dest_pubkey[3], ret);
+    }
+#endif
+    return ret;
 }
 
 typedef struct Onion_Client_Cmp_Data {
