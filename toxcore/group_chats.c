@@ -8916,19 +8916,33 @@ static bool gc_handle_announce_response_callback(Onion_Client *onion_c, uint32_t
 {
     const GC_Session *c = (GC_Session *)user_data;
 
-    if (c == nullptr) {
+    if (c == nullptr || c->messenger == nullptr) {
         return false;
     }
 
     if (sendback_num == 0) {
+        LOGGER_WARNING(c->messenger->log,
+            "[_NGC_DEBUG_] NGC announce response DROPPED: sendback_num is 0");
         return false;
     }
 
     GC_Announce announces[GCA_MAX_SENT_ANNOUNCES];
     const uint8_t *gc_public_key = onion_friend_get_gc_public_key_num(onion_c, sendback_num - 1);
+
+    // CRITICAL FIX: Prevent segfault if the onion friend was deleted or sendback_num is invalid
+    if (gc_public_key == nullptr) {
+        LOGGER_WARNING(c->messenger->log,
+            "[_NGC_DEBUG_] NGC announce response DROPPED: gc_public_key is null for sendback=%u",
+            sendback_num);
+        return false;
+    }
+
     GC_Chat *chat = gc_get_group_by_public_key(c, gc_public_key);
 
     if (chat == nullptr) {
+        LOGGER_WARNING(c->messenger->log,
+            "[_NGC_DEBUG_] NGC announce response DROPPED: chat not found for sendback=%u",
+            sendback_num);
         return false;
     }
 
