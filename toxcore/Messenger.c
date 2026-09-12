@@ -3110,6 +3110,13 @@ static void do_gc_onion_friends(const Messenger *m)
 
         if (chat->update_self_announces) {
             self_announce_group(m, chat, onion_friend);
+#ifdef NGC_DEBUG
+            chat->dbg_self_announces_sent++;
+            LOGGER_WARNING(m->log,
+                "[_NGC_DEBUG_] NGC self announce sent: group=%d udp_status=%u",
+                chat->group_number,
+                (unsigned)chat->self_udp_status);
+#endif
         }
     }
 }

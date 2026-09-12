@@ -316,6 +316,28 @@ typedef struct GC_Chat {
     int         friend_connection_id;  // identifier for group's messenger friend connection
 
     bool        flag_exit;  // true if the group will be deleted after the next do_gc() iteration
+
+#ifdef NGC_DEBUG
+    uint64_t dbg_last_summary;
+
+    uint32_t dbg_announce_cb;
+    uint32_t dbg_announce_ok;
+    uint32_t dbg_announce_total;
+    uint32_t dbg_peers_added_from_announce;
+
+    uint32_t dbg_handshake_attempts;
+    uint32_t dbg_handshake_sent;
+    uint32_t dbg_handshake_responses;
+    uint32_t dbg_handshake_rejects;
+
+    uint32_t dbg_sync_responses;
+
+    uint32_t dbg_peer_timeouts;
+    uint32_t dbg_peer_deletes;
+
+    uint32_t dbg_self_announces_sent;
+#endif
+
 } GC_Chat;
 
 #ifndef MESSENGER_DEFINED

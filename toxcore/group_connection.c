@@ -640,9 +640,43 @@ bool gcc_encrypt_and_send_lossless_packet(const GC_Chat *chat, GC_Connection *gc
 
     if (!gcc_send_packet(chat, gconn, packet, (uint16_t)enc_len)) {
         LOGGER_DEBUG(chat->log, "Failed to send packet (type: 0x%02x, enc_len: %d)", packet_type, enc_len);
+#ifdef NGC_DEBUG
+        if (packet_type == GP_INVITE_REQUEST ||
+                packet_type == GP_INVITE_RESPONSE ||
+                packet_type == GP_SYNC_REQUEST ||
+                packet_type == GP_SYNC_RESPONSE ||
+                packet_type == GP_HS_RESPONSE_ACK) {
+            LOGGER_WARNING(chat->log,
+                "[_NGC_DEBUG_] NGC lossless send failed: type=0x%02x message_id=%llu "
+                "direct_possible=%d tcp_conn=%d tcp_relays=%u",
+                packet_type,
+                (unsigned long long)message_id,
+                gcc_direct_conn_is_possible(chat, gconn),
+                gconn->tcp_connection_num,
+                gconn->tcp_relays_count);
+        }
+#endif
         free(packet);
         return false;
     }
+
+#ifdef NGC_DEBUG
+    if (packet_type == GP_INVITE_REQUEST ||
+            packet_type == GP_INVITE_RESPONSE ||
+            packet_type == GP_SYNC_REQUEST ||
+            packet_type == GP_SYNC_RESPONSE ||
+            packet_type == GP_HS_RESPONSE_ACK) {
+
+        LOGGER_WARNING(chat->log,
+            "[_NGC_DEBUG_] NGC lossless send ok: type=0x%02x message_id=%llu "
+            "direct_possible=%d tcp_conn=%d tcp_relays=%u",
+            packet_type,
+            (unsigned long long)message_id,
+            gcc_direct_conn_is_possible(chat, gconn),
+            gconn->tcp_connection_num,
+            gconn->tcp_relays_count);
+    }
+#endif
 
     free(packet);
 

@@ -4242,6 +4242,28 @@ typedef struct GC_Chat {
     int         friend_connection_id;  // identifier for group's messenger friend connection
 
     bool        flag_exit;  // true if the group will be deleted after the next do_gc() iteration
+
+#ifdef NGC_DEBUG
+    uint64_t dbg_last_summary;
+
+    uint32_t dbg_announce_cb;
+    uint32_t dbg_announce_ok;
+    uint32_t dbg_announce_total;
+    uint32_t dbg_peers_added_from_announce;
+
+    uint32_t dbg_handshake_attempts;
+    uint32_t dbg_handshake_sent;
+    uint32_t dbg_handshake_responses;
+    uint32_t dbg_handshake_rejects;
+
+    uint32_t dbg_sync_responses;
+
+    uint32_t dbg_peer_timeouts;
+    uint32_t dbg_peer_deletes;
+
+    uint32_t dbg_self_announces_sent;
+#endif
+
 } GC_Chat;
 
 #ifndef MESSENGER_DEFINED
@@ -27235,6 +27257,82 @@ static_assert(MAX_GC_PACKET_SIZE <= UINT16_MAX - MAX_GC_PACKET_CHUNK_SIZE,
 #define GC_HEALTH_RECOMPUTE_S 2
 
 
+#ifdef NGC_DEBUG
+static const char *gc_conn_state_name(GC_Conn_State state)
+{
+    switch (state) {
+        case CS_NONE:
+            return "NONE";
+        case CS_DISCONNECTED:
+            return "DISCONNECTED";
+        case CS_CONNECTING:
+            return "CONNECTING";
+        case CS_CONNECTED:
+            return "CONNECTED";
+        default:
+            return "UNKNOWN";
+    }
+}
+#endif
+
+#ifdef NGC_DEBUG
+
+non_null()
+static uint16_t get_gc_confirmed_numpeers(const GC_Chat *chat);
+
+static void ngc_debug_summary(GC_Chat *chat, bool force)
+{
+    const uint64_t now = mono_time_get(chat->mono_time);
+
+    if (!force &&
+            !mono_time_is_timeout(chat->mono_time, chat->dbg_last_summary, 5)) {
+        return;
+    }
+
+    chat->dbg_last_summary = now;
+
+    const uint32_t confirmed = get_gc_confirmed_numpeers(chat);
+
+    const uint64_t self_announce_age =
+        chat->last_time_self_announce > 0
+        ? now - chat->last_time_self_announce
+        : 0;
+
+    const uint64_t join_age =
+        chat->time_connected > 0
+        ? now - chat->time_connected
+        : 0;
+
+    LOGGER_WARNING(chat->log,
+        "[_NGC_DEBUG_] NGC-STATS group=%d state=%s join_age=%llu peers=%u confirmed=%u "
+        "announce_cb=%u announce_ok=%u announce_total=%u peers_added=%u "
+        "hs_attempts=%u hs_sent=%u hs_resp=%u hs_reject=%u sync_resp=%u "
+        "timeouts=%u deletes=%u self_ann_sent=%u self_ann_age=%llu "
+        "update_self_announces=%d udp_status=%u tcp_relays=%u",
+        chat->group_number,
+        gc_conn_state_name(chat->connection_state),
+        (unsigned long long)join_age,
+        chat->numpeers,
+        confirmed,
+        chat->dbg_announce_cb,
+        chat->dbg_announce_ok,
+        chat->dbg_announce_total,
+        chat->dbg_peers_added_from_announce,
+        chat->dbg_handshake_attempts,
+        chat->dbg_handshake_sent,
+        chat->dbg_handshake_responses,
+        chat->dbg_handshake_rejects,
+        chat->dbg_sync_responses,
+        chat->dbg_peer_timeouts,
+        chat->dbg_peer_deletes,
+        chat->dbg_self_announces_sent,
+        (unsigned long long)self_announce_age,
+        chat->update_self_announces,
+        (unsigned)chat->self_udp_status,
+        chat->connected_tcp_relays);
+}
+#endif
+
 /** Types of broadcast messages. */
 typedef enum Group_Message_Type {
     GC_MESSAGE_TYPE_NORMAL = 0x00,
@@ -33149,6 +33247,15 @@ static int handle_gc_handshake_packet(GC_Chat *chat, const uint8_t *sender_pk, c
 
     const uint8_t handshake_type = data[0];
 
+#ifdef NGC_DEBUG
+    LOGGER_WARNING(chat->log,
+        "[_NGC_DEBUG_] NGC handshake received: type=%s sender_pk=%02x%02x%02x%02x direct=%d",
+        handshake_type == GH_REQUEST ? "GH_REQUEST" :
+        handshake_type == GH_RESPONSE ? "GH_RESPONSE" : "UNKNOWN",
+        sender_pk[0], sender_pk[1], sender_pk[2], sender_pk[3],
+        direct_conn);
+#endif
+
     const uint8_t *real_data = data + 1;
     const uint16_t real_len = (uint16_t)plain_len - 1;
 
@@ -33209,21 +33316,58 @@ bool handle_gc_lossless_helper(const GC_Session *c, GC_Chat *chat, uint32_t peer
 
         case GP_SYNC_REQUEST: {
             ret = handle_gc_sync_request(chat, peer_number, data, length);
+
+#ifdef NGC_DEBUG
+            if (packet_type == GP_SYNC_REQUEST) {
+                LOGGER_WARNING(chat->log,
+                    "[_NGC_DEBUG_] NGC received GP_SYNC_REQUEST from peer=%u",
+                    peer_number);
+            }
+#endif
+
             break;
         }
 
         case GP_SYNC_RESPONSE: {
             ret = handle_gc_sync_response(c, chat, peer_number, data, length, userdata);
+
+#ifdef NGC_DEBUG
+            if (packet_type == GP_SYNC_RESPONSE) {
+                chat->dbg_sync_responses++;
+                LOGGER_WARNING(chat->log,
+                    "[_NGC_DEBUG_] NGC received GP_SYNC_RESPONSE from peer=%u",
+                    peer_number);
+            }
+#endif
+
             break;
         }
 
         case GP_INVITE_REQUEST: {
             ret = handle_gc_invite_request(chat, peer_number, data, length);
+
+#ifdef NGC_DEBUG
+            if (packet_type == GP_INVITE_REQUEST) {
+                LOGGER_WARNING(chat->log,
+                    "[_NGC_DEBUG_] NGC received GP_INVITE_REQUEST from peer=%u",
+                    peer_number);
+            }
+#endif
             break;
         }
 
         case GP_INVITE_RESPONSE: {
             ret = handle_gc_invite_response(chat, gconn);
+
+#ifdef NGC_DEBUG
+            if (packet_type == GP_INVITE_RESPONSE) {
+                chat->dbg_handshake_responses++;
+                LOGGER_WARNING(chat->log,
+                    "[_NGC_DEBUG_] NGC received GP_INVITE_RESPONSE from peer=%u",
+                    peer_number);
+            }
+#endif
+
             break;
         }
 
@@ -33249,6 +33393,14 @@ bool handle_gc_lossless_helper(const GC_Session *c, GC_Chat *chat, uint32_t peer
 
         case GP_HS_RESPONSE_ACK: {
             ret = handle_gc_hs_response_ack(chat, gconn);
+
+#ifdef NGC_DEBUG
+            if (packet_type == GP_HS_RESPONSE_ACK) {
+                LOGGER_WARNING(chat->log,
+                    "[_NGC_DEBUG_] NGC received GP_HS_RESPONSE_ACK from peer=%u",
+                    peer_number);
+            }
+#endif
             break;
         }
 
@@ -33514,6 +33666,13 @@ static bool handle_gc_lossy_packet(const GC_Session *c, GC_Chat *chat, const uin
 
         case GP_INVITE_RESPONSE_REJECT: {
             ret = handle_gc_invite_response_reject(c, chat, data, payload_len, userdata);
+#ifdef NGC_DEBUG
+            chat->dbg_handshake_rejects++;
+            LOGGER_WARNING(chat->log,
+                "[_NGC_DEBUG_] NGC received GP_INVITE_RESPONSE_REJECT from peer=%u reason=%u",
+                peer_number,
+                (payload_len >= 1) ? (unsigned)data[0] : 0xFFu);
+#endif
             break;
         }
 
@@ -34105,7 +34264,7 @@ static bool peer_timed_out(const Mono_Time *mono_time, const GC_Connection *gcon
  * Return true on success.
  */
 non_null()
-static bool send_pending_handshake(const GC_Chat *chat, GC_Connection *gconn)
+static bool send_pending_handshake(GC_Chat *chat, GC_Connection *gconn)
 {
     if (chat == nullptr || gconn == nullptr) {
         return false;
@@ -34118,7 +34277,31 @@ static bool send_pending_handshake(const GC_Chat *chat, GC_Connection *gconn)
 
         gconn->last_handshake_response = mono_time_get(chat->mono_time);
 
+#ifdef NGC_DEBUG
+        chat->dbg_handshake_attempts++;
+
+        const bool sent = send_gc_handshake_response(chat, gconn);
+
+        if (sent) {
+            chat->dbg_handshake_sent++;
+        }
+
+        LOGGER_WARNING(chat->log,
+            "[_NGC_DEBUG_] NGC handshake send: kind=response result=%d pending_type=%u oob=%d "
+            "direct_possible=%d ip_set=%d tcp_conn=%d tcp_relays=%u attempts=%u",
+            sent,
+            gconn->pending_handshake_type,
+            gconn->is_oob_handshake,
+            gcc_direct_conn_is_possible(chat, gconn),
+            gcc_ip_port_is_set(gconn),
+            gconn->tcp_connection_num,
+            gconn->tcp_relays_count,
+            gconn->handshake_attempts);
+
+        return sent;
+#else
         return send_gc_handshake_response(chat, gconn);
+#endif
     }
 
     if (!mono_time_is_timeout(chat->mono_time, gconn->last_handshake_request, GC_SEND_HANDSHAKE_INTERVAL)) {
@@ -34127,11 +34310,42 @@ static bool send_pending_handshake(const GC_Chat *chat, GC_Connection *gconn)
 
     gconn->last_handshake_request = mono_time_get(chat->mono_time);
 
+#ifdef NGC_DEBUG
+    chat->dbg_handshake_attempts++;
+
+    bool sent;
+
+    if (gconn->is_oob_handshake) {
+        sent = send_gc_oob_handshake_request(chat, gconn);
+    } else {
+        sent = send_gc_handshake_packet(chat, gconn, GH_REQUEST, gconn->pending_handshake_type, chat->join_type);
+    }
+
+    if (sent) {
+        chat->dbg_handshake_sent++;
+    }
+
+    LOGGER_WARNING(chat->log,
+        "[_NGC_DEBUG_] NGC handshake send: kind=%s result=%d pending_type=%u oob=%d "
+        "direct_possible=%d ip_set=%d tcp_conn=%d tcp_relays=%u attempts=%u",
+        gconn->is_oob_handshake ? "oob_request" : "request",
+        sent,
+        gconn->pending_handshake_type,
+        gconn->is_oob_handshake,
+        gcc_direct_conn_is_possible(chat, gconn),
+        gcc_ip_port_is_set(gconn),
+        gconn->tcp_connection_num,
+        gconn->tcp_relays_count,
+        gconn->handshake_attempts);
+
+    return sent;
+#else
     if (gconn->is_oob_handshake) {
         return send_gc_oob_handshake_request(chat, gconn);
     }
 
     return send_gc_handshake_packet(chat, gconn, GH_REQUEST, gconn->pending_handshake_type, chat->join_type);
+#endif
 }
 
 #define GC_TCP_RELAY_SEND_INTERVAL (60 * 3)
@@ -34147,6 +34361,30 @@ static void do_peer_connections(const GC_Session *c, GC_Chat *chat, void *userda
         }
 
         if (peer_timed_out(chat->mono_time, gconn)) {
+
+#ifdef NGC_DEBUG
+            chat->dbg_peer_timeouts++;
+
+            const uint64_t now = mono_time_get(chat->mono_time);
+
+            const uint64_t recv_age =
+                gconn->last_received_packet_time > 0
+                ? now - gconn->last_received_packet_time
+                : 0;
+
+            LOGGER_WARNING(chat->log,
+                "[_NGC_DEBUG_] NGC peer timeout: peer=%u confirmed=%d handshaked=%d attempts=%u "
+                "recv_age=%llu tcp_relays=%u oob=%d direct_possible=%d",
+                i,
+                gconn->confirmed,
+                gconn->handshaked,
+                gconn->handshake_attempts,
+                (unsigned long long)recv_age,
+                gconn->tcp_relays_count,
+                gconn->is_oob_handshake,
+                gcc_direct_conn_is_possible(chat, gconn));
+#endif
+
             gcc_mark_for_deletion(gconn, chat->tcp_conn, GC_EXIT_TYPE_TIMEOUT, nullptr, 0);
             continue;
         }
@@ -34215,16 +34453,27 @@ static void do_peer_delete(const GC_Session *c, GC_Chat *chat, void *userdata)
     for (uint32_t i = 1; i < chat->numpeers; ++i) {
         const GC_Connection *gconn = get_gc_connection(chat, i);
         assert(gconn != nullptr);
-
         if (gconn->pending_delete) {
-            const GC_Exit_Info *exit_info = &gconn->exit_info;
+            const GC_Exit_Info exit_info = gconn->exit_info;
+            const bool was_confirmed = gconn->confirmed;
+            const bool was_handshaked = gconn->handshaked;
 
-            if (exit_info->exit_type == GC_EXIT_TYPE_TIMEOUT && gconn->confirmed) {
+            if (exit_info.exit_type == GC_EXIT_TYPE_TIMEOUT && was_confirmed) {
                 add_gc_peer_timeout_list(chat, gconn);
             }
 
             if (!peer_delete(c, chat, i, userdata)) {
                 LOGGER_ERROR(chat->log, "Failed to delete peer %u", i);
+            } else {
+    #ifdef NGC_DEBUG
+                chat->dbg_peer_deletes++;
+                LOGGER_WARNING(chat->log,
+                    "[_NGC_DEBUG_] NGC peer delete: peer=%u exit_type=%u confirmed=%d handshaked=%d",
+                    i,
+                    exit_info.exit_type,
+                    was_confirmed,
+                    was_handshaked);
+    #endif
             }
 
             if (i >= chat->numpeers) {
@@ -34403,12 +34652,43 @@ static void do_self_connection(const GC_Session *c, GC_Chat *chat)
     const unsigned int self_udp_status = ipport_self_copy(c->messenger->dht, &chat->self_ip_port);
     const bool udp_change = (chat->self_udp_status != self_udp_status) && (self_udp_status != SELF_UDP_STATUS_NONE);
 
-    // We flag a group announce if our UDP status has changed since last run, or if our last announced TCP
-    // relay is no longer valid. Additionally, we will always flag an announce in the specified interval
-    // regardless of the prior conditions. Private groups are never announced.
+    const bool tcp_relay_valid = tcp_relay_is_valid(chat->tcp_conn, chat->announced_tcp_relay_pk);
+
+    const bool announce_stale = mono_time_is_timeout(chat->mono_time,
+                                chat->last_time_self_announce,
+                                GC_SELF_REFRESH_ANNOUNCE_INTERVAL);
+
+#ifdef NGC_DEBUG
+    const uint64_t now = mono_time_get(chat->mono_time);
+
+    const uint64_t self_announce_age =
+        chat->last_time_self_announce > 0
+        ? now - chat->last_time_self_announce
+        : 0;
+
+    LOGGER_WARNING(chat->log,
+        "[_NGC_DEBUG_] NGC self-announce check: group=%d public=%d udp_status=%u udp_change=%d "
+        "tcp_relay_valid=%d announce_stale=%d self_announce_age=%llu",
+        chat->group_number,
+        is_public_chat(chat),
+        self_udp_status,
+        udp_change,
+        tcp_relay_valid,
+        announce_stale,
+        (unsigned long long)self_announce_age);
+#endif
+
     if (is_public_chat(chat) &&
-            ((udp_change || !tcp_relay_is_valid(chat->tcp_conn, chat->announced_tcp_relay_pk))
-             || mono_time_is_timeout(chat->mono_time, chat->last_time_self_announce, GC_SELF_REFRESH_ANNOUNCE_INTERVAL))) {
+            ((udp_change || !tcp_relay_valid) || announce_stale)) {
+
+#ifdef NGC_DEBUG
+        LOGGER_WARNING(chat->log,
+            "[_NGC_DEBUG_] NGC flagging self announce: udp_change=%d tcp_relay_valid=%d stale=%d",
+            udp_change,
+            tcp_relay_valid,
+            announce_stale);
+#endif
+
         chat->update_self_announces = true;
     }
 
@@ -34509,6 +34789,10 @@ void do_gc(GC_Session *c, void *userdata)
             c->gc_overall_health = gc_compute_health(c, c->messenger->log);
             c->gc_health_last_update = mono_time_get(c->messenger->mono_time);
         }
+
+#ifdef NGC_DEBUG
+        ngc_debug_summary(chat, false);
+#endif
 
         if (chat->flag_exit) {  // should always come last as it modifies the chats array
             group_delete(c, chat);
@@ -35770,14 +36054,48 @@ static bool gc_handle_announce_response_callback(Onion_Client *onion_c, uint32_t
         return false;
     }
 
+#ifdef NGC_DEBUG
+    chat->dbg_announce_cb++;
+    LOGGER_WARNING(chat->log,
+        "[_NGC_DEBUG_] NGC announce response received: sendback=%u data_length=%zu",
+        sendback_num, data_length);
+#endif
+
     const int gc_announces_count = gca_unpack_announces_list(chat->log, data, data_length,
                                    announces, GCA_MAX_SENT_ANNOUNCES);
 
     if (gc_announces_count == -1) {
+#ifdef NGC_DEBUG
+        LOGGER_WARNING(chat->log,
+            "[_NGC_DEBUG_] NGC announce response unpack failed: data_length=%zu",
+            data_length);
+#endif
         return false;
     }
 
+#ifdef NGC_DEBUG
+    chat->dbg_announce_total += (uint32_t)gc_announces_count;
+
+    if (gc_announces_count > 0) {
+        chat->dbg_announce_ok++;
+    }
+
+    LOGGER_WARNING(chat->log,
+        "[_NGC_DEBUG_] NGC announce response parsed: count=%d",
+        gc_announces_count);
+#endif
+
     const int added_peers = gc_add_peers_from_announces(chat, announces, gc_announces_count);
+
+#ifdef NGC_DEBUG
+    if (added_peers > 0) {
+        chat->dbg_peers_added_from_announce += (uint32_t)added_peers;
+    }
+
+    LOGGER_WARNING(chat->log,
+        "[_NGC_DEBUG_] NGC announce processing finished: added_peers=%d",
+        added_peers);
+#endif
 
     return added_peers >= 0;
 }
@@ -35792,15 +36110,37 @@ static uint32_t add_gc_tcp_relays_from_announce(const GC_Chat *chat, GC_Connecti
     uint32_t added_relays = 0;
 
     for (uint8_t j = 0; j < announce->tcp_relays_count; ++j) {
+
+#ifdef NGC_DEBUG
+        LOGGER_WARNING(chat->log,
+            "[_NGC_DEBUG_] NGC adding TCP relay %u to peer connection: tcp_conn=%d relay_pk=%02x%02x%02x%02x",
+            j,
+            gconn->tcp_connection_num,
+            announce->tcp_relays[j].public_key[0],
+            announce->tcp_relays[j].public_key[1],
+            announce->tcp_relays[j].public_key[2],
+            announce->tcp_relays[j].public_key[3]);
+#endif
+
         const int add_tcp_result = add_tcp_relay_connection(chat->tcp_conn, gconn->tcp_connection_num,
                                    &announce->tcp_relays[j].ip_port,
                                    announce->tcp_relays[j].public_key);
+
+#ifdef NGC_DEBUG
+        LOGGER_WARNING(chat->log,
+            "[_NGC_DEBUG_] NGC TCP relay add result=%d",
+            add_tcp_result);
+#endif
 
         if (add_tcp_result == -1) {
             continue;
         }
 
         if (gcc_save_tcp_relay(chat->rng, gconn, &announce->tcp_relays[j]) == -1) {
+#ifdef NGC_DEBUG
+            LOGGER_WARNING(chat->log,
+                "[_NGC_DEBUG_] NGC gcc_save_tcp_relay failed");
+#endif
             continue;
         }
 
@@ -35829,7 +36169,24 @@ int gc_add_peers_from_announces(GC_Chat *chat, const GC_Announce *announces, uin
     for (uint8_t i = 0; i < gc_announces_count; ++i) {
         const GC_Announce *announce = &announces[i];
 
+#ifdef NGC_DEBUG
+        LOGGER_WARNING(chat->log,
+            "[_NGC_DEBUG_] NGC announce[%u]: ip_port_is_set=%u tcp_relays_count=%u peer_pk=%02x%02x%02x%02x",
+            i,
+            announce->ip_port_is_set,
+            announce->tcp_relays_count,
+            announce->peer_public_key[0],
+            announce->peer_public_key[1],
+            announce->peer_public_key[2],
+            announce->peer_public_key[3]);
+#endif
+
         if (!gca_is_valid_announce(announce)) {
+#ifdef NGC_DEBUG
+            LOGGER_WARNING(chat->log,
+                "[_NGC_DEBUG_] NGC announce[%u]: invalid announce, no ip_port and no tcp relays",
+                i);
+#endif
             continue;
         }
 
@@ -35837,13 +36194,36 @@ int gc_add_peers_from_announces(GC_Chat *chat, const GC_Announce *announces, uin
         const IP_Port *ip_port = ip_port_set ? &announce->ip_port : nullptr;
         const int peer_number = peer_add(chat, ip_port, announce->peer_public_key);
 
+#ifdef NGC_DEBUG
+        LOGGER_WARNING(chat->log,
+            "[_NGC_DEBUG_] NGC announce[%u]: peer_add result=%d",
+            i, peer_number);
+#endif
+
         GC_Connection *gconn = get_gc_connection(chat, peer_number);
 
         if (gconn == nullptr) {
+#ifdef NGC_DEBUG
+            LOGGER_WARNING(chat->log,
+                "[_NGC_DEBUG_] NGC announce[%u]: no GC_Connection after peer_add",
+                i);
+#endif
             continue;
         }
 
+#ifdef NGC_DEBUG
+        LOGGER_WARNING(chat->log,
+            "[_NGC_DEBUG_] NGC announce[%u]: peer=%d tcp_connection_num=%d",
+            i, peer_number, gconn->tcp_connection_num);
+#endif
+
         const uint32_t added_tcp_relays = add_gc_tcp_relays_from_announce(chat, gconn, announce);
+
+#ifdef NGC_DEBUG
+        LOGGER_WARNING(chat->log,
+            "[_NGC_DEBUG_] NGC announce[%u]: added_tcp_relays=%u ip_port_set=%d",
+            i, added_tcp_relays, ip_port_set);
+#endif
 
         if (!ip_port_set && added_tcp_relays == 0) {
             LOGGER_ERROR(chat->log, "Got invalid announcement: %u relays, IPP set: %d",
@@ -36659,9 +37039,43 @@ bool gcc_encrypt_and_send_lossless_packet(const GC_Chat *chat, GC_Connection *gc
 
     if (!gcc_send_packet(chat, gconn, packet, (uint16_t)enc_len)) {
         LOGGER_DEBUG(chat->log, "Failed to send packet (type: 0x%02x, enc_len: %d)", packet_type, enc_len);
+#ifdef NGC_DEBUG
+        if (packet_type == GP_INVITE_REQUEST ||
+                packet_type == GP_INVITE_RESPONSE ||
+                packet_type == GP_SYNC_REQUEST ||
+                packet_type == GP_SYNC_RESPONSE ||
+                packet_type == GP_HS_RESPONSE_ACK) {
+            LOGGER_WARNING(chat->log,
+                "[_NGC_DEBUG_] NGC lossless send failed: type=0x%02x message_id=%llu "
+                "direct_possible=%d tcp_conn=%d tcp_relays=%u",
+                packet_type,
+                (unsigned long long)message_id,
+                gcc_direct_conn_is_possible(chat, gconn),
+                gconn->tcp_connection_num,
+                gconn->tcp_relays_count);
+        }
+#endif
         free(packet);
         return false;
     }
+
+#ifdef NGC_DEBUG
+    if (packet_type == GP_INVITE_REQUEST ||
+            packet_type == GP_INVITE_RESPONSE ||
+            packet_type == GP_SYNC_REQUEST ||
+            packet_type == GP_SYNC_RESPONSE ||
+            packet_type == GP_HS_RESPONSE_ACK) {
+
+        LOGGER_WARNING(chat->log,
+            "[_NGC_DEBUG_] NGC lossless send ok: type=0x%02x message_id=%llu "
+            "direct_possible=%d tcp_conn=%d tcp_relays=%u",
+            packet_type,
+            (unsigned long long)message_id,
+            gcc_direct_conn_is_possible(chat, gconn),
+            gconn->tcp_connection_num,
+            gconn->tcp_relays_count);
+    }
+#endif
 
     free(packet);
 
@@ -42139,6 +42553,13 @@ static void do_gc_onion_friends(const Messenger *m)
 
         if (chat->update_self_announces) {
             self_announce_group(m, chat, onion_friend);
+#ifdef NGC_DEBUG
+            chat->dbg_self_announces_sent++;
+            LOGGER_WARNING(m->log,
+                "[_NGC_DEBUG_] NGC self announce sent: group=%d udp_status=%u",
+                chat->group_number,
+                (unsigned)chat->self_udp_status);
+#endif
         }
     }
 }
