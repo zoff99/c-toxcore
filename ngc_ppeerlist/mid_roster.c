@@ -398,7 +398,7 @@ typedef struct { uint8_t *data; size_t len; size_t cap; } MidBuf;
 
 static void mid_buf_init(MidBuf *b) { b->data = NULL; b->len = 0; b->cap = 0; }
 
-static void mid_buf_free(MidBuf *b) { free(b->data); b->data = NULL; b->len = 0; b->cap = 0; }
+// UNUSED // static void mid_buf_free(MidBuf *b) { free(b->data); b->data = NULL; b->len = 0; b->cap = 0; }
 
 static bool mid_buf_ensure(MidBuf *b, size_t extra) {
     if (b->len + extra <= b->cap) return true;
@@ -3009,17 +3009,21 @@ parse_fail:
 bool mid_save(MidState *s, const uint8_t *passphrase, size_t passphrase_len) {
     if (!s || !s->save_path) return false;
 
+    // ═══════════════════════════════════════════════════════════════
+    // PHASE 1: Serialize under lock (fast, microseconds)
+    // ═══════════════════════════════════════════════════════════════
     mid_lock(s);
+
     MidBuf buf;
     mid_buf_init(&buf);
 
-    // 1. Assemble Header and Body
+    // Header
     mid_buf_append(&buf, MID_SAVE_MAGIC, MID_SAVE_MAGIC_SIZE);
-    uint8_t ver[4]; 
-    mid_put_u32_be(ver, MID_SAVE_VERSION); 
+    uint8_t ver[4];
+    mid_put_u32_be(ver, MID_SAVE_VERSION);
     mid_buf_append(&buf, ver, sizeof(ver));
 
-    // 2. Serialize Body
+    // Body
     mid_buf_append_u32(&buf, (uint32_t)s->group_count);
     for (size_t i = 0; i < s->group_count; i++) {
         MidGroupState *g = &s->groups[i];
@@ -3053,50 +3057,78 @@ bool mid_save(MidState *s, const uint8_t *passphrase, size_t passphrase_len) {
         }
     }
 
-    // 3. Encrypt payload if passphrase provided
-    uint8_t *final_payload = buf.data;
-    size_t final_payload_len = buf.len;
-    uint8_t *free_payload = NULL;
+    // Detach buffer — take ownership so we can release the lock
+    uint8_t *serialized_data = buf.data;
+    size_t   serialized_len  = buf.len;
+    buf.data = NULL;
+    buf.len  = 0;
+    buf.cap  = 0;
 
-    if (passphrase && passphrase_len > 0) {
-        size_t cipher_len = buf.len + TOX_PASS_ENCRYPTION_EXTRA_LENGTH;
-        free_payload = (uint8_t *)malloc(cipher_len);
-        if (!free_payload) { mid_buf_free(&buf); mid_unlock(s); return false; }
-
-        Tox_Err_Encryption err;
-        if (!tox_pass_encrypt(buf.data, buf.len, passphrase, passphrase_len, free_payload, &err)) {
-            printf("[MID] save: encryption failed (err=%d)\n", err);
-            free(free_payload); mid_buf_free(&buf); mid_unlock(s); return false;
-        }
-        final_payload = free_payload;
-        final_payload_len = cipher_len;
-    }
-
+    // Copy path while still under lock
     char *path_copy = mid_strdup(s->save_path);
-    mid_unlock(s); // <--- CRITICAL: Release lock before doing blocking Disk I/O
+
+    mid_unlock(s);
+    // ═══════════════════════════════════════════════════════════════
+    // PHASE 2: Encrypt WITHOUT lock (slow ~100ms, fully concurrent)
+    // ═══════════════════════════════════════════════════════════════
 
     if (!path_copy) {
-        if (free_payload) free(free_payload);
-        mid_buf_free(&buf);
+        free(serialized_data);
         return false;
     }
 
-    // 4. Write to Disk Atomically
+    uint8_t *final_payload     = serialized_data;
+    size_t   final_payload_len = serialized_len;
+    uint8_t *free_payload      = NULL;
+
+    if (passphrase && passphrase_len > 0) {
+        size_t cipher_len = serialized_len + TOX_PASS_ENCRYPTION_EXTRA_LENGTH;
+        free_payload = (uint8_t *)malloc(cipher_len);
+        if (!free_payload) {
+            free(serialized_data);
+            free(path_copy);
+            return false;
+        }
+
+        Tox_Err_Encryption err;
+        if (!tox_pass_encrypt(serialized_data, serialized_len,
+                              passphrase, passphrase_len,
+                              free_payload, &err)) {
+            printf("[MID] save: encryption failed (err=%d)\n", err);
+            free(free_payload);
+            free(serialized_data);
+            free(path_copy);
+            return false;
+        }
+        final_payload     = free_payload;
+        final_payload_len = cipher_len;
+        free(serialized_data);  // plaintext no longer needed
+    } else {
+        free_payload = serialized_data;  // ensure cleanup at end
+    }
+
+    // Build tmp path (no lock needed, just string ops)
     size_t path_len = strlen(path_copy);
     char *tmp_path = (char *)malloc(path_len + 6);
     if (!tmp_path) {
-        free(path_copy);
         if (free_payload) free(free_payload);
-        mid_buf_free(&buf);
+        free(path_copy);
         return false;
     }
     snprintf(tmp_path, path_len + 6, "%s.tmp", path_copy);
 
+    // ═══════════════════════════════════════════════════════════════
+    // PHASE 3: Disk I/O under lock (fast ~1-5ms, serialized)
+    //          Prevents race on shared .tmp file + rename
+    // ═══════════════════════════════════════════════════════════════
+    mid_lock(s);
+
     FILE *f = fopen(tmp_path, "wb");
     if (!f) {
-        free(tmp_path); free(path_copy);
+        mid_unlock(s);
+        free(tmp_path);
         if (free_payload) free(free_payload);
-        mid_buf_free(&buf);
+        free(path_copy);
         return false;
     }
 
@@ -3114,10 +3146,8 @@ bool mid_save(MidState *s, const uint8_t *passphrase, size_t passphrase_len) {
 #endif
 
     fwrite(final_payload, 1, final_payload_len, f);
+    fflush(f);
     fclose(f);
-
-    if (free_payload) free(free_payload);
-    mid_buf_free(&buf);
 
 #ifdef _WIN32
     /*
@@ -3136,8 +3166,12 @@ bool mid_save(MidState *s, const uint8_t *passphrase, size_t passphrase_len) {
     bool ok = (rename(tmp_path, path_copy) == 0);
     if (!ok) remove(tmp_path);
 
+    mid_unlock(s);
+    // ═══════════════════════════════════════════════════════════════
+
     free(tmp_path);
     free(path_copy);
+    if (free_payload) free(free_payload);
     return ok;
 }
 

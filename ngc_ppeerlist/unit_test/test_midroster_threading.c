@@ -7,6 +7,8 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <stdatomic.h>
+#include <time.h>
+#include <stdarg.h>
 #include "../mid_roster.h"
 
 #ifndef TOX_GROUP_CHAT_ID_SIZE
@@ -15,8 +17,12 @@
 
 extern Tox *create_dummy_tox(void);
 extern void mock_set_churn(int on);
+extern void mock_set_encrypt_delay_ms(uint32_t ms);
 
 #define MID_MSG_ROSTER_REQUEST 2
+
+/* Simulated scrypt key-derivation cost inside tox_pass_encrypt */
+#define SIMULATED_ENC_MS 80
 
 static _Atomic bool running = true;
 static MidState *global_s;
@@ -41,14 +47,25 @@ static void key_from_peer(uint32_t id, uint8_t *out) {
     out[3] = (uint8_t)((id >> 16) & 0xFF);
 }
 
+/* 
+ * Bypass stdout/stderr redirection to force print timing on PASS.
+ * Opens /dev/tty directly, bypassing the test framework's pipe/dup2 capture.
+ */
+static void force_print(const char *fmt, ...) {
+    FILE *f = fopen("/dev/tty", "w");
+    if (!f) f = stderr; /* fallback if no tty available */
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(f, fmt, args);
+    va_end(args);
+    if (f != stderr) fclose(f);
+    else fflush(f);
+}
+
 /* ════════════════════════════════════════════════════════════════
  * TEST 2 — full API churn
- * Each peer_id now has a DISTINCT identity key (mock churn mode),
- * so joins grow the roster, deletes/kicks shrink it, and array
- * shifts race against readers.
  * ════════════════════════════════════════════════════════════════ */
 
-/* mid_iterate */
 void *thread_iterate(void *arg) {
     (void)arg;
     while (running) {
@@ -57,7 +74,6 @@ void *thread_iterate(void *arg) {
     return NULL;
 }
 
-/* mid_on_group_self_join + mid_on_group_delete on private groups */
 void *thread_group_lifecycle(void *arg) {
     (void)arg;
     uint32_t group = 100;
@@ -70,7 +86,6 @@ void *thread_group_lifecycle(void *arg) {
     return NULL;
 }
 
-/* mid_on_group_peer_join + mid_on_group_peer_name — grows roster */
 void *thread_peer_join(void *arg) {
     (void)arg;
     uint32_t id = 0;
@@ -83,7 +98,6 @@ void *thread_peer_join(void *arg) {
     return NULL;
 }
 
-/* mid_delete_peer_by_identity — shrinks roster (array shift) */
 void *thread_delete(void *arg) {
     (void)arg;
     uint32_t id = 0;
@@ -96,7 +110,6 @@ void *thread_delete(void *arg) {
     return NULL;
 }
 
-/* mid_on_group_moderation (KICK) — also shrinks roster */
 void *thread_moderation(void *arg) {
     (void)arg;
     uint32_t id = 0;
@@ -109,7 +122,6 @@ void *thread_moderation(void *arg) {
     return NULL;
 }
 
-/* mid_on_group_peer_exit — triggers mid_sync_online_state_group */
 void *thread_peer_exit(void *arg) {
     (void)arg;
     while (running) {
@@ -118,8 +130,6 @@ void *thread_peer_exit(void *arg) {
     return NULL;
 }
 
-/* mid_on_group_custom_packet */
-/* mid_on_group_custom_packet */
 void *thread_custom_packet(void *arg) {
     (void)arg;
     uint8_t roster_req[5] = {
@@ -139,7 +149,6 @@ void *thread_custom_packet(void *arg) {
     return NULL;
 }
 
-/* query functions */
 void *thread_queries(void *arg) {
     (void)arg;
     uint32_t id = 0;
@@ -158,7 +167,6 @@ void *thread_queries(void *arg) {
     return NULL;
 }
 
-/* mid_peer_list_count + mid_peer_list_get */
 void *thread_peer_list(void *arg) {
     (void)arg;
     while (running) {
@@ -174,7 +182,6 @@ void *thread_peer_list(void *arg) {
     return NULL;
 }
 
-/* mid_announce_leave */
 void *thread_announce_leave(void *arg) {
     (void)arg;
     while (running) {
@@ -184,7 +191,6 @@ void *thread_announce_leave(void *arg) {
     return NULL;
 }
 
-/* mid_set_peer_list_changed_cb + mid_print_peer_table */
 static void noop_cb(const uint8_t chat_id[TOX_GROUP_CHAT_ID_SIZE], void *user_data) {
     (void)chat_id;
     (void)user_data;
@@ -201,7 +207,6 @@ void *thread_callback_print(void *arg) {
     return NULL;
 }
 
-/* mid_new + mid_free on independent instances */
 void *thread_independent_lifecycle(void *arg) {
     (void)arg;
     while (running) {
@@ -218,16 +223,14 @@ void *thread_independent_lifecycle(void *arg) {
 }
 
 bool test_all_api_concurrent(void) {
-    mock_set_churn(1);   /* distinct identity per peer_id */
-
+    mock_set_churn(1);
     global_s = mid_new(NULL, NULL, 0);
     global_tox = create_dummy_tox();
 
     mid_on_group_self_join(global_s, global_tox, GROUP_1, (uint8_t*)"test", 4);
 
-    #define NUM_THREADS 11
+#define NUM_THREADS 11
     pthread_t threads[NUM_THREADS];
-
     pthread_create(&threads[0],  NULL, thread_iterate,              NULL);
     pthread_create(&threads[1],  NULL, thread_group_lifecycle,      NULL);
     pthread_create(&threads[2],  NULL, thread_peer_join,            NULL);
@@ -241,7 +244,6 @@ bool test_all_api_concurrent(void) {
     pthread_create(&threads[10], NULL, thread_independent_lifecycle, NULL);
 
     sleep(3);
-
     running = false;
 
     for (int i = 0; i < NUM_THREADS; i++) {
@@ -253,11 +255,159 @@ bool test_all_api_concurrent(void) {
     return true;
 }
 
+/* ════════════════════════════════════════════════════════════════
+ * TEST 3 — mid_save heavy concurrency & timing with SLOW encryption
+ * ════════════════════════════════════════════════════════════════ */
+
+#define PERF_THREADS          30
+#define PERF_CALLS_PER_THREAD 100
+#define PERF_TOTAL_OPS        (PERF_THREADS * PERF_CALLS_PER_THREAD)
+
+static _Atomic uint64_t save_min_ns   = UINT64_MAX;
+static _Atomic uint64_t save_max_ns   = 0;
+static _Atomic uint64_t save_total_ns = 0;
+static _Atomic int      save_ok_count = 0;
+static _Atomic int      save_fail_count = 0;
+
+static inline uint64_t get_time_ns(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
+}
+
+static void atomic_update_min(_Atomic uint64_t *target, uint64_t val) {
+    uint64_t old = atomic_load(target);
+    while (val < old && !atomic_compare_exchange_weak(target, &old, val)) {}
+}
+
+static void atomic_update_max(_Atomic uint64_t *target, uint64_t val) {
+    uint64_t old = atomic_load(target);
+    while (val > old && !atomic_compare_exchange_weak(target, &old, val)) {}
+}
+
+void *thread_save_perf(void *arg) {
+    (void)arg;
+    const uint8_t pass[] = "perf_test_pass";
+    for (int i = 0; i < PERF_CALLS_PER_THREAD; i++) {
+        uint64_t start = get_time_ns();
+        bool ok = mid_save(global_s, pass, sizeof(pass) - 1);
+        uint64_t elapsed = get_time_ns() - start;
+
+        if (ok) {
+            atomic_update_min(&save_min_ns, elapsed);
+            atomic_update_max(&save_max_ns, elapsed);
+            atomic_fetch_add(&save_total_ns, elapsed);
+            atomic_fetch_add(&save_ok_count, 1);
+        } else {
+            atomic_fetch_add(&save_fail_count, 1);
+        }
+    }
+    return NULL;
+}
+
+bool test_save_concurrency_and_timing(void) {
+    mock_set_churn(1);
+    mock_set_encrypt_delay_ms(SIMULATED_ENC_MS);   /* simulate slow scrypt */
+
+    char save_path[256];
+    snprintf(save_path, sizeof(save_path), "/tmp/mid_perf_test_%d.dat", getpid());
+
+    const uint8_t pass[] = "perf_test_pass";
+
+    global_s = mid_new(save_path, pass, sizeof(pass) - 1);
+    T_ASSERT_PTR_NOT_NULL(global_s, "mid_new with save_path");
+
+    global_tox = create_dummy_tox();
+
+    mid_on_group_self_join(global_s, global_tox, GROUP_1, (uint8_t*)"perf_user", 9);
+    for (int i = 0; i < 100; i++) {
+        mid_on_group_peer_join(global_s, global_tox, GROUP_1, 5000 + i);
+        mid_on_group_peer_name(global_s, global_tox, GROUP_1, 5000 + i);
+    }
+
+    atomic_store(&save_min_ns, UINT64_MAX);
+    atomic_store(&save_max_ns, 0);
+    atomic_store(&save_total_ns, 0);
+    atomic_store(&save_ok_count, 0);
+    atomic_store(&save_fail_count, 0);
+
+    /* Using force_print to bypass framework stdout capture on PASS */
+    force_print("      Pounding mid_save: %d threads x %d calls = %d total ops...\n",
+           PERF_THREADS, PERF_CALLS_PER_THREAD, PERF_TOTAL_OPS);
+    force_print("      Simulated encryption delay: %d ms per call\n", SIMULATED_ENC_MS);
+
+    uint64_t wall_start = get_time_ns();
+
+    pthread_t threads[PERF_THREADS];
+    for (int i = 0; i < PERF_THREADS; i++) {
+        pthread_create(&threads[i], NULL, thread_save_perf, NULL);
+    }
+    for (int i = 0; i < PERF_THREADS; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    uint64_t wall_ms = (get_time_ns() - wall_start) / 1000000ULL;
+
+    int ok_cnt   = atomic_load(&save_ok_count);
+    int fail_cnt = atomic_load(&save_fail_count);
+
+    uint64_t serial_wall_ms   = (uint64_t)PERF_TOTAL_OPS * SIMULATED_ENC_MS;
+    uint64_t parallel_wall_ms = (uint64_t)PERF_CALLS_PER_THREAD * SIMULATED_ENC_MS;
+
+    force_print("\n      --- mid_save Concurrency Results ---\n");
+    force_print("      Successful: %d / %d\n", ok_cnt, PERF_TOTAL_OPS);
+    force_print("      Failed:     %d\n", fail_cnt);
+
+    if (ok_cnt > 0) {
+        double avg_ms = (double)atomic_load(&save_total_ns) / ok_cnt / 1e6;
+        double min_ms = (double)atomic_load(&save_min_ns) / 1e6;
+        double max_ms = (double)atomic_load(&save_max_ns) / 1e6;
+        force_print("      Time per save (ms): min=%.3f  max=%.3f  avg=%.3f\n",
+               min_ms, max_ms, avg_ms);
+    }
+
+    force_print("      Wall time: %llu ms\n", (unsigned long long)wall_ms);
+    force_print("        (fully serialized would be ~%llu ms)\n",
+           (unsigned long long)serial_wall_ms);
+    force_print("        (perfect parallel ideal  ~%llu ms)\n",
+           (unsigned long long)parallel_wall_ms);
+
+    /* ── Assertions ── */
+    T_ASSERT_INT_EQ(fail_cnt, 0, "All mid_save calls succeeded");
+
+    T_ASSERT_TRUE(wall_ms < serial_wall_ms / 4,
+                  "Encryption ran concurrently (lock not held during encrypt)");
+
+    if (ok_cnt > 0) {
+        double avg_ms = (double)atomic_load(&save_total_ns) / ok_cnt / 1e6;
+        T_ASSERT_TRUE(avg_ms < (double)SIMULATED_ENC_MS * 3.0,
+                      "Avg save time sane (no heavy lock contention)");
+    }
+
+    /* ── Verify file is not corrupt: exists and has reasonable size ── */
+    FILE *f = fopen(save_path, "rb");
+    T_ASSERT_PTR_NOT_NULL(f, "save file exists after pounding");
+    if (f) {
+        fseek(f, 0, SEEK_END);
+        long fsize = ftell(f);
+        fclose(f);
+        force_print("      Final file size: %ld bytes\n", fsize);
+        T_ASSERT_INT_GT(fsize, 100, "save file not truncated/corrupt (>100 bytes)");
+    }
+
+    mid_free(global_s);
+    unlink(save_path);
+    mock_set_encrypt_delay_ms(0);
+    mock_set_churn(0);
+    return true;
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+
 int main(void) {
     TEST_SUITE("midroster threading / TSan tests (full API coverage)");
-
     RUN_TEST(test_all_api_concurrent);
-
+    RUN_TEST(test_save_concurrency_and_timing);
     SUITE_END();
     return test_summary("midroster_threading");
 }

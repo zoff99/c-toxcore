@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <sodium.h>
+#include <unistd.h>
 
 #ifndef TOX_GROUP_CHAT_ID_SIZE
 #define TOX_GROUP_CHAT_ID_SIZE 32
@@ -14,6 +15,13 @@
  * middleware roster actually grows/shrinks under the threading test. */
 static volatile int g_mock_churn = 1;
 void mock_set_churn(int on) { g_mock_churn = on; }
+
+/* Simulated encryption cost in ms (0 = instant mock XOR).
+ * Lets tests verify that mid_save does NOT hold its lock
+ * during the slow key-derivation phase. */
+static volatile uint32_t g_mock_encrypt_delay_ms = 0;
+
+void mock_set_encrypt_delay_ms(uint32_t ms) { g_mock_encrypt_delay_ms = ms; }
 
 /* ── deterministic valid Ed25519 keypair for "self" ───────────── */
 
@@ -327,10 +335,20 @@ bool tox_pass_encrypt(const uint8_t *plaintext, size_t plaintext_len,
         if (error) *error = TOX_ERR_ENCRYPTION_NULL;
         return false;
     }
-
     if (plaintext_len == 0) {
         if (error) *error = TOX_ERR_ENCRYPTION_NULL;
         return false;
+    }
+
+    /* ── Simulate slow scrypt key derivation ── */
+    {
+        uint32_t remaining_us = g_mock_encrypt_delay_ms * 1000u;
+        while (remaining_us > 0) {
+            /* usleep() arg must stay < 1,000,000 per POSIX */
+            uint32_t chunk = remaining_us > 999000u ? 999000u : remaining_us;
+            usleep(chunk);
+            remaining_us -= chunk;
+        }
     }
 
     /* Write 80-byte header */
