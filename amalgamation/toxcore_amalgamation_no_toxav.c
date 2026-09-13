@@ -46442,7 +46442,7 @@ static int udp_handle_packet(void *object, const IP_Port *source, const uint8_t 
  * calculated link speed the packet send speed will be reduced
  * by a value depending on this number.
  */
-#define SEND_QUEUE_RATIO 2.0
+#define SEND_QUEUE_RATIO 1.3
 
 non_null()
 static void send_crypto_packets(Net_Crypto *c)
@@ -46580,7 +46580,9 @@ static void send_crypto_packets(Net_Crypto *c)
                     if (send_array_ratio > SEND_QUEUE_RATIO && CRYPTO_MIN_QUEUE_LENGTH < npackets) {
                         conn->packet_send_rate = min_speed * (1.0 / (send_array_ratio / SEND_QUEUE_RATIO));
                     } else if (conn->last_congestion_event + CONGESTION_EVENT_TIMEOUT < temp_time) {
-                        conn->packet_send_rate = min_speed * 1.2;
+                        // Additive Increase: Add 20 packets/sec per cycle instead of multiplying by 1.2
+                        // This results in a smooth, linear ramp-up that rarely overshoots.
+                        conn->packet_send_rate = min_speed + 20.0;
                     } else {
                         conn->packet_send_rate = min_speed * 0.9;
                     }
@@ -46649,7 +46651,13 @@ static void send_crypto_packets(Net_Crypto *c)
                     conn->packets_left -= ret;
                 } else {
                     conn->last_congestion_event = temp_time;
-                    conn->packets_left = 0;
+                    // Halve the allowance instead of dropping to zero.
+                    // This prevents a complete stall while still reacting to congestion.
+                    if (conn->packets_left > 10) {
+                        conn->packets_left /= 2;
+                    } else {
+                        conn->packets_left = 0;
+                    }
                 }
             }
 
