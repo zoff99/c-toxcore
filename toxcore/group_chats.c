@@ -7533,13 +7533,13 @@ static void do_self_connection(const GC_Session *c, GC_Chat *chat)
     const bool tcp_relay_valid = tcp_relay_is_valid(chat->tcp_conn, chat->announced_tcp_relay_pk);
 
 #ifdef NGC_DEBUG
-    if (!tcp_relay_valid) {
+//    if (!tcp_relay_valid) {
         char pk_hex[65];
         sodium_bin2hex(pk_hex, sizeof(pk_hex), chat->announced_tcp_relay_pk, CRYPTO_PUBLIC_KEY_SIZE);
         LOGGER_WARNING(chat->log,
             "[_NGC_DEBUG_] NGC announced TCP relay PK: %s (valid=%d)",
             pk_hex, tcp_relay_valid);
-    }
+//    }
 #endif
 
     const bool announce_stale = mono_time_is_timeout(chat->mono_time,
