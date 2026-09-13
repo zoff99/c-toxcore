@@ -247,8 +247,7 @@ bool onion_add_bs_path_node(Onion_Client *onion_c, const IP_Port *ip_port, const
 non_null()
 static int onion_add_path_node(Onion_Client *onion_c, const IP_Port *ip_port, const uint8_t *public_key)
 {
-    if (!net_family_is_ipv4(ip_port->ip.family) && !net_family_is_ipv6(ip_port->ip.family)
-            && !net_family_is_tcp_ipv4(ip_port->ip.family) && !net_family_is_tcp_ipv6(ip_port->ip.family)) {
+    if (!net_family_is_ipv4(ip_port->ip.family) && !net_family_is_ipv6(ip_port->ip.family)) {
         return -1;
     }
 
@@ -322,12 +321,8 @@ static uint16_t random_nodes_path_onion(const Onion_Client *onion_c, Node_format
 
     const uint16_t num_nodes = min_u16(onion_c->path_nodes_index, MAX_PATH_NODES);
 
-    // if (dht_non_lan_connected(onion_c->dht)) {
     if (dht_isconnected(onion_c->dht)) {
         if (num_nodes == 0) {
-            LOGGER_WARNING(onion_c->logger,
-                "[_NGC_DEBUG_] random_nodes_path_onion: DHT connected but path_nodes EMPTY (path_nodes_index=%u, path_nodes_index_bs=%u)",
-                onion_c->path_nodes_index, onion_c->path_nodes_index_bs);
             return 0;
         }
 
@@ -345,10 +340,6 @@ static uint16_t random_nodes_path_onion(const Onion_Client *onion_c, Node_format
         }
 
         if (num_nodes >= 2) {
-            LOGGER_DEBUG(onion_c->logger,
-                "[_NGC_DEBUG_] random_nodes_path_onion: TCP-only mode, using TCP relay as hop1 + %u path_nodes for hops 2-3",
-                num_nodes);
-
             nodes[0] = empty_node_format;
             nodes[0].ip_port = tcp_connections_number_to_ip_port(random_tcp);
 
@@ -360,10 +351,6 @@ static uint16_t random_nodes_path_onion(const Onion_Client *onion_c, Node_format
             const uint16_t num_nodes_bs = min_u16(onion_c->path_nodes_index_bs, MAX_PATH_NODES);
 
             if (num_nodes_bs >= 2) {
-                LOGGER_DEBUG(onion_c->logger,
-                    "[_NGC_DEBUG_] random_nodes_path_onion: path_nodes empty (%u), using path_nodes_bs (%u) for hops 2-3",
-                    num_nodes, num_nodes_bs);
-
                 nodes[0] = empty_node_format;
                 nodes[0].ip_port = tcp_connections_number_to_ip_port(random_tcp);
 
@@ -372,19 +359,22 @@ static uint16_t random_nodes_path_onion(const Onion_Client *onion_c, Node_format
                     nodes[i] = onion_c->path_nodes_bs[rand_idx];
                 }
             } else {
-                /* [FIX] Last resort: use additional TCP connections for hops 2 and 3.
-                 * This handles the edge case where both path_nodes and path_nodes_bs
-                 * are empty. Each hop will be a different TCP relay, forming a
-                 * TCP-only onion path: relay1 -> relay2 -> relay3. */
+                /* [FIX] TCP-only fallback: use TCP connections for all hops.
+                 * Convert TCP-family IP addresses to IPv4/IPv6 so that
+                 * create_onion_path and onion forwarding work correctly. */
                 LOGGER_WARNING(onion_c->logger,
-                    "[_NGC_DEBUG_] random_nodes_path_onion: BOTH path_nodes (%u) and path_nodes_bs (%u) EMPTY - "
-                    "attempting TCP-only onion path (relay1->relay2->relay3)",
-                    num_nodes, num_nodes_bs);
+                    "[_NGC_DEBUG_] random_nodes_path_onion: path_nodes and path_nodes_bs empty, "
+                    "building TCP-only onion path from %d TCP connection(s)",
+                    max_num);
 
                 nodes[0] = empty_node_format;
                 nodes[0].ip_port = tcp_connections_number_to_ip_port(random_tcp);
-
-                bool fallback_ok = true;
+                /* Convert TCP family to IPv4/IPv6 for onion path construction */
+                if (net_family_is_tcp_ipv4(nodes[0].ip_port.ip.family)) {
+                    nodes[0].ip_port.ip.family = net_family_ipv4();
+                } else if (net_family_is_tcp_ipv6(nodes[0].ip_port.ip.family)) {
+                    nodes[0].ip_port.ip.family = net_family_ipv6();
+                }
 
                 for (unsigned int i = 1; i < max_num; ++i) {
                     const int another_tcp = get_random_tcp_con_number(onion_c->c);
@@ -393,20 +383,21 @@ static uint16_t random_nodes_path_onion(const Onion_Client *onion_c, Node_format
                         LOGGER_WARNING(onion_c->logger,
                             "[_NGC_DEBUG_] random_nodes_path_onion: TCP-only fallback FAILED at hop %u - not enough TCP connections",
                             i + 1);
-                        fallback_ok = false;
-                        break;
+                        return 0;
                     }
 
                     nodes[i] = empty_node_format;
                     nodes[i].ip_port = tcp_connections_number_to_ip_port(another_tcp);
-                }
-
-                if (!fallback_ok) {
-                    return 0;
+                    /* Convert TCP family to IPv4/IPv6 for onion path construction */
+                    if (net_family_is_tcp_ipv4(nodes[i].ip_port.ip.family)) {
+                        nodes[i].ip_port.ip.family = net_family_ipv4();
+                    } else if (net_family_is_tcp_ipv6(nodes[i].ip_port.ip.family)) {
+                        nodes[i].ip_port.ip.family = net_family_ipv6();
+                    }
                 }
 
                 LOGGER_WARNING(onion_c->logger,
-                    "[_NGC_DEBUG_] random_nodes_path_onion: TCP-only onion path built successfully (all %u hops from TCP relays)",
+                    "[_NGC_DEBUG_] random_nodes_path_onion: TCP-only onion path built successfully (%u hops)",
                     max_num);
             }
         }
@@ -1767,25 +1758,6 @@ static void populate_path_nodes(Onion_Client *onion_c)
     for (unsigned int i = 0; i < num_nodes; ++i) {
         onion_add_path_node(onion_c, &node_list[i].ip_port, node_list[i].public_key);
     }
-
-    /* [FIX] Seed path_nodes from connected TCP relays.
-     * In TCP-only mode, the DHT may have no nodes (randfriends_nodes returns 0).
-     * Without nodes in path_nodes, random_nodes_path_onion() cannot build 3-hop
-     * onion paths (it needs at least 2 entries for hops 2 and 3).
-     * By seeding TCP relays into path_nodes, we ensure onion paths can always
-     * be constructed when TCP relays are connected. */
-    Node_format tcp_relays[MAX_PATH_NODES];
-    const unsigned int num_tcp_relays = copy_connected_tcp_relays(onion_c->c, tcp_relays, MAX_PATH_NODES);
-
-    if (num_nodes == 0 && num_tcp_relays > 0) {
-        LOGGER_INFO(onion_c->logger,
-            "[_NGC_DEBUG_] populate_path_nodes: DHT had 0 nodes, seeding %u TCP relays into path_nodes",
-            num_tcp_relays);
-    }
-
-    for (unsigned int i = 0; i < num_tcp_relays; ++i) {
-        onion_add_path_node(onion_c, &tcp_relays[i].ip_port, tcp_relays[i].public_key);
-    }
 }
 
 /* How often we ping new friends per node */
@@ -1795,7 +1767,7 @@ static void populate_path_nodes(Onion_Client *onion_c)
 #define ANNOUNCE_FRIEND_RUN_COUNT_BEGINNING 5
 
 /* How often we try to re-populate the nodes lists if we don't meet a minimum threshhold of nodes */
-#define ANNOUNCE_POPULATE_TIMEOUT (60 * 10)
+#define ANNOUNCE_POPULATE_TIMEOUT (20 * 1)
 
 /* The max time between lookup requests for a friend per node */
 #define ANNOUNCE_FRIEND_MAX_INTERVAL (60 * 60)
@@ -1915,7 +1887,17 @@ static void do_friend(Onion_Client *onion_c, uint16_t friendnum)
 
         o_friend->last_populated = tm;
 
-        for (uint16_t i = 0; i < n; ++i) {
+        /* [FIX] Query more nodes per iteration.
+         * Previously only MAX_PATH_NODES/4 (8) nodes were queried.
+         * With many DHT nodes not supporting NGC, we need to query
+         * more nodes to increase the chance of hitting an upgraded node.
+         * Query up to MAX_PATH_NODES/2 (16) nodes per iteration. */
+        const uint16_t query_count = min_u16(num_nodes, MAX_PATH_NODES);
+
+        LOGGER_WARNING(onion_c->logger,
+                            "[_NGC_DEBUG_] do_friend: query_count=%d", (int)query_count);
+
+        for (uint16_t i = 0; i < query_count; ++i) {
             const uint32_t num = random_range_u32(onion_c->rng, num_nodes);
             client_send_announce_request(onion_c, friendnum + 1, &onion_c->path_nodes[num].ip_port,
                                          onion_c->path_nodes[num].public_key, nullptr, -1);
