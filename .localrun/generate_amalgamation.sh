@@ -211,7 +211,7 @@ ls -hal amalgamation/toxcore_amalgamation.c
 ls -hal amalgamation/toxcore_amalgamation_no_toxav.c
 #
 #
-gcc -O3 -fPIC -DNGC_DEBUG -DHAVE_H265_ENCODER amalgamation/toxcore_amalgamation.c \
+gcc -O3 -fPIC -DNGC_DEBUG -DMIN_LOGGER_LEVEL=LOGGER_LEVEL_TRACE -DHAVE_H265_ENCODER amalgamation/toxcore_amalgamation.c \
     $(pkg-config --cflags --libs libsodium opus vpx libavcodec libavutil x264 x265) -pthread \
     -c -o amalgamation/libtoxcore.o
 #
