@@ -1,0 +1,6 @@
+*
+!.gitignore
+
+#########
+
+!tox_friend_file_sawtooth_test.c
