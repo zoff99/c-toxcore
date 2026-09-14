@@ -223,7 +223,7 @@ static void file_transfer_test(void)
     ck_assert_msg(tox_file_get_file_id(tox2, 0, fnum, file_cmp_id, &gfierr), "tox_file_get_file_id failed");
     ck_assert_msg(gfierr == TOX_ERR_FILE_GET_OK, "wrong error");
 
-    const size_t max_iterations = INT16_MAX;
+    const size_t max_iterations = INT16_MAX * 2;
 
     for (size_t i = 0; i < max_iterations; i++) {
         tox_iterate(tox1, nullptr);
