@@ -30,7 +30,7 @@
 
 #include "../toxcore/tox.h"
 
-#define USE_SOCKS5_PROXY 0
+#define USE_SOCKS5_PROXY 1
 
 #define VIRTUAL_FILE_SIZE_BYTES (50ULL * 1024ULL * 1024ULL * 1024ULL)
 

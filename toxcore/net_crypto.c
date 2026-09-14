@@ -2960,10 +2960,9 @@ static void send_crypto_packets(Net_Crypto *c)
                     conn->packets_left -= ret;
                 } else {
                     conn->last_congestion_event = temp_time;
-                    // Halve the allowance instead of dropping to zero.
                     // This prevents a complete stall while still reacting to congestion.
                     if (conn->packets_left > 10) {
-                        conn->packets_left /= 2;
+                        conn->packets_left = (conn->packets_left / 3);
                     } else {
                         conn->packets_left = 0;
                     }
