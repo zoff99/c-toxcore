@@ -182,6 +182,7 @@ typedef struct {
 
     uint64_t last_sample_bytes;
     double current_kib_s;
+    double average_kib_s;
 
     double samples[SPEED_HISTORY_WIDTH];
     size_t sample_count;
@@ -597,6 +598,11 @@ static void update_speed_sample(FileStats *fs)
     fs->last_sample_bytes = cur;
 
     speed_push_sample(fs, kib_s);
+
+    const double elapsed = now - fs->transfer_start_time;
+    if (elapsed > 0.0) {
+        fs->average_kib_s = ((double)cur / 1024.0) / elapsed;
+    }
 }
 
 static void render_speed_chart(const FileStats *fs)
@@ -627,6 +633,7 @@ static void render_speed_chart(const FileStats *fs)
     printf("Virtual file: %.2f GiB\n", gib_total);
     printf("Received:     %.2f MiB / %.2f GiB  (%.4f%%)\n", mib_done, gib_done, pct);
     printf("Current:      %.2f KiB/s\n", fs->current_kib_s);
+    printf("Average:      %.2f KiB/s\n", fs->average_kib_s);
     printf("Scale top:    %.2f KiB/s\n", max_kib_s);
     printf("Elapsed:      %.1f s\n", elapsed);
     printf("Finished:     %s\n", fs->transfer_finished ? "yes" : "no");
