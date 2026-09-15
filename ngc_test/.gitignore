@@ -1,0 +1,7 @@
+*
+!.gitignore
+
+#########
+
+!tox_friend_file_sawtooth_test.c
+!tox_ngc_public_join_test.c
