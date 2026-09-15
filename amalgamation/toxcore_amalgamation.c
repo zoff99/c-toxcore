@@ -6914,6 +6914,12 @@ void tox_get_options(Tox *tox, struct Tox_Options *options);
  * @brief Calculates the number of bytes required to store the tox instance with
  *   tox_get_savedata.
  *
+ * This function is used to determine the baseline buffer size needed before saving.
+ *
+ * @note Thread Safety / TOCTOU: In multithreaded environments, the internal state of the
+ * Tox instance (and thus the required save size) may change between calling this function
+ * and actually writing the data. See `tox_get_savedata_len` for how to handle this safely.
+ *
  * This function cannot fail. The result is always greater than 0.
  *
  * @see threading for concurrency implications.
@@ -6923,6 +6929,15 @@ size_t tox_get_savedata_size(const Tox *tox);
 /**
  * @brief Store all information associated with the tox instance to a byte array.
  *
+ * To use this function, you must first allocate a buffer using the size returned by
+ * `tox_get_savedata_size`.
+ *
+ * @warning Thread Safety: This two-step process is vulnerable to TOCTOU race conditions.
+ * If the state of the Tox instance changes and grows between calculating the size and
+ * calling this function, it may write past the end of the allocated buffer, causing a
+ * buffer overflow. Use `tox_get_savedata_len` instead for safe bounds checking.
+ *
+ * @param tox The Tox instance.
  * @param savedata A memory region large enough to store the tox instance
  *   data. Call tox_get_savedata_size to find the number of bytes required. If this parameter
  *   is NULL, this function has no effect.
@@ -6932,8 +6947,19 @@ void tox_get_savedata(const Tox *tox, uint8_t *savedata);
 /**
  * @brief Store all information associated with the tox instance to a byte array, safely checking the buffer size.
  *
- * This function is thread-safe and prevents Time-of-Check to Time-of-Use (TOCTOU) race conditions
- * by holding the Tox instance lock during both the size calculation and the data writing.
+ * This function is thread-safe and prevents Time-of-Check to Time-of-Use (TOCTOU) race conditions and potential
+ * buffer overflows by acquiring the Tox instance lock and holding it during both the required
+ * size calculation and the data writing. It verifies that the provided buffer is large enough
+ * before writing any data.
+ *
+ * Usage:
+ * You still must call `tox_get_savedata_size()` first to determine the baseline buffer size to allocate.
+ * Because the internal state might change between calling `_size()` and `_len()` in multithreaded
+ * applications, the actual required size could exceed your initial allocation. To use this safely, you must either:
+ * - Use it in a single-threaded application (or context) where the state cannot change between calls.
+ * - Add a size margin to your allocation based on the result of `tox_get_savedata_size()`.
+ * - Check the return code of this function. If it returns `(size_t)-1`, the buffer was too small.
+ *   You must then retry the entire process (call `_size()` again, allocate a larger buffer, and call `_len()` again).
  *
  * @param tox The Tox instance.
  * @param savedata A memory region to store the tox instance data. If this parameter is NULL,
@@ -77451,25 +77477,36 @@ void toxav_iterate(ToxAV *av)
 
             bool audio_iterate_seperation_active = av->toxav_audio_iterate_seperation_active;
 
+            uint32_t fid = i->friend_number;
+            MSISession *session = i->msi_call ? i->msi_call->session : nullptr;
+
+            bool is_offline = false;
+            if (session) {
+                TOX_CONNECTION f_conn_status = tox_friend_get_connection_status(av->tox, fid, nullptr);
+                if (f_conn_status == TOX_CONNECTION_NONE) {
+                    is_offline = true;
+                }
+            }
+
+            if (is_offline) {
+                LOGGER_API_DEBUG(av->tox, "iterate:004:%d:fnum=%d:is_offline=%d", dummy_counter, fid, is_offline);
+                pthread_mutex_unlock(av->mutex);
+                bool actually_killed = check_peer_offline_status(av->tox, session, fid);
+                pthread_mutex_lock(av->mutex);
+                if (actually_killed) {
+                    break;
+                }
+            }
+
             pthread_mutex_lock(i->toxav_call_mutex);
             pthread_mutex_unlock(av->mutex);
 
-            uint32_t fid = i->friend_number;
             LOGGER_API_DEBUG(av->tox, "iterate:002:%d:fnum=%d i=%p", dummy_counter, fid, (void *)i);
 
             if ((!i->msi_call) || (i->active == 0))
             {
                 // call has ended
                 LOGGER_API_DEBUG(av->tox, "iterate:003:%d:fnum=%d:call has ended", dummy_counter, fid);
-                pthread_mutex_unlock(i->toxav_call_mutex);
-                pthread_mutex_lock(av->mutex);
-                break;
-            }
-
-            bool is_offline = check_peer_offline_status(av->tox, i->msi_call->session, fid);
-
-            if (is_offline) {
-                LOGGER_API_DEBUG(av->tox, "iterate:004:%d:fnum=%d:is_offline=%d", dummy_counter, fid, is_offline);
                 pthread_mutex_unlock(i->toxav_call_mutex);
                 pthread_mutex_lock(av->mutex);
                 break;
@@ -79821,13 +79858,22 @@ static void call_kill_transmission(ToxAVCall *call)
 
     pthread_mutex_lock(call->mutex_audio);
     pthread_mutex_unlock(call->mutex_audio);
-    pthread_mutex_lock(call->mutex_video);
-    pthread_mutex_unlock(call->mutex_video);
 
+    /*
+     * Destroy bwc while holding the video mutex and the call mutex in the
+     * same order as toxav_video_send_frame_age():
+     *
+     *     call->mutex_video -> call->toxav_call_mutex
+     *
+     * This synchronizes with in-flight video senders and with toxav_iterate()
+     * without creating a lock-order inversion.
+     */
+    pthread_mutex_lock(call->mutex_video);
     pthread_mutex_lock(call->toxav_call_mutex);
     bwc_kill(call->bwc);
     call->bwc = nullptr;
     pthread_mutex_unlock(call->toxav_call_mutex);
+    pthread_mutex_unlock(call->mutex_video);
 
     ToxAV *av = call->av;
 
