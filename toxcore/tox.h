@@ -970,6 +970,12 @@ void tox_get_options(Tox *tox, struct Tox_Options *options);
  * @brief Calculates the number of bytes required to store the tox instance with
  *   tox_get_savedata.
  *
+ * This function is used to determine the baseline buffer size needed before saving.
+ *
+ * @note Thread Safety / TOCTOU: In multithreaded environments, the internal state of the
+ * Tox instance (and thus the required save size) may change between calling this function
+ * and actually writing the data. See `tox_get_savedata_len` for how to handle this safely.
+ *
  * This function cannot fail. The result is always greater than 0.
  *
  * @see threading for concurrency implications.
@@ -979,6 +985,15 @@ size_t tox_get_savedata_size(const Tox *tox);
 /**
  * @brief Store all information associated with the tox instance to a byte array.
  *
+ * To use this function, you must first allocate a buffer using the size returned by
+ * `tox_get_savedata_size`.
+ *
+ * @warning Thread Safety: This two-step process is vulnerable to TOCTOU race conditions.
+ * If the state of the Tox instance changes and grows between calculating the size and
+ * calling this function, it may write past the end of the allocated buffer, causing a
+ * buffer overflow. Use `tox_get_savedata_len` instead for safe bounds checking.
+ *
+ * @param tox The Tox instance.
  * @param savedata A memory region large enough to store the tox instance
  *   data. Call tox_get_savedata_size to find the number of bytes required. If this parameter
  *   is NULL, this function has no effect.
@@ -988,8 +1003,19 @@ void tox_get_savedata(const Tox *tox, uint8_t *savedata);
 /**
  * @brief Store all information associated with the tox instance to a byte array, safely checking the buffer size.
  *
- * This function is thread-safe and prevents Time-of-Check to Time-of-Use (TOCTOU) race conditions
- * by holding the Tox instance lock during both the size calculation and the data writing.
+ * This function is thread-safe and prevents Time-of-Check to Time-of-Use (TOCTOU) race conditions and potential
+ * buffer overflows by acquiring the Tox instance lock and holding it during both the required
+ * size calculation and the data writing. It verifies that the provided buffer is large enough
+ * before writing any data.
+ *
+ * Usage:
+ * You still must call `tox_get_savedata_size()` first to determine the baseline buffer size to allocate.
+ * Because the internal state might change between calling `_size()` and `_len()` in multithreaded
+ * applications, the actual required size could exceed your initial allocation. To use this safely, you must either:
+ * - Use it in a single-threaded application (or context) where the state cannot change between calls.
+ * - Add a size margin to your allocation based on the result of `tox_get_savedata_size()`.
+ * - Check the return code of this function. If it returns `(size_t)-1`, the buffer was too small.
+ *   You must then retry the entire process (call `_size()` again, allocate a larger buffer, and call `_len()` again).
  *
  * @param tox The Tox instance.
  * @param savedata A memory region to store the tox instance data. If this parameter is NULL,
