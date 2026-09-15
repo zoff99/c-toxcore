@@ -353,25 +353,36 @@ void toxav_iterate(ToxAV *av)
 
             bool audio_iterate_seperation_active = av->toxav_audio_iterate_seperation_active;
 
+            uint32_t fid = i->friend_number;
+            MSISession *session = i->msi_call ? i->msi_call->session : nullptr;
+
+            bool is_offline = false;
+            if (session) {
+                TOX_CONNECTION f_conn_status = tox_friend_get_connection_status(av->tox, fid, nullptr);
+                if (f_conn_status == TOX_CONNECTION_NONE) {
+                    is_offline = true;
+                }
+            }
+
+            if (is_offline) {
+                LOGGER_API_DEBUG(av->tox, "iterate:004:%d:fnum=%d:is_offline=%d", dummy_counter, fid, is_offline);
+                pthread_mutex_unlock(av->mutex);
+                bool actually_killed = check_peer_offline_status(av->tox, session, fid);
+                pthread_mutex_lock(av->mutex);
+                if (actually_killed) {
+                    break;
+                }
+            }
+
             pthread_mutex_lock(i->toxav_call_mutex);
             pthread_mutex_unlock(av->mutex);
 
-            uint32_t fid = i->friend_number;
             LOGGER_API_DEBUG(av->tox, "iterate:002:%d:fnum=%d i=%p", dummy_counter, fid, (void *)i);
 
             if ((!i->msi_call) || (i->active == 0))
             {
                 // call has ended
                 LOGGER_API_DEBUG(av->tox, "iterate:003:%d:fnum=%d:call has ended", dummy_counter, fid);
-                pthread_mutex_unlock(i->toxav_call_mutex);
-                pthread_mutex_lock(av->mutex);
-                break;
-            }
-
-            bool is_offline = check_peer_offline_status(av->tox, i->msi_call->session, fid);
-
-            if (is_offline) {
-                LOGGER_API_DEBUG(av->tox, "iterate:004:%d:fnum=%d:is_offline=%d", dummy_counter, fid, is_offline);
                 pthread_mutex_unlock(i->toxav_call_mutex);
                 pthread_mutex_lock(av->mutex);
                 break;
