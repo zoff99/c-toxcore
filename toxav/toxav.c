@@ -2734,13 +2734,22 @@ static void call_kill_transmission(ToxAVCall *call)
 
     pthread_mutex_lock(call->mutex_audio);
     pthread_mutex_unlock(call->mutex_audio);
-    pthread_mutex_lock(call->mutex_video);
-    pthread_mutex_unlock(call->mutex_video);
 
+    /*
+     * Destroy bwc while holding the video mutex and the call mutex in the
+     * same order as toxav_video_send_frame_age():
+     *
+     *     call->mutex_video -> call->toxav_call_mutex
+     *
+     * This synchronizes with in-flight video senders and with toxav_iterate()
+     * without creating a lock-order inversion.
+     */
+    pthread_mutex_lock(call->mutex_video);
     pthread_mutex_lock(call->toxav_call_mutex);
     bwc_kill(call->bwc);
     call->bwc = nullptr;
     pthread_mutex_unlock(call->toxav_call_mutex);
+    pthread_mutex_unlock(call->mutex_video);
 
     ToxAV *av = call->av;
 
