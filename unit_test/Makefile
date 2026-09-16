@@ -6,6 +6,7 @@ AMALGAMATION_C := ../amalgamation/toxcore_amalgamation.c
 BUILD_DIR      := _build
 BUILD_DIR_ASAN := _build_asan
 BUILD_DIR_SAN  := _build_san
+BUILD_DIR_TSAN := _build_tsan
 
 # ── Compiler flags ───────────────────────────────────────────────
 CFLAGS     := -std=gnu11 -D_GNU_SOURCE -DTOX_HAVE_TOXUTIL -Wall -Wextra -g -O0 \
@@ -19,12 +20,14 @@ LDLIBS     := $(shell pkg-config --libs libsodium opus vpx libavutil libavcodec 
 ASAN_FLAGS := -fsanitize=address -fno-omit-frame-pointer -O1 -g
 SAN_FLAGS  := -fsanitize=address,undefined -fno-omit-frame-pointer -O1 -g \
               -fno-sanitize-recover=all
+TSAN_FLAGS := -fsanitize=thread -fno-omit-frame-pointer -O1 -g
 
 # ── Test binaries (normal — link against toxcore.o) ──────────────
 TEST_SRCS  := $(wildcard test_*.c)
 ALL_BINS   := $(TEST_SRCS:.c=)
 ASAN_BINS  := $(addsuffix _asan,$(ALL_BINS))
 SAN_BINS   := $(addsuffix _san,$(ALL_BINS))
+TSAN_BINS  := $(addsuffix _tsan,$(ALL_BINS))
 
 # ── Static-exposed test binaries (compile amalgamation inline) ───
 # Naming convention: static_test_*.c  (distinct from test_*.c so the
@@ -38,14 +41,15 @@ STATIC_TEST_SRCS := $(wildcard static_test_*.c)
 STATIC_BINS      := $(STATIC_TEST_SRCS:.c=)
 STATIC_ASAN_BINS := $(addsuffix _asan,$(STATIC_BINS))
 STATIC_SAN_BINS  := $(addsuffix _san,$(STATIC_BINS))
+STATIC_TSAN_BINS := $(addsuffix _tsan,$(STATIC_BINS))
 
 # ── All bins for cleanup ─────────────────────────────────────────
-ALL_ALL_BINS := $(ALL_BINS) $(ASAN_BINS) $(SAN_BINS) \
-                $(STATIC_BINS) $(STATIC_ASAN_BINS) $(STATIC_SAN_BINS)
+ALL_ALL_BINS := $(ALL_BINS) $(ASAN_BINS) $(SAN_BINS) $(TSAN_BINS) \
+                $(STATIC_BINS) $(STATIC_ASAN_BINS) $(STATIC_SAN_BINS) $(STATIC_TSAN_BINS)
 
-.PHONY: all test test_asan test_san test_all asan san \
-        test_static test_static_asan test_static_san \
-        clean clean_asan objs objs_asan objs_san
+.PHONY: all test test_asan test_san test_tsan test_all asan san tsan \
+        test_static test_static_asan test_static_san test_static_tsan \
+        clean clean_asan clean_tsan objs objs_asan objs_san objs_tsan
 
 all: $(ALL_BINS)
 
@@ -219,6 +223,62 @@ test_san: $(SAN_BINS)
 san: test_san
 
 # =====================================================================
+# TSAN BUILD (ThreadSanitizer — links against toxcore.o)
+# =====================================================================
+objs_tsan: $(BUILD_DIR_TSAN)/toxcore.o
+
+$(BUILD_DIR_TSAN)/toxcore.o: $(AMALGAMATION_C) | $(BUILD_DIR_TSAN)
+	@echo "=== Compiling Toxcore Amalgamation with TSan ==="
+	$(CC) -c $(CFLAGS) $(TSAN_FLAGS) -fPIC -Wno-discarded-qualifiers $(AMALGAMATION_C) -o $@
+
+test_%_tsan: test_%.c test_framework.h objs_tsan
+	@echo "=== Building $@ (TSan) ==="
+	$(CC) $(CFLAGS) $(TSAN_FLAGS) $< $(BUILD_DIR_TSAN)/toxcore.o -o $@ $(LDLIBS)
+
+test_tsan: $(TSAN_BINS)
+	@echo ""
+	@echo "============================================================"
+	@echo "  RUNNING ALL TEST SUITES UNDER ThreadSanitizer"
+	@echo "============================================================"
+	@GT=0; GP=0; GF=0; SUITES_RUN=0; SUITES_FAILED=0; \
+	for BIN in $(TSAN_BINS); do \
+		echo ""; echo "---- $$BIN ----"; \
+		OUT=$$(mktemp); \
+		TSAN_OPTIONS="halt_on_error=1:second_deadlock_stack=1" \
+			./$$BIN > "$$OUT" 2>&1; \
+		RC=$$?; \
+		cat "$$OUT"; \
+		SUITES_RUN=$$((SUITES_RUN+1)); \
+		if [ $$RC -ne 0 ]; then \
+			SUITES_FAILED=$$((SUITES_FAILED+1)); \
+			echo "    >>> TSAN SUITE '$$BIN' FAILED (exit $$RC) <<<"; \
+		fi; \
+		T=$$(sed 's/\x1b\[[0-9;]*m//g' "$$OUT" | awk '/^  Total:/  {print $$2}' | tail -n1); \
+		P=$$(sed 's/\x1b\[[0-9;]*m//g' "$$OUT" | awk '/^  Passed:/ {print $$2}' | tail -n1); \
+		F=$$(sed 's/\x1b\[[0-9;]*m//g' "$$OUT" | awk '/^  Failed:/ {print $$2}' | tail -n1); \
+		GT=$$((GT + $${T:-0})); \
+		GP=$$((GP + $${P:-0})); \
+		GF=$$((GF + $${F:-0})); \
+		rm -f "$$OUT"; \
+	done; \
+	echo ""; \
+	echo "============================================================"; \
+	echo "  GRAND TOTAL (TSan)"; \
+	echo "============================================================"; \
+	echo "    Individual tests:  $$GT total, $$GP passed, $$GF failed"; \
+	echo "    Suites:            $$SUITES_RUN run, $$SUITES_FAILED failed"; \
+	echo "============================================================"; \
+	if [ $$SUITES_FAILED -ne 0 ]; then \
+		echo "  RESULT: FAIL (thread safety errors detected)"; \
+		exit 1; \
+	else \
+		echo "  RESULT: PASS (no thread safety errors)"; \
+		exit 0; \
+	fi
+
+tsan: test_tsan
+
+# =====================================================================
 # STATIC-EXPOSED BUILDS (amalgamation compiled inline via #include)
 # =====================================================================
 # These tests do NOT link against toxcore.o. The test .c file must
@@ -238,6 +298,10 @@ static_test_%_asan: static_test_%.c test_framework.h
 static_test_%_san: static_test_%.c test_framework.h
 	@echo "=== Building $@ (static + ASan+UBSan) ==="
 	$(CC) $(CFLAGS) $(SAN_FLAGS) $< -o $@ $(LDLIBS)
+
+static_test_%_tsan: static_test_%.c test_framework.h
+	@echo "=== Building $@ (static + TSan) ==="
+	$(CC) $(CFLAGS) $(TSAN_FLAGS) $< -o $@ $(LDLIBS)
 
 test_static: $(STATIC_BINS)
 	@echo ""
@@ -374,18 +438,66 @@ test_static_san: $(STATIC_SAN_BINS)
 		exit 0; \
 	fi
 
+test_static_tsan: $(STATIC_TSAN_BINS)
+	@echo ""
+	@echo "============================================================"
+	@echo "  RUNNING STATIC-EXPOSED SUITES UNDER ThreadSanitizer"
+	@echo "============================================================"
+	@if [ -z "$(STATIC_TSAN_BINS)" ]; then \
+		echo "  (no static_test_*.c files found)"; \
+		exit 0; \
+	fi
+	@GT=0; GP=0; GF=0; SUITES_RUN=0; SUITES_FAILED=0; \
+	for BIN in $(STATIC_TSAN_BINS); do \
+		echo ""; echo "---- $$BIN ----"; \
+		OUT=$$(mktemp); \
+		TSAN_OPTIONS="halt_on_error=1:second_deadlock_stack=1" \
+			./$$BIN > "$$OUT" 2>&1; \
+		RC=$$?; \
+		cat "$$OUT"; \
+		SUITES_RUN=$$((SUITES_RUN+1)); \
+		if [ $$RC -ne 0 ]; then \
+			SUITES_FAILED=$$((SUITES_FAILED+1)); \
+			echo "    >>> TSAN STATIC SUITE '$$BIN' FAILED (exit $$RC) <<<"; \
+		fi; \
+		T=$$(sed 's/\x1b\[[0-9;]*m//g' "$$OUT" | awk '/^  Total:/  {print $$2}' | tail -n1); \
+		P=$$(sed 's/\x1b\[[0-9;]*m//g' "$$OUT" | awk '/^  Passed:/ {print $$2}' | tail -n1); \
+		F=$$(sed 's/\x1b\[[0-9;]*m//g' "$$OUT" | awk '/^  Failed:/ {print $$2}' | tail -n1); \
+		GT=$$((GT + $${T:-0})); \
+		GP=$$((GP + $${P:-0})); \
+		GF=$$((GF + $${F:-0})); \
+		rm -f "$$OUT"; \
+	done; \
+	echo ""; \
+	echo "============================================================"; \
+	echo "  GRAND TOTAL (Static + TSan)"; \
+	echo "============================================================"; \
+	echo "    Individual tests:  $$GT total, $$GP passed, $$GF failed"; \
+	echo "    Suites:            $$SUITES_RUN run, $$SUITES_FAILED failed"; \
+	echo "============================================================"; \
+	if [ $$SUITES_FAILED -ne 0 ]; then \
+		echo "  RESULT: FAIL (thread safety errors detected)"; \
+		exit 1; \
+	else \
+		echo "  RESULT: PASS (no thread safety errors)"; \
+		exit 0; \
+	fi
+
 # =====================================================================
 # COMBINED / CLEANUP
 # =====================================================================
 
 # Run normal + strictest sanitizer (normal tests) + static-exposed sanitizer
-test_all: test test_san test_static_san
+test_all: test test_san test_static_san test_tsan test_static_tsan
 
 clean_asan:
 	rm -rf $(BUILD_DIR_ASAN) $(ASAN_BINS) $(STATIC_ASAN_BINS)
 
+clean_tsan:
+	rm -rf $(BUILD_DIR_TSAN) $(TSAN_BINS) $(STATIC_TSAN_BINS)
+
 clean:
-	rm -rf $(BUILD_DIR) $(BUILD_DIR_ASAN) $(BUILD_DIR_SAN)
+	rm -rf $(BUILD_DIR) $(BUILD_DIR_ASAN) $(BUILD_DIR_SAN) $(BUILD_DIR_TSAN)
 	rm -f $(ALL_ALL_BINS)
 	rm -f *.o
 
@@ -397,3 +509,6 @@ $(BUILD_DIR_ASAN):
 
 $(BUILD_DIR_SAN):
 	mkdir -p $(BUILD_DIR_SAN)
+
+$(BUILD_DIR_TSAN):
+	mkdir -p $(BUILD_DIR_TSAN)
