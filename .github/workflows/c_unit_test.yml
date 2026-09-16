@@ -49,12 +49,49 @@ jobs:
         cd unit_test/
         make test
 
+    - name: run asan unit tests
+      run: |
+        pwd
+        cd unit_test/
+        make test_asan
+
     - name: run asan and ubsan unit tests
       run: |
         pwd
         cd unit_test/
         make clean
         make test_san
+
+    - name: run tsan unit tests
+      run: |
+        pwd
+        cd unit_test/
+        make clean
+        make test_tsan
+
+    - name: run static unit tests
+      run: |
+        pwd
+        cd unit_test/
+        make test_static
+
+    - name: run static asan unit tests
+      run: |
+        pwd
+        cd unit_test/
+        make test_static_asan
+
+    - name: run static asan and ubsan unit tests
+      run: |
+        pwd
+        cd unit_test/
+        make test_static_san
+
+    - name: run static tsan unit tests
+      run: |
+        pwd
+        cd unit_test/
+        make test_static_tsan
 
     - name: run fuzzer saved crashes
       run: |
