@@ -3,6 +3,11 @@ name: custom_tests_tsan
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: dummy
+        default: dummy
   schedule:
     - cron: '3 */8 * * *'
 
