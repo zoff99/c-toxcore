@@ -4,7 +4,7 @@ on:
   push:
   pull_request:
   schedule:
-    - cron: '*/25 * * * *'
+    - cron: '12 * * * *'
 
 jobs:
   linux-custom-tests:
