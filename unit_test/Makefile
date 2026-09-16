@@ -2,7 +2,7 @@ SHELL      := /bin/bash
 CC         ?= gcc
 
 # ── Paths ─────────────────────────────────────────────────────────
-AMALGAMATION_C := ../amalgamation/toxcore_amalgamation_no_toxav.c
+AMALGAMATION_C := ../amalgamation/toxcore_amalgamation.c
 BUILD_DIR      := _build
 BUILD_DIR_ASAN := _build_asan
 BUILD_DIR_SAN  := _build_san
@@ -10,10 +10,10 @@ BUILD_DIR_SAN  := _build_san
 # ── Compiler flags ───────────────────────────────────────────────
 CFLAGS     := -std=gnu11 -D_GNU_SOURCE -DTOX_HAVE_TOXUTIL -Wall -Wextra -g -O0 \
               -I. -I../amalgamation -I../toxcore -I../toxutil -Wno-unused-parameter
-CFLAGS     += $(shell pkg-config --cflags libsodium)
+CFLAGS     += $(shell pkg-config --cflags libsodium opus vpx libavutil libavcodec x264)
 
 # ── Linker flags ─────────────────────────────────────────────────
-LDLIBS     := $(shell pkg-config --libs libsodium) -lpthread
+LDLIBS     := $(shell pkg-config --libs libsodium opus vpx libavutil libavcodec x264) -lpthread
 
 # ── Sanitizer flags ──────────────────────────────────────────────
 ASAN_FLAGS := -fsanitize=address -fno-omit-frame-pointer -O1 -g
@@ -31,7 +31,7 @@ SAN_BINS   := $(addsuffix _san,$(ALL_BINS))
 # normal build pattern doesn't try to link them against toxcore.o).
 # The .c file must use:
 #     #define static
-#     #include "../amalgamation/toxcore_amalgamation_no_toxav.c"
+#     #include "../amalgamation/toxcore_amalgamation.c"
 #     #undef static
 # and NOT link against toxcore.o (it's compiled inline).
 STATIC_TEST_SRCS := $(wildcard static_test_*.c)
@@ -55,7 +55,7 @@ all: $(ALL_BINS)
 objs: $(BUILD_DIR)/toxcore.o
 
 $(BUILD_DIR)/toxcore.o: $(AMALGAMATION_C) | $(BUILD_DIR)
-	@echo "=== Compiling Toxcore Amalgamation (no ToxAV) ==="
+	@echo "=== Compiling Toxcore Amalgamation (with ToxAV) ==="
 	$(CC) -c $(CFLAGS) -O2 -fPIC -Wno-discarded-qualifiers $(AMALGAMATION_C) -o $@
 
 test_%: test_%.c test_framework.h objs
@@ -224,7 +224,7 @@ san: test_san
 # These tests do NOT link against toxcore.o. The test .c file must
 # #include the amalgamation directly with:
 #     #define static
-#     #include "../amalgamation/toxcore_amalgamation_no_toxav.c"
+#     #include "../amalgamation/toxcore_amalgamation.c"
 #     #undef static
 
 static_test_%: static_test_%.c test_framework.h
