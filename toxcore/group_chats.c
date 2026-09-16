@@ -5843,7 +5843,14 @@ static int handle_gc_handshake_response(const GC_Chat *chat, const uint8_t *send
 
     gcc_make_session_shared_key(gconn, sender_session_pk);
 
-    set_sig_pk(gconn->addr.public_key, data + ENC_PUBLIC_KEY_SIZE);
+    const uint8_t *sig_pk = data + ENC_PUBLIC_KEY_SIZE;
+
+    if (!validate_sig_pk(get_enc_key(gconn->addr.public_key), sig_pk)) {
+        LOGGER_ERROR(chat->log, "Signature key did not match encryption key.");
+        return -1;
+    }
+
+    set_sig_pk(gconn->addr.public_key, sig_pk);
 
     gcc_set_recv_message_id(gconn, 2);  // handshake response is always second packet
 
@@ -6001,6 +6008,11 @@ static int handle_gc_handshake_request(GC_Chat *chat, const IP_Port *ipp, const 
     const uint8_t *sender_session_pk = data;
 
     gcc_make_session_shared_key(gconn, sender_session_pk);
+
+    if (!validate_sig_pk(get_enc_key(gconn->addr.public_key), public_sig_key)) {
+        LOGGER_ERROR(chat->log, "Signature key did not match encryption key.");
+        return -1;
+    }
 
     set_sig_pk(gconn->addr.public_key, public_sig_key);
 

@@ -690,6 +690,18 @@ non_null() const uint8_t *get_sig_sk(const uint8_t *key);
 non_null() const uint8_t *get_chat_id(const uint8_t *key);
 
 /**
+ * @brief Verifies that `sig_pk` corresponds to `enc_pk`.
+ *
+ * Note: This function assumes that `enc_pk` was generated via `create_extended_keypair()`.
+ *
+ * @param enc_pk The public encryption key that we want to validate the signature key against.
+ * @param sig_pk The public signature key that we want to validate.
+ *
+ * @retval true on success.
+ */
+bool validate_sig_pk(const uint8_t *enc_pk, const uint8_t *sig_pk);
+
+/**
  * @brief Generate a new random keypair.
  *
  * Every call to this function is likely to generate a different keypair.
@@ -20111,6 +20123,17 @@ void set_sig_pk(uint8_t *key, const uint8_t *sig_pk)
     memcpy(key + ENC_PUBLIC_KEY_SIZE, sig_pk, SIG_PUBLIC_KEY_SIZE);
 }
 
+bool validate_sig_pk(const uint8_t *enc_pk, const uint8_t *sig_pk)
+{
+    uint8_t expected_enc_pk[ENC_PUBLIC_KEY_SIZE];
+
+    if (crypto_sign_ed25519_pk_to_curve25519(expected_enc_pk, sig_pk) != 0) {
+        return false;
+    }
+
+    return memcmp(expected_enc_pk, enc_pk, ENC_PUBLIC_KEY_SIZE) == 0;
+}
+
 const uint8_t *get_sig_sk(const uint8_t *key)
 {
     return key + ENC_SECRET_KEY_SIZE;
@@ -35469,7 +35492,14 @@ static int handle_gc_handshake_response(const GC_Chat *chat, const uint8_t *send
 
     gcc_make_session_shared_key(gconn, sender_session_pk);
 
-    set_sig_pk(gconn->addr.public_key, data + ENC_PUBLIC_KEY_SIZE);
+    const uint8_t *sig_pk = data + ENC_PUBLIC_KEY_SIZE;
+
+    if (!validate_sig_pk(get_enc_key(gconn->addr.public_key), sig_pk)) {
+        LOGGER_ERROR(chat->log, "Signature key did not match encryption key.");
+        return -1;
+    }
+
+    set_sig_pk(gconn->addr.public_key, sig_pk);
 
     gcc_set_recv_message_id(gconn, 2);  // handshake response is always second packet
 
@@ -35627,6 +35657,11 @@ static int handle_gc_handshake_request(GC_Chat *chat, const IP_Port *ipp, const 
     const uint8_t *sender_session_pk = data;
 
     gcc_make_session_shared_key(gconn, sender_session_pk);
+
+    if (!validate_sig_pk(get_enc_key(gconn->addr.public_key), public_sig_key)) {
+        LOGGER_ERROR(chat->log, "Signature key did not match encryption key.");
+        return -1;
+    }
 
     set_sig_pk(gconn->addr.public_key, public_sig_key);
 
