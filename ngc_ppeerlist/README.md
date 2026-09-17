@@ -1,4 +1,4 @@
-# `mid_roster` — Persistent Group Roster Middleware for Tox NGC
+# Persistent Group Roster Middleware for Tox NGC
 
 **Warning: [AI generated]**
 
