@@ -1082,8 +1082,7 @@ It does NOT change when a signed peer updates their nickname or timestamp.
 
 static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
 {
-    printf("[MID] upsert_record: processing record\n");
-    fflush(stdout);
+    printf("[MID] upsert_record: processing record\n"); fflush(stdout);
 
     if (g == NULL || in == NULL) {
         return false;
@@ -1092,20 +1091,17 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
     MidPeerRecord tmp = *in;
 
     if (mid_key_is_zero(tmp.identity_key)) {
-        printf("[MID] upsert_record: rejected, zero identity key\n");
-        fflush(stdout);
+        printf("[MID] upsert_record: rejected, zero identity key\n"); fflush(stdout);
         return false;
     }
 
     if (tmp.status != MID_STATUS_ACTIVE && tmp.status != MID_STATUS_LEFT) {
-        printf("[MID] upsert_record: rejected, invalid status\n");
-        fflush(stdout);
+        printf("[MID] upsert_record: rejected, invalid status\n"); fflush(stdout);
         return false;
     }
 
     if (tmp.nickname_len > MID_MAX_NICK_SIZE) {
-        printf("[MID] upsert_record: rejected, nickname too long\n");
-        fflush(stdout);
+        printf("[MID] upsert_record: rejected, nickname too long\n"); fflush(stdout);
         return false;
     }
 
@@ -1121,8 +1117,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
      * Verify signed records before touching any state.
      */
     if (tmp.has_signature && !mid_verify_record(&tmp)) {
-        printf("[MID] upsert_record: rejected, signature verification failed\n");
-        fflush(stdout);
+        printf("[MID] upsert_record: rejected, signature verification failed\n"); fflush(stdout);
         return false;
     }
 
@@ -1146,8 +1141,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
             if (ex->has_signature &&
                 tmp.has_signature &&
                 !mid_same_signing_key(ex->signing_key, tmp.signing_key)) {
-                printf("[MID] upsert_record: rejected LEFT tombstone, signing key changed\n");
-                fflush(stdout);
+                printf("[MID] upsert_record: rejected LEFT tombstone, signing key changed\n"); fflush(stdout);
                 return false;
             }
 
@@ -1166,8 +1160,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
                  * marked offline, there is nothing to do.
                  */
                 if (same_signature && ex->connection_status == TOX_CONNECTION_NONE) {
-                    printf("[MID] upsert_record: identical LEFT tombstone already stored\n");
-                    fflush(stdout);
+                    printf("[MID] upsert_record: identical LEFT tombstone already stored\n"); fflush(stdout);
                     return false;
                 }
 
@@ -1186,8 +1179,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
                     printf("[MID] upsert_record: New FP[0..3]=%02X%02X%02X%02X\n", g->roster_fingerprint[0], g->roster_fingerprint[1], g->roster_fingerprint[2], g->roster_fingerprint[3]); fflush(stdout);
                 }
 
-                printf("[MID] upsert_record: stored signed LEFT tombstone\n");
-                fflush(stdout);
+                printf("[MID] upsert_record: stored signed LEFT tombstone\n"); fflush(stdout);
 
                 return true; /* CHANGED */
             }
@@ -1200,8 +1192,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
 
         /* Insert new tombstone for unknown peer */
         if (!mid_ensure_capacity(g)) {
-            printf("[MID] upsert_record: failed to ensure capacity for tombstone\n");
-            fflush(stdout);
+            printf("[MID] upsert_record: failed to ensure capacity for tombstone\n"); fflush(stdout);
             return false;
         }
 
@@ -1216,8 +1207,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
 
         g->count++;
 
-        printf("[MID] upsert_record: inserted new signed LEFT tombstone\n");
-        fflush(stdout);
+        printf("[MID] upsert_record: inserted new signed LEFT tombstone\n"); fflush(stdout);
 
         return true; /* CHANGED */
     }
@@ -1230,8 +1220,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
 
     if (idx < 0) {
         if (!mid_ensure_capacity(g)) {
-            printf("[MID] upsert_record: failed to ensure capacity\n");
-            fflush(stdout);
+            printf("[MID] upsert_record: failed to ensure capacity\n"); fflush(stdout);
             return false;
         }
 
@@ -1249,8 +1238,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
 
         g->count++;
 
-        printf("[MID] upsert_record: inserted new peer (count=%zu)\n", g->count);
-        fflush(stdout);
+        printf("[MID] upsert_record: inserted new peer (count=%zu)\n", g->count); fflush(stdout);
 
         return true; /* CHANGED */
     }
@@ -1264,8 +1252,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
     if (existing->has_signature &&
         tmp.has_signature &&
         !mid_same_signing_key(existing->signing_key, tmp.signing_key)) {
-        printf("[MID] upsert_record: rejected, signing key changed for same identity\n");
-        fflush(stdout);
+        printf("[MID] upsert_record: rejected, signing key changed for same identity\n"); fflush(stdout);
         return false;
     }
 
@@ -1293,8 +1280,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
     bool changed = false;
 
     if (replace) {
-        printf("[MID] upsert_record: replacing existing record\n");
-        fflush(stdout);
+        printf("[MID] upsert_record: replacing existing record\n"); fflush(stdout);
 
         bool old_had_signature = existing->has_signature;
         bool new_has_signature = tmp.has_signature;
@@ -1361,8 +1347,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
 
         changed = true;
     } else {
-        printf("[MID] upsert_record: keeping existing record\n");
-        fflush(stdout);
+        printf("[MID] upsert_record: keeping existing record\n"); fflush(stdout);
     }
 
     /**************************************************************************
@@ -1688,8 +1673,7 @@ static void mid_apply_founder_role(MidGroupState *g, const Tox *tox)
     }
 
     if (g->records[idx].role != TOX_GROUP_ROLE_FOUNDER) {
-        printf("[MID] apply_founder_role: stamping FOUNDER role on peer %zu\n", (size_t)idx);
-        fflush(stdout);
+        printf("[MID] apply_founder_role: stamping FOUNDER role on peer %zu\n", (size_t)idx); fflush(stdout);
         g->records[idx].role = TOX_GROUP_ROLE_FOUNDER;
     }
 }
@@ -1845,8 +1829,7 @@ static bool mid_init_self_from_tox(MidGroupState *g, const Tox *tox)
         return false;
     }
 
-    printf("[MID] init_self_from_tox: got identity key\n");
-    fflush(stdout);
+    printf("[MID] init_self_from_tox: got identity key\n"); fflush(stdout);
 
     /*
      * We now have the current Toxcore identity in the local variable
@@ -2175,9 +2158,7 @@ static bool mid_on_custom_packet_group(MidState *s,
                                        size_t length,
                                        uint64_t now)
 {
-    printf("[MID] on_custom_packet: received %zu bytes from peer %u\n",
-           length, peer_id);
-    fflush(stdout);
+    printf("[MID] on_custom_packet: received %zu bytes from peer %u\n", length, peer_id); fflush(stdout);
 
     if (g == NULL || data == NULL || length == 0) {
         return false;
@@ -2193,8 +2174,7 @@ static bool mid_on_custom_packet_group(MidState *s,
     uint8_t pad_len = data[length - 1];
 
     if ((size_t)pad_len + 1 > length) {
-        printf("[MID] on_custom_packet: invalid padding length %u\n", (unsigned)pad_len);
-        fflush(stdout);
+        printf("[MID] on_custom_packet: invalid padding length %u\n", (unsigned)pad_len); fflush(stdout);
         return false;
     }
 
@@ -2239,8 +2219,7 @@ static bool mid_on_custom_packet_group(MidState *s,
      * record does not prove that the sender has the full roster.
      *************************************************************************/
     if (type == MID_MSG_PRESENCE) {
-        printf("[MID] on_custom_packet: processing PRESENCE message\n");
-        fflush(stdout);
+        printf("[MID] on_custom_packet: processing PRESENCE message\n"); fflush(stdout);
 
         if (payload_len < MID_SIG_SIZE) {
             return false;
@@ -2263,13 +2242,11 @@ static bool mid_on_custom_packet_group(MidState *s,
         r.has_signature = true;
 
         if (!mid_verify_record(&r)) {
-            printf("[MID] on_custom_packet: PRESENCE verification failed\n");
-            fflush(stdout);
+            printf("[MID] on_custom_packet: PRESENCE verification failed\n"); fflush(stdout);
             return false;
         }
 
-        printf("[MID] on_custom_packet: PRESENCE verified, upserting\n");
-        fflush(stdout);
+        printf("[MID] on_custom_packet: PRESENCE verified, upserting\n"); fflush(stdout);
 
         /* Never process our own signed presence echoed back to us. */
         if (g->have_keys && mid_same_identity(r.identity_key, g->self_identity_key)) {
@@ -2358,8 +2335,7 @@ static bool mid_on_custom_packet_group(MidState *s,
     *************************************************************************/
 
     if (type == MID_MSG_HEARTBEAT) {
-        printf("[MID] on_custom_packet: processing HEARTBEAT message\n");
-        fflush(stdout);
+        printf("[MID] on_custom_packet: processing HEARTBEAT message\n"); fflush(stdout);
 
         const size_t hb_body_len = MID_HEARTBEAT_BODY_SIZE;
 
@@ -2446,13 +2422,11 @@ static bool mid_on_custom_packet_group(MidState *s,
         if (crypto_sign_verify_detached(hb_eph_cert_sig,
                                         hb_eph_public_signing_key, MID_SIGNING_KEY_SIZE,
                                         long_term_signing_key) != 0) {
-            printf("[MID] on_custom_packet: HEARTBEAT ephemeral key certificate invalid\n");
-            fflush(stdout);
+            printf("[MID] on_custom_packet: HEARTBEAT ephemeral key certificate invalid\n"); fflush(stdout);
             return false;
         }
 
-        printf("[MID] on_custom_packet: HEARTBEAT ephemeral key certificate valid\n");
-        fflush(stdout);
+        printf("[MID] on_custom_packet: HEARTBEAT ephemeral key certificate valid\n"); fflush(stdout);
 
         /*
          * Verify the heartbeat signature against the ephemeral signing key.
@@ -2461,13 +2435,11 @@ static bool mid_on_custom_packet_group(MidState *s,
                                         body,
                                         hb_body_len,
                                         hb_eph_public_signing_key) != 0) {
-            printf("[MID] on_custom_packet: HEARTBEAT signature invalid\n");
-            fflush(stdout);
+            printf("[MID] on_custom_packet: HEARTBEAT signature invalid\n"); fflush(stdout);
             return false;
         }
 
-        printf("[MID] on_custom_packet: HEARTBEAT signature valid\n");
-        fflush(stdout);
+        printf("[MID] on_custom_packet: HEARTBEAT signature valid\n"); fflush(stdout);
 
         /*
          * Heartbeats are intended as ACTIVE keep-alives.
@@ -2585,8 +2557,7 @@ static bool mid_on_custom_packet_group(MidState *s,
      *     record signatures / versions
      *************************************************************************/
     if (type == MID_MSG_ROSTER_BATCH) {
-        printf("[MID] on_custom_packet: processing ROSTER_BATCH message\n");
-        fflush(stdout);
+        printf("[MID] on_custom_packet: processing ROSTER_BATCH message\n"); fflush(stdout);
 
         /* Minimum: MID_IDENTITY_KEY_SIZE fingerprint + 2-byte record count */
         if (payload_len < MID_IDENTITY_KEY_SIZE + sizeof(uint16_t)) {
@@ -2718,16 +2689,13 @@ static bool mid_on_custom_packet_group(MidState *s,
             fflush(stdout);
             if (memcmp(sender_fp, g->roster_fingerprint, MID_IDENTITY_KEY_SIZE) == 0) {
                 if (g->roster_reply_deadline != 0) {
-                    printf("[MID] ROSTER_BATCH: MATCH! Suppressing our pending roster reply because another peer already sent the exact same set.\n");
-                    fflush(stdout);
+                    printf("[MID] ROSTER_BATCH: MATCH! Suppressing our pending roster reply because another peer already sent the exact same set.\n"); fflush(stdout);
                     g->roster_reply_deadline = 0;
                 } else {
-                    printf("[MID] ROSTER_BATCH: MATCH! But we had no pending reply to suppress.\n");
-                    fflush(stdout);
+                    printf("[MID] ROSTER_BATCH: MATCH! But we had no pending reply to suppress.\n"); fflush(stdout);
                 }
             } else {
-                printf("[MID] ROSTER_BATCH: MISMATCH. Sender has a different peer set. Keeping our pending roster reply scheduled.\n");
-                fflush(stdout);
+                printf("[MID] ROSTER_BATCH: MISMATCH. Sender has a different peer set. Keeping our pending roster reply scheduled.\n"); fflush(stdout);
             }
         } else {
             printf("[MID] ROSTER_BATCH: batch incomplete/truncated. "
@@ -2748,8 +2716,7 @@ static bool mid_on_custom_packet_group(MidState *s,
      * suppression logic above.
      *************************************************************************/
     if (type == MID_MSG_ROSTER_REQUEST) {
-        printf("[MID] on_custom_packet: processing ROSTER_REQUEST message\n");
-        fflush(stdout);
+        printf("[MID] on_custom_packet: processing ROSTER_REQUEST message\n"); fflush(stdout);
 
         if (tox == NULL) {
             return false;
@@ -2928,8 +2895,7 @@ static bool mid_on_group_peer_join_internal(MidState *s, Tox *tox, const uint8_t
         if (g->roster_reply_deadline == 0) {
             uint64_t delay = 1 + (uint64_t)(rand() % 5);
             g->roster_reply_deadline = mid_now_or_time(0) + delay;
-            printf("[MID] peer_join: scheduled roster sync in %llu seconds because a new peer joined.\n", (unsigned long long)delay);
-            fflush(stdout);
+            printf("[MID] peer_join: scheduled roster sync in %llu seconds because a new peer joined.\n", (unsigned long long)delay); fflush(stdout);
             changed = true;
         }
     }
@@ -2968,8 +2934,7 @@ static bool mid_on_group_moderation_internal(MidState *s, Tox *tox, const uint8_
         uint32_t self_peer_id = tox_group_self_get_peer_id(tox, group_number, &self_err);
 
         if (self_err == TOX_ERR_GROUP_SELF_QUERY_OK && target_peer_id == self_peer_id) {
-            printf("[MID] on_group_moderation: we were kicked; deleting group state\n");
-            fflush(stdout);
+            printf("[MID] on_group_moderation: we were kicked; deleting group state\n"); fflush(stdout);
             mid_on_group_delete_internal(s, chat_id);
             *out_changed = true;
             return true;
@@ -2980,8 +2945,7 @@ static bool mid_on_group_moderation_internal(MidState *s, Tox *tox, const uint8_
 
         if (tox_group_peer_get_public_key(tox, group_number, target_peer_id, kicked_identity, &peer_err) &&
             peer_err == TOX_ERR_GROUP_PEER_QUERY_OK) {
-            printf("[MID] on_group_moderation: deleting kicked peer from roster\n");
-            fflush(stdout);
+            printf("[MID] on_group_moderation: deleting kicked peer from roster\n"); fflush(stdout);
             /*
              * THREAD-SAFETY FIX:
              * We are already holding s->mutex (acquired by the public caller).
@@ -2993,8 +2957,7 @@ static bool mid_on_group_moderation_internal(MidState *s, Tox *tox, const uint8_
                 *out_changed = true;
             }
         } else {
-            printf("[MID] on_group_moderation: kicked peer %u identity no longer queryable\n", target_peer_id);
-            fflush(stdout);
+            printf("[MID] on_group_moderation: kicked peer %u identity no longer queryable\n", target_peer_id); fflush(stdout);
         }
     } else if (mod_type == TOX_GROUP_MOD_EVENT_OBSERVER ||
                mod_type == TOX_GROUP_MOD_EVENT_USER ||
@@ -3149,8 +3112,7 @@ static bool mid_delete_peer_by_identity_internal(MidState *s, const uint8_t chat
     int idx = mid_find_identity(g, identity_key);
     if (idx < 0) return false;
 
-    printf("[MID] delete_peer_by_identity: deleting peer from roster\n");
-    fflush(stdout);
+    printf("[MID] delete_peer_by_identity: deleting peer from roster\n"); fflush(stdout);
 
     if (g->records[idx].has_signature) {
         printf("[MID] delete_peer: XOR OUT deleted peer. Old FP[0..3]=%02X%02X%02X%02X\n", g->roster_fingerprint[0], g->roster_fingerprint[1], g->roster_fingerprint[2], g->roster_fingerprint[3]); fflush(stdout);
