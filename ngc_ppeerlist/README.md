@@ -1,5 +1,7 @@
 # `mid_roster` — Persistent Group Roster Middleware for Tox NGC
 
+**Warning: [AI generated]**
+
 **Complete Implementation Specification — Version 3.0**
 
 This document is a complete, from-scratch specification of the `mid_roster` middleware as implemented in `mid_roster.c` / `mid_roster.h`. A C programmer should be able to delete the existing implementation and rewrite it using only this document.
