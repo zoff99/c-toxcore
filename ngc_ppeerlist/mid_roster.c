@@ -280,6 +280,21 @@ by the long-term signing key.
 */
 #define MID_EPH_KEY_LIFETIME_SEC (24 * 60 * 60)
 
+/*
+ * Timestamps in signed records are rounded down to this interval (in seconds).
+ *
+ * This reduces the precision of the sender's clock exposed on the wire,
+ * making exact clock-skew fingerprinting and precise timing correlation
+ * harder, while still providing a strictly monotonic logical clock for
+ * record ordering (20 seconds is well below the heartbeat interval).
+ */
+#define MID_TIMESTAMP_ROUNDING_SEC 20
+
+static uint64_t mid_round_timestamp(uint64_t ts)
+{
+    return (ts / MID_TIMESTAMP_ROUNDING_SEC) * MID_TIMESTAMP_ROUNDING_SEC;
+}
+
 typedef enum {
     MID_STATUS_ACTIVE = 0,
     MID_STATUS_LEFT   = 1
@@ -1513,7 +1528,7 @@ static bool mid_send_heartbeat_record(MidState *s, MidGroupState *g, const Tox *
     uint8_t body[MID_HEARTBEAT_BODY_SIZE];
     size_t o = 0;
     body[o++] = MID_STATUS_ACTIVE;
-    mid_put_u64_be(body + o, mid_now_or_time(0));
+    mid_put_u64_be(body + o, mid_round_timestamp(mid_now_or_time(0)));
     o += 8;
     memcpy(body + o, g->self_identity_key, MID_IDENTITY_KEY_SIZE);
     o += MID_IDENTITY_KEY_SIZE;
@@ -1954,7 +1969,7 @@ static bool mid_announce_self_group(MidState *s, MidGroupState *g, const Tox *to
     memcpy(r.identity_key, g->self_identity_key, MID_IDENTITY_KEY_SIZE);
     memcpy(r.signing_key, g->self_signing_key, MID_SIGNING_KEY_SIZE);
     r.status = MID_STATUS_ACTIVE;
-    r.timestamp = mid_now_or_time(0);
+    r.timestamp = mid_round_timestamp(mid_now_or_time(0));
 
     Tox_Err_Group_Peer_Query conn_err;
     Tox_Connection conn = tox_group_peer_get_connection_status(tox, group_number, 0, &conn_err);
@@ -2013,7 +2028,7 @@ static bool mid_on_peer_online_keys(MidGroupState *g,
         return false;
     }
 
-    now = mid_now_or_time(now);
+    now = mid_round_timestamp(mid_now_or_time(now));
 
     bool have_signing = (signing_key != NULL &&
                          !mid_key_is_zero(signing_key) &&
@@ -3066,7 +3081,7 @@ static bool mid_announce_leave_internal(MidState *s, Tox *tox, const uint8_t cha
     memcpy(r.identity_key, g->self_identity_key, MID_IDENTITY_KEY_SIZE);
     memcpy(r.signing_key, g->self_signing_key, MID_SIGNING_KEY_SIZE);
     r.status = MID_STATUS_LEFT;
-    r.timestamp = mid_now_or_time(0);
+    r.timestamp = mid_round_timestamp(mid_now_or_time(0));
     r.connection_status = TOX_CONNECTION_NONE;
 
     if (g->self_nickname_len > 0) {
@@ -3759,7 +3774,7 @@ void mid_iterate(MidState *s, Tox *tox)
                     g->last_announce = now;
                     int idx = mid_find_identity(g, g->self_identity_key);
                     if (idx >= 0) {
-                        g->records[idx].timestamp = now;
+                        g->records[idx].timestamp = mid_round_timestamp(now);
                     }
 
                     /*
