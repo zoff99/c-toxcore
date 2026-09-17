@@ -190,7 +190,6 @@ static const uint8_t MID_MAGIC[MID_MAGIC_BYTES_TOTAL] = {
 
 #define MID_SIG_SIZE            64
 #define MID_MAX_PACKET_SIZE     1200
-#define MID_ROSTER_COOLDOWN_SEC 30
 
 /*
  * Heartbeat interval in seconds.
@@ -268,6 +267,20 @@ xx second is fast enough for responsive UI, but slow enough to avoid
 hammering Toxcore on every 50ms tox_iterate() tick.
 */
 #define MID_SYNC_INTERVAL_SEC   5
+
+/* COOLDOWN: Minimum gap between consecutive ROSTER_BATCH transmissions */
+/*
+ * Minimum gap (in seconds) between consecutive ROSTER_BATCH transmissions
+ * for a given group. This prevents flooding when many peers request the
+ * roster simultaneously or when repeated ROSTER_REQUESTs arrive in
+ * quick succession.
+ *
+ * The multicast-suppression timer (1-5 s randomised delay) deduplicates
+ * bursts, but does NOT cap the sustained response rate. This cooldown
+ * is the hard cap: at most one ROSTER_BATCH per group per
+ * MID_ROSTER_COOLDOWN_SEC seconds, regardless of how many triggers fire.
+ */
+#define MID_ROSTER_COOLDOWN_SEC 20
 
 /*
 Time-To-Live for LEFT tombstones.
@@ -349,6 +362,7 @@ typedef struct {
     size_t         capacity;
     uint64_t last_announce;
     uint64_t next_heartbeat; /* unix timestamp at which the next jittered heartbeat fires */
+    /* COOLDOWN: unix timestamp of the last ROSTER_BATCH we sent */
     uint64_t last_roster_response;
     uint64_t roster_reply_deadline; /* FIX 2: Multicast suppression timer */
     uint8_t  roster_fingerprint[MID_IDENTITY_KEY_SIZE]; /* Incremental XOR sum of all signed identity keys */
@@ -2580,29 +2594,31 @@ static bool mid_on_custom_packet_group(MidState *s,
     }
 
     /**************************************************************************
-     * BATCHED ROSTER RESPONSE
-     *
-     * Payload layout:
-     *   fingerprint  32 bytes
-     *   count         2 bytes
-     *   records...
-     *
-     * Each record:
-     *   signature    64 bytes
-     *   body_len      2 bytes
-     *   body          body_len bytes
-     *
-     * Suppression rule:
-     *
-     * We cancel our own pending roster response ONLY if the batch is complete
-     * and the sender's roster fingerprint exactly matches ours.
-     *
-     * This prevents:
-     *   - a partial peer list from suppressing a fuller list
-     *   - a different set of the same size from suppressing another set
-     *   - stale state from suppressing newer state if the fingerprint includes
-     *     record signatures / versions
-     *************************************************************************/
+    * BATCHED ROSTER RESPONSE
+    *
+    * Payload layout:
+    *   fingerprint  32 bytes
+    *   count         2 bytes
+    *   records...
+    *
+    * Each record:
+    *   signature    64 bytes
+    *   signed_body  73 bytes (fixed)
+    *   nick_len      2 bytes
+    *   nickname      N bytes
+    *
+    * Suppression rule:
+    *
+    * We cancel our own pending roster response ONLY if the batch is complete
+    * and the sender's roster fingerprint exactly matches ours.
+    *
+    * This prevents:
+    *   - a partial peer list from suppressing a fuller list
+    *   - a different set of the same size from suppressing another set
+    *   - stale state from suppressing newer state if the fingerprint includes
+    *     record signatures / versions
+    *************************************************************************/
+
     if (type == MID_MSG_ROSTER_BATCH) {
         printf("[MID] on_custom_packet: processing ROSTER_BATCH message\n"); fflush(stdout);
 
@@ -2946,10 +2962,23 @@ static bool mid_on_group_peer_join_internal(MidState *s, Tox *tox, const uint8_t
          * peer actually sends it, preventing a broadcast storm while guaranteeing delivery.
          */
         if (g->roster_reply_deadline == 0) {
-            uint64_t delay = 1 + (uint64_t)(rand() % 5);
-            g->roster_reply_deadline = mid_now_or_time(0) + delay;
-            printf("[MID] peer_join: scheduled roster sync in %llu seconds because a new peer joined.\n", (unsigned long long)delay); fflush(stdout);
-            changed = true;
+
+            /* COOLDOWN: Respect the minimum gap between roster responses */
+            uint64_t now_ts = mid_now_or_time(0);
+
+            if (g->last_roster_response == 0 ||
+                (now_ts - g->last_roster_response) >= MID_ROSTER_COOLDOWN_SEC) {
+
+                uint64_t delay = 1 + (uint64_t)(rand() % 5);
+                g->roster_reply_deadline = now_ts + delay;
+
+                printf("[MID] peer_join: scheduled roster sync in %llu seconds because a new peer joined.\n", (unsigned long long)delay); fflush(stdout);
+                changed = true;
+
+            } else {
+                printf("[MID] peer_join: roster sync suppressed by cooldown (%llu s remaining)\n",
+                       (unsigned long long)(MID_ROSTER_COOLDOWN_SEC - (now_ts - g->last_roster_response))); fflush(stdout);
+            }
         }
     }
 
@@ -3888,12 +3917,22 @@ void mid_iterate(MidState *s, Tox *tox)
 
         // 4. FIX 2: Multicast Roster Reply Timer execution
         if (g->roster_reply_deadline != 0 && now >= g->roster_reply_deadline) {
-            printf("[MID] iterate: Roster reply timer fired! No one else suppressed us. Sending our roster. Our FP[0..3]=%02X%02X%02X%02X\n",
-                   g->roster_fingerprint[0], g->roster_fingerprint[1], g->roster_fingerprint[2], g->roster_fingerprint[3]);
-            fflush(stdout);
             g->roster_reply_deadline = 0;
-            mid_send_roster_group(s, g, tox);
-            changed = true;
+
+            /* COOLDOWN: Enforce the minimum gap between roster responses */
+            if (g->last_roster_response != 0 &&
+                (now - g->last_roster_response) < MID_ROSTER_COOLDOWN_SEC) {
+                printf("[MID] iterate: roster reply suppressed by cooldown (%llu s remaining)\n",
+                       (unsigned long long)(MID_ROSTER_COOLDOWN_SEC - (now - g->last_roster_response)));
+                fflush(stdout);
+            } else {
+                printf("[MID] iterate: Roster reply timer fired! No one else suppressed us. Sending our roster. Our FP[0..3]=%02X%02X%02X%02X\n",
+                       g->roster_fingerprint[0], g->roster_fingerprint[1], g->roster_fingerprint[2], g->roster_fingerprint[3]);
+                fflush(stdout);
+                mid_send_roster_group(s, g, tox);
+                g->last_roster_response = now;
+                changed = true;
+            }
         }
 
         if (changed && num_changed < MID_MAX_CHANGED_GROUPS_PER_ITERATE) {
