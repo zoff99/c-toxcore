@@ -2142,28 +2142,33 @@ static bool mid_refresh_peer_name_group(MidGroupState *g, const Tox *tox, uint32
     MidPeerRecord *e = &g->records[idx];
     bool changed = false;
 
-    if (!e->has_signature) {
-        size_t copy_len = name_size;
-        if (copy_len > MID_MAX_NICK_SIZE) {
-            copy_len = MID_MAX_NICK_SIZE;
-        }
+    /*
+     * The nickname is now an unsigned field transmitted outside the signed body.
+     * Updating it locally does NOT invalidate the record's cryptographic signature.
+     * Therefore, we can safely accept native Toxcore name changes for signed
+     * records as well, allowing us to stop broadcasting full PRESENCE packets
+     * just to propagate a name change.
+     */
+    size_t copy_len = name_size;
+    if (copy_len > MID_MAX_NICK_SIZE) {
+        copy_len = MID_MAX_NICK_SIZE;
+    }
 
-        /* Only update if the name actually changed */
-        if (e->nickname_len != copy_len || memcmp(e->nickname, name, copy_len) != 0) {
-            /*
-             * Zero-fill the destination first so no stale bytes remain past
-             * the end of the (possibly truncated) nickname.
-             *
-             * The nickname is treated as opaque binary. We do NOT assume
-             * valid UTF-8, printable ASCII, or NUL termination.
-             */
-            memset(e->nickname, 0, MID_MAX_NICK_SIZE);
-            if (copy_len > 0) {
-                memcpy(e->nickname, name, copy_len);
-            }
-            e->nickname_len = (uint16_t)copy_len;
-            changed = true;
+    /* Only update if the name actually changed */
+    if (e->nickname_len != copy_len || memcmp(e->nickname, name, copy_len) != 0) {
+        /*
+         * Zero-fill the destination first so no stale bytes remain past
+         * the end of the (possibly truncated) nickname.
+         *
+         * The nickname is treated as opaque binary. We do NOT assume
+         * valid UTF-8, printable ASCII, or NUL termination.
+         */
+        memset(e->nickname, 0, MID_MAX_NICK_SIZE);
+        if (copy_len > 0) {
+            memcpy(e->nickname, name, copy_len);
         }
+        e->nickname_len = (uint16_t)copy_len;
+        changed = true;
     }
 
     free(name);
@@ -3081,10 +3086,15 @@ static bool mid_self_set_name_internal(MidState *s, Tox *tox, const uint8_t chat
             e->nickname_len = g->self_nickname_len;
         }
 
-        /* Re-announce ourselves to broadcast the new signed presence record */
-        if (g->announced) {
-            mid_announce_self_group(s, g, tox);
-        }
+        /*
+         * No middleware PRESENCE broadcast here.
+         *
+         * The nickname is an unsigned, relayed observation. Propagation to
+         * online peers happens via Toxcore's native group-name mechanism
+         * (picked up by mid_on_group_peer_name -> mid_refresh_peer_name_group).
+         * Propagation to offline / newly-joining peers happens via
+         * ROSTER_BATCH, which reads the updated local nickname.
+         */
     }
 
     return nick_changed;
