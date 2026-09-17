@@ -168,7 +168,7 @@ static const uint8_t MID_MAGIC[MID_MAGIC_BYTES_TOTAL] = {
 
 #define MID_SAVE_MAGIC       "MIDR"
 #define MID_SAVE_MAGIC_SIZE  4
-#define MID_SAVE_VERSION     3
+#define MID_SAVE_VERSION     4
 #define MID_MAX_GROUPS       1000
 
 #define MID_BUF_INIT_CAP 4096
@@ -191,8 +191,44 @@ static const uint8_t MID_MAGIC[MID_MAGIC_BYTES_TOTAL] = {
 #define MID_SIG_SIZE            64
 #define MID_MAX_PACKET_SIZE     1200
 #define MID_ROSTER_COOLDOWN_SEC 30
-/* FIX 4: Increased heartbeat interval from 50s to 300s (5 mins) to save traffic */
-#define MID_HEARTBEAT_SEC       300
+
+/*
+ * Heartbeat interval in seconds.
+ *
+ * Increased from 300s (5 min) to 3600s (1 hour) to drastically reduce the
+ * volume of signed metadata ("paper trail") and network traffic.
+ *
+ * Toxcore's native connection handling detects immediate disconnects within
+ * seconds, so this slow heartbeat is only needed to keep the 30-day offline
+ * roster cache fresh.
+ */
+#define MID_HEARTBEAT_SEC       3600
+
+/*
+ * Maximum random jitter applied to the heartbeat interval, in seconds.
+ *
+ * Each heartbeat fires at a randomly chosen point within
+ * [MID_HEARTBEAT_SEC - JITTER/2, MID_HEARTBEAT_SEC + JITTER/2].
+ * The jitter is re-randomised on every cycle, which defeats fixed-interval
+ * traffic-analysis fingerprinting.
+ */
+#define MID_HEARTBEAT_JITTER_SEC 1800
+
+/*
+ * Maximum number of random padding bytes appended to every outgoing custom
+ * packet. A random value in [0, MID_MAX_PACKET_PADDING] is chosen per packet.
+ *
+ * Padding hides the deterministic size of each middleware message type,
+ * making size-based traffic fingerprinting significantly harder.
+ */
+#define MID_MAX_PACKET_PADDING  64
+
+/*
+ * Maximum payload size BEFORE padding. Reserves room for the maximum padding
+ * plus the 1-byte padding-length indicator so the final padded packet never
+ * exceeds MID_MAX_PACKET_SIZE.
+ */
+#define MID_MAX_PAYLOAD_SIZE (MID_MAX_PACKET_SIZE - MID_MAX_PACKET_PADDING - 1)
 
 #define MID_RECORD_STATUS_SIZE    sizeof(uint8_t)
 #define MID_RECORD_TIMESTAMP_SIZE sizeof(uint64_t)
@@ -200,8 +236,16 @@ static const uint8_t MID_MAGIC[MID_MAGIC_BYTES_TOTAL] = {
 
 #define MID_RECORD_FIXED_BODY_SIZE (MID_RECORD_STATUS_SIZE + MID_RECORD_TIMESTAMP_SIZE + MID_RECORD_NICKLEN_SIZE)
 
-#define MID_HEARTBEAT_BODY_SIZE (MID_RECORD_STATUS_SIZE + MID_RECORD_TIMESTAMP_SIZE + MID_IDENTITY_KEY_SIZE)
-
+/*
+Heartbeat body layout:
+  status                1 byte
+  timestamp             8 bytes
+  identity_key         32 bytes
+  eph_public_signing_key 32 bytes
+  eph_cert_sig         64 bytes
+*/
+#define MID_HEARTBEAT_BODY_SIZE (MID_RECORD_STATUS_SIZE + MID_RECORD_TIMESTAMP_SIZE + \
+                                 MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE + MID_SIG_SIZE)
 
 /*
 Throttle for the heavy sync/cleanup loop in mid_iterate().
@@ -212,7 +256,8 @@ hammering Toxcore on every 50ms tox_iterate() tick.
 
 
 #define MID_MAX_BODY_SIZE (MID_RECORD_FIXED_BODY_SIZE + MID_MAX_NICK_SIZE + \
-                           MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE)
+                           MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE + \
+                           MID_SIGNING_KEY_SIZE + MID_SIG_SIZE)
 
 /*
 Time-To-Live for LEFT tombstones.
@@ -228,6 +273,12 @@ heartbeats guarantee last_seen stays fresh for actually active peers.
 */
 #define MID_STALE_PEER_TTL_SEC (30 * 24 * 60 * 60)
 
+/*
+Lifetime of an ephemeral signing key before it must be rotated.
+After this period a new ephemeral keypair is generated and certified
+by the long-term signing key.
+*/
+#define MID_EPH_KEY_LIFETIME_SEC (24 * 60 * 60)
 
 typedef enum {
     MID_STATUS_ACTIVE = 0,
@@ -250,6 +301,9 @@ typedef struct {
     uint16_t nickname_len;
     uint8_t  signature[MID_SIG_SIZE];
     bool     has_signature;
+    uint8_t  eph_public_signing_key[MID_SIGNING_KEY_SIZE];
+    uint8_t  eph_cert_sig[MID_SIG_SIZE];
+    bool     has_eph_key;
     Tox_Connection connection_status;
     Tox_Group_Role role;
     uint64_t last_seen;
@@ -269,9 +323,31 @@ typedef struct {
     size_t         count;
     size_t         capacity;
     uint64_t last_announce;
+    uint64_t next_heartbeat; /* unix timestamp at which the next jittered heartbeat fires */
     uint64_t last_roster_response;
     uint64_t roster_reply_deadline; /* FIX 2: Multicast suppression timer */
     uint8_t  roster_fingerprint[MID_IDENTITY_KEY_SIZE]; /* Incremental XOR sum of all signed identity keys */
+
+    /*
+     * Ephemeral signing keypair.
+     *
+     * eph_secret_signing_key / eph_public_signing_key form a short-lived
+     * Ed25519 keypair used for signing heartbeats and presence records
+     * instead of the long-term self_secret_signing_key.
+     *
+     * eph_cert_sig is a detached Ed25519 signature of
+     * eph_public_signing_key created with self_secret_signing_key.
+     * Receivers verify this certificate against the sender's long-term
+     * signing_key to bind the ephemeral key to the persistent identity.
+     *
+     * eph_key_expiry is the unix timestamp after which the ephemeral key
+     * must be rotated.
+     */
+    uint8_t eph_secret_signing_key[MID_SIGNING_SECRET_KEY_SIZE];
+    uint8_t eph_public_signing_key[MID_SIGNING_KEY_SIZE];
+    uint8_t eph_cert_sig[MID_SIG_SIZE];
+    bool     have_eph_keys;
+    uint64_t eph_key_expiry;
 } MidGroupState;
 
 /*
@@ -672,6 +748,90 @@ static int mid_find_identity(const MidGroupState *g,
 }
 
 /******************************************************************************
+Ephemeral signing key management
+
+The ephemeral signing keypair is a short-lived Ed25519 keypair that is
+used for signing heartbeats and presence records instead of the long-term
+self_secret_signing_key.
+
+eph_cert_sig is a detached Ed25519 signature of eph_public_signing_key
+created with self_secret_signing_key.  Receivers verify this certificate
+against the sender's long-term signing_key to bind the ephemeral key to
+the persistent identity.
+
+All functions in this section assume the group lock is already held.
+******************************************************************************/
+
+static bool mid_generate_ephemeral_signing_keys(MidGroupState *g)
+{
+    if (g == NULL || !g->have_keys) {
+        printf("[MID] generate_eph_signing_keys: rejected, no long-term keys\n"); fflush(stdout);
+        return false;
+    }
+
+    /* Wipe any previous ephemeral key material */
+    sodium_memzero(g->eph_secret_signing_key, sizeof(g->eph_secret_signing_key));
+    memset(g->eph_public_signing_key, 0, sizeof(g->eph_public_signing_key));
+    memset(g->eph_cert_sig, 0, sizeof(g->eph_cert_sig));
+    g->have_eph_keys = false;
+
+    /* Generate new Ed25519 keypair */
+    if (crypto_sign_keypair(g->eph_public_signing_key, g->eph_secret_signing_key) != 0) {
+        printf("[MID] generate_eph_signing_keys: crypto_sign_keypair failed\n"); fflush(stdout);
+        return false;
+    }
+
+    /* Create certificate: sign eph_public_signing_key with long-term key */
+    unsigned long long sig_len = 0;
+    if (crypto_sign_detached(g->eph_cert_sig, &sig_len,
+                             g->eph_public_signing_key, MID_SIGNING_KEY_SIZE,
+                             g->self_secret_signing_key) != 0) {
+        printf("[MID] generate_eph_signing_keys: cert signing failed\n"); fflush(stdout);
+        sodium_memzero(g->eph_secret_signing_key, sizeof(g->eph_secret_signing_key));
+        memset(g->eph_public_signing_key, 0, sizeof(g->eph_public_signing_key));
+        return false;
+    }
+
+    if (sig_len != MID_SIG_SIZE) {
+        printf("[MID] generate_eph_signing_keys: unexpected cert sig_len %llu\n", sig_len); fflush(stdout);
+        sodium_memzero(g->eph_secret_signing_key, sizeof(g->eph_secret_signing_key));
+        memset(g->eph_public_signing_key, 0, sizeof(g->eph_public_signing_key));
+        memset(g->eph_cert_sig, 0, sizeof(g->eph_cert_sig));
+        return false;
+    }
+
+    g->have_eph_keys = true;
+    g->eph_key_expiry = mid_now_or_time(0) + MID_EPH_KEY_LIFETIME_SEC;
+
+    printf("[MID] generate_eph_signing_keys: new ephemeral signing keypair created, expires at %llu\n",
+           (unsigned long long)g->eph_key_expiry); fflush(stdout);
+
+    return true;
+}
+
+/*
+ * Ensure that ephemeral signing keys exist and are not expired.
+ * Generates or rotates keys as needed.
+ *
+ * Must be called with the group lock held.
+ */
+static bool mid_ensure_ephemeral_signing_keys(MidGroupState *g)
+{
+    if (g == NULL || !g->have_keys) {
+        return false;
+    }
+
+    uint64_t now = mid_now_or_time(0);
+
+    if (!g->have_eph_keys || now >= g->eph_key_expiry) {
+        printf("[MID] ensure_eph_signing_keys: generating/rotating ephemeral signing keys\n"); fflush(stdout);
+        return mid_generate_ephemeral_signing_keys(g);
+    }
+
+    return true;
+}
+
+/******************************************************************************
 Record serialization and crypto
 ******************************************************************************/
 
@@ -688,7 +848,9 @@ static bool mid_pack_record_body(uint8_t *buf,
         return false;
     }
 
-    size_t need = MID_RECORD_FIXED_BODY_SIZE + r->nickname_len + MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE;
+    size_t need = MID_RECORD_FIXED_BODY_SIZE + r->nickname_len
+                + MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE
+                + MID_SIGNING_KEY_SIZE + MID_SIG_SIZE;
 
     if (need > cap) {
         printf("[MID] pack_record_body: rejected, need %zu > cap %zu\n", need, cap); fflush(stdout);
@@ -712,6 +874,13 @@ static bool mid_pack_record_body(uint8_t *buf,
     memcpy(buf + o, r->signing_key, MID_SIGNING_KEY_SIZE);
     o += MID_SIGNING_KEY_SIZE;
 
+    /* Ephemeral signing key and its certificate (signed by long-term key) */
+    memcpy(buf + o, r->eph_public_signing_key, MID_SIGNING_KEY_SIZE);
+    o += MID_SIGNING_KEY_SIZE;
+
+    memcpy(buf + o, r->eph_cert_sig, MID_SIG_SIZE);
+    o += MID_SIG_SIZE;
+
     if (out_len != NULL) {
         *out_len = o;
     }
@@ -725,7 +894,14 @@ static bool mid_unpack_record_body(MidPeerRecord *r,
     memset(r, 0, sizeof(*r));
 
     size_t o = 0;
-    size_t min_len = MID_RECORD_FIXED_BODY_SIZE + MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE;
+
+    /*
+     * Minimum body length includes the ephemeral key fields.
+     * No backward compatibility with the old format.
+     */
+    size_t min_len = MID_RECORD_FIXED_BODY_SIZE
+                   + MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE
+                   + MID_SIGNING_KEY_SIZE + MID_SIG_SIZE;
 
     if (len < min_len) {
         printf("[MID] unpack_record_body: rejected, len %zu < min_len %zu\n", len, min_len); fflush(stdout);
@@ -749,7 +925,8 @@ static bool mid_unpack_record_body(MidPeerRecord *r,
         return false;
     }
 
-    if (o + r->nickname_len + MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE > len) {
+    if (o + r->nickname_len + MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE
+          + MID_SIGNING_KEY_SIZE + MID_SIG_SIZE > len) {
         return false;
     }
 
@@ -763,6 +940,14 @@ static bool mid_unpack_record_body(MidPeerRecord *r,
 
     memcpy(r->signing_key, buf + o, MID_SIGNING_KEY_SIZE);
     o += MID_SIGNING_KEY_SIZE;
+
+    memcpy(r->eph_public_signing_key, buf + o, MID_SIGNING_KEY_SIZE);
+    o += MID_SIGNING_KEY_SIZE;
+
+    memcpy(r->eph_cert_sig, buf + o, MID_SIG_SIZE);
+    o += MID_SIG_SIZE;
+
+    r->has_eph_key = !mid_key_is_zero(r->eph_public_signing_key);
 
     if (mid_key_is_zero(r->identity_key)) {
         return false;
@@ -782,6 +967,11 @@ static bool mid_verify_record(const MidPeerRecord *r)
         return false;
     }
 
+    if (!r->has_eph_key) {
+        printf("[MID] verify_record: rejected, no ephemeral signing key\n"); fflush(stdout);
+        return false;
+    }
+
     if (!mid_valid_key_binding(r->identity_key, r->signing_key)) {
         printf("[MID] verify_record: rejected, invalid key binding\n"); fflush(stdout);
         return false;
@@ -793,10 +983,28 @@ static bool mid_verify_record(const MidPeerRecord *r)
         return false;
     }
 
+    /*
+     * Verify the ephemeral key certificate.
+     *
+     * eph_cert_sig is a detached Ed25519 signature of
+     * eph_public_signing_key created with the long-term signing_key.
+     */
+    if (crypto_sign_verify_detached(r->eph_cert_sig,
+                                    r->eph_public_signing_key, MID_SIGNING_KEY_SIZE,
+                                    r->signing_key) != 0) {
+        printf("[MID] verify_record: rejected, ephemeral key certificate invalid\n"); fflush(stdout);
+        return false;
+    }
+
+    printf("[MID] verify_record: ephemeral key certificate valid\n"); fflush(stdout);
+
+    /*
+     * Verify the record signature against the ephemeral signing key.
+     */
     int res = crypto_sign_verify_detached(r->signature,
                                           body,
                                           body_len,
-                                          r->signing_key);
+                                          r->eph_public_signing_key);
 
     if (res == 0) {
         printf("[MID] verify_record: signature VALID\n"); fflush(stdout);
@@ -814,6 +1022,22 @@ static bool mid_sign_record(MidGroupState *g, MidPeerRecord *r)
         return false;
     }
 
+    /*
+     * Ensure ephemeral signing keys exist and are current.
+     */
+    if (!mid_ensure_ephemeral_signing_keys(g)) {
+        printf("[MID] sign_record: failed, cannot ensure ephemeral signing keys\n"); fflush(stdout);
+        return false;
+    }
+
+    /*
+     * Attach ephemeral key info to the record so receivers can verify
+     * the signature against the ephemeral key and validate the cert.
+     */
+    memcpy(r->eph_public_signing_key, g->eph_public_signing_key, MID_SIGNING_KEY_SIZE);
+    memcpy(r->eph_cert_sig, g->eph_cert_sig, MID_SIG_SIZE);
+    r->has_eph_key = true;
+
     uint8_t body[MID_MAX_BODY_SIZE];
     size_t body_len = 0;
     if (!mid_pack_record_body(body, sizeof(body), r, &body_len)) {
@@ -825,7 +1049,7 @@ static bool mid_sign_record(MidGroupState *g, MidPeerRecord *r)
                              &sig_len,
                              body,
                              body_len,
-                             g->self_secret_signing_key) != 0) {
+                             g->eph_secret_signing_key) != 0) {
         printf("[MID] sign_record: crypto_sign_detached failed\n"); fflush(stdout);
         return false;
     }
@@ -835,7 +1059,8 @@ static bool mid_sign_record(MidGroupState *g, MidPeerRecord *r)
         return false;
     }
 
-    printf("[MID] sign_record: successfully signed %zu bytes\n", body_len); fflush(stdout);
+    printf("[MID] sign_record: successfully signed %zu bytes (ephemeral)\n", body_len); fflush(stdout);
+
     r->has_signature = true;
     return true;
 }
@@ -1191,9 +1416,39 @@ static bool mid_send_custom(MidState *s,
         return false;
     }
 
-    if (length > MID_MAX_PACKET_SIZE) {
+    /*
+     * TRAFFIC-ANALYSIS RESISTANCE: PACKET PADDING
+     *
+     * Append a random number of random bytes [0..MID_MAX_PACKET_PADDING] plus
+     * a trailing 1-byte padding-length indicator to every outgoing packet.
+     *
+     * This hides the deterministic size of each middleware message type,
+     * making size-based traffic fingerprinting significantly harder.
+     *
+     * Layout after padding:
+     *   [original data][random padding (pad_len bytes)][pad_len (1 byte)]
+     */
+    uint8_t pad_len = 0;
+    if (MID_MAX_PACKET_PADDING > 0) {
+        pad_len = (uint8_t)(randombytes_uniform((uint32_t)MID_MAX_PACKET_PADDING + 1));
+    }
+
+    size_t total_len = length + (size_t)pad_len + 1;
+
+    if (total_len > MID_MAX_PACKET_SIZE) {
+        printf("[MID] send_custom: packet too large after padding (%zu > %d)\n",
+               total_len, MID_MAX_PACKET_SIZE); fflush(stdout);
         return false;
     }
+
+    uint8_t padded[MID_MAX_PACKET_SIZE];
+    memcpy(padded, data, length);
+
+    if (pad_len > 0) {
+        randombytes_buf(padded + length, pad_len);
+    }
+
+    padded[length + pad_len] = pad_len;
 
     uint32_t group_number = mid_chat_id_to_group_number(tox, chat_id);
     if (group_number == UINT32_MAX) {
@@ -1205,17 +1460,18 @@ static bool mid_send_custom(MidState *s,
     bool ok = tox_group_send_custom_packet(tox,
                                            group_number,
                                            lossless,
-                                           data,
-                                           length,
+                                           padded,
+                                           total_len,
                                            &err);
 
-    printf("[MID] send_custom:err=%d ok=%d group_number=%d\n", (int)err, (int)ok, (int)group_number); fflush(stdout);
+    printf("[MID] send_custom:err=%d ok=%d group_number=%d pad=%u\n",
+           (int)err, (int)ok, (int)group_number, (unsigned)pad_len); fflush(stdout);
 
     if (!ok) {
         printf("[MID] send_custom: tox_group_send_custom_packet failed (err=%d)\n", err); fflush(stdout);
     } else {
         if (s != NULL) {
-            s->sent_bytes += length;
+            s->sent_bytes += total_len;
         }
     }
     return ok;
@@ -1241,7 +1497,7 @@ static bool mid_send_presence_record(MidState *s,
     }
 
     size_t packet_len = MID_HEADER_SIZE + MID_SIG_SIZE + body_len;
-    if (packet_len > MID_MAX_PACKET_SIZE) {
+    if (packet_len > MID_MAX_PAYLOAD_SIZE) {
         return false;
     }
 
@@ -1264,6 +1520,11 @@ static bool mid_send_heartbeat_record(MidState *s, MidGroupState *g, const Tox *
 {
     if (!g || !tox || !g->have_keys) return false;
 
+    /* Ensure ephemeral signing keys are available and current */
+    if (!mid_ensure_ephemeral_signing_keys(g)) {
+        return false;
+    }
+
     uint8_t body[MID_HEARTBEAT_BODY_SIZE];
     size_t o = 0;
     body[o++] = MID_STATUS_ACTIVE;
@@ -1272,11 +1533,19 @@ static bool mid_send_heartbeat_record(MidState *s, MidGroupState *g, const Tox *
     memcpy(body + o, g->self_identity_key, MID_IDENTITY_KEY_SIZE);
     o += MID_IDENTITY_KEY_SIZE;
 
+    memcpy(body + o, g->eph_public_signing_key, MID_SIGNING_KEY_SIZE);
+    o += MID_SIGNING_KEY_SIZE;
+
+    memcpy(body + o, g->eph_cert_sig, MID_SIG_SIZE);
+    o += MID_SIG_SIZE;
+
     uint8_t sig[MID_SIG_SIZE];
     unsigned long long sig_len = 0;
-    if (crypto_sign_detached(sig, &sig_len, body, o, g->self_secret_signing_key) != 0) return false;
 
-    uint8_t packet[128];
+    if (crypto_sign_detached(sig, &sig_len, body, o, g->eph_secret_signing_key) != 0) return false;
+
+    uint8_t packet[MID_HEADER_SIZE + MID_SIG_SIZE + MID_HEARTBEAT_BODY_SIZE];
+
     memcpy(packet, MID_MAGIC, MID_MAGIC_BYTES_TOTAL);
     packet[MID_MAGIC_BYTES_TOTAL] = MID_PROTOCOL_VERSION;
     packet[MID_MAGIC_BYTES_TOTAL + 1] = MID_MSG_HEARTBEAT;
@@ -1344,7 +1613,7 @@ static bool mid_send_roster_group(MidState *s, MidGroupState *g, const Tox *tox)
         // Signature + body_len prefix + body
         size_t needed = MID_SIG_SIZE + count_size + body_len;
 
-        if (p_idx + needed > MID_MAX_PACKET_SIZE) {
+        if (p_idx + needed > MID_MAX_PAYLOAD_SIZE) {
             mid_put_u16_be(packet + count_idx, count);
             if (!mid_send_custom(s, tox, g->chat_id, true, packet, p_idx)) ok = false;
             
@@ -1629,6 +1898,15 @@ static bool mid_init_self_from_tox(MidGroupState *g, const Tox *tox)
 
     bool ok = mid_set_self_keys(g, identity, signing, sk);
     sodium_memzero(sk, sizeof(sk));
+
+    /*
+     * Generate ephemeral signing keys now that the long-term keys are set.
+     * These will be used for signing heartbeats and presence records.
+     */
+    if (ok) {
+        mid_generate_ephemeral_signing_keys(g);
+    }
+
     return ok;
 }
 
@@ -1901,7 +2179,28 @@ static bool mid_on_custom_packet_group(MidState *s,
            length, peer_id);
     fflush(stdout);
 
-    if (g == NULL || data == NULL || length < MID_HEADER_SIZE) {
+    if (g == NULL || data == NULL || length == 0) {
+        return false;
+    }
+
+    /*
+     * TRAFFIC-ANALYSIS RESISTANCE: STRIP PACKET PADDING
+     *
+     * The last byte of every incoming packet is the padding-length indicator
+     * added by mid_send_custom(). Strip it (and the random padding bytes
+     * before it) to recover the original message.
+     */
+    uint8_t pad_len = data[length - 1];
+
+    if ((size_t)pad_len + 1 > length) {
+        printf("[MID] on_custom_packet: invalid padding length %u\n", (unsigned)pad_len);
+        fflush(stdout);
+        return false;
+    }
+
+    length -= ((size_t)pad_len + 1);
+
+    if (length < MID_HEADER_SIZE) {
         return false;
     }
 
@@ -2034,26 +2333,30 @@ static bool mid_on_custom_packet_group(MidState *s,
     }
 
     /**************************************************************************
-     * LIGHTWEIGHT HEARTBEAT
-     *
-     * Body:
-     *   status       1 byte
-     *   timestamp    8 bytes
-     *   identity_key 32 bytes
-     *
-     * Signature:
-     *   detached Ed25519 signature over the 41-byte body.
-     *
-     * Heartbeats are used only for liveness / connection state.
-     *
-     * IMPORTANT:
-     * A heartbeat must NOT modify fields belonging to a stored full signed
-     * record, otherwise the stored signature would become invalid.
-     * Therefore, if we already have a signed full record, the heartbeat only
-     * updates connection_status, role, and last_seen.
-     *
-     * Heartbeats do NOT suppress roster responses.
-     *************************************************************************/
+    * LIGHTWEIGHT HEARTBEAT
+    *
+    * Body:
+    *   status                1 byte
+    *   timestamp             8 bytes
+    *   identity_key         32 bytes
+    *   eph_public_signing_key 32 bytes
+    *   eph_cert_sig         64 bytes
+    *
+    * Signature:
+    *   detached Ed25519 signature over the body, made with the ephemeral
+    *   signing key.
+    *
+    * Heartbeats are used only for liveness / connection state.
+    *
+    * IMPORTANT:
+    * A heartbeat must NOT modify fields belonging to a stored full signed
+    * record, otherwise the stored signature would become invalid.
+    * Therefore, if we already have a signed full record, the heartbeat only
+    * updates connection_status, role, and last_seen.
+    *
+    * Heartbeats do NOT suppress roster responses.
+    *************************************************************************/
+
     if (type == MID_MSG_HEARTBEAT) {
         printf("[MID] on_custom_packet: processing HEARTBEAT message\n");
         fflush(stdout);
@@ -2078,6 +2381,12 @@ static bool mid_on_custom_packet_group(MidState *s,
         uint8_t hb_identity[MID_IDENTITY_KEY_SIZE];
         memcpy(hb_identity, body + 9, MID_IDENTITY_KEY_SIZE);
 
+        uint8_t hb_eph_public_signing_key[MID_SIGNING_KEY_SIZE];
+        memcpy(hb_eph_public_signing_key, body + 9 + MID_IDENTITY_KEY_SIZE, MID_SIGNING_KEY_SIZE);
+
+        uint8_t hb_eph_cert_sig[MID_SIG_SIZE];
+        memcpy(hb_eph_cert_sig, body + 9 + MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE, MID_SIG_SIZE);
+
         /* Ignore our own heartbeat if it is echoed back. */
         if (g->have_keys && mid_same_identity(hb_identity, g->self_identity_key)) {
             return false;
@@ -2100,16 +2409,19 @@ static bool mid_on_custom_packet_group(MidState *s,
             sender_is_subject = true;
         }
 
-        uint8_t verify_key[MID_SIGNING_KEY_SIZE];
-        bool have_verify_key = false;
+        /*
+         * Determine the long-term signing key for certificate verification.
+         */
+        uint8_t long_term_signing_key[MID_SIGNING_KEY_SIZE];
+        bool have_long_term_key = false;
 
         /*
          * Prefer the signing key already stored in the roster record.
          */
         if (!mid_key_is_zero(e->signing_key) &&
             mid_valid_key_binding(e->identity_key, e->signing_key)) {
-            memcpy(verify_key, e->signing_key, MID_SIGNING_KEY_SIZE);
-            have_verify_key = true;
+            memcpy(long_term_signing_key, e->signing_key, MID_SIGNING_KEY_SIZE);
+            have_long_term_key = true;
         }
         /*
          * If we do not have a stored signing key yet, but the packet comes
@@ -2118,18 +2430,37 @@ static bool mid_on_custom_packet_group(MidState *s,
          */
         else if (sender_is_subject &&
                  mid_valid_key_binding(sender_identity, sender_signing)) {
-            memcpy(verify_key, sender_signing, MID_SIGNING_KEY_SIZE);
-            have_verify_key = true;
+            memcpy(long_term_signing_key, sender_signing, MID_SIGNING_KEY_SIZE);
+            have_long_term_key = true;
         }
 
-        if (!have_verify_key) {
+        if (!have_long_term_key) {
             return false;
         }
 
+        /*
+         * Verify the ephemeral key certificate.
+         * hb_eph_cert_sig is a signature of hb_eph_public_signing_key
+         * made by the long-term signing key.
+         */
+        if (crypto_sign_verify_detached(hb_eph_cert_sig,
+                                        hb_eph_public_signing_key, MID_SIGNING_KEY_SIZE,
+                                        long_term_signing_key) != 0) {
+            printf("[MID] on_custom_packet: HEARTBEAT ephemeral key certificate invalid\n");
+            fflush(stdout);
+            return false;
+        }
+
+        printf("[MID] on_custom_packet: HEARTBEAT ephemeral key certificate valid\n");
+        fflush(stdout);
+
+        /*
+         * Verify the heartbeat signature against the ephemeral signing key.
+         */
         if (crypto_sign_verify_detached(sig,
                                         body,
                                         hb_body_len,
-                                        verify_key) != 0) {
+                                        hb_eph_public_signing_key) != 0) {
             printf("[MID] on_custom_packet: HEARTBEAT signature invalid\n");
             fflush(stdout);
             return false;
@@ -2153,7 +2484,7 @@ static bool mid_on_custom_packet_group(MidState *s,
          */
         if (!e->has_signature) {
             if (mid_key_is_zero(e->signing_key)) {
-                memcpy(e->signing_key, verify_key, MID_SIGNING_KEY_SIZE);
+                memcpy(e->signing_key, long_term_signing_key, MID_SIGNING_KEY_SIZE);
                 changed = true;
             }
 
@@ -2533,6 +2864,11 @@ static bool mid_on_group_delete_internal(MidState *s, const uint8_t chat_id[TOX_
     for (size_t i = 0; i < s->group_count; i++) {
         if (memcmp(s->groups[i].chat_id, chat_id, TOX_GROUP_CHAT_ID_SIZE) == 0) {
             sodium_memzero(s->groups[i].self_secret_signing_key, sizeof(s->groups[i].self_secret_signing_key));
+            sodium_memzero(s->groups[i].eph_secret_signing_key, sizeof(s->groups[i].eph_secret_signing_key));
+            memset(s->groups[i].eph_public_signing_key, 0, sizeof(s->groups[i].eph_public_signing_key));
+            memset(s->groups[i].eph_cert_sig, 0, sizeof(s->groups[i].eph_cert_sig));
+            s->groups[i].have_eph_keys = false;
+
             free(s->groups[i].records);
             for (size_t j = i; j < s->group_count - 1; j++) {
                 s->groups[j] = s->groups[j+1];
@@ -2576,6 +2912,7 @@ static bool mid_on_group_peer_join_internal(MidState *s, Tox *tox, const uint8_t
     }
 
     if (g->announced) {
+
         if (mid_announce_self_group(s, g, tox)) {
             changed = true;
         }
@@ -2920,6 +3257,16 @@ static bool mid_load_from_disk(MidState *s, const char *path, const uint8_t *pas
         sodium_memzero(g->self_secret_signing_key, sizeof(g->self_secret_signing_key));
 
         /*
+         * NEVER load ephemeral signing keys from disk.
+         * They are ephemeral and will be regenerated on join.
+         */
+        sodium_memzero(g->eph_secret_signing_key, sizeof(g->eph_secret_signing_key));
+        memset(g->eph_public_signing_key, 0, sizeof(g->eph_public_signing_key));
+        memset(g->eph_cert_sig, 0, sizeof(g->eph_cert_sig));
+        g->have_eph_keys = false;
+        g->eph_key_expiry = 0;
+
+        /*
          * We only have public keys at this point.
          * We cannot sign anything until Toxcore gives us the secret signing key.
          */
@@ -2958,6 +3305,13 @@ static bool mid_load_from_disk(MidState *s, const char *path, const uint8_t *pas
             uint8_t has_sig;
             if (!mid_reader_read_u8(&r, &has_sig)) goto parse_fail;
             tmp_rec.has_signature = has_sig ? true : false;
+
+            /* Load ephemeral key fields */
+            if (!mid_reader_read(&r, tmp_rec.eph_public_signing_key, MID_SIGNING_KEY_SIZE)) goto parse_fail;
+            if (!mid_reader_read(&r, tmp_rec.eph_cert_sig, MID_SIG_SIZE)) goto parse_fail;
+            uint8_t has_eph;
+            if (!mid_reader_read_u8(&r, &has_eph)) goto parse_fail;
+            tmp_rec.has_eph_key = has_eph ? true : false;
 
             uint32_t conn, role;
             if (!mid_reader_read_u32(&r, &conn)) goto parse_fail;
@@ -3037,6 +3391,12 @@ bool mid_save(MidState *s, const uint8_t *passphrase, size_t passphrase_len) {
          * and is owned by Toxcore. It must be re-obtained from Toxcore when
          * the group is active again.
          */
+
+        /*
+         * NEVER save ephemeral signing keys.
+         * They are ephemeral and will be regenerated on join.
+         */
+
         mid_buf_append_u16(&buf, g->self_nickname_len);
         mid_buf_append(&buf, g->self_nickname, g->self_nickname_len);
         mid_buf_append_u32(&buf, (uint32_t)g->count);
@@ -3051,6 +3411,12 @@ bool mid_save(MidState *s, const uint8_t *passphrase, size_t passphrase_len) {
             mid_buf_append(&buf, p->nickname, p->nickname_len);
             mid_buf_append(&buf, p->signature, MID_SIG_SIZE);
             mid_buf_append_u8(&buf, p->has_signature ? 1 : 0);
+
+            /* Save ephemeral key fields */
+            mid_buf_append(&buf, p->eph_public_signing_key, MID_SIGNING_KEY_SIZE);
+            mid_buf_append(&buf, p->eph_cert_sig, MID_SIG_SIZE);
+            mid_buf_append_u8(&buf, p->has_eph_key ? 1 : 0);
+
             mid_buf_append_u32(&buf, (uint32_t)p->connection_status);
             mid_buf_append_u32(&buf, (uint32_t)p->role);
             mid_buf_append_u64(&buf, p->last_seen);
@@ -3199,6 +3565,9 @@ void mid_free(MidState *s) {
 
     for (size_t i = 0; i < s->group_count; i++) {
         sodium_memzero(s->groups[i].self_secret_signing_key, sizeof(s->groups[i].self_secret_signing_key));
+        sodium_memzero(s->groups[i].eph_secret_signing_key, sizeof(s->groups[i].eph_secret_signing_key));
+        memset(s->groups[i].eph_public_signing_key, 0, sizeof(s->groups[i].eph_public_signing_key));
+        memset(s->groups[i].eph_cert_sig, 0, sizeof(s->groups[i].eph_cert_sig));
         free(s->groups[i].records);
     }
     free(s->groups);
@@ -3409,17 +3778,50 @@ void mid_iterate(MidState *s, Tox *tox)
             changed = true;
         }
 
-        // 2. Heartbeats (FIX 3: Uses lightweight heartbeat packet)
+        // 2. Heartbeats with jittered scheduling (traffic-analysis resistance)
         if (g->have_keys && g->self_active && g->announced) {
-            if (now >= g->last_announce && (now - g->last_announce >= MID_HEARTBEAT_SEC)) {
-                printf("[MID] poll: heartbeat triggered\n"); fflush(stdout);
+
+            /*
+             * Lazily initialise the next heartbeat deadline if it has not
+             * been set yet (e.g. right after joining or loading from disk).
+             */
+            if (g->next_heartbeat == 0) {
+                uint64_t jitter = randombytes_uniform((uint32_t)MID_HEARTBEAT_JITTER_SEC);
+                uint64_t interval = MID_HEARTBEAT_SEC + jitter - (MID_HEARTBEAT_JITTER_SEC / 2);
+                g->next_heartbeat = now + interval;
+            }
+
+            if (now >= g->next_heartbeat) {
+                printf("[MID] poll: heartbeat triggered (jittered)\n"); fflush(stdout);
                 if (mid_send_heartbeat_record(s, g, tox)) {
                     g->last_announce = now;
                     int idx = mid_find_identity(g, g->self_identity_key);
                     if (idx >= 0) {
                         g->records[idx].timestamp = now;
                     }
+
+                    /*
+                     * Schedule the NEXT heartbeat with a fresh random jitter.
+                     * This ensures the interval is unpredictable per cycle,
+                     * defeating fixed-interval traffic fingerprinting.
+                     */
+                    uint64_t jitter = randombytes_uniform((uint32_t)MID_HEARTBEAT_JITTER_SEC);
+                    uint64_t interval = MID_HEARTBEAT_SEC + jitter - (MID_HEARTBEAT_JITTER_SEC / 2);
+                    g->next_heartbeat = now + interval;
+
                     changed = true;
+                }
+            }
+        }
+
+        // 2.5 Ephemeral signing key rotation
+        if (g->have_keys && g->have_eph_keys) {
+            if (now >= g->eph_key_expiry) {
+                printf("[MID] poll: ephemeral signing key expired, rotating\n"); fflush(stdout);
+                if (mid_generate_ephemeral_signing_keys(g)) {
+                    printf("[MID] poll: ephemeral signing key rotated successfully\n"); fflush(stdout);
+                } else {
+                    printf("[MID] poll: ephemeral signing key rotation FAILED\n"); fflush(stdout);
                 }
             }
         }
