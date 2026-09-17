@@ -232,20 +232,35 @@ static const uint8_t MID_MAGIC[MID_MAGIC_BYTES_TOTAL] = {
 
 #define MID_RECORD_STATUS_SIZE    sizeof(uint8_t)
 #define MID_RECORD_TIMESTAMP_SIZE sizeof(uint64_t)
-#define MID_RECORD_NICKLEN_SIZE   sizeof(uint16_t)
-
-#define MID_RECORD_FIXED_BODY_SIZE (MID_RECORD_STATUS_SIZE + MID_RECORD_TIMESTAMP_SIZE + MID_RECORD_NICKLEN_SIZE)
 
 /*
-Heartbeat body layout:
-  status                1 byte
-  timestamp             8 bytes
-  identity_key         32 bytes
-  eph_public_signing_key 32 bytes
-  eph_cert_sig         64 bytes
-*/
+ * Heartbeat body layout:
+ *   status                  1 byte
+ *   timestamp               8 bytes
+ *   identity_key           32 bytes
+ *   eph_public_signing_key 32 bytes
+ *   eph_cert_sig           64 bytes
+ *                          --------
+ *                          137 bytes
+ */
 #define MID_HEARTBEAT_BODY_SIZE (MID_RECORD_STATUS_SIZE + MID_RECORD_TIMESTAMP_SIZE + \
                                  MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE + MID_SIG_SIZE)
+
+/*
+ * Size of the cryptographically signed portion of a presence record:
+ *   status(1) + timestamp(8) + identity_key(32) + signing_key(32) = 73 bytes.
+ *
+ * The nickname is intentionally EXCLUDED from the signed body and is instead
+ * transmitted as a separate unsigned field. This ensures:
+ *   - a nickname change does not require a new signature,
+ *   - the cryptographic proof does not permanently bind a human-readable
+ *     name to the identity,
+ *   - the signed artifact carries no more metadata than strictly necessary.
+ *
+ * The nickname is therefore a best-effort, relayed/local observation only.
+ */
+#define MID_SIGNED_BODY_SIZE (MID_RECORD_STATUS_SIZE + MID_RECORD_TIMESTAMP_SIZE + \
+                              MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE)
 
 /*
 Throttle for the heavy sync/cleanup loop in mid_iterate().
@@ -253,11 +268,6 @@ xx second is fast enough for responsive UI, but slow enough to avoid
 hammering Toxcore on every 50ms tox_iterate() tick.
 */
 #define MID_SYNC_INTERVAL_SEC   5
-
-
-#define MID_MAX_BODY_SIZE (MID_RECORD_FIXED_BODY_SIZE + MID_MAX_NICK_SIZE + \
-                           MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE + \
-                           MID_SIGNING_KEY_SIZE + MID_SIG_SIZE)
 
 /*
 Time-To-Live for LEFT tombstones.
@@ -850,51 +860,36 @@ static bool mid_ensure_ephemeral_signing_keys(MidGroupState *g)
 Record serialization and crypto
 ******************************************************************************/
 
-static bool mid_pack_record_body(uint8_t *buf,
+/*
+ * Pack ONLY the signed portion of a presence record.
+ * The nickname is deliberately not included here.
+ */
+static bool mid_pack_signed_body(uint8_t *buf,
                                  size_t cap,
                                  const MidPeerRecord *r,
                                  size_t *out_len)
 {
-    if (r->nickname_len > MID_MAX_NICK_SIZE) {
-        return false;
-    }
-
     if (mid_key_is_zero(r->identity_key)) {
         return false;
     }
 
-    size_t need = MID_RECORD_FIXED_BODY_SIZE + r->nickname_len
-                + MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE
-                + MID_SIGNING_KEY_SIZE + MID_SIG_SIZE;
+    size_t need = MID_SIGNED_BODY_SIZE;
 
     if (need > cap) {
-        printf("[MID] pack_record_body: rejected, need %zu > cap %zu\n", need, cap); fflush(stdout);
+        printf("[MID] pack_signed_body: rejected, need %zu > cap %zu\n", need, cap); fflush(stdout);
         return false;
     }
 
-    printf("[MID] pack_record_body: packing %zu bytes\n", need); fflush(stdout);
+    printf("[MID] pack_signed_body: packing %zu bytes\n", need); fflush(stdout);
 
     size_t o = 0;
     buf[o++] = r->status;
     mid_put_u64_be(buf + o, r->timestamp);
     o += 8;
-    mid_put_u16_be(buf + o, r->nickname_len);
-    o += 2;
-    if (r->nickname_len > 0) {
-        memcpy(buf + o, r->nickname, r->nickname_len);
-        o += r->nickname_len;
-    }
     memcpy(buf + o, r->identity_key, MID_IDENTITY_KEY_SIZE);
     o += MID_IDENTITY_KEY_SIZE;
     memcpy(buf + o, r->signing_key, MID_SIGNING_KEY_SIZE);
     o += MID_SIGNING_KEY_SIZE;
-
-    /* Ephemeral signing key and its certificate (signed by long-term key) */
-    memcpy(buf + o, r->eph_public_signing_key, MID_SIGNING_KEY_SIZE);
-    o += MID_SIGNING_KEY_SIZE;
-
-    memcpy(buf + o, r->eph_cert_sig, MID_SIG_SIZE);
-    o += MID_SIG_SIZE;
 
     if (out_len != NULL) {
         *out_len = o;
@@ -902,28 +897,21 @@ static bool mid_pack_record_body(uint8_t *buf,
     return true;
 }
 
-static bool mid_unpack_record_body(MidPeerRecord *r,
+/*
+ * Unpack ONLY the signed portion of a presence record.
+ * The nickname is parsed separately by the caller.
+ */
+static bool mid_unpack_signed_body(MidPeerRecord *r,
                                    const uint8_t *buf,
                                    size_t len)
 {
-    memset(r, 0, sizeof(*r));
-
-    size_t o = 0;
-
-    /*
-     * Minimum body length includes the ephemeral key fields.
-     * No backward compatibility with the old format.
-     */
-    size_t min_len = MID_RECORD_FIXED_BODY_SIZE
-                   + MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE
-                   + MID_SIGNING_KEY_SIZE + MID_SIG_SIZE;
-
-    if (len < min_len) {
-        printf("[MID] unpack_record_body: rejected, len %zu < min_len %zu\n", len, min_len); fflush(stdout);
+    if (len < MID_SIGNED_BODY_SIZE) {
+        printf("[MID] unpack_signed_body: rejected, len %zu < %d\n",
+               len, MID_SIGNED_BODY_SIZE); fflush(stdout);
         return false;
     }
 
-    printf("[MID] unpack_record_body: unpacking %zu bytes\n", len); fflush(stdout);
+    size_t o = 0;
 
     r->status = buf[o++];
     if (r->status != MID_STATUS_ACTIVE && r->status != MID_STATUS_LEFT) {
@@ -933,45 +921,16 @@ static bool mid_unpack_record_body(MidPeerRecord *r,
     r->timestamp = mid_get_u64_be(buf + o);
     o += 8;
 
-    r->nickname_len = mid_get_u16_be(buf + o);
-    o += 2;
-
-    if (r->nickname_len > MID_MAX_NICK_SIZE) {
-        return false;
-    }
-
-    if (o + r->nickname_len + MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE
-          + MID_SIGNING_KEY_SIZE + MID_SIG_SIZE > len) {
-        return false;
-    }
-
-    if (r->nickname_len > 0) {
-        memcpy(r->nickname, buf + o, r->nickname_len);
-        o += r->nickname_len;
-    }
-
     memcpy(r->identity_key, buf + o, MID_IDENTITY_KEY_SIZE);
     o += MID_IDENTITY_KEY_SIZE;
 
     memcpy(r->signing_key, buf + o, MID_SIGNING_KEY_SIZE);
     o += MID_SIGNING_KEY_SIZE;
 
-    memcpy(r->eph_public_signing_key, buf + o, MID_SIGNING_KEY_SIZE);
-    o += MID_SIGNING_KEY_SIZE;
-
-    memcpy(r->eph_cert_sig, buf + o, MID_SIG_SIZE);
-    o += MID_SIG_SIZE;
-
-    r->has_eph_key = !mid_key_is_zero(r->eph_public_signing_key);
-
     if (mid_key_is_zero(r->identity_key)) {
         return false;
     }
 
-    r->has_signature = false;
-    r->connection_status = TOX_CONNECTION_NONE;
-    r->role = TOX_GROUP_ROLE_USER;
-    r->last_seen = 0;
     return true;
 }
 
@@ -992,9 +951,9 @@ static bool mid_verify_record(const MidPeerRecord *r)
         return false;
     }
 
-    uint8_t body[MID_MAX_BODY_SIZE];
+    uint8_t body[MID_SIGNED_BODY_SIZE];
     size_t body_len = 0;
-    if (!mid_pack_record_body(body, sizeof(body), r, &body_len)) {
+    if (!mid_pack_signed_body(body, sizeof(body), r, &body_len)) {
         return false;
     }
 
@@ -1053,9 +1012,9 @@ static bool mid_sign_record(MidGroupState *g, MidPeerRecord *r)
     memcpy(r->eph_cert_sig, g->eph_cert_sig, MID_SIG_SIZE);
     r->has_eph_key = true;
 
-    uint8_t body[MID_MAX_BODY_SIZE];
+    uint8_t body[MID_SIGNED_BODY_SIZE];
     size_t body_len = 0;
-    if (!mid_pack_record_body(body, sizeof(body), r, &body_len)) {
+    if (!mid_pack_signed_body(body, sizeof(body), r, &body_len)) {
         return false;
     }
 
@@ -1490,14 +1449,27 @@ static bool mid_send_presence_record(MidState *s,
         return false;
     }
 
-    uint8_t body[MID_MAX_BODY_SIZE];
+    uint8_t body[MID_SIGNED_BODY_SIZE];
     size_t body_len = 0;
-    if (!mid_pack_record_body(body, sizeof(body), r, &body_len)) {
+
+    if (!mid_pack_signed_body(body, sizeof(body), r, &body_len)) {
         return false;
     }
 
-    size_t packet_len = MID_HEADER_SIZE + MID_SIG_SIZE + body_len;
-    if (packet_len > MID_MAX_PAYLOAD_SIZE) {
+    /* Defensive clamp: nickname must never exceed its fixed buffer. */
+    if (r->nickname_len > MID_MAX_NICK_SIZE) {
+        return false;
+    }
+
+    /*
+     * Compute the FULL packet length, INCLUDING the unsigned nickname
+     * (and its 2-byte length prefix), and validate it BEFORE writing
+     * into the stack buffer.
+     */
+    size_t packet_len = MID_HEADER_SIZE + MID_SIG_SIZE + body_len
+                      + sizeof(uint16_t) + r->nickname_len;
+
+    if (packet_len > MID_MAX_PACKET_SIZE) {
         return false;
     }
 
@@ -1511,6 +1483,13 @@ static bool mid_send_presence_record(MidState *s,
     o += MID_SIG_SIZE;
     memcpy(packet + o, body, body_len);
     o += body_len;
+    mid_put_u16_be(packet + o, r->nickname_len);
+    o += 2;
+
+    if (r->nickname_len > 0) {
+        memcpy(packet + o, r->nickname, r->nickname_len);
+        o += r->nickname_len;
+    }
 
     return mid_send_custom(s, tox, g->chat_id, true, packet, o);
 }
@@ -1605,19 +1584,37 @@ static bool mid_send_roster_group(MidState *s, MidGroupState *g, const Tox *tox)
 
     for (size_t i = 0; i < g->count; i++) {
         if (!g->records[i].has_signature) continue;
-        
-        uint8_t body[MID_MAX_BODY_SIZE];
-        size_t body_len = 0;
-        if (!mid_pack_record_body(body, sizeof(body), &g->records[i], &body_len)) continue;
-        
-        // Signature + body_len prefix + body
-        size_t needed = MID_SIG_SIZE + count_size + body_len;
 
-        if (p_idx + needed > MID_MAX_PAYLOAD_SIZE) {
+        uint8_t signed_body[MID_SIGNED_BODY_SIZE];
+        size_t signed_len = 0;
+
+        if (!mid_pack_signed_body(signed_body, sizeof(signed_body), &g->records[i], &signed_len)) continue;
+
+        /* Defensive clamp: nickname must never exceed its fixed buffer. */
+        uint16_t nick_len = g->records[i].nickname_len;
+        if (nick_len > MID_MAX_NICK_SIZE) {
+            nick_len = MID_MAX_NICK_SIZE;
+        }
+
+        size_t needed = MID_SIG_SIZE + signed_len + sizeof(uint16_t) + nick_len;
+
+        /*
+         * Defensive guard: if this single record cannot fit even in an
+         * empty packet (immediately after the batch header), skip it
+         * instead of overflowing the buffer. With current constants this
+         * can never trigger, but it protects against future record growth.
+         */
+        if (batch_header_size + needed > MID_MAX_PACKET_SIZE) {
+            printf("[MID] send_roster: record %zu too large (%zu bytes), skipping\n", i, needed); fflush(stdout);
+            continue;
+        }
+
+        if (p_idx + needed > MID_MAX_PACKET_SIZE) {
             mid_put_u16_be(packet + count_idx, count);
             if (!mid_send_custom(s, tox, g->chat_id, true, packet, p_idx)) ok = false;
-            
-            p_idx = batch_header_size; 
+
+            p_idx = batch_header_size;
+
             printf("[MID] send_roster: Re-injecting FP[0..3]=%02X%02X%02X%02X into next batch packet\n", g->roster_fingerprint[0], g->roster_fingerprint[1], g->roster_fingerprint[2], g->roster_fingerprint[3]); fflush(stdout);
             
             // Re-inject full header for next packet
@@ -1632,10 +1629,18 @@ static bool mid_send_roster_group(MidState *s, MidGroupState *g, const Tox *tox)
         
         memcpy(packet + p_idx, g->records[i].signature, MID_SIG_SIZE);
         p_idx += MID_SIG_SIZE;
-        mid_put_u16_be(packet + p_idx, (uint16_t)body_len);
-        p_idx += count_size;
-        memcpy(packet + p_idx, body, body_len);
-        p_idx += body_len;
+
+        memcpy(packet + p_idx, signed_body, signed_len);
+        p_idx += signed_len;
+
+        mid_put_u16_be(packet + p_idx, nick_len);
+        p_idx += sizeof(uint16_t);
+
+        if (nick_len > 0) {
+            memcpy(packet + p_idx, g->records[i].nickname, nick_len);
+            p_idx += nick_len;
+        }
+
         count++;
     }
     
@@ -2236,29 +2241,51 @@ static bool mid_on_custom_packet_group(MidState *s,
     if (type == MID_MSG_PRESENCE) {
         printf("[MID] on_custom_packet: processing PRESENCE message\n"); fflush(stdout);
 
-        if (payload_len < MID_SIG_SIZE) {
-            return false;
-        }
-
-        size_t body_len = payload_len - MID_SIG_SIZE;
-
-        if (body_len > MID_MAX_BODY_SIZE) {
+        /* Minimum: signature + signed body */
+        if (payload_len < MID_SIG_SIZE + MID_SIGNED_BODY_SIZE) {
             return false;
         }
 
         MidPeerRecord r;
         memset(&r, 0, sizeof(r));
 
-        if (!mid_unpack_record_body(&r, payload + MID_SIG_SIZE, body_len)) {
-            return false;
-        }
-
         memcpy(r.signature, payload, MID_SIG_SIZE);
         r.has_signature = true;
+
+        /* Parse and verify the signed body */
+        if (!mid_unpack_signed_body(&r, payload + MID_SIG_SIZE, MID_SIGNED_BODY_SIZE)) {
+            return false;
+        }
 
         if (!mid_verify_record(&r)) {
             printf("[MID] on_custom_packet: PRESENCE verification failed\n"); fflush(stdout);
             return false;
+        }
+
+        /*
+         * Parse the unsigned nickname that follows the signed body.
+         * This is a relayed observation only — it is NOT covered by the
+         * signature and must never be trusted as authenticated data.
+         */
+        size_t nick_off = MID_SIG_SIZE + MID_SIGNED_BODY_SIZE;
+        r.nickname_len = 0;
+
+        if (payload_len >= nick_off + sizeof(uint16_t)) {
+            uint16_t nick_len = mid_get_u16_be(payload + nick_off);
+            nick_off += sizeof(uint16_t);
+
+            if (nick_len > MID_MAX_NICK_SIZE) {
+                nick_len = MID_MAX_NICK_SIZE;
+            }
+
+            if (nick_len > 0) {
+                size_t avail = payload_len - nick_off;
+                size_t copy = (nick_len < avail) ? nick_len : avail;
+                if (copy > 0) {
+                    memcpy(r.nickname, payload + nick_off, copy);
+                    r.nickname_len = (uint16_t)copy;
+                }
+            }
         }
 
         printf("[MID] on_custom_packet: PRESENCE verified, upserting\n"); fflush(stdout);
@@ -2325,29 +2352,29 @@ static bool mid_on_custom_packet_group(MidState *s,
     }
 
     /**************************************************************************
-    * LIGHTWEIGHT HEARTBEAT
-    *
-    * Body:
-    *   status                1 byte
-    *   timestamp             8 bytes
-    *   identity_key         32 bytes
-    *   eph_public_signing_key 32 bytes
-    *   eph_cert_sig         64 bytes
-    *
-    * Signature:
-    *   detached Ed25519 signature over the body, made with the ephemeral
-    *   signing key.
-    *
-    * Heartbeats are used only for liveness / connection state.
-    *
-    * IMPORTANT:
-    * A heartbeat must NOT modify fields belonging to a stored full signed
-    * record, otherwise the stored signature would become invalid.
-    * Therefore, if we already have a signed full record, the heartbeat only
-    * updates connection_status, role, and last_seen.
-    *
-    * Heartbeats do NOT suppress roster responses.
-    *************************************************************************/
+     * LIGHTWEIGHT HEARTBEAT
+     *
+     * Body:
+     *   status                1 byte
+     *   timestamp             8 bytes
+     *   identity_key         32 bytes
+     *   eph_public_signing_key 32 bytes
+     *   eph_cert_sig         64 bytes
+     *
+     * Signature:
+     *   detached Ed25519 signature over the body, made with the ephemeral
+     *   signing key.
+     *
+     * Heartbeats are used only for liveness / connection state.
+     *
+     * IMPORTANT:
+     * A heartbeat must NOT modify fields belonging to a stored full signed
+     * record, otherwise the stored signature would become invalid.
+     * Therefore, if we already have a signed full record, the heartbeat only
+     * updates connection_status, role, and last_seen.
+     *
+     * Heartbeats do NOT suppress roster responses.
+     *************************************************************************/
 
     if (type == MID_MSG_HEARTBEAT) {
         printf("[MID] on_custom_packet: processing HEARTBEAT message\n"); fflush(stdout);
@@ -2588,7 +2615,11 @@ static bool mid_on_custom_packet_group(MidState *s,
         bool batch_complete = true;
 
         for (uint16_t i = 0; i < record_count; i++) {
-            if (p_idx + MID_SIG_SIZE + sizeof(uint16_t) > payload_len) {
+
+            /* Minimum per record: signature + signed_body + nickname_len */
+            size_t min_rec = MID_SIG_SIZE + MID_SIGNED_BODY_SIZE + sizeof(uint16_t);
+
+            if (p_idx + min_rec > payload_len) {
                 batch_complete = false;
                 break;
             }
@@ -2596,99 +2627,101 @@ static bool mid_on_custom_packet_group(MidState *s,
             const uint8_t *sig = payload + p_idx;
             p_idx += MID_SIG_SIZE;
 
-            uint16_t body_len = mid_get_u16_be(payload + p_idx);
+            MidPeerRecord r;
+            memset(&r, 0, sizeof(r));
+
+            if (!mid_unpack_signed_body(&r, payload + p_idx, MID_SIGNED_BODY_SIZE)) {
+                batch_complete = false;
+                break;
+            }
+            p_idx += MID_SIGNED_BODY_SIZE;
+
+            memcpy(r.signature, sig, MID_SIG_SIZE);
+            r.has_signature = true;
+
+            /* Parse the unsigned nickname */
+            uint16_t nick_len = mid_get_u16_be(payload + p_idx);
             p_idx += sizeof(uint16_t);
 
-            if (p_idx + body_len > payload_len) {
+            if (p_idx + nick_len > payload_len) {
                 batch_complete = false;
                 break;
             }
 
-            /*
-             * Defensive limit. The current protocol body cannot exceed
-             * MID_MAX_BODY_SIZE.
-             */
-            if (body_len > MID_MAX_BODY_SIZE) {
-                p_idx += body_len;
-                continue;
+            if (nick_len > 0) {
+                uint16_t copy_len = (nick_len > MID_MAX_NICK_SIZE)
+                                  ? MID_MAX_NICK_SIZE : nick_len;
+                memcpy(r.nickname, payload + p_idx, copy_len);
+                r.nickname_len = copy_len;
             }
+            p_idx += nick_len;
 
-            MidPeerRecord r;
-            memset(&r, 0, sizeof(r));
+            if (mid_verify_record(&r)) {
+                /* Ignore our own record if it is echoed back. */
+                if (!(g->have_keys &&
+                      mid_same_identity(r.identity_key, g->self_identity_key))) {
 
-            if (mid_unpack_record_body(&r, payload + p_idx, body_len)) {
-                memcpy(r.signature, sig, MID_SIG_SIZE);
-                r.has_signature = true;
+                    bool sender_is_subject = false;
 
-                if (mid_verify_record(&r)) {
-                    /* Ignore our own record if it is echoed back. */
-                    if (!(g->have_keys &&
-                          mid_same_identity(r.identity_key, g->self_identity_key))) {
+                    if (sender_has_keys &&
+                        mid_same_identity(sender_identity, r.identity_key)) {
+                        sender_is_subject = true;
+                    }
 
-                        bool sender_is_subject = false;
+                    /*
+                     * If the packet sender claims to be the subject, their
+                     * Toxcore-observed signing key must match the record.
+                     */
+                    if (sender_is_subject &&
+                        !mid_same_signing_key(sender_signing, r.signing_key)) {
+                        sender_is_subject = false;
+                    }
 
-                        if (sender_has_keys &&
-                            mid_same_identity(sender_identity, r.identity_key)) {
-                            sender_is_subject = true;
-                        }
+                    if (sender_is_subject && r.status == MID_STATUS_ACTIVE) {
+                        uint32_t group_number = mid_chat_id_to_group_number(tox, g->chat_id);
+                        Tox_Connection conn = TOX_CONNECTION_NONE;
+                        Tox_Group_Role role = TOX_GROUP_ROLE_USER;
 
-                        /*
-                         * If the packet sender claims to be the subject, their
-                         * Toxcore-observed signing key must match the record.
-                         */
-                        if (sender_is_subject &&
-                            !mid_same_signing_key(sender_signing, r.signing_key)) {
-                            sender_is_subject = false;
-                        }
+                        if (group_number != UINT32_MAX && tox != NULL && peer_id != UINT32_MAX) {
+                            Tox_Err_Group_Peer_Query conn_err;
+                            conn = tox_group_peer_get_connection_status(tox,
+                                                                        group_number,
+                                                                        peer_id,
+                                                                        &conn_err);
 
-                        if (sender_is_subject && r.status == MID_STATUS_ACTIVE) {
-                            uint32_t group_number = mid_chat_id_to_group_number(tox, g->chat_id);
-                            Tox_Connection conn = TOX_CONNECTION_NONE;
-                            Tox_Group_Role role = TOX_GROUP_ROLE_USER;
-
-                            if (group_number != UINT32_MAX && tox != NULL && peer_id != UINT32_MAX) {
-                                Tox_Err_Group_Peer_Query conn_err;
-                                conn = tox_group_peer_get_connection_status(tox,
-                                                                            group_number,
-                                                                            peer_id,
-                                                                            &conn_err);
-
-                                if (conn_err != TOX_ERR_GROUP_PEER_QUERY_OK) {
-                                    conn = TOX_CONNECTION_NONE;
-                                }
-
-                                if (conn == TOX_CONNECTION_NONE) {
-                                    conn = TOX_CONNECTION_TCP;
-                                }
-
-                                Tox_Err_Group_Peer_Query role_err;
-                                role = tox_group_peer_get_role(tox,
-                                                               group_number,
-                                                               peer_id,
-                                                               &role_err);
-
-                                if (role_err != TOX_ERR_GROUP_PEER_QUERY_OK) {
-                                    role = TOX_GROUP_ROLE_USER;
-                                }
+                            if (conn_err != TOX_ERR_GROUP_PEER_QUERY_OK) {
+                                conn = TOX_CONNECTION_NONE;
                             }
 
-                            r.connection_status = conn;
-                            r.last_seen = now;
-                            r.role = role;
-                        } else {
-                            r.connection_status = TOX_CONNECTION_NONE;
-                            /* Anchor last_seen so we can purge them if they never come online */
-                            if (r.last_seen == 0) r.last_seen = now;
+                            if (conn == TOX_CONNECTION_NONE) {
+                                conn = TOX_CONNECTION_TCP;
+                            }
+
+                            Tox_Err_Group_Peer_Query role_err;
+                            role = tox_group_peer_get_role(tox,
+                                                           group_number,
+                                                           peer_id,
+                                                           &role_err);
+
+                            if (role_err != TOX_ERR_GROUP_PEER_QUERY_OK) {
+                                role = TOX_GROUP_ROLE_USER;
+                            }
                         }
 
-                        if (mid_upsert_record(g, &r)) {
-                            changed = true;
-                        }
+                        r.connection_status = conn;
+                        r.last_seen = now;
+                        r.role = role;
+                    } else {
+                        r.connection_status = TOX_CONNECTION_NONE;
+                        /* Anchor last_seen so we can purge them if they never come online */
+                        if (r.last_seen == 0) r.last_seen = now;
+                    }
+
+                    if (mid_upsert_record(g, &r)) {
+                        changed = true;
                     }
                 }
             }
-
-            p_idx += body_len;
         }
 
         /*
