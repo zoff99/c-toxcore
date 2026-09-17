@@ -171,11 +171,10 @@ identity_key == curve25519_from_ed25519(signing_key)
 
 ```text
 1. if identity is all-zero OR signing is all-zero  → REJECT
-2. if identity == signing (byte-equal)             → ACCEPT   (compatibility)
-3. derived = crypto_sign_ed25519_pk_to_curve25519(signing)
+2. derived = crypto_sign_ed25519_pk_to_curve25519(signing)
    if derivation fails                             → REJECT
-4. if identity == derived                          → ACCEPT
-5. else                                            → REJECT
+3. if identity == derived                          → ACCEPT
+4. else                                            → REJECT
 ```
 
 ---
