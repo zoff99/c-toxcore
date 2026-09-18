@@ -16138,8 +16138,8 @@ typedef struct MidState MidState;
 #define MID_PROTOCOL_VERSION    1
 
 /* NGC custom packet ID */
-#define MID_MAGIC_0  0x66      // was before: 0xA0
-#define MID_MAGIC_1  0x77      // was before: 0x91
+#define MID_MAGIC_0  0x66
+#define MID_MAGIC_1  0x77
 #define MID_MAGIC_2  0x92
 
 #define MID_MAGIC_BYTES_TOTAL 3
@@ -91424,7 +91424,7 @@ static const uint8_t MID_MAGIC[MID_MAGIC_BYTES_TOTAL] = {
 
 #define MID_SAVE_MAGIC       "MIDR"
 #define MID_SAVE_MAGIC_SIZE  4
-#define MID_SAVE_VERSION     3
+#define MID_SAVE_VERSION     4
 #define MID_MAX_GROUPS       1000
 
 #define MID_BUF_INIT_CAP 4096
@@ -91446,18 +91446,76 @@ static const uint8_t MID_MAGIC[MID_MAGIC_BYTES_TOTAL] = {
 
 #define MID_SIG_SIZE            64
 #define MID_MAX_PACKET_SIZE     1200
-#define MID_ROSTER_COOLDOWN_SEC 30
-/* FIX 4: Increased heartbeat interval from 50s to 300s (5 mins) to save traffic */
-#define MID_HEARTBEAT_SEC       300
+
+/*
+ * Heartbeat interval in seconds.
+ *
+ * Increased from 300s (5 min) to 3600s (1 hour) to drastically reduce the
+ * volume of signed metadata ("paper trail") and network traffic.
+ *
+ * Toxcore's native connection handling detects immediate disconnects within
+ * seconds, so this slow heartbeat is only needed to keep the 30-day offline
+ * roster cache fresh.
+ */
+#define MID_HEARTBEAT_SEC       3600
+
+/*
+ * Maximum random jitter applied to the heartbeat interval, in seconds.
+ *
+ * Each heartbeat fires at a randomly chosen point within
+ * [MID_HEARTBEAT_SEC - JITTER/2, MID_HEARTBEAT_SEC + JITTER/2].
+ * The jitter is re-randomised on every cycle, which defeats fixed-interval
+ * traffic-analysis fingerprinting.
+ */
+#define MID_HEARTBEAT_JITTER_SEC 1800
+
+/*
+ * Maximum number of random padding bytes appended to every outgoing custom
+ * packet. A random value in [0, MID_MAX_PACKET_PADDING] is chosen per packet.
+ *
+ * Padding hides the deterministic size of each middleware message type,
+ * making size-based traffic fingerprinting significantly harder.
+ */
+#define MID_MAX_PACKET_PADDING  64
+
+/*
+ * Maximum payload size BEFORE padding. Reserves room for the maximum padding
+ * plus the 1-byte padding-length indicator so the final padded packet never
+ * exceeds MID_MAX_PACKET_SIZE.
+ */
+#define MID_MAX_PAYLOAD_SIZE (MID_MAX_PACKET_SIZE - MID_MAX_PACKET_PADDING - 1)
 
 #define MID_RECORD_STATUS_SIZE    sizeof(uint8_t)
 #define MID_RECORD_TIMESTAMP_SIZE sizeof(uint64_t)
-#define MID_RECORD_NICKLEN_SIZE   sizeof(uint16_t)
 
-#define MID_RECORD_FIXED_BODY_SIZE (MID_RECORD_STATUS_SIZE + MID_RECORD_TIMESTAMP_SIZE + MID_RECORD_NICKLEN_SIZE)
+/*
+ * Heartbeat body layout:
+ *   status                  1 byte
+ *   timestamp               8 bytes
+ *   identity_key           32 bytes
+ *   eph_public_signing_key 32 bytes
+ *   eph_cert_sig           64 bytes
+ *                          --------
+ *                          137 bytes
+ */
+#define MID_HEARTBEAT_BODY_SIZE (MID_RECORD_STATUS_SIZE + MID_RECORD_TIMESTAMP_SIZE + \
+                                 MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE + MID_SIG_SIZE)
 
-#define MID_HEARTBEAT_BODY_SIZE (MID_RECORD_STATUS_SIZE + MID_RECORD_TIMESTAMP_SIZE + MID_IDENTITY_KEY_SIZE)
-
+/*
+ * Size of the cryptographically signed portion of a presence record:
+ *   status(1) + timestamp(8) + identity_key(32) + signing_key(32) = 73 bytes.
+ *
+ * The nickname is intentionally EXCLUDED from the signed body and is instead
+ * transmitted as a separate unsigned field. This ensures:
+ *   - a nickname change does not require a new signature,
+ *   - the cryptographic proof does not permanently bind a human-readable
+ *     name to the identity,
+ *   - the signed artifact carries no more metadata than strictly necessary.
+ *
+ * The nickname is therefore a best-effort, relayed/local observation only.
+ */
+#define MID_SIGNED_BODY_SIZE (MID_RECORD_STATUS_SIZE + MID_RECORD_TIMESTAMP_SIZE + \
+                              MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE)
 
 /*
 Throttle for the heavy sync/cleanup loop in mid_iterate().
@@ -91466,9 +91524,19 @@ hammering Toxcore on every 50ms tox_iterate() tick.
 */
 #define MID_SYNC_INTERVAL_SEC   5
 
-
-#define MID_MAX_BODY_SIZE (MID_RECORD_FIXED_BODY_SIZE + MID_MAX_NICK_SIZE + \
-                           MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE)
+/* COOLDOWN: Minimum gap between consecutive ROSTER_BATCH transmissions */
+/*
+ * Minimum gap (in seconds) between consecutive ROSTER_BATCH transmissions
+ * for a given group. This prevents flooding when many peers request the
+ * roster simultaneously or when repeated ROSTER_REQUESTs arrive in
+ * quick succession.
+ *
+ * The multicast-suppression timer (1-5 s randomised delay) deduplicates
+ * bursts, but does NOT cap the sustained response rate. This cooldown
+ * is the hard cap: at most one ROSTER_BATCH per group per
+ * MID_ROSTER_COOLDOWN_SEC seconds, regardless of how many triggers fire.
+ */
+#define MID_ROSTER_COOLDOWN_SEC 20
 
 /*
 Time-To-Live for LEFT tombstones.
@@ -91484,6 +91552,27 @@ heartbeats guarantee last_seen stays fresh for actually active peers.
 */
 #define MID_STALE_PEER_TTL_SEC (30 * 24 * 60 * 60)
 
+/*
+Lifetime of an ephemeral signing key before it must be rotated.
+After this period a new ephemeral keypair is generated and certified
+by the long-term signing key.
+*/
+#define MID_EPH_KEY_LIFETIME_SEC (24 * 60 * 60)
+
+/*
+ * Timestamps in signed records are rounded down to this interval (in seconds).
+ *
+ * This reduces the precision of the sender's clock exposed on the wire,
+ * making exact clock-skew fingerprinting and precise timing correlation
+ * harder, while still providing a strictly monotonic logical clock for
+ * record ordering (20 seconds is well below the heartbeat interval).
+ */
+#define MID_TIMESTAMP_ROUNDING_SEC 20
+
+static uint64_t mid_round_timestamp(uint64_t ts)
+{
+    return (ts / MID_TIMESTAMP_ROUNDING_SEC) * MID_TIMESTAMP_ROUNDING_SEC;
+}
 
 typedef enum {
     MID_STATUS_ACTIVE = 0,
@@ -91506,6 +91595,9 @@ typedef struct {
     uint16_t nickname_len;
     uint8_t  signature[MID_SIG_SIZE];
     bool     has_signature;
+    uint8_t  eph_public_signing_key[MID_SIGNING_KEY_SIZE];
+    uint8_t  eph_cert_sig[MID_SIG_SIZE];
+    bool     has_eph_key;
     Tox_Connection connection_status;
     Tox_Group_Role role;
     uint64_t last_seen;
@@ -91525,9 +91617,32 @@ typedef struct {
     size_t         count;
     size_t         capacity;
     uint64_t last_announce;
+    uint64_t next_heartbeat; /* unix timestamp at which the next jittered heartbeat fires */
+    /* COOLDOWN: unix timestamp of the last ROSTER_BATCH we sent */
     uint64_t last_roster_response;
     uint64_t roster_reply_deadline; /* FIX 2: Multicast suppression timer */
     uint8_t  roster_fingerprint[MID_IDENTITY_KEY_SIZE]; /* Incremental XOR sum of all signed identity keys */
+
+    /*
+     * Ephemeral signing keypair.
+     *
+     * eph_secret_signing_key / eph_public_signing_key form a short-lived
+     * Ed25519 keypair used for signing heartbeats and presence records
+     * instead of the long-term self_secret_signing_key.
+     *
+     * eph_cert_sig is a detached Ed25519 signature of
+     * eph_public_signing_key created with self_secret_signing_key.
+     * Receivers verify this certificate against the sender's long-term
+     * signing_key to bind the ephemeral key to the persistent identity.
+     *
+     * eph_key_expiry is the unix timestamp after which the ephemeral key
+     * must be rotated.
+     */
+    uint8_t eph_secret_signing_key[MID_SIGNING_SECRET_KEY_SIZE];
+    uint8_t eph_public_signing_key[MID_SIGNING_KEY_SIZE];
+    uint8_t eph_cert_sig[MID_SIG_SIZE];
+    bool     have_eph_keys;
+    uint64_t eph_key_expiry;
 } MidGroupState;
 
 /*
@@ -91928,41 +92043,119 @@ static int mid_find_identity(const MidGroupState *g,
 }
 
 /******************************************************************************
+Ephemeral signing key management
+
+The ephemeral signing keypair is a short-lived Ed25519 keypair that is
+used for signing heartbeats and presence records instead of the long-term
+self_secret_signing_key.
+
+eph_cert_sig is a detached Ed25519 signature of eph_public_signing_key
+created with self_secret_signing_key.  Receivers verify this certificate
+against the sender's long-term signing_key to bind the ephemeral key to
+the persistent identity.
+
+All functions in this section assume the group lock is already held.
+******************************************************************************/
+
+static bool mid_generate_ephemeral_signing_keys(MidGroupState *g)
+{
+    if (g == NULL || !g->have_keys) {
+        printf("[MID] generate_eph_signing_keys: rejected, no long-term keys\n"); fflush(stdout);
+        return false;
+    }
+
+    /* Wipe any previous ephemeral key material */
+    sodium_memzero(g->eph_secret_signing_key, sizeof(g->eph_secret_signing_key));
+    memset(g->eph_public_signing_key, 0, sizeof(g->eph_public_signing_key));
+    memset(g->eph_cert_sig, 0, sizeof(g->eph_cert_sig));
+    g->have_eph_keys = false;
+
+    /* Generate new Ed25519 keypair */
+    if (crypto_sign_keypair(g->eph_public_signing_key, g->eph_secret_signing_key) != 0) {
+        printf("[MID] generate_eph_signing_keys: crypto_sign_keypair failed\n"); fflush(stdout);
+        return false;
+    }
+
+    /* Create certificate: sign eph_public_signing_key with long-term key */
+    unsigned long long sig_len = 0;
+    if (crypto_sign_detached(g->eph_cert_sig, &sig_len,
+                             g->eph_public_signing_key, MID_SIGNING_KEY_SIZE,
+                             g->self_secret_signing_key) != 0) {
+        printf("[MID] generate_eph_signing_keys: cert signing failed\n"); fflush(stdout);
+        sodium_memzero(g->eph_secret_signing_key, sizeof(g->eph_secret_signing_key));
+        memset(g->eph_public_signing_key, 0, sizeof(g->eph_public_signing_key));
+        return false;
+    }
+
+    if (sig_len != MID_SIG_SIZE) {
+        printf("[MID] generate_eph_signing_keys: unexpected cert sig_len %llu\n", sig_len); fflush(stdout);
+        sodium_memzero(g->eph_secret_signing_key, sizeof(g->eph_secret_signing_key));
+        memset(g->eph_public_signing_key, 0, sizeof(g->eph_public_signing_key));
+        memset(g->eph_cert_sig, 0, sizeof(g->eph_cert_sig));
+        return false;
+    }
+
+    g->have_eph_keys = true;
+    g->eph_key_expiry = mid_now_or_time(0) + MID_EPH_KEY_LIFETIME_SEC;
+
+    printf("[MID] generate_eph_signing_keys: new ephemeral signing keypair created, expires at %llu\n",
+           (unsigned long long)g->eph_key_expiry); fflush(stdout);
+
+    return true;
+}
+
+/*
+ * Ensure that ephemeral signing keys exist and are not expired.
+ * Generates or rotates keys as needed.
+ *
+ * Must be called with the group lock held.
+ */
+static bool mid_ensure_ephemeral_signing_keys(MidGroupState *g)
+{
+    if (g == NULL || !g->have_keys) {
+        return false;
+    }
+
+    uint64_t now = mid_now_or_time(0);
+
+    if (!g->have_eph_keys || now >= g->eph_key_expiry) {
+        printf("[MID] ensure_eph_signing_keys: generating/rotating ephemeral signing keys\n"); fflush(stdout);
+        return mid_generate_ephemeral_signing_keys(g);
+    }
+
+    return true;
+}
+
+/******************************************************************************
 Record serialization and crypto
 ******************************************************************************/
 
-static bool mid_pack_record_body(uint8_t *buf,
+/*
+ * Pack ONLY the signed portion of a presence record.
+ * The nickname is deliberately not included here.
+ */
+static bool mid_pack_signed_body(uint8_t *buf,
                                  size_t cap,
                                  const MidPeerRecord *r,
                                  size_t *out_len)
 {
-    if (r->nickname_len > MID_MAX_NICK_SIZE) {
-        return false;
-    }
-
     if (mid_key_is_zero(r->identity_key)) {
         return false;
     }
 
-    size_t need = MID_RECORD_FIXED_BODY_SIZE + r->nickname_len + MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE;
+    size_t need = MID_SIGNED_BODY_SIZE;
 
     if (need > cap) {
-        printf("[MID] pack_record_body: rejected, need %zu > cap %zu\n", need, cap); fflush(stdout);
+        printf("[MID] pack_signed_body: rejected, need %zu > cap %zu\n", need, cap); fflush(stdout);
         return false;
     }
 
-    printf("[MID] pack_record_body: packing %zu bytes\n", need); fflush(stdout);
+    printf("[MID] pack_signed_body: packing %zu bytes\n", need); fflush(stdout);
 
     size_t o = 0;
     buf[o++] = r->status;
     mid_put_u64_be(buf + o, r->timestamp);
     o += 8;
-    mid_put_u16_be(buf + o, r->nickname_len);
-    o += 2;
-    if (r->nickname_len > 0) {
-        memcpy(buf + o, r->nickname, r->nickname_len);
-        o += r->nickname_len;
-    }
     memcpy(buf + o, r->identity_key, MID_IDENTITY_KEY_SIZE);
     o += MID_IDENTITY_KEY_SIZE;
     memcpy(buf + o, r->signing_key, MID_SIGNING_KEY_SIZE);
@@ -91974,21 +92167,21 @@ static bool mid_pack_record_body(uint8_t *buf,
     return true;
 }
 
-static bool mid_unpack_record_body(MidPeerRecord *r,
+/*
+ * Unpack ONLY the signed portion of a presence record.
+ * The nickname is parsed separately by the caller.
+ */
+static bool mid_unpack_signed_body(MidPeerRecord *r,
                                    const uint8_t *buf,
                                    size_t len)
 {
-    memset(r, 0, sizeof(*r));
-
-    size_t o = 0;
-    size_t min_len = MID_RECORD_FIXED_BODY_SIZE + MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE;
-
-    if (len < min_len) {
-        printf("[MID] unpack_record_body: rejected, len %zu < min_len %zu\n", len, min_len); fflush(stdout);
+    if (len < MID_SIGNED_BODY_SIZE) {
+        printf("[MID] unpack_signed_body: rejected, len %zu < %d\n",
+               len, MID_SIGNED_BODY_SIZE); fflush(stdout);
         return false;
     }
 
-    printf("[MID] unpack_record_body: unpacking %zu bytes\n", len); fflush(stdout);
+    size_t o = 0;
 
     r->status = buf[o++];
     if (r->status != MID_STATUS_ACTIVE && r->status != MID_STATUS_LEFT) {
@@ -91997,22 +92190,6 @@ static bool mid_unpack_record_body(MidPeerRecord *r,
 
     r->timestamp = mid_get_u64_be(buf + o);
     o += 8;
-
-    r->nickname_len = mid_get_u16_be(buf + o);
-    o += 2;
-
-    if (r->nickname_len > MID_MAX_NICK_SIZE) {
-        return false;
-    }
-
-    if (o + r->nickname_len + MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE > len) {
-        return false;
-    }
-
-    if (r->nickname_len > 0) {
-        memcpy(r->nickname, buf + o, r->nickname_len);
-        o += r->nickname_len;
-    }
 
     memcpy(r->identity_key, buf + o, MID_IDENTITY_KEY_SIZE);
     o += MID_IDENTITY_KEY_SIZE;
@@ -92024,10 +92201,6 @@ static bool mid_unpack_record_body(MidPeerRecord *r,
         return false;
     }
 
-    r->has_signature = false;
-    r->connection_status = TOX_CONNECTION_NONE;
-    r->role = TOX_GROUP_ROLE_USER;
-    r->last_seen = 0;
     return true;
 }
 
@@ -92038,21 +92211,44 @@ static bool mid_verify_record(const MidPeerRecord *r)
         return false;
     }
 
+    if (!r->has_eph_key) {
+        printf("[MID] verify_record: rejected, no ephemeral signing key\n"); fflush(stdout);
+        return false;
+    }
+
     if (!mid_valid_key_binding(r->identity_key, r->signing_key)) {
         printf("[MID] verify_record: rejected, invalid key binding\n"); fflush(stdout);
         return false;
     }
 
-    uint8_t body[MID_MAX_BODY_SIZE];
+    uint8_t body[MID_SIGNED_BODY_SIZE];
     size_t body_len = 0;
-    if (!mid_pack_record_body(body, sizeof(body), r, &body_len)) {
+    if (!mid_pack_signed_body(body, sizeof(body), r, &body_len)) {
         return false;
     }
 
+    /*
+     * Verify the ephemeral key certificate.
+     *
+     * eph_cert_sig is a detached Ed25519 signature of
+     * eph_public_signing_key created with the long-term signing_key.
+     */
+    if (crypto_sign_verify_detached(r->eph_cert_sig,
+                                    r->eph_public_signing_key, MID_SIGNING_KEY_SIZE,
+                                    r->signing_key) != 0) {
+        printf("[MID] verify_record: rejected, ephemeral key certificate invalid\n"); fflush(stdout);
+        return false;
+    }
+
+    printf("[MID] verify_record: ephemeral key certificate valid\n"); fflush(stdout);
+
+    /*
+     * Verify the record signature against the ephemeral signing key.
+     */
     int res = crypto_sign_verify_detached(r->signature,
                                           body,
                                           body_len,
-                                          r->signing_key);
+                                          r->eph_public_signing_key);
 
     if (res == 0) {
         printf("[MID] verify_record: signature VALID\n"); fflush(stdout);
@@ -92070,9 +92266,25 @@ static bool mid_sign_record(MidGroupState *g, MidPeerRecord *r)
         return false;
     }
 
-    uint8_t body[MID_MAX_BODY_SIZE];
+    /*
+     * Ensure ephemeral signing keys exist and are current.
+     */
+    if (!mid_ensure_ephemeral_signing_keys(g)) {
+        printf("[MID] sign_record: failed, cannot ensure ephemeral signing keys\n"); fflush(stdout);
+        return false;
+    }
+
+    /*
+     * Attach ephemeral key info to the record so receivers can verify
+     * the signature against the ephemeral key and validate the cert.
+     */
+    memcpy(r->eph_public_signing_key, g->eph_public_signing_key, MID_SIGNING_KEY_SIZE);
+    memcpy(r->eph_cert_sig, g->eph_cert_sig, MID_SIG_SIZE);
+    r->has_eph_key = true;
+
+    uint8_t body[MID_SIGNED_BODY_SIZE];
     size_t body_len = 0;
-    if (!mid_pack_record_body(body, sizeof(body), r, &body_len)) {
+    if (!mid_pack_signed_body(body, sizeof(body), r, &body_len)) {
         return false;
     }
 
@@ -92081,7 +92293,7 @@ static bool mid_sign_record(MidGroupState *g, MidPeerRecord *r)
                              &sig_len,
                              body,
                              body_len,
-                             g->self_secret_signing_key) != 0) {
+                             g->eph_secret_signing_key) != 0) {
         printf("[MID] sign_record: crypto_sign_detached failed\n"); fflush(stdout);
         return false;
     }
@@ -92091,7 +92303,8 @@ static bool mid_sign_record(MidGroupState *g, MidPeerRecord *r)
         return false;
     }
 
-    printf("[MID] sign_record: successfully signed %zu bytes\n", body_len); fflush(stdout);
+    printf("[MID] sign_record: successfully signed %zu bytes (ephemeral)\n", body_len); fflush(stdout);
+
     r->has_signature = true;
     return true;
 }
@@ -92113,8 +92326,7 @@ It does NOT change when a signed peer updates their nickname or timestamp.
 
 static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
 {
-    printf("[MID] upsert_record: processing record\n");
-    fflush(stdout);
+    printf("[MID] upsert_record: processing record\n"); fflush(stdout);
 
     if (g == NULL || in == NULL) {
         return false;
@@ -92123,20 +92335,17 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
     MidPeerRecord tmp = *in;
 
     if (mid_key_is_zero(tmp.identity_key)) {
-        printf("[MID] upsert_record: rejected, zero identity key\n");
-        fflush(stdout);
+        printf("[MID] upsert_record: rejected, zero identity key\n"); fflush(stdout);
         return false;
     }
 
     if (tmp.status != MID_STATUS_ACTIVE && tmp.status != MID_STATUS_LEFT) {
-        printf("[MID] upsert_record: rejected, invalid status\n");
-        fflush(stdout);
+        printf("[MID] upsert_record: rejected, invalid status\n"); fflush(stdout);
         return false;
     }
 
     if (tmp.nickname_len > MID_MAX_NICK_SIZE) {
-        printf("[MID] upsert_record: rejected, nickname too long\n");
-        fflush(stdout);
+        printf("[MID] upsert_record: rejected, nickname too long\n"); fflush(stdout);
         return false;
     }
 
@@ -92152,8 +92361,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
      * Verify signed records before touching any state.
      */
     if (tmp.has_signature && !mid_verify_record(&tmp)) {
-        printf("[MID] upsert_record: rejected, signature verification failed\n");
-        fflush(stdout);
+        printf("[MID] upsert_record: rejected, signature verification failed\n"); fflush(stdout);
         return false;
     }
 
@@ -92177,8 +92385,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
             if (ex->has_signature &&
                 tmp.has_signature &&
                 !mid_same_signing_key(ex->signing_key, tmp.signing_key)) {
-                printf("[MID] upsert_record: rejected LEFT tombstone, signing key changed\n");
-                fflush(stdout);
+                printf("[MID] upsert_record: rejected LEFT tombstone, signing key changed\n"); fflush(stdout);
                 return false;
             }
 
@@ -92197,8 +92404,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
                  * marked offline, there is nothing to do.
                  */
                 if (same_signature && ex->connection_status == TOX_CONNECTION_NONE) {
-                    printf("[MID] upsert_record: identical LEFT tombstone already stored\n");
-                    fflush(stdout);
+                    printf("[MID] upsert_record: identical LEFT tombstone already stored\n"); fflush(stdout);
                     return false;
                 }
 
@@ -92208,8 +92414,13 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
                  */
                 bool gained_signature = !ex->has_signature && tmp.has_signature;
 
+                /* FIX: Preserve the old role. A LEFT tombstone does not carry
+                 * role information, and the incoming role is untrusted. */
+                Tox_Group_Role saved_role = ex->role;
+
                 *ex = tmp;
                 ex->connection_status = TOX_CONNECTION_NONE;
+                ex->role = saved_role;
 
                 if (gained_signature) {
                     printf("[MID] upsert_record: XOR IN tombstone transition. Old FP[0..3]=%02X%02X%02X%02X\n", g->roster_fingerprint[0], g->roster_fingerprint[1], g->roster_fingerprint[2], g->roster_fingerprint[3]); fflush(stdout);
@@ -92217,8 +92428,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
                     printf("[MID] upsert_record: New FP[0..3]=%02X%02X%02X%02X\n", g->roster_fingerprint[0], g->roster_fingerprint[1], g->roster_fingerprint[2], g->roster_fingerprint[3]); fflush(stdout);
                 }
 
-                printf("[MID] upsert_record: stored signed LEFT tombstone\n");
-                fflush(stdout);
+                printf("[MID] upsert_record: stored signed LEFT tombstone\n"); fflush(stdout);
 
                 return true; /* CHANGED */
             }
@@ -92231,13 +92441,15 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
 
         /* Insert new tombstone for unknown peer */
         if (!mid_ensure_capacity(g)) {
-            printf("[MID] upsert_record: failed to ensure capacity for tombstone\n");
-            fflush(stdout);
+            printf("[MID] upsert_record: failed to ensure capacity for tombstone\n"); fflush(stdout);
             return false;
         }
 
         g->records[g->count] = tmp;
         g->records[g->count].connection_status = TOX_CONNECTION_NONE;
+
+        /* FIX: role is 0 (FOUNDER) from memset in the incoming record. */
+        g->records[g->count].role = TOX_GROUP_ROLE_USER;
 
         if (g->records[g->count].has_signature) {
             printf("[MID] upsert_record: XOR IN new tombstone. Old FP[0..3]=%02X%02X%02X%02X\n", g->roster_fingerprint[0], g->roster_fingerprint[1], g->roster_fingerprint[2], g->roster_fingerprint[3]); fflush(stdout);
@@ -92247,8 +92459,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
 
         g->count++;
 
-        printf("[MID] upsert_record: inserted new signed LEFT tombstone\n");
-        fflush(stdout);
+        printf("[MID] upsert_record: inserted new signed LEFT tombstone\n"); fflush(stdout);
 
         return true; /* CHANGED */
     }
@@ -92261,8 +92472,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
 
     if (idx < 0) {
         if (!mid_ensure_capacity(g)) {
-            printf("[MID] upsert_record: failed to ensure capacity\n");
-            fflush(stdout);
+            printf("[MID] upsert_record: failed to ensure capacity\n"); fflush(stdout);
             return false;
         }
 
@@ -92280,8 +92490,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
 
         g->count++;
 
-        printf("[MID] upsert_record: inserted new peer (count=%zu)\n", g->count);
-        fflush(stdout);
+        printf("[MID] upsert_record: inserted new peer (count=%zu)\n", g->count); fflush(stdout);
 
         return true; /* CHANGED */
     }
@@ -92295,8 +92504,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
     if (existing->has_signature &&
         tmp.has_signature &&
         !mid_same_signing_key(existing->signing_key, tmp.signing_key)) {
-        printf("[MID] upsert_record: rejected, signing key changed for same identity\n");
-        fflush(stdout);
+        printf("[MID] upsert_record: rejected, signing key changed for same identity\n"); fflush(stdout);
         return false;
     }
 
@@ -92324,8 +92532,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
     bool changed = false;
 
     if (replace) {
-        printf("[MID] upsert_record: replacing existing record\n");
-        fflush(stdout);
+        printf("[MID] upsert_record: replacing existing record\n"); fflush(stdout);
 
         bool old_had_signature = existing->has_signature;
         bool new_has_signature = tmp.has_signature;
@@ -92392,8 +92599,7 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
 
         changed = true;
     } else {
-        printf("[MID] upsert_record: keeping existing record\n");
-        fflush(stdout);
+        printf("[MID] upsert_record: keeping existing record\n"); fflush(stdout);
     }
 
     /**************************************************************************
@@ -92447,9 +92653,39 @@ static bool mid_send_custom(MidState *s,
         return false;
     }
 
-    if (length > MID_MAX_PACKET_SIZE) {
+    /*
+     * TRAFFIC-ANALYSIS RESISTANCE: PACKET PADDING
+     *
+     * Append a random number of random bytes [0..MID_MAX_PACKET_PADDING] plus
+     * a trailing 1-byte padding-length indicator to every outgoing packet.
+     *
+     * This hides the deterministic size of each middleware message type,
+     * making size-based traffic fingerprinting significantly harder.
+     *
+     * Layout after padding:
+     *   [original data][random padding (pad_len bytes)][pad_len (1 byte)]
+     */
+    uint8_t pad_len = 0;
+    if (MID_MAX_PACKET_PADDING > 0) {
+        pad_len = (uint8_t)(randombytes_uniform((uint32_t)MID_MAX_PACKET_PADDING + 1));
+    }
+
+    size_t total_len = length + (size_t)pad_len + 1;
+
+    if (total_len > MID_MAX_PACKET_SIZE) {
+        printf("[MID] send_custom: packet too large after padding (%zu > %d)\n",
+               total_len, MID_MAX_PACKET_SIZE); fflush(stdout);
         return false;
     }
+
+    uint8_t padded[MID_MAX_PACKET_SIZE];
+    memcpy(padded, data, length);
+
+    if (pad_len > 0) {
+        randombytes_buf(padded + length, pad_len);
+    }
+
+    padded[length + pad_len] = pad_len;
 
     uint32_t group_number = mid_chat_id_to_group_number(tox, chat_id);
     if (group_number == UINT32_MAX) {
@@ -92461,17 +92697,18 @@ static bool mid_send_custom(MidState *s,
     bool ok = tox_group_send_custom_packet(tox,
                                            group_number,
                                            lossless,
-                                           data,
-                                           length,
+                                           padded,
+                                           total_len,
                                            &err);
 
-    printf("[MID] send_custom:err=%d ok=%d group_number=%d\n", (int)err, (int)ok, (int)group_number); fflush(stdout);
+    printf("[MID] send_custom:err=%d ok=%d group_number=%d pad=%u\n",
+           (int)err, (int)ok, (int)group_number, (unsigned)pad_len); fflush(stdout);
 
     if (!ok) {
         printf("[MID] send_custom: tox_group_send_custom_packet failed (err=%d)\n", err); fflush(stdout);
     } else {
         if (s != NULL) {
-            s->sent_bytes += length;
+            s->sent_bytes += total_len;
         }
     }
     return ok;
@@ -92490,13 +92727,36 @@ static bool mid_send_presence_record(MidState *s,
         return false;
     }
 
-    uint8_t body[MID_MAX_BODY_SIZE];
+    uint8_t body[MID_SIGNED_BODY_SIZE];
     size_t body_len = 0;
-    if (!mid_pack_record_body(body, sizeof(body), r, &body_len)) {
+
+    if (!mid_pack_signed_body(body, sizeof(body), r, &body_len)) {
         return false;
     }
 
-    size_t packet_len = MID_HEADER_SIZE + MID_SIG_SIZE + body_len;
+    /* Defensive clamp: nickname must never exceed its fixed buffer. */
+    if (r->nickname_len > MID_MAX_NICK_SIZE) {
+        return false;
+    }
+
+    /*
+     * Compute the FULL packet length, INCLUDING the ephemeral key info
+     * and the unsigned nickname (and its 2-byte length prefix), and
+     * validate it BEFORE writing into the stack buffer.
+     *
+     * Packet layout:
+     *   header
+     *   signature                (covers signed_body only)
+     *   signed_body
+     *   eph_public_signing_key   (unsigned, needed for verification)
+     *   eph_cert_sig             (unsigned, binds eph key to long-term key)
+     *   nickname_len             (unsigned)
+     *   nickname                 (unsigned)
+     */
+    size_t packet_len = MID_HEADER_SIZE + MID_SIG_SIZE + body_len
+                      + MID_SIGNING_KEY_SIZE + MID_SIG_SIZE
+                      + sizeof(uint16_t) + r->nickname_len;
+
     if (packet_len > MID_MAX_PACKET_SIZE) {
         return false;
     }
@@ -92512,6 +92772,21 @@ static bool mid_send_presence_record(MidState *s,
     memcpy(packet + o, body, body_len);
     o += body_len;
 
+    /* Ephemeral key info (unsigned, needed by receiver for verification) */
+    memcpy(packet + o, r->eph_public_signing_key, MID_SIGNING_KEY_SIZE);
+    o += MID_SIGNING_KEY_SIZE;
+
+    memcpy(packet + o, r->eph_cert_sig, MID_SIG_SIZE);
+    o += MID_SIG_SIZE;
+
+    mid_put_u16_be(packet + o, r->nickname_len);
+    o += 2;
+
+    if (r->nickname_len > 0) {
+        memcpy(packet + o, r->nickname, r->nickname_len);
+        o += r->nickname_len;
+    }
+
     return mid_send_custom(s, tox, g->chat_id, true, packet, o);
 }
 
@@ -92520,19 +92795,32 @@ static bool mid_send_heartbeat_record(MidState *s, MidGroupState *g, const Tox *
 {
     if (!g || !tox || !g->have_keys) return false;
 
+    /* Ensure ephemeral signing keys are available and current */
+    if (!mid_ensure_ephemeral_signing_keys(g)) {
+        return false;
+    }
+
     uint8_t body[MID_HEARTBEAT_BODY_SIZE];
     size_t o = 0;
     body[o++] = MID_STATUS_ACTIVE;
-    mid_put_u64_be(body + o, mid_now_or_time(0));
+    mid_put_u64_be(body + o, mid_round_timestamp(mid_now_or_time(0)));
     o += 8;
     memcpy(body + o, g->self_identity_key, MID_IDENTITY_KEY_SIZE);
     o += MID_IDENTITY_KEY_SIZE;
 
+    memcpy(body + o, g->eph_public_signing_key, MID_SIGNING_KEY_SIZE);
+    o += MID_SIGNING_KEY_SIZE;
+
+    memcpy(body + o, g->eph_cert_sig, MID_SIG_SIZE);
+    o += MID_SIG_SIZE;
+
     uint8_t sig[MID_SIG_SIZE];
     unsigned long long sig_len = 0;
-    if (crypto_sign_detached(sig, &sig_len, body, o, g->self_secret_signing_key) != 0) return false;
 
-    uint8_t packet[128];
+    if (crypto_sign_detached(sig, &sig_len, body, o, g->eph_secret_signing_key) != 0) return false;
+
+    uint8_t packet[MID_HEADER_SIZE + MID_SIG_SIZE + MID_HEARTBEAT_BODY_SIZE];
+
     memcpy(packet, MID_MAGIC, MID_MAGIC_BYTES_TOTAL);
     packet[MID_MAGIC_BYTES_TOTAL] = MID_PROTOCOL_VERSION;
     packet[MID_MAGIC_BYTES_TOTAL + 1] = MID_MSG_HEARTBEAT;
@@ -92592,19 +92880,48 @@ static bool mid_send_roster_group(MidState *s, MidGroupState *g, const Tox *tox)
 
     for (size_t i = 0; i < g->count; i++) {
         if (!g->records[i].has_signature) continue;
-        
-        uint8_t body[MID_MAX_BODY_SIZE];
-        size_t body_len = 0;
-        if (!mid_pack_record_body(body, sizeof(body), &g->records[i], &body_len)) continue;
-        
-        // Signature + body_len prefix + body
-        size_t needed = MID_SIG_SIZE + count_size + body_len;
+
+        uint8_t signed_body[MID_SIGNED_BODY_SIZE];
+        size_t signed_len = 0;
+
+        if (!mid_pack_signed_body(signed_body, sizeof(signed_body), &g->records[i], &signed_len)) continue;
+
+        /* Defensive clamp: nickname must never exceed its fixed buffer. */
+        uint16_t nick_len = g->records[i].nickname_len;
+        if (nick_len > MID_MAX_NICK_SIZE) {
+            nick_len = MID_MAX_NICK_SIZE;
+        }
+
+        /*
+         * Per-record layout:
+         *   signature              (covers signed_body only)
+         *   signed_body
+         *   eph_public_signing_key (unsigned, needed for verification)
+         *   eph_cert_sig           (unsigned, binds eph key to long-term key)
+         *   nickname_len           (unsigned)
+         *   nickname               (unsigned)
+         */
+        size_t needed = MID_SIG_SIZE + signed_len
+                      + MID_SIGNING_KEY_SIZE + MID_SIG_SIZE
+                      + sizeof(uint16_t) + nick_len;
+
+        /*
+         * Defensive guard: if this single record cannot fit even in an
+         * empty packet (immediately after the batch header), skip it
+         * instead of overflowing the buffer. With current constants this
+         * can never trigger, but it protects against future record growth.
+         */
+        if (batch_header_size + needed > MID_MAX_PACKET_SIZE) {
+            printf("[MID] send_roster: record %zu too large (%zu bytes), skipping\n", i, needed); fflush(stdout);
+            continue;
+        }
 
         if (p_idx + needed > MID_MAX_PACKET_SIZE) {
             mid_put_u16_be(packet + count_idx, count);
             if (!mid_send_custom(s, tox, g->chat_id, true, packet, p_idx)) ok = false;
-            
-            p_idx = batch_header_size; 
+
+            p_idx = batch_header_size;
+
             printf("[MID] send_roster: Re-injecting FP[0..3]=%02X%02X%02X%02X into next batch packet\n", g->roster_fingerprint[0], g->roster_fingerprint[1], g->roster_fingerprint[2], g->roster_fingerprint[3]); fflush(stdout);
             
             // Re-inject full header for next packet
@@ -92619,10 +92936,25 @@ static bool mid_send_roster_group(MidState *s, MidGroupState *g, const Tox *tox)
         
         memcpy(packet + p_idx, g->records[i].signature, MID_SIG_SIZE);
         p_idx += MID_SIG_SIZE;
-        mid_put_u16_be(packet + p_idx, (uint16_t)body_len);
-        p_idx += count_size;
-        memcpy(packet + p_idx, body, body_len);
-        p_idx += body_len;
+
+        memcpy(packet + p_idx, signed_body, signed_len);
+        p_idx += signed_len;
+
+        /* Ephemeral key info (unsigned, needed by receiver for verification) */
+        memcpy(packet + p_idx, g->records[i].eph_public_signing_key, MID_SIGNING_KEY_SIZE);
+        p_idx += MID_SIGNING_KEY_SIZE;
+
+        memcpy(packet + p_idx, g->records[i].eph_cert_sig, MID_SIG_SIZE);
+        p_idx += MID_SIG_SIZE;
+
+        mid_put_u16_be(packet + p_idx, nick_len);
+        p_idx += sizeof(uint16_t);
+
+        if (nick_len > 0) {
+            memcpy(packet + p_idx, g->records[i].nickname, nick_len);
+            p_idx += nick_len;
+        }
+
         count++;
     }
     
@@ -92670,13 +93002,22 @@ static void mid_apply_founder_role(MidGroupState *g, const Tox *tox)
     }
 
     int idx = mid_find_identity(g, founder_identity);
+
+    /* FIX: Clear stale FOUNDER role from all non-founder peers. */
+    for (size_t i = 0; i < g->count; i++) {
+        if ((int)i != idx && g->records[i].role == TOX_GROUP_ROLE_FOUNDER) {
+            printf("[MID] apply_founder_role: clearing stale FOUNDER role from peer %zu\n", i);
+            fflush(stdout);
+            g->records[i].role = TOX_GROUP_ROLE_USER;
+        }
+    }
+
     if (idx < 0) {
         return;
     }
 
     if (g->records[idx].role != TOX_GROUP_ROLE_FOUNDER) {
-        printf("[MID] apply_founder_role: stamping FOUNDER role on peer %zu\n", (size_t)idx);
-        fflush(stdout);
+        printf("[MID] apply_founder_role: stamping FOUNDER role on peer %zu\n", (size_t)idx); fflush(stdout);
         g->records[idx].role = TOX_GROUP_ROLE_FOUNDER;
     }
 }
@@ -92693,7 +93034,64 @@ static bool mid_sync_online_state_group(MidGroupState *g, const Tox *tox, uint64
     uint32_t group_number = mid_chat_id_to_group_number(tox, g->chat_id);
     if (group_number == UINT32_MAX) return false;
 
-    /* Ensure the founder role is always correctly stamped */
+    for (size_t i = 0; i < g->count; i++) {
+        MidPeerRecord *e = &g->records[i];
+
+        if (e->connection_status == TOX_CONNECTION_NONE) {
+            continue;
+        }
+
+        Tox_Err_Group_Peer_Query err;
+        uint32_t peer_id = tox_group_peer_by_public_key(tox, group_number, e->identity_key, &err);
+
+        if (err != TOX_ERR_GROUP_PEER_QUERY_OK) {
+            printf("[MID] sync_online_state: peer %zu is no longer in Toxcore, marking offline\n", i); fflush(stdout);
+
+            if (e->connection_status != TOX_CONNECTION_NONE) {
+                e->connection_status = TOX_CONNECTION_NONE;
+                changed = true;
+            }
+
+            if (now >= e->last_seen) {
+                e->last_seen = now;
+            }
+
+        } else {
+
+            Tox_Err_Group_Peer_Query conn_err;
+            Tox_Connection conn = tox_group_peer_get_connection_status(tox, group_number, peer_id, &conn_err);
+
+            if (conn_err == TOX_ERR_GROUP_PEER_QUERY_OK) {
+                if (e->connection_status != conn) {
+                    e->connection_status = conn;
+                    changed = true;
+                }
+
+                if (conn != TOX_CONNECTION_NONE && now >= e->last_seen) {
+                    e->last_seen = now;
+                }
+            }
+
+            Tox_Err_Group_Peer_Query role_err;
+            Tox_Group_Role role = tox_group_peer_get_role(tox, group_number, peer_id, &role_err);
+
+            if (role_err == TOX_ERR_GROUP_PEER_QUERY_OK) {
+                if (e->role != role) {
+                    e->role = role;
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    /*
+     * Ensure the founder role is always correctly stamped.
+     *
+     * This MUST run AFTER the role-sync loop above, because
+     * tox_group_peer_get_role() may return a non-FOUNDER value
+     * for the founder in some Toxcore mocks. The authoritative
+     * source is tox_group_get_founder_public_key(), and it must win.
+     */
     Tox_Group_Role old_founder_role = TOX_GROUP_ROLE_USER;
     int founder_idx = -1;
     uint8_t founder_identity[MID_IDENTITY_KEY_SIZE];
@@ -92710,48 +93108,6 @@ static bool mid_sync_online_state_group(MidGroupState *g, const Tox *tox, uint64
 
     if (founder_idx >= 0 && g->records[founder_idx].role != old_founder_role) {
         changed = true;
-    }
-
-    for (size_t i = 0; i < g->count; i++) {
-        MidPeerRecord *e = &g->records[i];
-        if (e->connection_status == TOX_CONNECTION_NONE) {
-            continue;
-        }
-
-        Tox_Err_Group_Peer_Query err;
-        uint32_t peer_id = tox_group_peer_by_public_key(tox, group_number, e->identity_key, &err);
-
-        if (err != TOX_ERR_GROUP_PEER_QUERY_OK) {
-            printf("[MID] sync_online_state: peer %zu is no longer in Toxcore, marking offline\n", i); fflush(stdout);
-            if (e->connection_status != TOX_CONNECTION_NONE) {
-                e->connection_status = TOX_CONNECTION_NONE;
-                changed = true;
-            }
-            if (now >= e->last_seen) {
-                e->last_seen = now;
-            }
-        } else {
-            Tox_Err_Group_Peer_Query conn_err;
-            Tox_Connection conn = tox_group_peer_get_connection_status(tox, group_number, peer_id, &conn_err);
-            if (conn_err == TOX_ERR_GROUP_PEER_QUERY_OK) {
-                if (e->connection_status != conn) {
-                    e->connection_status = conn;
-                    changed = true;
-                }
-                if (conn != TOX_CONNECTION_NONE && now >= e->last_seen) {
-                    e->last_seen = now;
-                }
-            }
-
-            Tox_Err_Group_Peer_Query role_err;
-            Tox_Group_Role role = tox_group_peer_get_role(tox, group_number, peer_id, &role_err);
-            if (role_err == TOX_ERR_GROUP_PEER_QUERY_OK) {
-                if (e->role != role) {
-                    e->role = role;
-                    changed = true;
-                }
-            }
-        }
     }
 
     return changed;
@@ -92832,8 +93188,7 @@ static bool mid_init_self_from_tox(MidGroupState *g, const Tox *tox)
         return false;
     }
 
-    printf("[MID] init_self_from_tox: got identity key\n");
-    fflush(stdout);
+    printf("[MID] init_self_from_tox: got identity key\n"); fflush(stdout);
 
     /*
      * We now have the current Toxcore identity in the local variable
@@ -92885,6 +93240,15 @@ static bool mid_init_self_from_tox(MidGroupState *g, const Tox *tox)
 
     bool ok = mid_set_self_keys(g, identity, signing, sk);
     sodium_memzero(sk, sizeof(sk));
+
+    /*
+     * Generate ephemeral signing keys now that the long-term keys are set.
+     * These will be used for signing heartbeats and presence records.
+     */
+    if (ok) {
+        mid_generate_ephemeral_signing_keys(g);
+    }
+
     return ok;
 }
 
@@ -92949,7 +93313,7 @@ static bool mid_announce_self_group(MidState *s, MidGroupState *g, const Tox *to
     memcpy(r.identity_key, g->self_identity_key, MID_IDENTITY_KEY_SIZE);
     memcpy(r.signing_key, g->self_signing_key, MID_SIGNING_KEY_SIZE);
     r.status = MID_STATUS_ACTIVE;
-    r.timestamp = mid_now_or_time(0);
+    r.timestamp = mid_round_timestamp(mid_now_or_time(0));
 
     Tox_Err_Group_Peer_Query conn_err;
     Tox_Connection conn = tox_group_peer_get_connection_status(tox, group_number, 0, &conn_err);
@@ -93008,7 +93372,7 @@ static bool mid_on_peer_online_keys(MidGroupState *g,
         return false;
     }
 
-    now = mid_now_or_time(now);
+    now = mid_round_timestamp(mid_now_or_time(now));
 
     bool have_signing = (signing_key != NULL &&
                          !mid_key_is_zero(signing_key) &&
@@ -93117,28 +93481,33 @@ static bool mid_refresh_peer_name_group(MidGroupState *g, const Tox *tox, uint32
     MidPeerRecord *e = &g->records[idx];
     bool changed = false;
 
-    if (!e->has_signature) {
-        size_t copy_len = name_size;
-        if (copy_len > MID_MAX_NICK_SIZE) {
-            copy_len = MID_MAX_NICK_SIZE;
-        }
+    /*
+     * The nickname is now an unsigned field transmitted outside the signed body.
+     * Updating it locally does NOT invalidate the record's cryptographic signature.
+     * Therefore, we can safely accept native Toxcore name changes for signed
+     * records as well, allowing us to stop broadcasting full PRESENCE packets
+     * just to propagate a name change.
+     */
+    size_t copy_len = name_size;
+    if (copy_len > MID_MAX_NICK_SIZE) {
+        copy_len = MID_MAX_NICK_SIZE;
+    }
 
-        /* Only update if the name actually changed */
-        if (e->nickname_len != copy_len || memcmp(e->nickname, name, copy_len) != 0) {
-            /*
-             * Zero-fill the destination first so no stale bytes remain past
-             * the end of the (possibly truncated) nickname.
-             *
-             * The nickname is treated as opaque binary. We do NOT assume
-             * valid UTF-8, printable ASCII, or NUL termination.
-             */
-            memset(e->nickname, 0, MID_MAX_NICK_SIZE);
-            if (copy_len > 0) {
-                memcpy(e->nickname, name, copy_len);
-            }
-            e->nickname_len = (uint16_t)copy_len;
-            changed = true;
+    /* Only update if the name actually changed */
+    if (e->nickname_len != copy_len || memcmp(e->nickname, name, copy_len) != 0) {
+        /*
+         * Zero-fill the destination first so no stale bytes remain past
+         * the end of the (possibly truncated) nickname.
+         *
+         * The nickname is treated as opaque binary. We do NOT assume
+         * valid UTF-8, printable ASCII, or NUL termination.
+         */
+        memset(e->nickname, 0, MID_MAX_NICK_SIZE);
+        if (copy_len > 0) {
+            memcpy(e->nickname, name, copy_len);
         }
+        e->nickname_len = (uint16_t)copy_len;
+        changed = true;
     }
 
     free(name);
@@ -93153,11 +93522,29 @@ static bool mid_on_custom_packet_group(MidState *s,
                                        size_t length,
                                        uint64_t now)
 {
-    printf("[MID] on_custom_packet: received %zu bytes from peer %u\n",
-           length, peer_id);
-    fflush(stdout);
+    printf("[MID] on_custom_packet: received %zu bytes from peer %u\n", length, peer_id); fflush(stdout);
 
-    if (g == NULL || data == NULL || length < MID_HEADER_SIZE) {
+    if (g == NULL || data == NULL || length == 0) {
+        return false;
+    }
+
+    /*
+     * TRAFFIC-ANALYSIS RESISTANCE: STRIP PACKET PADDING
+     *
+     * The last byte of every incoming packet is the padding-length indicator
+     * added by mid_send_custom(). Strip it (and the random padding bytes
+     * before it) to recover the original message.
+     */
+    uint8_t pad_len = data[length - 1];
+
+    if ((size_t)pad_len + 1 > length) {
+        printf("[MID] on_custom_packet: invalid padding length %u\n", (unsigned)pad_len); fflush(stdout);
+        return false;
+    }
+
+    length -= ((size_t)pad_len + 1);
+
+    if (length < MID_HEADER_SIZE) {
         return false;
     }
 
@@ -93187,46 +93574,81 @@ static bool mid_on_custom_packet_group(MidState *s,
     bool changed = false;
 
     /**************************************************************************
-     * FULL SIGNED PRESENCE RECORD
-     *
-     * This is a full signed record containing status, timestamp, nickname,
-     * identity key, and signing key.
-     *
-     * It does NOT suppress pending roster responses, because one presence
-     * record does not prove that the sender has the full roster.
-     *************************************************************************/
+    * FULL SIGNED PRESENCE RECORD
+    *
+    * This is a full signed record containing status, timestamp, identity key,
+    * signing key, ephemeral key info, and an unsigned nickname.
+    *
+    * It does NOT suppress pending roster responses, because one presence
+    * record does not prove that the sender has the full roster.
+    *************************************************************************/
+
     if (type == MID_MSG_PRESENCE) {
-        printf("[MID] on_custom_packet: processing PRESENCE message\n");
-        fflush(stdout);
+        printf("[MID] on_custom_packet: processing PRESENCE message\n"); fflush(stdout);
 
-        if (payload_len < MID_SIG_SIZE) {
-            return false;
-        }
+        /* Minimum: signature + signed body + eph key + eph cert */
+        size_t min_presence = MID_SIG_SIZE + MID_SIGNED_BODY_SIZE
+                            + MID_SIGNING_KEY_SIZE + MID_SIG_SIZE;
 
-        size_t body_len = payload_len - MID_SIG_SIZE;
-
-        if (body_len > MID_MAX_BODY_SIZE) {
+        if (payload_len < min_presence) {
             return false;
         }
 
         MidPeerRecord r;
         memset(&r, 0, sizeof(r));
 
-        if (!mid_unpack_record_body(&r, payload + MID_SIG_SIZE, body_len)) {
-            return false;
-        }
-
         memcpy(r.signature, payload, MID_SIG_SIZE);
         r.has_signature = true;
 
-        if (!mid_verify_record(&r)) {
-            printf("[MID] on_custom_packet: PRESENCE verification failed\n");
-            fflush(stdout);
+        /* Parse the signed body */
+        if (!mid_unpack_signed_body(&r, payload + MID_SIG_SIZE, MID_SIGNED_BODY_SIZE)) {
             return false;
         }
 
-        printf("[MID] on_custom_packet: PRESENCE verified, upserting\n");
-        fflush(stdout);
+        /* Parse the ephemeral key info that follows the signed body */
+        size_t eph_off = MID_SIG_SIZE + MID_SIGNED_BODY_SIZE;
+
+        memcpy(r.eph_public_signing_key, payload + eph_off, MID_SIGNING_KEY_SIZE);
+        eph_off += MID_SIGNING_KEY_SIZE;
+
+        memcpy(r.eph_cert_sig, payload + eph_off, MID_SIG_SIZE);
+        eph_off += MID_SIG_SIZE;
+
+        r.has_eph_key = !mid_key_is_zero(r.eph_public_signing_key);
+
+        /* Verify (checks the eph cert against the long-term key, then the sig) */
+        if (!mid_verify_record(&r)) {
+            printf("[MID] on_custom_packet: PRESENCE verification failed\n"); fflush(stdout);
+            return false;
+        }
+
+        /*
+         * Parse the unsigned nickname that follows the ephemeral key info.
+         * This is a relayed observation only — it is NOT covered by the
+         * signature and must never be trusted as authenticated data.
+         */
+        size_t nick_off = eph_off;
+        r.nickname_len = 0;
+
+        if (payload_len >= nick_off + sizeof(uint16_t)) {
+            uint16_t nick_len = mid_get_u16_be(payload + nick_off);
+            nick_off += sizeof(uint16_t);
+
+            if (nick_len > MID_MAX_NICK_SIZE) {
+                nick_len = MID_MAX_NICK_SIZE;
+            }
+
+            if (nick_len > 0) {
+                size_t avail = payload_len - nick_off;
+                size_t copy = (nick_len < avail) ? nick_len : avail;
+                if (copy > 0) {
+                    memcpy(r.nickname, payload + nick_off, copy);
+                    r.nickname_len = (uint16_t)copy;
+                }
+            }
+        }
+
+        printf("[MID] on_custom_packet: PRESENCE verified, upserting\n"); fflush(stdout);
 
         /* Never process our own signed presence echoed back to us. */
         if (g->have_keys && mid_same_identity(r.identity_key, g->self_identity_key)) {
@@ -93278,6 +93700,8 @@ static bool mid_on_custom_packet_group(MidState *s,
              * Do not mark the peer online.
              */
             r.connection_status = TOX_CONNECTION_NONE;
+            r.role = TOX_GROUP_ROLE_USER;
+
             /* Anchor last_seen so we can purge them if they never come online */
             if (r.last_seen == 0) r.last_seen = now;
         }
@@ -93293,12 +93717,15 @@ static bool mid_on_custom_packet_group(MidState *s,
      * LIGHTWEIGHT HEARTBEAT
      *
      * Body:
-     *   status       1 byte
-     *   timestamp    8 bytes
-     *   identity_key 32 bytes
+     *   status                1 byte
+     *   timestamp             8 bytes
+     *   identity_key         32 bytes
+     *   eph_public_signing_key 32 bytes
+     *   eph_cert_sig         64 bytes
      *
      * Signature:
-     *   detached Ed25519 signature over the 41-byte body.
+     *   detached Ed25519 signature over the body, made with the ephemeral
+     *   signing key.
      *
      * Heartbeats are used only for liveness / connection state.
      *
@@ -93310,9 +93737,9 @@ static bool mid_on_custom_packet_group(MidState *s,
      *
      * Heartbeats do NOT suppress roster responses.
      *************************************************************************/
+
     if (type == MID_MSG_HEARTBEAT) {
-        printf("[MID] on_custom_packet: processing HEARTBEAT message\n");
-        fflush(stdout);
+        printf("[MID] on_custom_packet: processing HEARTBEAT message\n"); fflush(stdout);
 
         const size_t hb_body_len = MID_HEARTBEAT_BODY_SIZE;
 
@@ -93333,6 +93760,12 @@ static bool mid_on_custom_packet_group(MidState *s,
 
         uint8_t hb_identity[MID_IDENTITY_KEY_SIZE];
         memcpy(hb_identity, body + 9, MID_IDENTITY_KEY_SIZE);
+
+        uint8_t hb_eph_public_signing_key[MID_SIGNING_KEY_SIZE];
+        memcpy(hb_eph_public_signing_key, body + 9 + MID_IDENTITY_KEY_SIZE, MID_SIGNING_KEY_SIZE);
+
+        uint8_t hb_eph_cert_sig[MID_SIG_SIZE];
+        memcpy(hb_eph_cert_sig, body + 9 + MID_IDENTITY_KEY_SIZE + MID_SIGNING_KEY_SIZE, MID_SIG_SIZE);
 
         /* Ignore our own heartbeat if it is echoed back. */
         if (g->have_keys && mid_same_identity(hb_identity, g->self_identity_key)) {
@@ -93356,16 +93789,19 @@ static bool mid_on_custom_packet_group(MidState *s,
             sender_is_subject = true;
         }
 
-        uint8_t verify_key[MID_SIGNING_KEY_SIZE];
-        bool have_verify_key = false;
+        /*
+         * Determine the long-term signing key for certificate verification.
+         */
+        uint8_t long_term_signing_key[MID_SIGNING_KEY_SIZE];
+        bool have_long_term_key = false;
 
         /*
          * Prefer the signing key already stored in the roster record.
          */
         if (!mid_key_is_zero(e->signing_key) &&
             mid_valid_key_binding(e->identity_key, e->signing_key)) {
-            memcpy(verify_key, e->signing_key, MID_SIGNING_KEY_SIZE);
-            have_verify_key = true;
+            memcpy(long_term_signing_key, e->signing_key, MID_SIGNING_KEY_SIZE);
+            have_long_term_key = true;
         }
         /*
          * If we do not have a stored signing key yet, but the packet comes
@@ -93374,25 +93810,40 @@ static bool mid_on_custom_packet_group(MidState *s,
          */
         else if (sender_is_subject &&
                  mid_valid_key_binding(sender_identity, sender_signing)) {
-            memcpy(verify_key, sender_signing, MID_SIGNING_KEY_SIZE);
-            have_verify_key = true;
+            memcpy(long_term_signing_key, sender_signing, MID_SIGNING_KEY_SIZE);
+            have_long_term_key = true;
         }
 
-        if (!have_verify_key) {
+        if (!have_long_term_key) {
             return false;
         }
 
+        /*
+         * Verify the ephemeral key certificate.
+         * hb_eph_cert_sig is a signature of hb_eph_public_signing_key
+         * made by the long-term signing key.
+         */
+        if (crypto_sign_verify_detached(hb_eph_cert_sig,
+                                        hb_eph_public_signing_key, MID_SIGNING_KEY_SIZE,
+                                        long_term_signing_key) != 0) {
+            printf("[MID] on_custom_packet: HEARTBEAT ephemeral key certificate invalid\n"); fflush(stdout);
+            return false;
+        }
+
+        printf("[MID] on_custom_packet: HEARTBEAT ephemeral key certificate valid\n"); fflush(stdout);
+
+        /*
+         * Verify the heartbeat signature against the ephemeral signing key.
+         */
         if (crypto_sign_verify_detached(sig,
                                         body,
                                         hb_body_len,
-                                        verify_key) != 0) {
-            printf("[MID] on_custom_packet: HEARTBEAT signature invalid\n");
-            fflush(stdout);
+                                        hb_eph_public_signing_key) != 0) {
+            printf("[MID] on_custom_packet: HEARTBEAT signature invalid\n"); fflush(stdout);
             return false;
         }
 
-        printf("[MID] on_custom_packet: HEARTBEAT signature valid\n");
-        fflush(stdout);
+        printf("[MID] on_custom_packet: HEARTBEAT signature valid\n"); fflush(stdout);
 
         /*
          * Heartbeats are intended as ACTIVE keep-alives.
@@ -93409,7 +93860,7 @@ static bool mid_on_custom_packet_group(MidState *s,
          */
         if (!e->has_signature) {
             if (mid_key_is_zero(e->signing_key)) {
-                memcpy(e->signing_key, verify_key, MID_SIGNING_KEY_SIZE);
+                memcpy(e->signing_key, long_term_signing_key, MID_SIGNING_KEY_SIZE);
                 changed = true;
             }
 
@@ -93486,32 +93937,35 @@ static bool mid_on_custom_packet_group(MidState *s,
     }
 
     /**************************************************************************
-     * BATCHED ROSTER RESPONSE
-     *
-     * Payload layout:
-     *   fingerprint  32 bytes
-     *   count         2 bytes
-     *   records...
-     *
-     * Each record:
-     *   signature    64 bytes
-     *   body_len      2 bytes
-     *   body          body_len bytes
-     *
-     * Suppression rule:
-     *
-     * We cancel our own pending roster response ONLY if the batch is complete
-     * and the sender's roster fingerprint exactly matches ours.
-     *
-     * This prevents:
-     *   - a partial peer list from suppressing a fuller list
-     *   - a different set of the same size from suppressing another set
-     *   - stale state from suppressing newer state if the fingerprint includes
-     *     record signatures / versions
-     *************************************************************************/
+    * BATCHED ROSTER RESPONSE
+    *
+    * Payload layout:
+    *   fingerprint  32 bytes
+    *   count         2 bytes
+    *   records...
+    *
+    * Each record:
+    *   signature    64 bytes
+    *   signed_body  73 bytes (fixed)
+    *   eph_public_signing_key 32 bytes
+    *   eph_cert_sig 64 bytes
+    *   nick_len      2 bytes
+    *   nickname      N bytes
+    *
+    * Suppression rule:
+    *
+    * We cancel our own pending roster response ONLY if the batch is complete
+    * and the sender's roster fingerprint exactly matches ours.
+    *
+    * This prevents:
+    *   - a partial peer list from suppressing a fuller list
+    *   - a different set of the same size from suppressing another set
+    *   - stale state from suppressing newer state if the fingerprint includes
+    *     record signatures / versions
+    *************************************************************************/
+
     if (type == MID_MSG_ROSTER_BATCH) {
-        printf("[MID] on_custom_packet: processing ROSTER_BATCH message\n");
-        fflush(stdout);
+        printf("[MID] on_custom_packet: processing ROSTER_BATCH message\n"); fflush(stdout);
 
         /* Minimum: MID_IDENTITY_KEY_SIZE fingerprint + 2-byte record count */
         if (payload_len < MID_IDENTITY_KEY_SIZE + sizeof(uint16_t)) {
@@ -93527,7 +93981,13 @@ static bool mid_on_custom_packet_group(MidState *s,
         bool batch_complete = true;
 
         for (uint16_t i = 0; i < record_count; i++) {
-            if (p_idx + MID_SIG_SIZE + sizeof(uint16_t) > payload_len) {
+
+            /* Minimum per record: signature + signed_body + eph key + eph cert + nickname_len */
+            size_t min_rec = MID_SIG_SIZE + MID_SIGNED_BODY_SIZE
+                           + MID_SIGNING_KEY_SIZE + MID_SIG_SIZE
+                           + sizeof(uint16_t);
+
+            if (p_idx + min_rec > payload_len) {
                 batch_complete = false;
                 break;
             }
@@ -93535,99 +93995,112 @@ static bool mid_on_custom_packet_group(MidState *s,
             const uint8_t *sig = payload + p_idx;
             p_idx += MID_SIG_SIZE;
 
-            uint16_t body_len = mid_get_u16_be(payload + p_idx);
+            MidPeerRecord r;
+            memset(&r, 0, sizeof(r));
+
+            if (!mid_unpack_signed_body(&r, payload + p_idx, MID_SIGNED_BODY_SIZE)) {
+                batch_complete = false;
+                break;
+            }
+            p_idx += MID_SIGNED_BODY_SIZE;
+
+            memcpy(r.signature, sig, MID_SIG_SIZE);
+            r.has_signature = true;
+
+            /* Parse the ephemeral key info */
+            memcpy(r.eph_public_signing_key, payload + p_idx, MID_SIGNING_KEY_SIZE);
+            p_idx += MID_SIGNING_KEY_SIZE;
+
+            memcpy(r.eph_cert_sig, payload + p_idx, MID_SIG_SIZE);
+            p_idx += MID_SIG_SIZE;
+
+            r.has_eph_key = !mid_key_is_zero(r.eph_public_signing_key);
+
+            /* Parse the unsigned nickname */
+            uint16_t nick_len = mid_get_u16_be(payload + p_idx);
             p_idx += sizeof(uint16_t);
 
-            if (p_idx + body_len > payload_len) {
+            if (p_idx + nick_len > payload_len) {
                 batch_complete = false;
                 break;
             }
 
-            /*
-             * Defensive limit. The current protocol body cannot exceed
-             * MID_MAX_BODY_SIZE.
-             */
-            if (body_len > MID_MAX_BODY_SIZE) {
-                p_idx += body_len;
-                continue;
+            if (nick_len > 0) {
+                uint16_t copy_len = (nick_len > MID_MAX_NICK_SIZE)
+                                  ? MID_MAX_NICK_SIZE : nick_len;
+                memcpy(r.nickname, payload + p_idx, copy_len);
+                r.nickname_len = copy_len;
             }
+            p_idx += nick_len;
 
-            MidPeerRecord r;
-            memset(&r, 0, sizeof(r));
+            if (mid_verify_record(&r)) {
+                /* Ignore our own record if it is echoed back. */
+                if (!(g->have_keys &&
+                      mid_same_identity(r.identity_key, g->self_identity_key))) {
 
-            if (mid_unpack_record_body(&r, payload + p_idx, body_len)) {
-                memcpy(r.signature, sig, MID_SIG_SIZE);
-                r.has_signature = true;
+                    bool sender_is_subject = false;
 
-                if (mid_verify_record(&r)) {
-                    /* Ignore our own record if it is echoed back. */
-                    if (!(g->have_keys &&
-                          mid_same_identity(r.identity_key, g->self_identity_key))) {
+                    if (sender_has_keys &&
+                        mid_same_identity(sender_identity, r.identity_key)) {
+                        sender_is_subject = true;
+                    }
 
-                        bool sender_is_subject = false;
+                    /*
+                     * If the packet sender claims to be the subject, their
+                     * Toxcore-observed signing key must match the record.
+                     */
+                    if (sender_is_subject &&
+                        !mid_same_signing_key(sender_signing, r.signing_key)) {
+                        sender_is_subject = false;
+                    }
 
-                        if (sender_has_keys &&
-                            mid_same_identity(sender_identity, r.identity_key)) {
-                            sender_is_subject = true;
-                        }
+                    if (sender_is_subject && r.status == MID_STATUS_ACTIVE) {
+                        uint32_t group_number = mid_chat_id_to_group_number(tox, g->chat_id);
+                        Tox_Connection conn = TOX_CONNECTION_NONE;
+                        Tox_Group_Role role = TOX_GROUP_ROLE_USER;
 
-                        /*
-                         * If the packet sender claims to be the subject, their
-                         * Toxcore-observed signing key must match the record.
-                         */
-                        if (sender_is_subject &&
-                            !mid_same_signing_key(sender_signing, r.signing_key)) {
-                            sender_is_subject = false;
-                        }
+                        if (group_number != UINT32_MAX && tox != NULL && peer_id != UINT32_MAX) {
+                            Tox_Err_Group_Peer_Query conn_err;
+                            conn = tox_group_peer_get_connection_status(tox,
+                                                                        group_number,
+                                                                        peer_id,
+                                                                        &conn_err);
 
-                        if (sender_is_subject && r.status == MID_STATUS_ACTIVE) {
-                            uint32_t group_number = mid_chat_id_to_group_number(tox, g->chat_id);
-                            Tox_Connection conn = TOX_CONNECTION_NONE;
-                            Tox_Group_Role role = TOX_GROUP_ROLE_USER;
-
-                            if (group_number != UINT32_MAX && tox != NULL && peer_id != UINT32_MAX) {
-                                Tox_Err_Group_Peer_Query conn_err;
-                                conn = tox_group_peer_get_connection_status(tox,
-                                                                            group_number,
-                                                                            peer_id,
-                                                                            &conn_err);
-
-                                if (conn_err != TOX_ERR_GROUP_PEER_QUERY_OK) {
-                                    conn = TOX_CONNECTION_NONE;
-                                }
-
-                                if (conn == TOX_CONNECTION_NONE) {
-                                    conn = TOX_CONNECTION_TCP;
-                                }
-
-                                Tox_Err_Group_Peer_Query role_err;
-                                role = tox_group_peer_get_role(tox,
-                                                               group_number,
-                                                               peer_id,
-                                                               &role_err);
-
-                                if (role_err != TOX_ERR_GROUP_PEER_QUERY_OK) {
-                                    role = TOX_GROUP_ROLE_USER;
-                                }
+                            if (conn_err != TOX_ERR_GROUP_PEER_QUERY_OK) {
+                                conn = TOX_CONNECTION_NONE;
                             }
 
-                            r.connection_status = conn;
-                            r.last_seen = now;
-                            r.role = role;
-                        } else {
-                            r.connection_status = TOX_CONNECTION_NONE;
-                            /* Anchor last_seen so we can purge them if they never come online */
-                            if (r.last_seen == 0) r.last_seen = now;
+                            if (conn == TOX_CONNECTION_NONE) {
+                                conn = TOX_CONNECTION_TCP;
+                            }
+
+                            Tox_Err_Group_Peer_Query role_err;
+                            role = tox_group_peer_get_role(tox,
+                                                           group_number,
+                                                           peer_id,
+                                                           &role_err);
+
+                            if (role_err != TOX_ERR_GROUP_PEER_QUERY_OK) {
+                                role = TOX_GROUP_ROLE_USER;
+                            }
                         }
 
-                        if (mid_upsert_record(g, &r)) {
-                            changed = true;
-                        }
+                        r.connection_status = conn;
+                        r.last_seen = now;
+                        r.role = role;
+                    } else {
+                        r.connection_status = TOX_CONNECTION_NONE;
+                        r.role = TOX_GROUP_ROLE_USER;
+
+                        /* Anchor last_seen so we can purge them if they never come online */
+                        if (r.last_seen == 0) r.last_seen = now;
+                    }
+
+                    if (mid_upsert_record(g, &r)) {
+                        changed = true;
                     }
                 }
             }
-
-            p_idx += body_len;
         }
 
         /*
@@ -93643,16 +94116,13 @@ static bool mid_on_custom_packet_group(MidState *s,
             fflush(stdout);
             if (memcmp(sender_fp, g->roster_fingerprint, MID_IDENTITY_KEY_SIZE) == 0) {
                 if (g->roster_reply_deadline != 0) {
-                    printf("[MID] ROSTER_BATCH: MATCH! Suppressing our pending roster reply because another peer already sent the exact same set.\n");
-                    fflush(stdout);
+                    printf("[MID] ROSTER_BATCH: MATCH! Suppressing our pending roster reply because another peer already sent the exact same set.\n"); fflush(stdout);
                     g->roster_reply_deadline = 0;
                 } else {
-                    printf("[MID] ROSTER_BATCH: MATCH! But we had no pending reply to suppress.\n");
-                    fflush(stdout);
+                    printf("[MID] ROSTER_BATCH: MATCH! But we had no pending reply to suppress.\n"); fflush(stdout);
                 }
             } else {
-                printf("[MID] ROSTER_BATCH: MISMATCH. Sender has a different peer set. Keeping our pending roster reply scheduled.\n");
-                fflush(stdout);
+                printf("[MID] ROSTER_BATCH: MISMATCH. Sender has a different peer set. Keeping our pending roster reply scheduled.\n"); fflush(stdout);
             }
         } else {
             printf("[MID] ROSTER_BATCH: batch incomplete/truncated. "
@@ -93673,8 +94143,7 @@ static bool mid_on_custom_packet_group(MidState *s,
      * suppression logic above.
      *************************************************************************/
     if (type == MID_MSG_ROSTER_REQUEST) {
-        printf("[MID] on_custom_packet: processing ROSTER_REQUEST message\n");
-        fflush(stdout);
+        printf("[MID] on_custom_packet: processing ROSTER_REQUEST message\n"); fflush(stdout);
 
         if (tox == NULL) {
             return false;
@@ -93789,6 +94258,11 @@ static bool mid_on_group_delete_internal(MidState *s, const uint8_t chat_id[TOX_
     for (size_t i = 0; i < s->group_count; i++) {
         if (memcmp(s->groups[i].chat_id, chat_id, TOX_GROUP_CHAT_ID_SIZE) == 0) {
             sodium_memzero(s->groups[i].self_secret_signing_key, sizeof(s->groups[i].self_secret_signing_key));
+            sodium_memzero(s->groups[i].eph_secret_signing_key, sizeof(s->groups[i].eph_secret_signing_key));
+            memset(s->groups[i].eph_public_signing_key, 0, sizeof(s->groups[i].eph_public_signing_key));
+            memset(s->groups[i].eph_cert_sig, 0, sizeof(s->groups[i].eph_cert_sig));
+            s->groups[i].have_eph_keys = false;
+
             free(s->groups[i].records);
             for (size_t j = i; j < s->group_count - 1; j++) {
                 s->groups[j] = s->groups[j+1];
@@ -93832,6 +94306,7 @@ static bool mid_on_group_peer_join_internal(MidState *s, Tox *tox, const uint8_t
     }
 
     if (g->announced) {
+
         if (mid_announce_self_group(s, g, tox)) {
             changed = true;
         }
@@ -93845,11 +94320,23 @@ static bool mid_on_group_peer_join_internal(MidState *s, Tox *tox, const uint8_t
          * peer actually sends it, preventing a broadcast storm while guaranteeing delivery.
          */
         if (g->roster_reply_deadline == 0) {
-            uint64_t delay = 1 + (uint64_t)(rand() % 5);
-            g->roster_reply_deadline = mid_now_or_time(0) + delay;
-            printf("[MID] peer_join: scheduled roster sync in %llu seconds because a new peer joined.\n", (unsigned long long)delay);
-            fflush(stdout);
-            changed = true;
+
+            /* COOLDOWN: Respect the minimum gap between roster responses */
+            uint64_t now_ts = mid_now_or_time(0);
+
+            if (g->last_roster_response == 0 ||
+                (now_ts - g->last_roster_response) >= MID_ROSTER_COOLDOWN_SEC) {
+
+                uint64_t delay = 1 + (uint64_t)(rand() % 5);
+                g->roster_reply_deadline = now_ts + delay;
+
+                printf("[MID] peer_join: scheduled roster sync in %llu seconds because a new peer joined.\n", (unsigned long long)delay); fflush(stdout);
+                changed = true;
+
+            } else {
+                printf("[MID] peer_join: roster sync suppressed by cooldown (%llu s remaining)\n",
+                       (unsigned long long)(MID_ROSTER_COOLDOWN_SEC - (now_ts - g->last_roster_response))); fflush(stdout);
+            }
         }
     }
 
@@ -93887,8 +94374,7 @@ static bool mid_on_group_moderation_internal(MidState *s, Tox *tox, const uint8_
         uint32_t self_peer_id = tox_group_self_get_peer_id(tox, group_number, &self_err);
 
         if (self_err == TOX_ERR_GROUP_SELF_QUERY_OK && target_peer_id == self_peer_id) {
-            printf("[MID] on_group_moderation: we were kicked; deleting group state\n");
-            fflush(stdout);
+            printf("[MID] on_group_moderation: we were kicked; deleting group state\n"); fflush(stdout);
             mid_on_group_delete_internal(s, chat_id);
             *out_changed = true;
             return true;
@@ -93899,8 +94385,7 @@ static bool mid_on_group_moderation_internal(MidState *s, Tox *tox, const uint8_
 
         if (tox_group_peer_get_public_key(tox, group_number, target_peer_id, kicked_identity, &peer_err) &&
             peer_err == TOX_ERR_GROUP_PEER_QUERY_OK) {
-            printf("[MID] on_group_moderation: deleting kicked peer from roster\n");
-            fflush(stdout);
+            printf("[MID] on_group_moderation: deleting kicked peer from roster\n"); fflush(stdout);
             /*
              * THREAD-SAFETY FIX:
              * We are already holding s->mutex (acquired by the public caller).
@@ -93912,8 +94397,7 @@ static bool mid_on_group_moderation_internal(MidState *s, Tox *tox, const uint8_
                 *out_changed = true;
             }
         } else {
-            printf("[MID] on_group_moderation: kicked peer %u identity no longer queryable\n", target_peer_id);
-            fflush(stdout);
+            printf("[MID] on_group_moderation: kicked peer %u identity no longer queryable\n", target_peer_id); fflush(stdout);
         }
     } else if (mod_type == TOX_GROUP_MOD_EVENT_OBSERVER ||
                mod_type == TOX_GROUP_MOD_EVENT_USER ||
@@ -93989,10 +94473,15 @@ static bool mid_self_set_name_internal(MidState *s, Tox *tox, const uint8_t chat
             e->nickname_len = g->self_nickname_len;
         }
 
-        /* Re-announce ourselves to broadcast the new signed presence record */
-        if (g->announced) {
-            mid_announce_self_group(s, g, tox);
-        }
+        /*
+         * No middleware PRESENCE broadcast here.
+         *
+         * The nickname is an unsigned, relayed observation. Propagation to
+         * online peers happens via Toxcore's native group-name mechanism
+         * (picked up by mid_on_group_peer_name -> mid_refresh_peer_name_group).
+         * Propagation to offline / newly-joining peers happens via
+         * ROSTER_BATCH, which reads the updated local nickname.
+         */
     }
 
     return nick_changed;
@@ -94022,8 +94511,9 @@ static bool mid_announce_leave_internal(MidState *s, Tox *tox, const uint8_t cha
     memcpy(r.identity_key, g->self_identity_key, MID_IDENTITY_KEY_SIZE);
     memcpy(r.signing_key, g->self_signing_key, MID_SIGNING_KEY_SIZE);
     r.status = MID_STATUS_LEFT;
-    r.timestamp = mid_now_or_time(0);
+    r.timestamp = mid_round_timestamp(mid_now_or_time(0));
     r.connection_status = TOX_CONNECTION_NONE;
+    r.role = TOX_GROUP_ROLE_USER;
 
     if (g->self_nickname_len > 0) {
         uint16_t nick_copy = g->self_nickname_len;
@@ -94068,8 +94558,7 @@ static bool mid_delete_peer_by_identity_internal(MidState *s, const uint8_t chat
     int idx = mid_find_identity(g, identity_key);
     if (idx < 0) return false;
 
-    printf("[MID] delete_peer_by_identity: deleting peer from roster\n");
-    fflush(stdout);
+    printf("[MID] delete_peer_by_identity: deleting peer from roster\n"); fflush(stdout);
 
     if (g->records[idx].has_signature) {
         printf("[MID] delete_peer: XOR OUT deleted peer. Old FP[0..3]=%02X%02X%02X%02X\n", g->roster_fingerprint[0], g->roster_fingerprint[1], g->roster_fingerprint[2], g->roster_fingerprint[3]); fflush(stdout);
@@ -94176,6 +94665,16 @@ static bool mid_load_from_disk(MidState *s, const char *path, const uint8_t *pas
         sodium_memzero(g->self_secret_signing_key, sizeof(g->self_secret_signing_key));
 
         /*
+         * NEVER load ephemeral signing keys from disk.
+         * They are ephemeral and will be regenerated on join.
+         */
+        sodium_memzero(g->eph_secret_signing_key, sizeof(g->eph_secret_signing_key));
+        memset(g->eph_public_signing_key, 0, sizeof(g->eph_public_signing_key));
+        memset(g->eph_cert_sig, 0, sizeof(g->eph_cert_sig));
+        g->have_eph_keys = false;
+        g->eph_key_expiry = 0;
+
+        /*
          * We only have public keys at this point.
          * We cannot sign anything until Toxcore gives us the secret signing key.
          */
@@ -94214,6 +94713,13 @@ static bool mid_load_from_disk(MidState *s, const char *path, const uint8_t *pas
             uint8_t has_sig;
             if (!mid_reader_read_u8(&r, &has_sig)) goto parse_fail;
             tmp_rec.has_signature = has_sig ? true : false;
+
+            /* Load ephemeral key fields */
+            if (!mid_reader_read(&r, tmp_rec.eph_public_signing_key, MID_SIGNING_KEY_SIZE)) goto parse_fail;
+            if (!mid_reader_read(&r, tmp_rec.eph_cert_sig, MID_SIG_SIZE)) goto parse_fail;
+            uint8_t has_eph;
+            if (!mid_reader_read_u8(&r, &has_eph)) goto parse_fail;
+            tmp_rec.has_eph_key = has_eph ? true : false;
 
             uint32_t conn, role;
             if (!mid_reader_read_u32(&r, &conn)) goto parse_fail;
@@ -94293,6 +94799,12 @@ bool mid_save(MidState *s, const uint8_t *passphrase, size_t passphrase_len) {
          * and is owned by Toxcore. It must be re-obtained from Toxcore when
          * the group is active again.
          */
+
+        /*
+         * NEVER save ephemeral signing keys.
+         * They are ephemeral and will be regenerated on join.
+         */
+
         mid_buf_append_u16(&buf, g->self_nickname_len);
         mid_buf_append(&buf, g->self_nickname, g->self_nickname_len);
         mid_buf_append_u32(&buf, (uint32_t)g->count);
@@ -94307,6 +94819,12 @@ bool mid_save(MidState *s, const uint8_t *passphrase, size_t passphrase_len) {
             mid_buf_append(&buf, p->nickname, p->nickname_len);
             mid_buf_append(&buf, p->signature, MID_SIG_SIZE);
             mid_buf_append_u8(&buf, p->has_signature ? 1 : 0);
+
+            /* Save ephemeral key fields */
+            mid_buf_append(&buf, p->eph_public_signing_key, MID_SIGNING_KEY_SIZE);
+            mid_buf_append(&buf, p->eph_cert_sig, MID_SIG_SIZE);
+            mid_buf_append_u8(&buf, p->has_eph_key ? 1 : 0);
+
             mid_buf_append_u32(&buf, (uint32_t)p->connection_status);
             mid_buf_append_u32(&buf, (uint32_t)p->role);
             mid_buf_append_u64(&buf, p->last_seen);
@@ -94455,6 +94973,9 @@ void mid_free(MidState *s) {
 
     for (size_t i = 0; i < s->group_count; i++) {
         sodium_memzero(s->groups[i].self_secret_signing_key, sizeof(s->groups[i].self_secret_signing_key));
+        sodium_memzero(s->groups[i].eph_secret_signing_key, sizeof(s->groups[i].eph_secret_signing_key));
+        memset(s->groups[i].eph_public_signing_key, 0, sizeof(s->groups[i].eph_public_signing_key));
+        memset(s->groups[i].eph_cert_sig, 0, sizeof(s->groups[i].eph_cert_sig));
         free(s->groups[i].records);
     }
     free(s->groups);
@@ -94665,17 +95186,50 @@ void mid_iterate(MidState *s, Tox *tox)
             changed = true;
         }
 
-        // 2. Heartbeats (FIX 3: Uses lightweight heartbeat packet)
+        // 2. Heartbeats with jittered scheduling (traffic-analysis resistance)
         if (g->have_keys && g->self_active && g->announced) {
-            if (now >= g->last_announce && (now - g->last_announce >= MID_HEARTBEAT_SEC)) {
-                printf("[MID] poll: heartbeat triggered\n"); fflush(stdout);
+
+            /*
+             * Lazily initialise the next heartbeat deadline if it has not
+             * been set yet (e.g. right after joining or loading from disk).
+             */
+            if (g->next_heartbeat == 0) {
+                uint64_t jitter = randombytes_uniform((uint32_t)MID_HEARTBEAT_JITTER_SEC);
+                uint64_t interval = MID_HEARTBEAT_SEC + jitter - (MID_HEARTBEAT_JITTER_SEC / 2);
+                g->next_heartbeat = now + interval;
+            }
+
+            if (now >= g->next_heartbeat) {
+                printf("[MID] poll: heartbeat triggered (jittered)\n"); fflush(stdout);
                 if (mid_send_heartbeat_record(s, g, tox)) {
                     g->last_announce = now;
                     int idx = mid_find_identity(g, g->self_identity_key);
                     if (idx >= 0) {
-                        g->records[idx].timestamp = now;
+                        g->records[idx].timestamp = mid_round_timestamp(now);
                     }
+
+                    /*
+                     * Schedule the NEXT heartbeat with a fresh random jitter.
+                     * This ensures the interval is unpredictable per cycle,
+                     * defeating fixed-interval traffic fingerprinting.
+                     */
+                    uint64_t jitter = randombytes_uniform((uint32_t)MID_HEARTBEAT_JITTER_SEC);
+                    uint64_t interval = MID_HEARTBEAT_SEC + jitter - (MID_HEARTBEAT_JITTER_SEC / 2);
+                    g->next_heartbeat = now + interval;
+
                     changed = true;
+                }
+            }
+        }
+
+        // 2.5 Ephemeral signing key rotation
+        if (g->have_keys && g->have_eph_keys) {
+            if (now >= g->eph_key_expiry) {
+                printf("[MID] poll: ephemeral signing key expired, rotating\n"); fflush(stdout);
+                if (mid_generate_ephemeral_signing_keys(g)) {
+                    printf("[MID] poll: ephemeral signing key rotated successfully\n"); fflush(stdout);
+                } else {
+                    printf("[MID] poll: ephemeral signing key rotation FAILED\n"); fflush(stdout);
                 }
             }
         }
@@ -94722,12 +95276,22 @@ void mid_iterate(MidState *s, Tox *tox)
 
         // 4. FIX 2: Multicast Roster Reply Timer execution
         if (g->roster_reply_deadline != 0 && now >= g->roster_reply_deadline) {
-            printf("[MID] iterate: Roster reply timer fired! No one else suppressed us. Sending our roster. Our FP[0..3]=%02X%02X%02X%02X\n",
-                   g->roster_fingerprint[0], g->roster_fingerprint[1], g->roster_fingerprint[2], g->roster_fingerprint[3]);
-            fflush(stdout);
             g->roster_reply_deadline = 0;
-            mid_send_roster_group(s, g, tox);
-            changed = true;
+
+            /* COOLDOWN: Enforce the minimum gap between roster responses */
+            if (g->last_roster_response != 0 &&
+                (now - g->last_roster_response) < MID_ROSTER_COOLDOWN_SEC) {
+                printf("[MID] iterate: roster reply suppressed by cooldown (%llu s remaining)\n",
+                       (unsigned long long)(MID_ROSTER_COOLDOWN_SEC - (now - g->last_roster_response)));
+                fflush(stdout);
+            } else {
+                printf("[MID] iterate: Roster reply timer fired! No one else suppressed us. Sending our roster. Our FP[0..3]=%02X%02X%02X%02X\n",
+                       g->roster_fingerprint[0], g->roster_fingerprint[1], g->roster_fingerprint[2], g->roster_fingerprint[3]);
+                fflush(stdout);
+                mid_send_roster_group(s, g, tox);
+                g->last_roster_response = now;
+                changed = true;
+            }
         }
 
         if (changed && num_changed < MID_MAX_CHANGED_GROUPS_PER_ITERATE) {
