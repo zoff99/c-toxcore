@@ -760,7 +760,7 @@ static void create_tox_instance(Client *client)
     tox_self_get_address(client->tox, client->address);
 
     /* Initialize the opaque middleware state for this client */
-    client->mid = mid_new("mid.save", NULL, 0);
+    client->mid = mid_new(NULL, NULL, 0);
 
     /* Register the peer-list-changed callback for this client */
     mid_set_peer_list_changed_cb(client->mid, peer_list_changed_cb, client);
