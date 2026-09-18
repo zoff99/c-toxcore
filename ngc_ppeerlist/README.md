@@ -2,7 +2,7 @@
 
 **Warning: [AI generated]**
 
-**Complete Implementation Specification — Version 3.0**
+**Complete Implementation Specification — Version 4.0**
 
 This document is a complete, from-scratch specification of the `mid_roster` middleware as implemented in `mid_roster.c` / `mid_roster.h`. A C programmer should be able to delete the existing implementation and rewrite it using only this document.
 
@@ -16,7 +16,7 @@ This document is a complete, from-scratch specification of the `mid_roster` midd
 - [4. Architecture & Thread-Safety](#4-architecture--thread-safety)
 - [5. Key Model (CRITICAL)](#5-key-model-critical)
 - [6. Data Structures](#6-data-structures)
-- [7. Wire Protocol](#7-wire-protocol)
+- [7. Wire Protocol & Traffic Analysis Resistance](#7-wire-protocol--traffic-analysis-resistance)
 - [8. Cryptography & Fingerprint Tracking](#8-cryptography--fingerprint-tracking)
 - [9. Roster Semantics](#9-roster-semantics)
 - [10. Core Algorithm: Record Upsert](#10-core-algorithm-record-upsert)
@@ -39,6 +39,8 @@ This document is a complete, from-scratch specification of the `mid_roster` midd
 - Proves *voluntary departure* using **signed LEFT tombstones**.
 - Handles **kicks** by permanently removing the kicked peer.
 - Minimizes network traffic using **lightweight heartbeats** and **multicast-suppressed batched roster sync**.
+- **Resists traffic analysis** via randomized packet padding, timestamp rounding, and jittered heartbeat intervals.
+- Limits long-term key exposure via **ephemeral signing keys** certified by the long-term identity.
 - Requires **no server** — pure peer-to-peer, eventually consistent.
 - Supports **optional local encrypted persistence** via `toxencryptsave`.
 
@@ -59,18 +61,20 @@ Transport is exclusively `tox_group_send_custom_packet()` (lossless). All crypto
 
 ## 2. Problem Statement
 
-Toxcore NGC gives each client only a list of **currently online** peers. When a peer disconnects (timeout, network loss), Toxcore forgets them. When *you* restart your client and rejoin, you start with an empty peer list.
+Toxcore NGC gives each client only a list of **currently online** peers. When a peer disconnects (timeout, network loss), Toxcore forgets them. When *you* restart your client and rejoin, you start with an empty peer list. Furthermore, predictable packet sizes and timings allow network observers to fingerprint client behavior.
 
 The middleware adds:
 
-| Feature | Without middleware | With middleware |
+| Feature | Without middleware | With middleware (V4) |
 |---|---|---|
 | See offline members | ❌ | ✅ (status = ACTIVE, connection = NONE) |
 | Know who *permanently left* | ❌ | ✅ (signed LEFT tombstone) |
 | Kicked peers removed | partial | ✅ |
 | Full roster after own restart | ❌ | ✅ (Local save + batched roster sync with fingerprint suppression) |
 | Cryptographic proof of membership | ❌ | ✅ (Ed25519 signatures) |
-| Low bandwidth keep-alive | ❌ | ✅ (Lightweight 41-byte Heartbeat packets) |
+| Low bandwidth keep-alive | ❌ | ✅ (Lightweight 137-byte Heartbeat packets) |
+| Traffic Analysis Resistance | ❌ | ✅ (Padding, Jitter, Timestamp Rounding) |
+| Forward Secrecy for Signatures | ❌ | ✅ (Ephemeral signing keys) |
 
 ---
 
@@ -97,6 +101,7 @@ The middleware adds:
 | `tox_group_peer_get_public_key()` | Peer identity key |
 | `tox_group_peer_by_public_key()` | Online-state check / find peer_id by key |
 | `tox_group_get_chat_id()` | Map `group_number` to persistent `chat_id` |
+| `tox_group_get_founder_public_key()` | Stamp FOUNDER role on the roster |
 
 **Patched API (must be added to toxcore):**
 
@@ -127,13 +132,13 @@ The middleware adds:
 │            ──► MidGroupState[] ──► MidPeerRecord[]               │
 │                                                                  │
 │   responsibilities:                                              │
-│     • fetch/hold our group keys                                  │
+│     • fetch/hold our group keys & ephemeral keys                 │
 │     • sign & broadcast presence / lightweight heartbeats         │
 │     • verify & upsert foreign signed records                     │
 │     • answer ROSTER_REQUEST with batched ROSTER_BATCH            │
 │     • multicast suppression via roster_fingerprint               │
-│     • tombstone garbage collection (7-day TTL)                   │
-│     • save/load state to disk (optional encryption)              │
+│     • tombstone & zombie garbage collection                      │
+│     • save/load state to disk (3-phase, optional encryption)     │
 └───────────────┬───────────────────────────────────▲─────────────┘
                 │ tox_group_send_custom_packet()     │ callbacks
                 │ key query functions                │ (fired OUTSIDE lock)
@@ -151,15 +156,21 @@ All public API functions acquire a single **non-recursive `pthread_mutex_t`** be
 
 ## 5. Key Model (CRITICAL)
 
-Tox NGC uses several different keys. Confusing them is the #1 implementation mistake. The middleware uses exactly **three** keys per group member:
+Tox NGC uses several different keys. Confusing them is the #1 implementation mistake. The middleware uses exactly **three** long-term keys per group member, plus **ephemeral** keys for signing:
 
 | Name | Size | Type | What it is | How to obtain (self) | How to obtain (peer) |
 |---|---|---|---|---|---|
 | `identity_key` | 32 B | Curve25519 public key | The persistent NGC group identity; the **roster lookup key** | `tox_group_self_get_public_key()` | `tox_group_peer_get_public_key()` |
-| `signing_key` | 32 B | Ed25519 public key | Verifies signatures made by this peer | `tox_group_self_get_signing_public_key()` [patched] | `tox_group_peer_get_signing_public_key()` [patched] |
-| `self_secret_key` | 64 B | Ed25519 secret key | Signs our own records. **Never transmitted over network.** | `tox_group_self_get_signing_secret_key()` [patched] | — never available for peers — |
+| `signing_key` | 32 B | Ed25519 public key | Long-term verification key | `tox_group_self_get_signing_public_key()` [patched] | `tox_group_peer_get_signing_public_key()` [patched] |
+| `self_secret_key` | 64 B | Ed25519 secret key | Long-term signing key. **Never transmitted or saved to disk.** | `tox_group_self_get_signing_secret_key()` [patched] | — never available for peers — |
 
-### 5.1 Key binding
+### 5.1 Ephemeral Signing Keys (V4 Feature)
+To limit the exposure of the long-term `self_secret_key`, the middleware generates a short-lived **ephemeral Ed25519 keypair** (`eph_secret_signing_key`, `eph_public_signing_key`).
+- All PRESENCE and HEARTBEAT records are signed with the *ephemeral* secret key.
+- The long-term secret key signs a **certificate** (`eph_cert_sig`) binding the ephemeral public key to the persistent identity.
+- Ephemeral keys are rotated every 24 hours (`MID_EPH_KEY_LIFETIME_SEC`).
+
+### 5.2 Key binding
 
 The middleware must verify that a `signing_key` actually belongs to an `identity_key`. In the NGC extended-key layout:
 
@@ -202,20 +213,23 @@ typedef enum {
 ```c
 typedef struct {
     uint8_t  identity_key[32];      // roster primary key
-    uint8_t  signing_key[32];       // Ed25519 verification key
+    uint8_t  signing_key[32];       // Long-term Ed25519 verification key
     uint8_t  status;                // MidStatus
-    uint64_t timestamp;             // sender-generated unix seconds
-    uint8_t  nickname[128];         // raw nickname bytes
+    uint64_t timestamp;             // Rounded to 20s intervals
+    uint8_t  nickname[128];         // Unsigned, relayed observation
     uint16_t nickname_len;          // 0..128
-    uint8_t  signature[64];         // Ed25519 detached signature over body
+    uint8_t  signature[64];         // Signed by EPHEMERAL key
     bool     has_signature;         // false = locally observed only
+    uint8_t  eph_public_signing_key[32]; // Ephemeral PK used for signature
+    uint8_t  eph_cert_sig[64];           // Cert binding eph PK to long-term PK
+    bool     has_eph_key;
     Tox_Connection connection_status; // LOCAL observation, never transmitted
     Tox_Group_Role role;            // LOCAL observation, never transmitted
     uint64_t last_seen;             // LOCAL observation, never transmitted
 } MidPeerRecord;
 ```
 
-> **Important:** `connection_status`, `role`, and `last_seen` are *local observations*. They are never part of the signed/transmitted payload.
+> **Important:** `connection_status`, `role`, `last_seen`, and `nickname` are *local/relayed observations*. They are **never** part of the signed/transmitted payload. Including them in the signed body would invalidate the signature every time a peer's local network state or name changed.
 
 ### 6.3 `MidGroupState` — per-group state (internal)
 
@@ -238,8 +252,17 @@ typedef struct {
     size_t         capacity;
 
     uint64_t last_announce;         // for heartbeat scheduling
+    uint64_t next_heartbeat;        // Jittered deadline for next heartbeat
+    uint64_t last_roster_response;  // For 20s hard cooldown
     uint64_t roster_reply_deadline; // multicast suppression timer
     uint8_t  roster_fingerprint[32]; // XOR sum of all signed identity keys
+
+    // Ephemeral state
+    uint8_t  eph_secret_signing_key[64];
+    uint8_t  eph_public_signing_key[32];
+    uint8_t  eph_cert_sig[64];
+    bool     have_eph_keys;
+    uint64_t eph_key_expiry;
 } MidGroupState;
 ```
 
@@ -283,11 +306,16 @@ typedef struct {
 
 ---
 
-## 7. Wire Protocol
+## 7. Wire Protocol & Traffic Analysis Resistance
 
 All messages are sent with `tox_group_send_custom_packet(tox, group, /*lossless=*/true, ...)`. Maximum packet size is bounded to 1200 bytes.
 
-### 7.1 Common header (5 bytes)
+### 7.1 Traffic Analysis Resistance: Padding Envelope
+**Every** outgoing packet is wrapped in a padding envelope to hide deterministic message sizes:
+`[Original Payload] [Random Padding (0..64 bytes)] [pad_len (1 byte)]`
+Incoming packets read the last byte (`pad_len`), verify it, and strip `pad_len + 1` bytes from the end before parsing the header.
+
+### 7.2 Common header (5 bytes)
 
 | Offset | Size | Field | Value |
 |---|---|---|---|
@@ -297,23 +325,33 @@ All messages are sent with `tox_group_send_custom_packet(tox, group, /*lossless=
 | 3 | 1 | protocol version | `MID_PROTOCOL_VERSION` |
 | 4 | 1 | message type | `1`=PRESENCE, `2`=REQ, `3`=HB, `4`=BATCH |
 
-### 7.2 PRESENCE message (type = 1)
+### 7.3 PRESENCE message (type = 1)
 
-Full signed record containing status, timestamp, nickname, identity key, and signing key. Used for JOINs, LEAVEs, and Name Changes.
+Full signed record. Used for JOINs, LEAVEs, and initial sync.
+*   **Header** (5 bytes)
+*   **Signature** (64 bytes) — over Signed Body
+*   **Signed Body** (73 bytes): `status(1) + timestamp(8) + identity_key(32) + signing_key(32)`
+*   **Eph Public Key** (32 bytes)
+*   **Eph Cert Sig** (64 bytes)
+*   **Nickname Len** (2 bytes)
+*   **Nickname** (N bytes)
+*(Note: Nickname is intentionally EXCLUDED from the signed body. It is an unsigned, best-effort observation.)*
 
-### 7.3 HEARTBEAT message (type = 3)
+### 7.4 HEARTBEAT message (type = 3)
 
 Lightweight keep-alive. Updates `connection_status` and `last_seen` without re-sending nickname or keys.
-**Body layout (41 bytes, signed):**
+**Body layout (137 bytes, signed):**
 ```text
  offset   size   field
  ──────   ────   ──────────────
   0       1      status (ACTIVE)
   1       8      timestamp (uint64 BE)
   9       32     identity_key
+  41      32     eph_public_signing_key
+  73      64     eph_cert_sig
 ```
 
-### 7.4 ROSTER_REQUEST (type = 2) & ROSTER_BATCH (type = 4)
+### 7.5 ROSTER_REQUEST (type = 2) & ROSTER_BATCH (type = 4)
 
 Instead of replying with individual PRESENCE packets, peers reply with a **ROSTER_BATCH** message.
 
@@ -324,7 +362,7 @@ Instead of replying with individual PRESENCE packets, peers reply with a **ROSTE
   0       5      header (magic + version + type=4)
   5       32     roster_fingerprint (XOR sum of signed identity keys)
  37       2      record_count (uint16 BE)
- 39       ...    [ signature(64) + body_len(2) + body ] ... repeated
+ 39       ...    [ signature(64) + signed_body(73) + eph_pk(32) + eph_cert(64) + nick_len(2) + nick(N) ] ... repeated
 ```
 *Note: If the roster is too large for one custom packet (>1200 bytes), it is split into multiple ROSTER_BATCH packets, each repeating the 5-byte header and 32-byte fingerprint.*
 
@@ -332,13 +370,18 @@ Instead of replying with individual PRESENCE packets, peers reply with a **ROSTE
 
 ## 8. Cryptography & Fingerprint Tracking
 
-### 8.1 Roster Fingerprint
+### 8.1 Verification Sequence
+1. Verify `eph_cert_sig` against the record's long-term `signing_key`.
+2. Verify `signature` against the `eph_public_signing_key`.
+3. Verify `identity_key` derives to `signing_key` via Curve25519.
+
+### 8.2 Roster Fingerprint
 To enable **multicast suppression**, the middleware maintains a 32-byte `roster_fingerprint` per group. This is an incremental XOR sum of the `identity_key` of every peer that currently holds a valid signature.
 - When a peer transitions from unsigned → signed, their key is XORed IN.
 - When a peer is deleted or loses signature status, their key is XORed OUT.
 - Nickname changes or timestamp updates do NOT affect the fingerprint.
 
-### 8.2 Security rules
+### 8.3 Security rules
 
 | Rule | Rationale |
 |---|---|
@@ -357,11 +400,18 @@ To enable **multicast suppression**, the middleware maintains a 32-byte `roster_
 - Reason: a peer who was offline when someone left must later be able to sync and receive cryptographic proof of the departure.
 - `mid_iterate()` purges tombstones with `timestamp < now − TTL`.
 
-### 9.2 Multicast Suppression
+### 9.2 Stale "Zombie" Peers
+- Offline ACTIVE peers who never sent a LEFT tombstone are purged after **30 days** (`MID_STALE_PEER_TTL_SEC`).
+
+### 9.3 Timestamp Rounding
+- Timestamps are rounded down to the nearest 20 seconds (`MID_TIMESTAMP_ROUNDING_SEC`) to reduce clock-skew fingerprinting.
+
+### 9.4 Multicast Suppression
 
 When a new peer joins, multiple existing peers might try to send the roster simultaneously. To prevent a broadcast storm:
 1. Existing peers schedule a delayed `ROSTER_BATCH` broadcast (1–5 seconds randomized).
 2. If an existing peer receives a `ROSTER_BATCH` from another peer *before* its timer fires, and the `roster_fingerprint` matches exactly, it **cancels its own pending response**.
+3. A hard 20-second cooldown prevents flood attacks from malicious peers spamming `ROSTER_REQUEST`.
 
 ---
 
@@ -411,7 +461,7 @@ When a new peer joins, multiple existing peers might try to send the roster simu
 | Function | Description |
 |---|---|
 | `bool mid_announce_leave(s, tox, group)` | Broadcast signed LEFT tombstone. Call **immediately before** `tox_group_leave()`. |
-| `bool mid_self_set_name(s, tox, group, nick, len)` | Update our own nickname, update local record, and re-announce signed PRESENCE. |
+| `bool mid_self_set_name(s, tox, group, nick, len)` | Update our own nickname and update local record. **Does NOT broadcast a PRESENCE packet.** Propagation relies on Toxcore's native name change and `ROSTER_BATCH`. |
 | `bool mid_delete_peer_by_identity(s, chat_id, id_key)` | Manually remove a peer. **Required for the kicker**. |
 
 ### 11.4 Queries (Take `chat_id`)
@@ -464,9 +514,10 @@ Toxcore often drops custom packets sent immediately during the join handshake. I
 
 1. **Throttle:** Heavy sync only runs every `MID_SYNC_INTERVAL_SEC` (5 seconds) to avoid hammering Toxcore on 50ms ticks.
 2. **Sync:** Marks vanished peers offline via `tox_group_peer_by_public_key()`.
-3. **Heartbeat:** If `now - last_announce >= 300s`, sends lightweight `HEARTBEAT` packet.
-4. **Tombstone GC:** Purges LEFT records older than 7 days.
-5. **Roster Timer:** If `roster_reply_deadline` is reached, sends `ROSTER_BATCH`.
+3. **Heartbeat:** Fires if `now >= next_heartbeat`. The *next* heartbeat is scheduled with a fresh random jitter (`[2700s, 4500s]`).
+4. **Eph Key Rotation:** Regenerates ephemeral keys if `now >= eph_key_expiry`.
+5. **GC:** Purges 7-day tombstones and 30-day zombies.
+6. **Roster Timer:** Sends `ROSTER_BATCH` if `roster_reply_deadline` is reached (respecting the 20s cooldown).
 
 ---
 
@@ -474,12 +525,17 @@ Toxcore often drops custom packets sent immediately during the join handshake. I
 
 | Constant | Value | Purpose |
 |---|---|---|
-| `MID_MAGIC_0` / `1` / `2` | `0xA0` / `0x91` / `...` | Packet identification |
+| `MID_MAGIC_0` / `1` / `2` | `0x66` / `0x77` / `0x92` | Packet identification |
 | `MID_PROTOCOL_VERSION` | `1` | Version gate |
-| `MID_HEARTBEAT_SEC` | `300` (5 min) | Lightweight keep-alive interval |
+| `MID_HEARTBEAT_SEC` | `3600` (1 hour) | Base keep-alive interval |
+| `MID_HEARTBEAT_JITTER_SEC`| `1800` (30 min) | Max random jitter (+/-) |
 | `MID_SYNC_INTERVAL_SEC` | `5` | Throttle for heavy sync loop |
-| `MID_ROSTER_COOLDOWN_SEC` | `30` | Min gap between roster responses |
-| `MID_TOMBSTONE_TTL_SEC` | `604800` (7 d) | Graveyard retention |
+| `MID_ROSTER_COOLDOWN_SEC` | `20` | Min gap between roster responses |
+| `MID_MAX_PACKET_PADDING` | `64` | Max random padding bytes |
+| `MID_TIMESTAMP_ROUNDING_SEC`| `20` | Timestamp precision reduction |
+| `MID_EPH_KEY_LIFETIME_SEC` | `86400` (24 h) | Ephemeral key rotation |
+| `MID_TOMBSTONE_TTL_SEC` | `604800` (7 d) | LEFT record retention |
+| `MID_STALE_PEER_TTL_SEC` | `2592000` (30 d)| Zombie peer purge time |
 | `MID_MAX_PACKET_SIZE` | `1200` | Maximum custom packet payload size |
 
 ---
@@ -488,26 +544,29 @@ Toxcore often drops custom packets sent immediately during the join handshake. I
 
 If a `save_path` is provided to `mid_new()`, the middleware attempts to load the roster from disk. Calling `mid_save()` writes the current state back atomically (using a `.tmp` file and `rename()`).
 
-### 14.1 Encryption
-If a `passphrase` is provided, the entire serialized payload is encrypted using `tox_pass_encrypt()` (from `toxencryptsave`). The resulting file begins with the standard Tox encryption magic bytes. Upon loading, `tox_is_data_encrypted()` detects this and decrypts it before parsing.
+### 14.1 Three-Phase Save Architecture
+To prevent UI blocking and TOCTOU vulnerabilities, `mid_save()` operates in three phases:
+1. **Serialize under lock:** Fast binary serialization into a memory buffer.
+2. **Encrypt without lock:** `tox_pass_encrypt` runs concurrently without holding the mutex.
+3. **Disk I/O under lock:** Writes to `.tmp`, applies `fchmod(0600)` on the open file descriptor (bypassing symlink races), and atomically `rename()`s.
 
-### 14.2 Binary File Format (`MIDR`)
+### 14.2 Binary File Format (`MIDR` Version 4)
 The unencrypted payload follows this exact binary layout (all multi-byte integers are Big-Endian):
 
 ```text
 [Header]
 - Magic:        "MIDR" (4 bytes)
-- Version:      uint32 (Must be 2)
+- Version:      uint32 (Must be 4)
 - Group Count:  uint32
 
 [Group Data] (Repeated Group Count times)
 - chat_id:             32 bytes
 - self_identity_key:   32 bytes
 - self_signing_key:    32 bytes
-- self_secret_key:     64 bytes
 - self_nickname_len:   uint16
 - self_nickname:       N bytes
 - peer_count:          uint32
+*(Note: self_secret_key and ephemeral keys are NEVER saved. They are regenerated on join.)*
 
   [Peer Data] (Repeated peer_count times)
   - identity_key:      32 bytes
@@ -518,6 +577,9 @@ The unencrypted payload follows this exact binary layout (all multi-byte integer
   - nickname:          N bytes
   - signature:         64 bytes
   - has_signature:     uint8 (1 or 0)
+  - eph_pk:            32 bytes
+  - eph_cert:          64 bytes
+  - has_eph:           uint8 (1 or 0)
   - connection_status: uint32
   - role:              uint32
   - last_seen:         uint64
@@ -605,7 +667,9 @@ static void on_peer_list_changed(const uint8_t chat_id[32], void *ud)
 | 16.5 | Queries fail after restart | Use `chat_id` for queries, not `group_number` |
 | 16.6 | Broadcast storm on peer join | Solved by randomized delay + fingerprint suppression |
 | 16.7 | High CPU usage in main loop | `mid_iterate` throttles heavy sync to every 5 seconds |
-| 16.8 | Saving blocks the UI thread | `mid_save` releases the mutex *before* doing blocking Disk I/O |
+| 16.8 | Saving blocks the UI thread | Solved by 3-phase save (Encrypt without lock) |
+| 16.9 | `mid_self_set_name` floods network | It does NOT broadcast. Relies on Toxcore + ROSTER_BATCH |
+| 16.10 | TOCTOU symlink race on save | Solved by `fchmod()` on the open file descriptor |
 
 ---
 
@@ -619,10 +683,11 @@ A correct implementation must pass this scenario sequence:
 | 2 | Client 3 hard-disconnects | Others detect exit; client 3 stays in roster as offline ACTIVE |
 | 3 | Client 4 joins late | Receives `ROSTER_BATCH`, syncs full persistent roster |
 | 4 | Client 2 gracefully leaves | `mid_announce_leave` → `tox_group_leave`; others hold signed LEFT tombstone |
-| 5 | Heartbeat test | Wait 5 minutes; observe lightweight `HEARTBEAT` packets (41 bytes) instead of full PRESENCE |
-| 6 | Name change test | Call `mid_self_set_name`; observe new signed PRESENCE broadcast and UI update |
-| 7 | Restart test | Kill Client 1, restart it. It loads from disk and immediately syncs missing offline states via Toxcore. |
-| ∞ | Tombstone GC | LEFT records older than 7 days purged by `mid_iterate` |
+| 5 | Heartbeat test | Wait >45 mins; observe 137-byte `HEARTBEAT` packets with jittered timing |
+| 6 | Name change test | `mid_self_set_name` updates local state, NO custom packet sent |
+| 7 | Padding test | Inspect network bytes; every packet ends with `[pad_len]` byte |
+| 8 | Restart test | Loads from disk, forces peers offline, syncs via Toxcore |
+| ∞ | GC test | 7-day LEFT and 30-day Zombie records purged by `mid_iterate` |
 
 ---
 
