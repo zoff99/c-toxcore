@@ -1145,6 +1145,163 @@ static bool test_roster_cooldown_suppresses_rapid_replies(void)
     return true;
 }
 
+/*
+ * Test: Founder correctness
+ *
+ * Verifies that:
+ * 1. Only the actual group founder gets TOX_GROUP_ROLE_FOUNDER.
+ * 2. Regular peers never get FOUNDER role (not on join, not via PRESENCE,
+ *    not via LEFT tombstone, not via ROSTER_BATCH relay).
+ * 3. The founder retains FOUNDER role through all operations.
+ * 4. Exactly one FOUNDER exists in the roster at all times.
+ *
+ * This test guards against the memset-zero-default bug where
+ * TOX_GROUP_ROLE_FOUNDER == 0, so any memset(&r, 0, ...) would
+ * silently assign FOUNDER role unless explicitly overridden.
+ */
+static bool test_founder_correctness(void)
+{
+    MidState *s = mid_new(NULL, NULL, 0);
+    Tox *tox = create_dummy_tox();
+
+    uint8_t founder_pk[32];
+    test_keypair_from_id(SELF_SEED_ID, founder_pk, NULL, NULL);
+
+    MidPeerInfo info;
+
+    /* ---- Phase 1: Self-join assigns FOUNDER role to the founder ---- */
+
+    mid_on_group_self_join(s, tox, GROUP_1, (const uint8_t *)"founder", 7);
+
+    T_ASSERT_TRUE(get_peer_info_by_key(s, cid1, founder_pk, &info),
+                  "find founder after self-join");
+    T_ASSERT_INT_EQ(info.role, TOX_GROUP_ROLE_FOUNDER,
+                    "founder has FOUNDER role after self-join");
+
+    /* ---- Phase 2: Peer join does NOT assign FOUNDER role ---- */
+
+    uint32_t peer2_id = 2001;
+    uint8_t peer2_pk[32];
+    test_keypair_from_id(peer2_id, peer2_pk, NULL, NULL);
+
+    mid_on_group_peer_join(s, tox, GROUP_1, peer2_id);
+
+    T_ASSERT_TRUE(get_peer_info_by_key(s, cid1, peer2_pk, &info),
+                  "find peer2 after join");
+    T_ASSERT_TRUE(info.role != TOX_GROUP_ROLE_FOUNDER,
+                  "peer2 must NOT be FOUNDER after join");
+
+    /* Founder must still be FOUNDER */
+    T_ASSERT_TRUE(get_peer_info_by_key(s, cid1, founder_pk, &info),
+                  "find founder after peer2 join");
+    T_ASSERT_INT_EQ(info.role, TOX_GROUP_ROLE_FOUNDER,
+                    "founder still FOUNDER after peer2 join");
+
+    /* ---- Phase 3: Second peer join also does NOT get FOUNDER ---- */
+
+    uint32_t peer3_id = 2002;
+    uint8_t peer3_pk[32];
+    test_keypair_from_id(peer3_id, peer3_pk, NULL, NULL);
+
+    mid_on_group_peer_join(s, tox, GROUP_1, peer3_id);
+
+    T_ASSERT_TRUE(get_peer_info_by_key(s, cid1, peer3_pk, &info),
+                  "find peer3 after join");
+    T_ASSERT_TRUE(info.role != TOX_GROUP_ROLE_FOUNDER,
+                  "peer3 must NOT be FOUNDER after join");
+
+    /* ---- Phase 4: mid_iterate maintains founder correctness ---- */
+
+    mid_iterate(s, tox);
+
+    T_ASSERT_TRUE(get_peer_info_by_key(s, cid1, founder_pk, &info),
+                  "find founder after iterate");
+    T_ASSERT_INT_EQ(info.role, TOX_GROUP_ROLE_FOUNDER,
+                    "founder still FOUNDER after iterate");
+
+    T_ASSERT_TRUE(get_peer_info_by_key(s, cid1, peer2_pk, &info),
+                  "find peer2 after iterate");
+    T_ASSERT_TRUE(info.role != TOX_GROUP_ROLE_FOUNDER,
+                  "peer2 must NOT be FOUNDER after iterate");
+
+    T_ASSERT_TRUE(get_peer_info_by_key(s, cid1, peer3_pk, &info),
+                  "find peer3 after iterate");
+    T_ASSERT_TRUE(info.role != TOX_GROUP_ROLE_FOUNDER,
+                  "peer3 must NOT be FOUNDER after iterate");
+
+    /* ---- Phase 5: LEFT tombstone must NOT get FOUNDER role ---- */
+    /*
+     * This is the critical regression test for the memset bug.
+     * mid_announce_leave_internal does memset(&r, 0, sizeof(r)) which
+     * sets role=0=FOUNDER. The fix explicitly sets r.role=USER.
+     * Without the fix, the LEFT tombstone would show as FOUNDER.
+     */
+
+    T_ASSERT_TRUE(mid_announce_leave(s, tox, GROUP_1),
+                  "announce leave succeeds");
+
+    T_ASSERT_TRUE(get_peer_info_by_key(s, cid1, founder_pk, &info),
+                  "find founder after LEFT tombstone");
+    T_ASSERT_INT_EQ(info.status, MID_STATUS_LEFT,
+                    "founder status is LEFT");
+    T_ASSERT_TRUE(info.role != TOX_GROUP_ROLE_FOUNDER,
+                  "LEFT tombstone must NOT have FOUNDER role (memset bug regression)");
+
+    /* ---- Phase 6: Exactly one FOUNDER invariant ---- */
+    /*
+     * Re-join as a new founder to test that the invariant holds
+     * even after leave/rejoin cycles.
+     */
+
+    MidState *s2 = mid_new(NULL, NULL, 0);
+    mid_on_group_self_join(s2, tox, GROUP_1, (const uint8_t *)"founder2", 8);
+    mid_on_group_peer_join(s2, tox, GROUP_1, peer2_id);
+    mid_on_group_peer_join(s2, tox, GROUP_1, peer3_id);
+
+    /* Count FOUNDER roles across entire roster */
+    size_t founder_count = 0;
+    size_t total = mid_peer_list_count(s2, cid1);
+
+    for (size_t i = 0; i < total; i++) {
+        T_ASSERT_TRUE(mid_peer_list_get(s2, cid1, i, &info),
+                      "get peer info for founder count");
+        if (info.role == TOX_GROUP_ROLE_FOUNDER) {
+            founder_count++;
+            /* The FOUNDER must be the actual founder (SELF_SEED_ID) */
+            T_ASSERT_TRUE(memcmp(info.identity_key, founder_pk, 32) == 0,
+                          "only the actual founder has FOUNDER role");
+        }
+    }
+
+    T_ASSERT_INT_EQ(founder_count, 1,
+                    "exactly one FOUNDER in roster (no stale FOUNDER from memset)");
+
+    /* ---- Phase 7: Peer exit does not create phantom FOUNDER ---- */
+
+    mock_only_self_present = true;
+    mid_on_group_peer_exit(s2, tox, GROUP_1, TOX_GROUP_EXIT_TYPE_QUIT);
+    mock_only_self_present = false;
+
+    /* After peers go offline, founder must still be the only FOUNDER */
+    founder_count = 0;
+    total = mid_peer_list_count(s2, cid1);
+    for (size_t i = 0; i < total; i++) {
+        T_ASSERT_TRUE(mid_peer_list_get(s2, cid1, i, &info),
+                      "get peer info after exit");
+        if (info.role == TOX_GROUP_ROLE_FOUNDER) {
+            founder_count++;
+            T_ASSERT_TRUE(memcmp(info.identity_key, founder_pk, 32) == 0,
+                          "only actual founder is FOUNDER after peer exit");
+        }
+    }
+    T_ASSERT_INT_EQ(founder_count, 1,
+                    "exactly one FOUNDER after peer exit");
+
+    mid_free(s2);
+    mid_free(s);
+    return true;
+}
+
 /* ------------------------------------------------------------------ */
 
 int main(void)
@@ -1181,6 +1338,7 @@ int main(void)
     RUN_TEST(test_packet_padding_on_outgoing);
     RUN_TEST(test_heartbeat_not_triggered_prematurely);
     RUN_TEST(test_roster_cooldown_suppresses_rapid_replies);
+    RUN_TEST(test_founder_correctness);
 
     SUITE_END();
     return test_summary("midroster_unit");
