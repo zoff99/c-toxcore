@@ -22,8 +22,6 @@
 
 #define SELF_SEED_ID           0x77777777u
 
-#define TEST_BODY_MAX          (1 + 8 + 2 + MID_MAX_NICK_SIZE + 32 + 32)
-
 /* ------------------------------------------------------------------ */
 /* Group numbers and Chat ID constants                                */
 /* ------------------------------------------------------------------ */
@@ -445,57 +443,40 @@ static bool make_presence_packet(uint8_t *out,
                                  const uint8_t *nick,
                                  uint16_t nick_len)
 {
-    if (out == NULL || out_len == NULL) {
-        return false;
-    }
-    if (nick_len > MID_MAX_NICK_SIZE) {
-        return false;
-    }
-    if (nick_len > 0 && nick == NULL) {
-        return false;
-    }
+    if (out == NULL || out_len == NULL) return false;
+    if (nick_len > MID_MAX_NICK_SIZE) return false;
+    if (nick_len > 0 && nick == NULL) return false;
 
     uint8_t id_pk[32];
     uint8_t sig_pk[32];
     uint8_t sig_sk[64];
     test_keypair_from_id(signer_id, id_pk, sig_pk, sig_sk);
 
-    size_t body_len = 1 + 8 + 2 + nick_len + 32 + 32;
-    size_t packet_len = 5 + 64 + body_len;
+    /* 1. Generate ephemeral keypair for this packet */
+    uint8_t eph_pk[32];
+    uint8_t eph_sk[64];
+    if (crypto_sign_keypair(eph_pk, eph_sk) != 0) return false;
 
-    if (cap < packet_len || body_len > TEST_BODY_MAX) {
-        return false;
-    }
+    /* 2. Create eph_cert_sig: sign eph_pk with long-term sig_sk */
+    uint8_t eph_cert_sig[64];
+    unsigned long long cert_len = 0;
+    if (crypto_sign_detached(eph_cert_sig, &cert_len, eph_pk, 32, sig_sk) != 0) return false;
 
-    uint8_t body[TEST_BODY_MAX];
+    /* 3. Build signed body (73 bytes): status(1) + ts(8) + id(32) + sig(32) */
+    uint8_t body[73];
     size_t o = 0;
-
     body[o++] = status;
-    put_u64_be(body + o, timestamp);
-    o += 8;
-    put_u16_be(body + o, nick_len);
-    o += 2;
+    put_u64_be(body + o, timestamp); o += 8;
+    memcpy(body + o, id_pk, 32); o += 32;
+    memcpy(body + o, sig_pk, 32); o += 32;
 
-    if (nick_len > 0) {
-        memcpy(body + o, nick, nick_len);
-        o += nick_len;
-    }
-
-    memcpy(body + o, id_pk, 32);  // Identity key (Curve25519)
-    o += 32;
-    memcpy(body + o, sig_pk, 32); // Signing key (Ed25519)
-    o += 32;
-
+    /* 4. Sign body with eph_sk */
     uint8_t sig[64];
     unsigned long long sig_len = 0;
+    if (crypto_sign_detached(sig, &sig_len, body, 73, eph_sk) != 0) return false;
+    if (sig_len != 64) return false;
 
-    if (crypto_sign_detached(sig, &sig_len, body, body_len, sig_sk) != 0) {
-        return false;
-    }
-    if (sig_len != 64) {
-        return false;
-    }
-
+    /* 5. Build packet */
     size_t p = 0;
     out[p++] = MID_MAGIC_0;
     out[p++] = MID_MAGIC_1;
@@ -503,11 +484,22 @@ static bool make_presence_packet(uint8_t *out,
     out[p++] = MID_PROTOCOL_VERSION;
     out[p++] = MID_MSG_PRESENCE;
 
-    memcpy(out + p, sig, 64);
-    p += 64;
+    memcpy(out + p, sig, 64); p += 64;
+    memcpy(out + p, body, 73); p += 73;
+    
+    /* Ephemeral key info (unsigned, needed by receiver for verification) */
+    memcpy(out + p, eph_pk, 32); p += 32;
+    memcpy(out + p, eph_cert_sig, 64); p += 64;
 
-    memcpy(out + p, body, body_len);
-    p += body_len;
+    /* Unsigned nickname */
+    put_u16_be(out + p, nick_len); p += 2;
+    if (nick_len > 0) {
+        memcpy(out + p, nick, nick_len);
+        p += nick_len;
+    }
+
+    /* 6. Padding: 0 bytes of random padding, pad_len = 0 */
+    out[p++] = 0;
 
     *out_len = p;
     return true;
@@ -1144,12 +1136,13 @@ static bool test_roster_request_cooldown(void)
 
     mid_on_group_self_join(s, tox, GROUP_1, (const uint8_t *)"self", 4);
 
-    uint8_t req[5] = {
+    uint8_t req[6] = {
         MID_MAGIC_0,
         MID_MAGIC_1,
         MID_MAGIC_2,
         MID_PROTOCOL_VERSION,
-        MID_MSG_ROSTER_REQUEST
+        MID_MSG_ROSTER_REQUEST,
+        0 /* pad_len = 0 (required by V4 middleware) */
     };
 
     /*
