@@ -1476,11 +1476,21 @@ static bool mid_send_presence_record(MidState *s,
     }
 
     /*
-     * Compute the FULL packet length, INCLUDING the unsigned nickname
-     * (and its 2-byte length prefix), and validate it BEFORE writing
-     * into the stack buffer.
+     * Compute the FULL packet length, INCLUDING the ephemeral key info
+     * and the unsigned nickname (and its 2-byte length prefix), and
+     * validate it BEFORE writing into the stack buffer.
+     *
+     * Packet layout:
+     *   header
+     *   signature                (covers signed_body only)
+     *   signed_body
+     *   eph_public_signing_key   (unsigned, needed for verification)
+     *   eph_cert_sig             (unsigned, binds eph key to long-term key)
+     *   nickname_len             (unsigned)
+     *   nickname                 (unsigned)
      */
     size_t packet_len = MID_HEADER_SIZE + MID_SIG_SIZE + body_len
+                      + MID_SIGNING_KEY_SIZE + MID_SIG_SIZE
                       + sizeof(uint16_t) + r->nickname_len;
 
     if (packet_len > MID_MAX_PACKET_SIZE) {
@@ -1497,6 +1507,14 @@ static bool mid_send_presence_record(MidState *s,
     o += MID_SIG_SIZE;
     memcpy(packet + o, body, body_len);
     o += body_len;
+
+    /* Ephemeral key info (unsigned, needed by receiver for verification) */
+    memcpy(packet + o, r->eph_public_signing_key, MID_SIGNING_KEY_SIZE);
+    o += MID_SIGNING_KEY_SIZE;
+
+    memcpy(packet + o, r->eph_cert_sig, MID_SIG_SIZE);
+    o += MID_SIG_SIZE;
+
     mid_put_u16_be(packet + o, r->nickname_len);
     o += 2;
 
@@ -1610,7 +1628,18 @@ static bool mid_send_roster_group(MidState *s, MidGroupState *g, const Tox *tox)
             nick_len = MID_MAX_NICK_SIZE;
         }
 
-        size_t needed = MID_SIG_SIZE + signed_len + sizeof(uint16_t) + nick_len;
+        /*
+         * Per-record layout:
+         *   signature              (covers signed_body only)
+         *   signed_body
+         *   eph_public_signing_key (unsigned, needed for verification)
+         *   eph_cert_sig           (unsigned, binds eph key to long-term key)
+         *   nickname_len           (unsigned)
+         *   nickname               (unsigned)
+         */
+        size_t needed = MID_SIG_SIZE + signed_len
+                      + MID_SIGNING_KEY_SIZE + MID_SIG_SIZE
+                      + sizeof(uint16_t) + nick_len;
 
         /*
          * Defensive guard: if this single record cannot fit even in an
@@ -1646,6 +1675,13 @@ static bool mid_send_roster_group(MidState *s, MidGroupState *g, const Tox *tox)
 
         memcpy(packet + p_idx, signed_body, signed_len);
         p_idx += signed_len;
+
+        /* Ephemeral key info (unsigned, needed by receiver for verification) */
+        memcpy(packet + p_idx, g->records[i].eph_public_signing_key, MID_SIGNING_KEY_SIZE);
+        p_idx += MID_SIGNING_KEY_SIZE;
+
+        memcpy(packet + p_idx, g->records[i].eph_cert_sig, MID_SIG_SIZE);
+        p_idx += MID_SIG_SIZE;
 
         mid_put_u16_be(packet + p_idx, nick_len);
         p_idx += sizeof(uint16_t);
@@ -2260,8 +2296,11 @@ static bool mid_on_custom_packet_group(MidState *s,
     if (type == MID_MSG_PRESENCE) {
         printf("[MID] on_custom_packet: processing PRESENCE message\n"); fflush(stdout);
 
-        /* Minimum: signature + signed body */
-        if (payload_len < MID_SIG_SIZE + MID_SIGNED_BODY_SIZE) {
+        /* Minimum: signature + signed body + eph key + eph cert */
+        size_t min_presence = MID_SIG_SIZE + MID_SIGNED_BODY_SIZE
+                            + MID_SIGNING_KEY_SIZE + MID_SIG_SIZE;
+
+        if (payload_len < min_presence) {
             return false;
         }
 
@@ -2271,22 +2310,34 @@ static bool mid_on_custom_packet_group(MidState *s,
         memcpy(r.signature, payload, MID_SIG_SIZE);
         r.has_signature = true;
 
-        /* Parse and verify the signed body */
+        /* Parse the signed body */
         if (!mid_unpack_signed_body(&r, payload + MID_SIG_SIZE, MID_SIGNED_BODY_SIZE)) {
             return false;
         }
 
+        /* Parse the ephemeral key info that follows the signed body */
+        size_t eph_off = MID_SIG_SIZE + MID_SIGNED_BODY_SIZE;
+
+        memcpy(r.eph_public_signing_key, payload + eph_off, MID_SIGNING_KEY_SIZE);
+        eph_off += MID_SIGNING_KEY_SIZE;
+
+        memcpy(r.eph_cert_sig, payload + eph_off, MID_SIG_SIZE);
+        eph_off += MID_SIG_SIZE;
+
+        r.has_eph_key = !mid_key_is_zero(r.eph_public_signing_key);
+
+        /* Verify (checks the eph cert against the long-term key, then the sig) */
         if (!mid_verify_record(&r)) {
             printf("[MID] on_custom_packet: PRESENCE verification failed\n"); fflush(stdout);
             return false;
         }
 
         /*
-         * Parse the unsigned nickname that follows the signed body.
+         * Parse the unsigned nickname that follows the ephemeral key info.
          * This is a relayed observation only — it is NOT covered by the
          * signature and must never be trusted as authenticated data.
          */
-        size_t nick_off = MID_SIG_SIZE + MID_SIGNED_BODY_SIZE;
+        size_t nick_off = eph_off;
         r.nickname_len = 0;
 
         if (payload_len >= nick_off + sizeof(uint16_t)) {
@@ -2637,8 +2688,10 @@ static bool mid_on_custom_packet_group(MidState *s,
 
         for (uint16_t i = 0; i < record_count; i++) {
 
-            /* Minimum per record: signature + signed_body + nickname_len */
-            size_t min_rec = MID_SIG_SIZE + MID_SIGNED_BODY_SIZE + sizeof(uint16_t);
+            /* Minimum per record: signature + signed_body + eph key + eph cert + nickname_len */
+            size_t min_rec = MID_SIG_SIZE + MID_SIGNED_BODY_SIZE
+                           + MID_SIGNING_KEY_SIZE + MID_SIG_SIZE
+                           + sizeof(uint16_t);
 
             if (p_idx + min_rec > payload_len) {
                 batch_complete = false;
@@ -2659,6 +2712,15 @@ static bool mid_on_custom_packet_group(MidState *s,
 
             memcpy(r.signature, sig, MID_SIG_SIZE);
             r.has_signature = true;
+
+            /* Parse the ephemeral key info */
+            memcpy(r.eph_public_signing_key, payload + p_idx, MID_SIGNING_KEY_SIZE);
+            p_idx += MID_SIGNING_KEY_SIZE;
+
+            memcpy(r.eph_cert_sig, payload + p_idx, MID_SIG_SIZE);
+            p_idx += MID_SIG_SIZE;
+
+            r.has_eph_key = !mid_key_is_zero(r.eph_public_signing_key);
 
             /* Parse the unsigned nickname */
             uint16_t nick_len = mid_get_u16_be(payload + p_idx);
