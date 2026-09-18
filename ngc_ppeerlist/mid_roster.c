@@ -1778,7 +1778,64 @@ static bool mid_sync_online_state_group(MidGroupState *g, const Tox *tox, uint64
     uint32_t group_number = mid_chat_id_to_group_number(tox, g->chat_id);
     if (group_number == UINT32_MAX) return false;
 
-    /* Ensure the founder role is always correctly stamped */
+    for (size_t i = 0; i < g->count; i++) {
+        MidPeerRecord *e = &g->records[i];
+
+        if (e->connection_status == TOX_CONNECTION_NONE) {
+            continue;
+        }
+
+        Tox_Err_Group_Peer_Query err;
+        uint32_t peer_id = tox_group_peer_by_public_key(tox, group_number, e->identity_key, &err);
+
+        if (err != TOX_ERR_GROUP_PEER_QUERY_OK) {
+            printf("[MID] sync_online_state: peer %zu is no longer in Toxcore, marking offline\n", i); fflush(stdout);
+
+            if (e->connection_status != TOX_CONNECTION_NONE) {
+                e->connection_status = TOX_CONNECTION_NONE;
+                changed = true;
+            }
+
+            if (now >= e->last_seen) {
+                e->last_seen = now;
+            }
+
+        } else {
+
+            Tox_Err_Group_Peer_Query conn_err;
+            Tox_Connection conn = tox_group_peer_get_connection_status(tox, group_number, peer_id, &conn_err);
+
+            if (conn_err == TOX_ERR_GROUP_PEER_QUERY_OK) {
+                if (e->connection_status != conn) {
+                    e->connection_status = conn;
+                    changed = true;
+                }
+
+                if (conn != TOX_CONNECTION_NONE && now >= e->last_seen) {
+                    e->last_seen = now;
+                }
+            }
+
+            Tox_Err_Group_Peer_Query role_err;
+            Tox_Group_Role role = tox_group_peer_get_role(tox, group_number, peer_id, &role_err);
+
+            if (role_err == TOX_ERR_GROUP_PEER_QUERY_OK) {
+                if (e->role != role) {
+                    e->role = role;
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    /*
+     * Ensure the founder role is always correctly stamped.
+     *
+     * This MUST run AFTER the role-sync loop above, because
+     * tox_group_peer_get_role() may return a non-FOUNDER value
+     * for the founder in some Toxcore mocks. The authoritative
+     * source is tox_group_get_founder_public_key(), and it must win.
+     */
     Tox_Group_Role old_founder_role = TOX_GROUP_ROLE_USER;
     int founder_idx = -1;
     uint8_t founder_identity[MID_IDENTITY_KEY_SIZE];
@@ -1795,48 +1852,6 @@ static bool mid_sync_online_state_group(MidGroupState *g, const Tox *tox, uint64
 
     if (founder_idx >= 0 && g->records[founder_idx].role != old_founder_role) {
         changed = true;
-    }
-
-    for (size_t i = 0; i < g->count; i++) {
-        MidPeerRecord *e = &g->records[i];
-        if (e->connection_status == TOX_CONNECTION_NONE) {
-            continue;
-        }
-
-        Tox_Err_Group_Peer_Query err;
-        uint32_t peer_id = tox_group_peer_by_public_key(tox, group_number, e->identity_key, &err);
-
-        if (err != TOX_ERR_GROUP_PEER_QUERY_OK) {
-            printf("[MID] sync_online_state: peer %zu is no longer in Toxcore, marking offline\n", i); fflush(stdout);
-            if (e->connection_status != TOX_CONNECTION_NONE) {
-                e->connection_status = TOX_CONNECTION_NONE;
-                changed = true;
-            }
-            if (now >= e->last_seen) {
-                e->last_seen = now;
-            }
-        } else {
-            Tox_Err_Group_Peer_Query conn_err;
-            Tox_Connection conn = tox_group_peer_get_connection_status(tox, group_number, peer_id, &conn_err);
-            if (conn_err == TOX_ERR_GROUP_PEER_QUERY_OK) {
-                if (e->connection_status != conn) {
-                    e->connection_status = conn;
-                    changed = true;
-                }
-                if (conn != TOX_CONNECTION_NONE && now >= e->last_seen) {
-                    e->last_seen = now;
-                }
-            }
-
-            Tox_Err_Group_Peer_Query role_err;
-            Tox_Group_Role role = tox_group_peer_get_role(tox, group_number, peer_id, &role_err);
-            if (role_err == TOX_ERR_GROUP_PEER_QUERY_OK) {
-                if (e->role != role) {
-                    e->role = role;
-                    changed = true;
-                }
-            }
-        }
     }
 
     return changed;
