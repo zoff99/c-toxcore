@@ -41,8 +41,8 @@ typedef struct MidState MidState;
 #define MID_PROTOCOL_VERSION    1
 
 /* NGC custom packet ID */
-#define MID_MAGIC_0  0x66      // was before: 0xA0
-#define MID_MAGIC_1  0x77      // was before: 0x91
+#define MID_MAGIC_0  0x66
+#define MID_MAGIC_1  0x77
 #define MID_MAGIC_2  0x92
 
 #define MID_MAGIC_BYTES_TOTAL 3
