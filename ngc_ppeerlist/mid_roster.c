@@ -1158,8 +1158,13 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
                  */
                 bool gained_signature = !ex->has_signature && tmp.has_signature;
 
+                /* FIX: Preserve the old role. A LEFT tombstone does not carry
+                 * role information, and the incoming role is untrusted. */
+                Tox_Group_Role saved_role = ex->role;
+
                 *ex = tmp;
                 ex->connection_status = TOX_CONNECTION_NONE;
+                ex->role = saved_role;
 
                 if (gained_signature) {
                     printf("[MID] upsert_record: XOR IN tombstone transition. Old FP[0..3]=%02X%02X%02X%02X\n", g->roster_fingerprint[0], g->roster_fingerprint[1], g->roster_fingerprint[2], g->roster_fingerprint[3]); fflush(stdout);
@@ -1186,6 +1191,9 @@ static bool mid_upsert_record(MidGroupState *g, const MidPeerRecord *in)
 
         g->records[g->count] = tmp;
         g->records[g->count].connection_status = TOX_CONNECTION_NONE;
+
+        /* FIX: role is 0 (FOUNDER) from memset in the incoming record. */
+        g->records[g->count].role = TOX_GROUP_ROLE_USER;
 
         if (g->records[g->count].has_signature) {
             printf("[MID] upsert_record: XOR IN new tombstone. Old FP[0..3]=%02X%02X%02X%02X\n", g->roster_fingerprint[0], g->roster_fingerprint[1], g->roster_fingerprint[2], g->roster_fingerprint[3]); fflush(stdout);
@@ -1738,6 +1746,16 @@ static void mid_apply_founder_role(MidGroupState *g, const Tox *tox)
     }
 
     int idx = mid_find_identity(g, founder_identity);
+
+    /* FIX: Clear stale FOUNDER role from all non-founder peers. */
+    for (size_t i = 0; i < g->count; i++) {
+        if ((int)i != idx && g->records[i].role == TOX_GROUP_ROLE_FOUNDER) {
+            printf("[MID] apply_founder_role: clearing stale FOUNDER role from peer %zu\n", i);
+            fflush(stdout);
+            g->records[i].role = TOX_GROUP_ROLE_USER;
+        }
+    }
+
     if (idx < 0) {
         return;
     }
@@ -2285,14 +2303,15 @@ static bool mid_on_custom_packet_group(MidState *s,
     bool changed = false;
 
     /**************************************************************************
-     * FULL SIGNED PRESENCE RECORD
-     *
-     * This is a full signed record containing status, timestamp, nickname,
-     * identity key, and signing key.
-     *
-     * It does NOT suppress pending roster responses, because one presence
-     * record does not prove that the sender has the full roster.
-     *************************************************************************/
+    * FULL SIGNED PRESENCE RECORD
+    *
+    * This is a full signed record containing status, timestamp, identity key,
+    * signing key, ephemeral key info, and an unsigned nickname.
+    *
+    * It does NOT suppress pending roster responses, because one presence
+    * record does not prove that the sender has the full roster.
+    *************************************************************************/
+
     if (type == MID_MSG_PRESENCE) {
         printf("[MID] on_custom_packet: processing PRESENCE message\n"); fflush(stdout);
 
@@ -2410,6 +2429,8 @@ static bool mid_on_custom_packet_group(MidState *s,
              * Do not mark the peer online.
              */
             r.connection_status = TOX_CONNECTION_NONE;
+            r.role = TOX_GROUP_ROLE_USER;
+
             /* Anchor last_seen so we can purge them if they never come online */
             if (r.last_seen == 0) r.last_seen = now;
         }
@@ -2655,6 +2676,8 @@ static bool mid_on_custom_packet_group(MidState *s,
     * Each record:
     *   signature    64 bytes
     *   signed_body  73 bytes (fixed)
+    *   eph_public_signing_key 32 bytes
+    *   eph_cert_sig 64 bytes
     *   nick_len      2 bytes
     *   nickname      N bytes
     *
@@ -2796,6 +2819,8 @@ static bool mid_on_custom_packet_group(MidState *s,
                         r.role = role;
                     } else {
                         r.connection_status = TOX_CONNECTION_NONE;
+                        r.role = TOX_GROUP_ROLE_USER;
+
                         /* Anchor last_seen so we can purge them if they never come online */
                         if (r.last_seen == 0) r.last_seen = now;
                     }
@@ -3217,6 +3242,7 @@ static bool mid_announce_leave_internal(MidState *s, Tox *tox, const uint8_t cha
     r.status = MID_STATUS_LEFT;
     r.timestamp = mid_round_timestamp(mid_now_or_time(0));
     r.connection_status = TOX_CONNECTION_NONE;
+    r.role = TOX_GROUP_ROLE_USER;
 
     if (g->self_nickname_len > 0) {
         uint16_t nick_copy = g->self_nickname_len;
