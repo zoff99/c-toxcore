@@ -13,6 +13,9 @@
 #include "ccompat.h"
 #include "network.h"
 #include "tox_struct.h"
+#include "TCP_server.h"
+#include "logger.h"
+#include "net_profile.h"
 
 #define SET_ERROR_PARAMETER(param, x) \
     do {                              \

@@ -19,6 +19,7 @@
 #include "list.h"
 #include "mono_time.h"
 #include "util.h"
+#include "net_profile.h"
 
 
 /* [CHANGED] Health scoring thresholds - tuned for mobile networks.
@@ -3533,6 +3534,21 @@ static void kill_timedout(Net_Crypto *c, void *userdata)
 uint32_t crypto_run_interval(const Net_Crypto *c)
 {
     return c->current_sleep_time;
+}
+
+const Net_Profile *nc_get_tcp_client_net_profile(const Net_Crypto *c)
+{
+    if (c == nullptr) {
+        return nullptr;
+    }
+
+    const TCP_Connections *tcp_c = nc_get_tcp_c(c);
+
+    if (tcp_c == nullptr) {
+        return nullptr;
+    }
+
+    return tcp_connection_get_client_net_profile(tcp_c);
 }
 
 /** Main loop. */

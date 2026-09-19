@@ -12,6 +12,7 @@
 #include "crypto_core.h"
 #include "forwarding.h"
 #include "onion.h"
+#include "net_profile.h"
 
 #define MAX_INCOMING_CONNECTIONS 256
 
@@ -38,6 +39,13 @@ non_null(1, 2, 3, 6, 7) nullable(8, 9)
 TCP_Server *new_TCP_server(const Logger *logger, const Random *rng, const Network *ns,
                            bool ipv6_enabled, uint16_t num_sockets, const uint16_t *ports,
                            const uint8_t *secret_key, Onion *onion, Forwarding *forwarding);
+
+/** @brief Returns a pointer to the net profile associated with `tcp_server`.
+ *
+ * Returns null if `tcp_server` is null.
+ */
+nullable(1)
+const Net_Profile *tcp_server_get_net_profile(const TCP_Server *tcp_server);
 
 /** Run the TCP_server */
 non_null()

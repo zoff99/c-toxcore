@@ -15,6 +15,7 @@
 #include "LAN_discovery.h"
 #include "TCP_connection.h"
 #include "logger.h"
+#include "net_profile.h"
 
 /*** Crypto payloads. */
 
@@ -442,5 +443,12 @@ void copy_friend_ip_port(Net_Crypto *c, const int crypt_conn_id, char *report_st
 
 non_null()
 char *udp_copy_all_connected(IP_Port conn_ip_port, char *connections_report_string, uint16_t max_num, uint32_t* num);
+
+/**
+ * Returns a pointer to the net profile object for the TCP client associated with `c`.
+ * Returns null if `c` is null or the TCP_Connections associated with `c` is null.
+ */
+non_null()
+const Net_Profile *nc_get_tcp_client_net_profile(const Net_Crypto *c);
 
 #endif

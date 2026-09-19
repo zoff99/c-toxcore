@@ -14,6 +14,7 @@
 #include "DHT.h"  // for Node_format
 #include "TCP_client.h"
 #include "TCP_common.h"
+#include "net_profile.h"
 
 #define TCP_CONN_NONE 0
 #define TCP_CONN_VALID 1
@@ -319,5 +320,12 @@ TCP_Connection_to *get_connection(const TCP_Connections *tcp_c, int connections_
 
 non_null()
 TCP_con *get_tcp_connection(const TCP_Connections *tcp_c, int tcp_connections_number);
+
+/** @brief Returns a pointer to the tcp client net profile associated with tcp_c.
+ *
+ * @retval null if tcp_c is null.
+ */
+non_null()
+const Net_Profile *tcp_connection_get_client_net_profile(const TCP_Connections *tcp_c);
 
 #endif
