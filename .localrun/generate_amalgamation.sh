@@ -38,6 +38,7 @@ toxcore/ccompat.h \
 toxcore/attributes.h \
 toxcore/logger.h \
 toxcore/mono_time.h \
+toxcore/net_profile.h \
 toxcore/crypto_core.h \
 toxcore/network.h \
 toxcore/DHT.h \
@@ -143,6 +144,7 @@ toxcore/ccompat.h \
 toxcore/attributes.h \
 toxcore/logger.h \
 toxcore/mono_time.h \
+toxcore/net_profile.h \
 toxcore/crypto_core.h \
 toxcore/network.h \
 toxcore/DHT.h \

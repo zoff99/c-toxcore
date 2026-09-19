@@ -16,6 +16,7 @@
 #include "ccompat.h"
 #include "mono_time.h"
 #include "util.h"
+#include "net_profile.h"
 
 typedef struct TCP_Client_Conn {
     // TODO(iphydf): Add an enum for this.
@@ -568,7 +569,7 @@ void forwarding_handler(TCP_Client_Connection *con, forwarded_response_cb *forwa
 TCP_Client_Connection *new_TCP_connection(
         const Logger *logger, const Mono_Time *mono_time, const Random *rng, const Network *ns, const IP_Port *ip_port,
         const uint8_t *public_key, const uint8_t *self_public_key, const uint8_t *self_secret_key,
-        const TCP_Proxy_Info *proxy_info)
+        const TCP_Proxy_Info *proxy_info, Net_Profile *net_profile)
 {
     if (!net_family_is_ipv4(ip_port->ip.family) && !net_family_is_ipv6(ip_port->ip.family)) {
         return nullptr;
@@ -613,6 +614,7 @@ TCP_Client_Connection *new_TCP_connection(
     temp->con.rng = rng;
     temp->con.sock = sock;
     temp->con.ip_port = *ip_port;
+    temp->con.net_profile = net_profile;
     memcpy(temp->public_key, public_key, CRYPTO_PUBLIC_KEY_SIZE);
     memcpy(temp->self_public_key, self_public_key, CRYPTO_PUBLIC_KEY_SIZE);
     encrypt_precompute(temp->public_key, self_secret_key, temp->con.shared_key);
@@ -797,6 +799,8 @@ static int handle_TCP_client_packet(const Logger *logger, TCP_Client_Connection 
     if (length <= 1) {
         return -1;
     }
+
+    netprof_record_packet(conn->con.net_profile, data[0], length, PACKET_DIRECTION_RECV);
 
     switch (data[0]) {
         case TCP_PACKET_ROUTING_RESPONSE:

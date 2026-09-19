@@ -8,6 +8,7 @@
 
 #include "crypto_core.h"
 #include "network.h"
+#include "net_profile.h"
 
 typedef struct TCP_Priority_List TCP_Priority_List;
 struct TCP_Priority_List {
@@ -75,6 +76,7 @@ typedef struct TCP_Connection {
 
     TCP_Priority_List *priority_queue_start;
     TCP_Priority_List *priority_queue_end;
+    Net_Profile *net_profile;
 } TCP_Connection;
 
 /**
