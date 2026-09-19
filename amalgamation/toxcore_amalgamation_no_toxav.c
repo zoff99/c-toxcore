@@ -378,6 +378,75 @@ void mono_time_set_current_time_callback(Mono_Time *mono_time,
 
 #endif // C_TOXCORE_TOXCORE_MONO_TIME_H
 /* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright © 2023 The TokTok team.
+ */
+
+/**
+ * Functions for the network profile.
+ */
+#ifndef C_TOXCORE_TOXCORE_NET_PROFILE_H
+#define C_TOXCORE_TOXCORE_NET_PROFILE_H
+
+#include <stddef.h>
+#include <stdint.h>
+
+
+/* The max number of packet ID's (must fit inside one byte) */
+#define NET_PROF_MAX_PACKET_IDS 256
+
+typedef struct Net_Profile {
+    uint64_t packets_recv[NET_PROF_MAX_PACKET_IDS];
+    uint64_t packets_sent[NET_PROF_MAX_PACKET_IDS];
+
+    uint64_t total_packets_recv;
+    uint64_t total_packets_sent;
+
+    uint64_t bytes_recv[NET_PROF_MAX_PACKET_IDS];
+    uint64_t bytes_sent[NET_PROF_MAX_PACKET_IDS];
+
+    uint64_t total_bytes_recv;
+    uint64_t total_bytes_sent;
+} Net_Profile;
+
+/** Specifies whether the query is for sent or received packets. */
+typedef enum Packet_Direction {
+    PACKET_DIRECTION_SEND,
+    PACKET_DIRECTION_RECV,
+} Packet_Direction;
+
+/**
+ * Records a sent or received packet of type `id` and size `length` to the given profile.
+ */
+nullable(1)
+void netprof_record_packet(Net_Profile *profile, uint8_t id, size_t length, Packet_Direction dir);
+
+/**
+ * Returns the number of sent or received packets of type `id` for the given profile.
+ */
+nullable(1)
+uint64_t netprof_get_packet_count_id(const Net_Profile *profile, uint8_t id, Packet_Direction dir);
+
+/**
+ * Returns the total number of sent or received packets for the given profile.
+ */
+nullable(1)
+uint64_t netprof_get_packet_count_total(const Net_Profile *profile, Packet_Direction dir);
+
+/**
+ * Returns the number of bytes sent or received of packet type `id` for the given profile.
+ */
+nullable(1)
+uint64_t netprof_get_bytes_id(const Net_Profile *profile, uint8_t id, Packet_Direction dir);
+
+/**
+ * Returns the total number of bytes sent or received for the given profile.
+ */
+nullable(1)
+uint64_t netprof_get_bytes_total(const Net_Profile *profile, Packet_Direction dir);
+
+#endif  /* C_TOXCORE_TOXCORE_NET_PROFILE_H */
+
+/* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright © 2016-2018 The TokTok team.
  * Copyright © 2013 Tox project.
  */
@@ -1131,8 +1200,10 @@ extern const Socket net_invalid_socket;
 /**
  * Calls send(sockfd, buf, len, MSG_NOSIGNAL).
  */
-non_null()
-int net_send(const Network *ns, const Logger *log, Socket sock, const uint8_t *buf, size_t len, const IP_Port *ip_port);
+non_null(1, 2, 4, 6) nullable(7)
+int net_send(const Network *ns, const Logger *log, Socket sock, const uint8_t *buf, size_t len, const IP_Port *ip_port,
+             Net_Profile *net_profile);
+
 /**
  * Calls recv(sockfd, buf, len, MSG_NOSIGNAL).
  */
@@ -1359,7 +1430,7 @@ typedef struct Packet {
  * Function to send a network packet to a given IP/port.
  */
 non_null()
-int send_packet(const Networking_Core *net, const IP_Port *ip_port, Packet packet);
+int send_packet(Networking_Core *net, const IP_Port *ip_port, Packet packet);
 
 /**
  * Function to send packet(data) of length length to ip_port.
@@ -1367,7 +1438,7 @@ int send_packet(const Networking_Core *net, const IP_Port *ip_port, Packet packe
  * @deprecated Use send_packet instead.
  */
 non_null()
-int sendpacket(const Networking_Core *net, const IP_Port *ip_port, const uint8_t *data, uint16_t length);
+int sendpacket(Networking_Core *net, const IP_Port *ip_port, const uint8_t *data, uint16_t length);
 
 /** Function to call when packet beginning with byte is received. */
 non_null(1) nullable(3, 4)
@@ -1375,7 +1446,7 @@ void networking_registerhandler(Networking_Core *net, uint8_t byte, packet_handl
 
 /** Call this several times a second. */
 non_null(1) nullable(2)
-void networking_poll(const Networking_Core *net, void *userdata);
+void networking_poll(Networking_Core *net, void *userdata);
 
 /** @brief Connect a socket to the address specified by the ip_port.
  *
@@ -1460,6 +1531,13 @@ Networking_Core *new_networking_no_udp(const Logger *log, const Network *ns);
 /** Function to cleanup networking stuff (doesn't do much right now). */
 nullable(1)
 void kill_networking(Networking_Core *net);
+
+/** @brief Returns a pointer to the network net_profile object associated with `net`.
+ *
+ * Returns null if `net` is null.
+ */
+non_null()
+const Net_Profile *net_get_net_profile(const Networking_Core *net);
 
 #ifdef __cplusplus
 }  // extern "C"
@@ -2175,7 +2253,7 @@ int create_onion_packet_tcp(const Random *rng, uint8_t *packet, uint16_t max_pac
  * return 0 on success.
  */
 non_null()
-int send_onion_response(const Networking_Core *net, const IP_Port *dest, const uint8_t *data, uint16_t length,
+int send_onion_response(Networking_Core *net, const IP_Port *dest, const uint8_t *data, uint16_t length,
                         const uint8_t *ret);
 
 /** @brief Function to handle/send received decrypted versions of the packet created by create_onion_packet.
@@ -2381,11 +2459,11 @@ non_null()
 void tcp_con_set_custom_uint(TCP_Client_Connection *con, uint32_t value);
 
 /** Create new TCP connection to ip_port/public_key */
-non_null(1, 2, 3, 4, 5, 6, 7, 8) nullable(9)
+non_null(1, 2, 3, 4, 5, 6, 7, 8) nullable(9, 10)
 TCP_Client_Connection *new_TCP_connection(
         const Logger *logger, const Mono_Time *mono_time, const Random *rng, const Network *ns, const IP_Port *ip_port,
         const uint8_t *public_key, const uint8_t *self_public_key, const uint8_t *self_secret_key,
-        const TCP_Proxy_Info *proxy_info);
+        const TCP_Proxy_Info *proxy_info, Net_Profile *net_profile);
 
 /** Run the TCP connection */
 non_null(1, 2, 3) nullable(4)
@@ -2794,6 +2872,13 @@ TCP_Connection_to *get_connection(const TCP_Connections *tcp_c, int connections_
 
 non_null()
 TCP_con *get_tcp_connection(const TCP_Connections *tcp_c, int tcp_connections_number);
+
+/** @brief Returns a pointer to the tcp client net profile associated with tcp_c.
+ *
+ * @retval null if tcp_c is null.
+ */
+non_null()
+const Net_Profile *tcp_connection_get_client_net_profile(const TCP_Connections *tcp_c);
 
 #endif
 /* SPDX-License-Identifier: GPL-3.0-or-later
@@ -3237,6 +3322,13 @@ void copy_friend_ip_port(Net_Crypto *c, const int crypt_conn_id, char *report_st
 non_null()
 char *udp_copy_all_connected(IP_Port conn_ip_port, char *connections_report_string, uint16_t max_num, uint32_t* num);
 
+/**
+ * Returns a pointer to the net profile object for the TCP client associated with `c`.
+ * Returns null if `c` is null or the TCP_Connections associated with `c` is null.
+ */
+non_null()
+const Net_Profile *nc_get_tcp_client_net_profile(const Net_Crypto *c);
+
 #endif
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright © 2016-2018 The TokTok team.
@@ -3550,6 +3642,7 @@ typedef struct TCP_Connection {
 
     TCP_Priority_List *priority_queue_start;
     TCP_Priority_List *priority_queue_end;
+    Net_Profile *net_profile;
 } TCP_Connection;
 
 /**
@@ -3634,6 +3727,13 @@ non_null(1, 2, 3, 6, 7) nullable(8, 9)
 TCP_Server *new_TCP_server(const Logger *logger, const Random *rng, const Network *ns,
                            bool ipv6_enabled, uint16_t num_sockets, const uint16_t *ports,
                            const uint8_t *secret_key, Onion *onion, Forwarding *forwarding);
+
+/** @brief Returns a pointer to the net profile associated with `tcp_server`.
+ *
+ * Returns null if `tcp_server` is null.
+ */
+nullable(1)
+const Net_Profile *tcp_server_get_net_profile(const TCP_Server *tcp_server);
 
 /** Run the TCP_server */
 non_null()
@@ -4675,7 +4775,7 @@ int create_data_request(const Random *rng, uint8_t *packet, uint16_t max_packet_
  * return 0 on success.
  */
 non_null()
-int send_announce_request(const Networking_Core *net, const Random *rng,
+int send_announce_request(Networking_Core *net, const Random *rng,
                           const Onion_Path *path, const Node_format *dest,
                           const uint8_t *public_key, const uint8_t *secret_key,
                           const uint8_t *ping_id, const uint8_t *client_id,
@@ -4698,7 +4798,7 @@ int send_announce_request(const Networking_Core *net, const Random *rng,
  * return 0 on success.
  */
 non_null()
-int send_data_request(const Networking_Core *net, const Random *rng, const Onion_Path *path, const IP_Port *dest,
+int send_data_request(Networking_Core *net, const Random *rng, const Onion_Path *path, const IP_Port *dest,
                       const uint8_t *public_key, const uint8_t *encrypt_public_key, const uint8_t *nonce,
                       const uint8_t *data, uint16_t length);
 
@@ -11931,6 +12031,263 @@ void tox_get_all_tcp_relays(const Tox *tox, char *report);
  */
 void tox_get_all_udp_connections(const Tox *tox, char *report);
 
+
+/*******************************************************************************
+ *
+ * :: Network profiler
+ *
+ ******************************************************************************/
+
+
+/**
+ * Represents all of the network packet identifiers that Toxcore uses.
+ *
+ * Notes:
+ * - Some packet ID's have different purposes depending on the
+ * packet type. These ID's are given numeral names.
+ *
+ * - Queries for invalid packet ID's return undefined results. For example,
+ *   querying a TCP-exclusive packet ID for UDP, or querying an ID that
+ *   doesn't exist in this enum.
+ */
+typedef enum Tox_Netprof_Packet_Id {
+    /**
+     * Ping request packet (UDP).
+     * Routing request (TCP).
+     */
+    TOX_NETPROF_PACKET_ID_ZERO                 = 0x00,
+
+    /**
+     * Ping response packet (UDP).
+     * Routing response (TCP).
+     */
+    TOX_NETPROF_PACKET_ID_ONE                  = 0x01,
+
+    /**
+     * Get nodes request packet (UDP).
+     * Connection notification (TCP).
+     */
+    TOX_NETPROF_PACKET_ID_TWO                  = 0x02,
+
+    /**
+     * TCP disconnect notification.
+     */
+    TOX_NETPROF_PACKET_ID_TCP_DISCONNECT       = 0x03,
+
+    /**
+     * Send nodes response packet (UDP).
+     * Ping packet (TCP).
+     */
+    TOX_NETPROF_PACKET_ID_FOUR                 = 0x04,
+
+    /**
+     * TCP pong packet.
+     */
+    TOX_NETPROF_PACKET_ID_TCP_PONG             = 0x05,
+
+    /**
+     * TCP out-of-band send packet.
+     */
+    TOX_NETPROF_PACKET_ID_TCP_OOB_SEND         = 0x06,
+
+    /**
+     * TCP out-of-band receive packet.
+     */
+    TOX_NETPROF_PACKET_ID_TCP_OOB_RECV         = 0x07,
+
+    /**
+     * TCP onion request packet.
+     */
+    TOX_NETPROF_PACKET_ID_TCP_ONION_REQUEST    = 0x08,
+
+    /**
+     * TCP onion response packet.
+     */
+    TOX_NETPROF_PACKET_ID_TCP_ONION_RESPONSE   = 0x09,
+
+    /**
+     * TCP data packet.
+     */
+    TOX_NETPROF_PACKET_ID_TCP_DATA             = 0x10,
+
+    /**
+     * Cookie request packet.
+     */
+    TOX_NETPROF_PACKET_ID_COOKIE_REQUEST       = 0x18,
+
+    /**
+     * Cookie response packet.
+     */
+    TOX_NETPROF_PACKET_ID_COOKIE_RESPONSE      = 0x19,
+
+    /**
+     * Crypto handshake packet.
+     */
+    TOX_NETPROF_PACKET_ID_CRYPTO_HS            = 0x1a,
+
+    /**
+     * Crypto data packet.
+     */
+    TOX_NETPROF_PACKET_ID_CRYPTO_DATA          = 0x1b,
+
+    /**
+     * Encrypted data packet.
+     */
+    TOX_NETPROF_PACKET_ID_CRYPTO               = 0x20,
+
+    /**
+     * LAN discovery packet.
+     */
+    TOX_NETPROF_PACKET_ID_LAN_DISCOVERY        = 0x21,
+
+    /**
+     * DHT groupchat packets.
+     */
+    TOX_NETPROF_PACKET_ID_GC_HANDSHAKE         = 0x5a,
+    TOX_NETPROF_PACKET_ID_GC_LOSSLESS          = 0x5b,
+    TOX_NETPROF_PACKET_ID_GC_LOSSY             = 0x5c,
+
+    /**
+     * Onion send packets.
+     */
+    TOX_NETPROF_PACKET_ID_ONION_SEND_INITIAL   = 0x80,
+    TOX_NETPROF_PACKET_ID_ONION_SEND_1         = 0x81,
+    TOX_NETPROF_PACKET_ID_ONION_SEND_2         = 0x82,
+
+    /**
+     * DHT announce request packet (deprecated).
+     */
+    TOX_NETPROF_PACKET_ID_ANNOUNCE_REQUEST_OLD = 0x83,
+
+    /**
+     * DHT announce response packet (deprecated).
+     */
+    TOX_NETPROF_PACKET_ID_ANNOUNCE_RESPONSE_OLD = 0x84,
+
+    /**
+     * Onion data request packet.
+     */
+    TOX_NETPROF_PACKET_ID_ONION_DATA_REQUEST   = 0x85,
+
+    /**
+     * Onion data response packet.
+     */
+    TOX_NETPROF_PACKET_ID_ONION_DATA_RESPONSE  = 0x86,
+
+    /**
+     * DHT announce request packet.
+     */
+    TOX_NETPROF_PACKET_ID_ANNOUNCE_REQUEST     = 0x87,
+
+    /**
+     * DHT announce response packet.
+     */
+    TOX_NETPROF_PACKET_ID_ANNOUNCE_RESPONSE    = 0x88,
+
+    /**
+     * Onion receive packets.
+     */
+    TOX_NETPROF_PACKET_ID_ONION_RECV_3         = 0x8c,
+    TOX_NETPROF_PACKET_ID_ONION_RECV_2         = 0x8d,
+    TOX_NETPROF_PACKET_ID_ONION_RECV_1         = 0x8e,
+
+    TOX_NETPROF_PACKET_ID_FORWARD_REQUEST      = 0x90,
+    TOX_NETPROF_PACKET_ID_FORWARDING           = 0x91,
+    TOX_NETPROF_PACKET_ID_FORWARD_REPLY        = 0x92,
+
+    TOX_NETPROF_PACKET_ID_DATA_SEARCH_REQUEST     = 0x93,
+    TOX_NETPROF_PACKET_ID_DATA_SEARCH_RESPONSE    = 0x94,
+    TOX_NETPROF_PACKET_ID_DATA_RETRIEVE_REQUEST   = 0x95,
+    TOX_NETPROF_PACKET_ID_DATA_RETRIEVE_RESPONSE  = 0x96,
+    TOX_NETPROF_PACKET_ID_STORE_ANNOUNCE_REQUEST  = 0x97,
+    TOX_NETPROF_PACKET_ID_STORE_ANNOUNCE_RESPONSE = 0x98,
+
+    /**
+     * Bootstrap info packet.
+     */
+    TOX_NETPROF_PACKET_ID_BOOTSTRAP_INFO       = 0xf0,
+} Tox_Netprof_Packet_Id;
+
+/**
+ * Specifies the packet type for a given query.
+ */
+typedef enum Tox_Netprof_Packet_Type {
+    /**
+     * TCP client packets.
+     */
+    TOX_NETPROF_PACKET_TYPE_TCP_CLIENT,
+
+    /**
+     * TCP server packets.
+     */
+    TOX_NETPROF_PACKET_TYPE_TCP_SERVER,
+
+    /**
+     * Combined TCP server and TCP client packets.
+     */
+    TOX_NETPROF_PACKET_TYPE_TCP,
+
+    /**
+     * UDP packets.
+     */
+    TOX_NETPROF_PACKET_TYPE_UDP,
+} Tox_Netprof_Packet_Type;
+
+/**
+ * Specifies the packet direction for a given query.
+ */
+typedef enum Tox_Netprof_Direction {
+    /**
+     * Outbound packets.
+     */
+    TOX_NETPROF_DIRECTION_SENT,
+
+    /**
+     * Inbound packets.
+     */
+    TOX_NETPROF_DIRECTION_RECV,
+} Tox_Netprof_Direction;
+
+/**
+ * Return the number of packets sent or received for a specific packet ID.
+ *
+ * @param type The types of packets being queried.
+ * @param id The packet ID being queried.
+ * @param direction The packet direction.
+ */
+uint64_t tox_netprof_get_packet_id_count(const Tox *tox, Tox_Netprof_Packet_Type type, uint8_t id,
+        Tox_Netprof_Direction direction);
+
+/**
+ * Return the total number of packets sent or received.
+ *
+ * @param type The types of packets being queried.
+ * @param direction The packet direction.
+ */
+uint64_t tox_netprof_get_packet_total_count(const Tox *tox, Tox_Netprof_Packet_Type type,
+        Tox_Netprof_Direction direction);
+
+/**
+ * Return the number of bytes sent or received for a specific packet ID.
+ *
+ * @param type The types of packets being queried.
+ * @param id The packet ID being queried.
+ * @param direction The packet direction.
+ */
+uint64_t tox_netprof_get_packet_id_bytes(const Tox *tox, Tox_Netprof_Packet_Type type, uint8_t id,
+        Tox_Netprof_Direction direction);
+
+/**
+ * Return the total number of bytes sent or received.
+ *
+ * @param type The types of packets being queried.
+ * @param direction The packet direction.
+ */
+uint64_t tox_netprof_get_packet_total_bytes(const Tox *tox, Tox_Netprof_Packet_Type type,
+        Tox_Netprof_Direction direction);
+
+
+
 #ifdef __cplusplus
 }
 #endif
@@ -14354,7 +14711,7 @@ typedef struct Broadcast_Info Broadcast_Info;
  * @return true on success, false on failure.
  */
 non_null()
-bool lan_discovery_send(const Networking_Core *net, const Broadcast_Info *broadcast, const uint8_t *dht_pk,
+bool lan_discovery_send(Networking_Core *net, const Broadcast_Info *broadcast, const uint8_t *dht_pk,
                         uint16_t port);
 
 /**
@@ -15760,6 +16117,7 @@ typedef enum Tox_Err_Dht_Get_Nodes {
  */
 bool tox_dht_get_nodes(const Tox *tox, const uint8_t *public_key, const char *ip, uint16_t port,
                        const uint8_t *target_public_key, Tox_Err_Dht_Get_Nodes *error);
+
 
 #ifdef __cplusplus
 }
@@ -38470,7 +38828,7 @@ static Broadcast_Info *fetch_broadcast_info(const Network *ns)
  * @retval false on failure to find any valid broadcast target.
  */
 non_null()
-static bool send_broadcasts(const Networking_Core *net, const Broadcast_Info *broadcast, uint16_t port,
+static bool send_broadcasts(Networking_Core *net, const Broadcast_Info *broadcast, uint16_t port,
                             const uint8_t *data, uint16_t length)
 {
     if (broadcast->count == 0) {
@@ -38600,7 +38958,7 @@ bool ip_is_lan(const IP *ip)
 }
 
 
-bool lan_discovery_send(const Networking_Core *net, const Broadcast_Info *broadcast, const uint8_t *dht_pk,
+bool lan_discovery_send(Networking_Core *net, const Broadcast_Info *broadcast, const uint8_t *dht_pk,
                         uint16_t port)
 {
     if (broadcast == nullptr) {
@@ -47287,6 +47645,21 @@ uint32_t crypto_run_interval(const Net_Crypto *c)
     return c->current_sleep_time;
 }
 
+const Net_Profile *nc_get_tcp_client_net_profile(const Net_Crypto *c)
+{
+    if (c == nullptr) {
+        return nullptr;
+    }
+
+    const TCP_Connections *tcp_c = nc_get_tcp_c(c);
+
+    if (tcp_c == nullptr) {
+        return nullptr;
+    }
+
+    return tcp_connection_get_client_net_profile(tcp_c);
+}
+
 /** Main loop. */
 void do_net_crypto(Net_Crypto *c, void *userdata)
 {
@@ -47316,6 +47689,124 @@ void kill_net_crypto(Net_Crypto *c)
     networking_registerhandler(dht_get_net(c->dht), NET_PACKET_CRYPTO_DATA, nullptr, nullptr);
     crypto_memzero(c, sizeof(Net_Crypto));
     free(c);
+}
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright © 2023 The TokTok team.
+ */
+
+/**
+ * Functions for the network profile.
+ */
+
+
+#include <stdint.h>
+
+
+#define NETPROF_TCP_DATA_PACKET_ID 0x10
+
+/** Returns the number of sent or received packets for all ID's between `start_id` and `end_id`. */
+nullable(1)
+static uint64_t netprof_get_packet_count_id_range(const Net_Profile *profile, uint8_t start_id, uint8_t end_id,
+        Packet_Direction dir)
+{
+    if (profile == nullptr) {
+        return 0;
+    }
+
+    const uint64_t *arr = dir == PACKET_DIRECTION_SEND ? profile->packets_sent : profile->packets_recv;
+    uint64_t count = 0;
+
+    for (size_t i = start_id; i <= end_id; ++i) {
+        count += arr[i];
+    }
+
+    return count;
+}
+
+/** Returns the number of sent or received bytes for all ID's between `start_id` and `end_id`. */
+nullable(1)
+static uint64_t netprof_get_bytes_id_range(const Net_Profile *profile, uint8_t start_id, uint8_t end_id,
+        Packet_Direction dir)
+{
+    if (profile == nullptr) {
+        return 0;
+    }
+
+    const uint64_t *arr = dir == PACKET_DIRECTION_SEND ? profile->bytes_sent : profile->bytes_recv;
+    uint64_t bytes = 0;
+
+    for (size_t i = start_id; i <= end_id; ++i) {
+        bytes += arr[i];
+    }
+
+    return bytes;
+}
+
+void netprof_record_packet(Net_Profile *profile, uint8_t id, size_t length, Packet_Direction dir)
+{
+    if (profile == nullptr) {
+        return;
+    }
+
+    if (dir == PACKET_DIRECTION_SEND) {
+        ++profile->total_packets_sent;
+        ++profile->packets_sent[id];
+
+        profile->total_bytes_sent += length;
+        profile->bytes_sent[id] += length;
+    } else {
+        ++profile->total_packets_recv;
+        ++profile->packets_recv[id];
+
+        profile->total_bytes_recv += length;
+        profile->bytes_recv[id] += length;
+    }
+}
+
+uint64_t netprof_get_packet_count_id(const Net_Profile *profile, uint8_t id, Packet_Direction dir)
+{
+    if (profile == nullptr) {
+        return 0;
+    }
+
+    // Special case - TCP data packets can have any ID between 0x10 and 0xff
+    if (id == NETPROF_TCP_DATA_PACKET_ID) {
+        return netprof_get_packet_count_id_range(profile, id, UINT8_MAX, dir);
+    }
+
+    return dir == PACKET_DIRECTION_SEND ? profile->packets_sent[id] : profile->packets_recv[id];
+}
+
+uint64_t netprof_get_packet_count_total(const Net_Profile *profile, Packet_Direction dir)
+{
+    if (profile == nullptr) {
+        return 0;
+    }
+
+    return dir == PACKET_DIRECTION_SEND ? profile->total_packets_sent : profile->total_packets_recv;
+}
+
+uint64_t netprof_get_bytes_id(const Net_Profile *profile, uint8_t id, Packet_Direction dir)
+{
+    if (profile == nullptr) {
+        return 0;
+    }
+
+    // Special case - TCP data packets can have any ID between 0x10 and 0xff
+    if (id == NETPROF_TCP_DATA_PACKET_ID) {
+        return netprof_get_bytes_id_range(profile, id, 0xff, dir);
+    }
+
+    return dir == PACKET_DIRECTION_SEND ? profile->bytes_sent[id] : profile->bytes_recv[id];
+}
+
+uint64_t netprof_get_bytes_total(const Net_Profile *profile, Packet_Direction dir)
+{
+    if (profile == nullptr) {
+        return 0;
+    }
+
+    return dir == PACKET_DIRECTION_SEND ? profile->total_bytes_sent : profile->total_bytes_recv;
 }
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright © 2016-2018 The TokTok team.
@@ -48116,9 +48607,14 @@ static void loglogdata(const Logger *log, const char *message, const uint8_t *bu
 }
 
 int net_send(const Network *ns, const Logger *log,
-             Socket sock, const uint8_t *buf, size_t len, const IP_Port *ip_port)
+             Socket sock, const uint8_t *buf, size_t len, const IP_Port *ip_port, Net_Profile *net_profile)
 {
     const int res = ns->funcs->send(ns->obj, sock.sock, buf, len);
+
+    if (res > 0) {
+        netprof_record_packet(net_profile, buf[0], res, PACKET_DIRECTION_SEND);
+    }
+
     loglogdata(log, "T=>", buf, len, ip_port, res);
     return res;
 }
@@ -48219,6 +48715,7 @@ struct Networking_Core {
     uint16_t port;
     /* Our UDP socket. */
     Socket sock;
+    Net_Profile udp_net_profile;
 };
 
 Family net_family(const Networking_Core *net)
@@ -48234,7 +48731,7 @@ uint16_t net_port(const Networking_Core *net)
 /* Basic network functions:
  */
 
-int send_packet(const Networking_Core *net, const IP_Port *ip_port, Packet packet)
+int send_packet(Networking_Core *net, const IP_Port *ip_port, Packet packet)
 {
     IP_Port ipp_copy = *ip_port;
 
@@ -48303,6 +48800,11 @@ int send_packet(const Networking_Core *net, const IP_Port *ip_port, Packet packe
     loglogdata(net->log, "O=>", packet.data, packet.length, ip_port, res);
 
     assert(res <= INT_MAX);
+
+    if (res == packet.length) {
+        netprof_record_packet(&net->udp_net_profile, packet.data[0], packet.length, PACKET_DIRECTION_SEND);
+    }
+
     return (int)res;
 }
 
@@ -48311,7 +48813,7 @@ int send_packet(const Networking_Core *net, const IP_Port *ip_port, Packet packe
  *
  * @deprecated Use send_packet instead.
  */
-int sendpacket(const Networking_Core *net, const IP_Port *ip_port, const uint8_t *data, uint16_t length)
+int sendpacket(Networking_Core *net, const IP_Port *ip_port, const uint8_t *data, uint16_t length)
 {
     const Packet packet = {data, length};
     return send_packet(net, ip_port, packet);
@@ -48391,7 +48893,7 @@ void networking_registerhandler(Networking_Core *net, uint8_t byte, packet_handl
     net->packethandlers[byte].object = object;
 }
 
-void networking_poll(const Networking_Core *net, void *userdata)
+void networking_poll(Networking_Core *net, void *userdata)
 {
     if (net_family_is_unspec(net->family)) {
         /* Socket not initialized */
@@ -48406,6 +48908,8 @@ void networking_poll(const Networking_Core *net, void *userdata)
         if (length < 1) {
             continue;
         }
+
+        netprof_record_packet(&net->udp_net_profile, data[0], length, PACKET_DIRECTION_RECV);
 
         const Packet_Handler *const handler = &net->packethandlers[data[0]];
 
@@ -48679,6 +49183,15 @@ Networking_Core *new_networking_no_udp(const Logger *log, const Network *ns)
     net->log = log;
 
     return net;
+}
+
+const Net_Profile *net_get_net_profile(const Networking_Core *net)
+{
+    if (net == nullptr) {
+        return nullptr;
+    }
+
+    return &net->udp_net_profile;
 }
 
 /** Function to cleanup networking stuff (doesn't do much right now). */
@@ -49579,7 +50092,7 @@ int create_data_request(const Random *rng, uint8_t *packet, uint16_t max_packet_
  * return -1 on failure.
  * return 0 on success.
  */
-int send_announce_request(const Networking_Core *net, const Random *rng,
+int send_announce_request(Networking_Core *net, const Random *rng,
                           const Onion_Path *path, const Node_format *dest,
                           const uint8_t *public_key, const uint8_t *secret_key,
                           const uint8_t *ping_id, const uint8_t *client_id,
@@ -49623,7 +50136,7 @@ int send_announce_request(const Networking_Core *net, const Random *rng,
  * return -1 on failure.
  * return 0 on success.
  */
-int send_data_request(const Networking_Core *net, const Random *rng, const Onion_Path *path, const IP_Port *dest,
+int send_data_request(Networking_Core *net, const Random *rng, const Onion_Path *path, const IP_Port *dest,
                       const uint8_t *public_key, const uint8_t *encrypt_public_key, const uint8_t *nonce,
                       const uint8_t *data, uint16_t length)
 {
@@ -50382,7 +50895,7 @@ int create_onion_packet_tcp(const Random *rng, uint8_t *packet, uint16_t max_pac
  * return -1 on failure.
  * return 0 on success.
  */
-int send_onion_response(const Networking_Core *net, const IP_Port *dest, const uint8_t *data, uint16_t length,
+int send_onion_response(Networking_Core *net, const IP_Port *dest, const uint8_t *data, uint16_t length,
                         const uint8_t *ret)
 {
     if (length > ONION_RESPONSE_MAX_DATA_SIZE || length == 0) {
@@ -54370,7 +54883,7 @@ void forwarding_handler(TCP_Client_Connection *con, forwarded_response_cb *forwa
 TCP_Client_Connection *new_TCP_connection(
         const Logger *logger, const Mono_Time *mono_time, const Random *rng, const Network *ns, const IP_Port *ip_port,
         const uint8_t *public_key, const uint8_t *self_public_key, const uint8_t *self_secret_key,
-        const TCP_Proxy_Info *proxy_info)
+        const TCP_Proxy_Info *proxy_info, Net_Profile *net_profile)
 {
     if (!net_family_is_ipv4(ip_port->ip.family) && !net_family_is_ipv6(ip_port->ip.family)) {
         return nullptr;
@@ -54415,6 +54928,7 @@ TCP_Client_Connection *new_TCP_connection(
     temp->con.rng = rng;
     temp->con.sock = sock;
     temp->con.ip_port = *ip_port;
+    temp->con.net_profile = net_profile;
     memcpy(temp->public_key, public_key, CRYPTO_PUBLIC_KEY_SIZE);
     memcpy(temp->self_public_key, self_public_key, CRYPTO_PUBLIC_KEY_SIZE);
     encrypt_precompute(temp->public_key, self_secret_key, temp->con.shared_key);
@@ -54599,6 +55113,8 @@ static int handle_TCP_client_packet(const Logger *logger, TCP_Client_Connection 
     if (length <= 1) {
         return -1;
     }
+
+    netprof_record_packet(conn->con.net_profile, data[0], length, PACKET_DIRECTION_RECV);
 
     switch (data[0]) {
         case TCP_PACKET_ROUTING_RESPONSE:
@@ -54836,7 +55352,7 @@ int send_pending_data_nonpriority(const Logger *logger, TCP_Connection *con)
     }
 
     const uint16_t left = con->last_packet_length - con->last_packet_sent;
-    const int len = net_send(con->ns, logger, con->sock, con->last_packet + con->last_packet_sent, left, &con->ip_port);
+    const int len = net_send(con->ns, logger, con->sock, con->last_packet + con->last_packet_sent, left, &con->ip_port, con->net_profile);
 
     if (len <= 0) {
         return -1;
@@ -54867,7 +55383,7 @@ int send_pending_data(const Logger *logger, TCP_Connection *con)
 
     while (p != nullptr) {
         const uint16_t left = p->size - p->sent;
-        const int len = net_send(con->ns, logger, con->sock, p->data + p->sent, left, &con->ip_port);
+        const int len = net_send(con->ns, logger, con->sock, p->data + p->sent, left, &con->ip_port, con->net_profile);
 
         if (len != left) {
             if (len > 0) {
@@ -54962,7 +55478,7 @@ int write_packet_TCP_secure_connection(const Logger *logger, TCP_Connection *con
     }
 
     if (priority) {
-        len = sendpriority ? net_send(con->ns, logger, con->sock, packet, SIZEOF_VLA(packet), &con->ip_port) : 0;
+        len = sendpriority ? net_send(con->ns, logger, con->sock, packet, SIZEOF_VLA(packet), &con->ip_port, con->net_profile) : 0;
 
         if (len <= 0) {
             len = 0;
@@ -54977,7 +55493,7 @@ int write_packet_TCP_secure_connection(const Logger *logger, TCP_Connection *con
         return add_priority(con, packet, SIZEOF_VLA(packet), len) ? 1 : 0;
     }
 
-    len = net_send(con->ns, logger, con->sock, packet, SIZEOF_VLA(packet), &con->ip_port);
+    len = net_send(con->ns, logger, con->sock, packet, SIZEOF_VLA(packet), &con->ip_port, con->net_profile);
 
     if (len <= 0) {
         return 0;
@@ -55155,6 +55671,8 @@ struct TCP_Connections {
 
     bool onion_status;
     uint16_t onion_num_conns;
+
+    Net_Profile net_profile;
 };
 
 
@@ -56026,7 +56544,7 @@ static int reconnect_tcp_relay_connection(TCP_Connections *tcp_c, int tcp_connec
     uint8_t relay_pk[CRYPTO_PUBLIC_KEY_SIZE];
     memcpy(relay_pk, tcp_con_public_key(tcp_con->connection), CRYPTO_PUBLIC_KEY_SIZE);
     kill_TCP_connection(tcp_con->connection);
-    tcp_con->connection = new_TCP_connection(tcp_c->logger, tcp_c->mono_time, tcp_c->rng, tcp_c->ns, &ip_port, relay_pk, tcp_c->self_public_key, tcp_c->self_secret_key, &tcp_c->proxy_info);
+    tcp_con->connection = new_TCP_connection(tcp_c->logger, tcp_c->mono_time, tcp_c->rng, tcp_c->ns, &ip_port, relay_pk, tcp_c->self_public_key, tcp_c->self_secret_key, &tcp_c->proxy_info, &tcp_c->net_profile);
 
     if (tcp_con->connection == nullptr) {
         kill_tcp_relay_connection(tcp_c, tcp_connections_number);
@@ -56115,7 +56633,7 @@ static int unsleep_tcp_relay_connection(TCP_Connections *tcp_c, int tcp_connecti
 
     tcp_con->connection = new_TCP_connection(
             tcp_c->logger, tcp_c->mono_time, tcp_c->rng, tcp_c->ns, &tcp_con->ip_port,
-            tcp_con->relay_pk, tcp_c->self_public_key, tcp_c->self_secret_key, &tcp_c->proxy_info);
+            tcp_con->relay_pk, tcp_c->self_public_key, tcp_c->self_secret_key, &tcp_c->proxy_info, &tcp_c->net_profile);
 
     if (tcp_con->connection == nullptr) {
         kill_tcp_relay_connection(tcp_c, tcp_connections_number);
@@ -56411,7 +56929,7 @@ static int add_tcp_relay_instance(TCP_Connections *tcp_c, const IP_Port *ip_port
 
     tcp_con->connection = new_TCP_connection(
             tcp_c->logger, tcp_c->mono_time, tcp_c->rng, tcp_c->ns, &ipp_copy,
-            relay_pk, tcp_c->self_public_key, tcp_c->self_secret_key, &tcp_c->proxy_info);
+            relay_pk, tcp_c->self_public_key, tcp_c->self_secret_key, &tcp_c->proxy_info, &tcp_c->net_profile);
 
     if (tcp_con->connection == nullptr) {
         return -1;
@@ -56839,6 +57357,15 @@ static void kill_nonused_tcp(TCP_Connections *tcp_c)
     }
 }
 
+const Net_Profile *tcp_connection_get_client_net_profile(const TCP_Connections *tcp_c)
+{
+    if (tcp_c == nullptr) {
+        return nullptr;
+    }
+
+    return &tcp_c->net_profile;
+}
+
 void do_tcp_connections(const Logger *logger, TCP_Connections *tcp_c, void *userdata)
 {
     do_tcp_conns(logger, tcp_c, userdata);
@@ -56941,6 +57468,8 @@ struct TCP_Server {
     uint64_t counter;
 
     BS_List accepted_key_list;
+
+    Net_Profile net_profile;
 };
 
 const uint8_t *tcp_server_public_key(const TCP_Server *tcp_server)
@@ -57083,6 +57612,7 @@ static int add_accepted(TCP_Server *tcp_server, const Mono_Time *mono_time, TCP_
     tcp_server->accepted_connection_array[index].identifier = ++tcp_server->counter;
     tcp_server->accepted_connection_array[index].last_pinged = mono_time_get(mono_time);
     tcp_server->accepted_connection_array[index].ping_id = 0;
+    tcp_server->accepted_connection_array[index].con.net_profile = &tcp_server->net_profile;
 
     return index;
 }
@@ -57204,7 +57734,7 @@ static int handle_TCP_handshake(const Logger *logger, TCP_Secure_Connection *con
 
     IP_Port ipp = {{{0}}};
 
-    if (TCP_SERVER_HANDSHAKE_SIZE != net_send(con->con.ns, logger, con->con.sock, response, TCP_SERVER_HANDSHAKE_SIZE, &ipp)) {
+    if (TCP_SERVER_HANDSHAKE_SIZE != net_send(con->con.ns, logger, con->con.sock, response, TCP_SERVER_HANDSHAKE_SIZE, &ipp, con->con.net_profile)) {
         crypto_memzero(shared_key, sizeof(shared_key));
         return -1;
     }
@@ -57524,6 +58054,8 @@ static int handle_TCP_packet(TCP_Server *tcp_server, uint32_t con_id, const uint
     }
 
     TCP_Secure_Connection *const con = &tcp_server->accepted_connection_array[con_id];
+
+    netprof_record_packet(con->con.net_profile, data[0], length, PACKET_DIRECTION_RECV);
 
     switch (data[0]) {
         case TCP_PACKET_ROUTING_REQUEST: {
@@ -58215,6 +58747,15 @@ static void do_TCP_epoll(TCP_Server *tcp_server, const Mono_Time *mono_time)
     }
 }
 #endif
+
+const Net_Profile *tcp_server_get_net_profile(const TCP_Server *tcp_server)
+{
+    if (tcp_server == nullptr) {
+        return nullptr;
+    }
+
+    return &tcp_server->net_profile;
+}
 
 void do_TCP_server(TCP_Server *tcp_server, const Mono_Time *mono_time)
 {
@@ -64073,6 +64614,202 @@ void tox_get_all_udp_connections(const Tox *tox, char *report)
     tox_lock(tox);
     print_all_udp_connections(tox->m, report);
     tox_unlock(tox);
+}
+
+uint64_t tox_netprof_get_packet_id_count(const Tox *tox, Tox_Netprof_Packet_Type type, uint8_t id,
+        Tox_Netprof_Direction direction)
+{
+    assert(tox != nullptr);
+
+    tox_lock(tox);
+
+    const Net_Profile *tcp_c_profile = nc_get_tcp_client_net_profile(tox->m->net_crypto);
+    const Net_Profile *tcp_s_profile = tcp_server_get_net_profile(tox->m->tcp_server);
+
+    const Packet_Direction dir = (Packet_Direction) direction;
+
+    uint64_t count = 0;
+
+    switch (type) {
+        case TOX_NETPROF_PACKET_TYPE_TCP_CLIENT: {
+            count = netprof_get_packet_count_id(tcp_c_profile, id, dir);
+            break;
+        }
+
+        case TOX_NETPROF_PACKET_TYPE_TCP_SERVER: {
+            count = netprof_get_packet_count_id(tcp_s_profile, id, dir);
+            break;
+        }
+
+        case TOX_NETPROF_PACKET_TYPE_TCP: {
+            const uint64_t tcp_c_count = netprof_get_packet_count_id(tcp_c_profile, id, dir);
+            const uint64_t tcp_s_count = netprof_get_packet_count_id(tcp_s_profile, id, dir);
+            count = tcp_c_count + tcp_s_count;
+            break;
+        }
+
+        case TOX_NETPROF_PACKET_TYPE_UDP: {
+            const Net_Profile *udp_profile = net_get_net_profile(tox->m->net);
+            count = netprof_get_packet_count_id(udp_profile, id, dir);
+            break;
+        }
+
+        default: {
+            LOGGER_ERROR(tox->m->log, "invalid packet type: %d", type);
+            break;
+        }
+    }
+
+    tox_unlock(tox);
+
+    return count;
+}
+
+uint64_t tox_netprof_get_packet_total_count(const Tox *tox, Tox_Netprof_Packet_Type type,
+        Tox_Netprof_Direction direction)
+{
+    assert(tox != nullptr);
+
+    tox_lock(tox);
+
+    const Net_Profile *tcp_c_profile = nc_get_tcp_client_net_profile(tox->m->net_crypto);
+    const Net_Profile *tcp_s_profile = tcp_server_get_net_profile(tox->m->tcp_server);
+
+    const Packet_Direction dir = (Packet_Direction) direction;
+
+    uint64_t count = 0;
+
+    switch (type) {
+        case TOX_NETPROF_PACKET_TYPE_TCP_CLIENT: {
+            count = netprof_get_packet_count_total(tcp_c_profile, dir);
+            break;
+        }
+
+        case TOX_NETPROF_PACKET_TYPE_TCP_SERVER: {
+            count = netprof_get_packet_count_total(tcp_s_profile, dir);
+            break;
+        }
+
+        case TOX_NETPROF_PACKET_TYPE_TCP: {
+            const uint64_t tcp_c_count = netprof_get_packet_count_total(tcp_c_profile, dir);
+            const uint64_t tcp_s_count = netprof_get_packet_count_total(tcp_s_profile, dir);
+            count = tcp_c_count + tcp_s_count;
+            break;
+        }
+
+        case TOX_NETPROF_PACKET_TYPE_UDP: {
+            const Net_Profile *udp_profile = net_get_net_profile(tox->m->net);
+            count = netprof_get_packet_count_total(udp_profile, dir);
+            break;
+        }
+
+        default: {
+            LOGGER_ERROR(tox->m->log, "invalid packet type: %d", type);
+            break;
+        }
+    }
+
+    tox_unlock(tox);
+
+    return count;
+}
+
+uint64_t tox_netprof_get_packet_id_bytes(const Tox *tox, Tox_Netprof_Packet_Type type, uint8_t id,
+        Tox_Netprof_Direction direction)
+{
+    assert(tox != nullptr);
+
+    tox_lock(tox);
+
+    const Net_Profile *tcp_c_profile = nc_get_tcp_client_net_profile(tox->m->net_crypto);
+    const Net_Profile *tcp_s_profile = tcp_server_get_net_profile(tox->m->tcp_server);
+
+    const Packet_Direction dir = (Packet_Direction) direction;
+
+    uint64_t bytes = 0;
+
+    switch (type) {
+        case TOX_NETPROF_PACKET_TYPE_TCP_CLIENT: {
+            bytes = netprof_get_bytes_id(tcp_c_profile, id, dir);
+            break;
+        }
+
+        case TOX_NETPROF_PACKET_TYPE_TCP_SERVER: {
+            bytes = netprof_get_bytes_id(tcp_s_profile, id, dir);
+            break;
+        }
+
+        case TOX_NETPROF_PACKET_TYPE_TCP: {
+            const uint64_t tcp_c_bytes = netprof_get_bytes_id(tcp_c_profile, id, dir);
+            const uint64_t tcp_s_bytes = netprof_get_bytes_id(tcp_s_profile, id, dir);
+            bytes = tcp_c_bytes + tcp_s_bytes;
+            break;
+        }
+
+        case TOX_NETPROF_PACKET_TYPE_UDP: {
+            const Net_Profile *udp_profile = net_get_net_profile(tox->m->net);
+            bytes = netprof_get_bytes_id(udp_profile, id, dir);
+            break;
+        }
+
+        default: {
+            LOGGER_ERROR(tox->m->log, "invalid packet type: %d", type);
+            break;
+        }
+    }
+
+    tox_unlock(tox);
+
+    return bytes;
+}
+
+uint64_t tox_netprof_get_packet_total_bytes(const Tox *tox, Tox_Netprof_Packet_Type type,
+        Tox_Netprof_Direction direction)
+{
+    assert(tox != nullptr);
+
+    tox_lock(tox);
+
+    const Net_Profile *tcp_c_profile = nc_get_tcp_client_net_profile(tox->m->net_crypto);
+    const Net_Profile *tcp_s_profile = tcp_server_get_net_profile(tox->m->tcp_server);
+
+    const Packet_Direction dir = (Packet_Direction) direction;
+
+    uint64_t bytes = 0;
+
+    switch (type) {
+        case TOX_NETPROF_PACKET_TYPE_TCP_CLIENT: {
+            bytes = netprof_get_bytes_total(tcp_c_profile, dir);
+            break;
+        }
+
+        case TOX_NETPROF_PACKET_TYPE_TCP_SERVER: {
+            bytes = netprof_get_bytes_total(tcp_s_profile, dir);
+            break;
+        }
+
+        case TOX_NETPROF_PACKET_TYPE_TCP: {
+            const uint64_t tcp_c_bytes = netprof_get_bytes_total(tcp_c_profile, dir);
+            const uint64_t tcp_s_bytes = netprof_get_bytes_total(tcp_s_profile, dir);
+            bytes = tcp_c_bytes + tcp_s_bytes;
+            break;
+        }
+
+        case TOX_NETPROF_PACKET_TYPE_UDP: {
+            const Net_Profile *udp_profile = net_get_net_profile(tox->m->net);
+            bytes = netprof_get_bytes_total(udp_profile, dir);
+            break;
+        }
+
+        default: {
+            LOGGER_ERROR(tox->m->log, "invalid packet type: %d", type);
+            break;
+        }
+    }
+
+    tox_unlock(tox);
+
+    return bytes;
 }
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright © 2022 The TokTok team.
