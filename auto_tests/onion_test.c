@@ -209,7 +209,7 @@ static void send_onion_packet(const Networking_Core *net, const Random *rng, con
     uint8_t packet[ONION_MAX_PACKET_SIZE];
     const int len = create_onion_packet(rng, packet, sizeof(packet), path, dest, data, length);
     ck_assert_msg(len != -1, "failed to create onion packet");
-    ck_assert_msg(sendpacket(net, &path->ip_port1, packet, len) == len, "failed to send onion packet");
+    ck_assert_msg(sendpacket(net, &path->ip_port1, packet, len, nullptr) == len, "failed to send onion packet");
 }
 
 /** Initialize networking.
