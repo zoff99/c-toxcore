@@ -16118,7 +16118,6 @@ typedef enum Tox_Err_Dht_Get_Nodes {
 bool tox_dht_get_nodes(const Tox *tox, const uint8_t *public_key, const char *ip, uint16_t port,
                        const uint8_t *target_public_key, Tox_Err_Dht_Get_Nodes *error);
 
-
 #ifdef __cplusplus
 }
 #endif
