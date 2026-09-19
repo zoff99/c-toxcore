@@ -125,7 +125,7 @@ cp /workspace/_build/unit_* /workspace/_build/auto_* /artefacts/asan/
 chmod a+rx $_HOME_/script/do_it___external.sh
 
 
-system_to_build_for="ubuntu:18.04"
+system_to_build_for="ubuntu:22.04"
 
 cd $_HOME_/
 docker run -ti --rm \

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -26,8 +26,11 @@ RUN apt-get update && \
         libavformat-dev \
         libavfilter-dev \
         libx264-dev \
+        libx265-dev \
         net-tools \
         curl \
+        wget \
+        vim \
         iproute2 \
         tor
 RUN apt-get clean && \
