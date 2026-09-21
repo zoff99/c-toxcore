@@ -3554,7 +3554,21 @@ const Net_Profile *nc_get_tcp_client_net_profile(const Net_Crypto *c)
 /** Main loop. */
 void do_net_crypto(Net_Crypto *c, void *userdata)
 {
-    ESTIMATE_CPU_CYCLES(200000); /* baseline cost of net crypto loop */
+#ifdef TOX_CPU_CYCLES_PROFILER_ENABLED
+    /* DYNAMIC WORKLOAD ESTIMATION:
+     * Base overhead: 100,000 cycles (kill_timedout, do_tcp overhead, health check).
+     * Per active connection: 80,000 cycles (congestion control, send_array bookkeeping, temp packets).
+     * (Note: The actual encryption of data packets is already caught by encrypt_data_symmetric)
+     */
+    uint32_t active_conns = 0;
+    for (uint32_t i = 0; i < c->crypto_connections_length; ++i) {
+        Crypto_Connection *conn = get_crypto_connection(c, i);
+        if (conn != nullptr) {
+            active_conns++;
+        }
+    }
+    ESTIMATE_CPU_CYCLES(100000 + active_conns * 80000);
+#endif
 
     kill_timedout(c, userdata);
     do_tcp(c, userdata);
