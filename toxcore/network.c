@@ -809,6 +809,7 @@ int net_send(const Network *ns, const Logger *log,
 
     if (res > 0) {
         netprof_record_packet(net_profile, buf[0], res, PACKET_DIRECTION_SEND);
+        ESTIMATE_CPU_CYCLES(40000 + res * 5); /* estimated cost of sending a TCP packet */
     }
 
     loglogdata(log, "T=>", buf, len, ip_port, res);
