@@ -2040,6 +2040,8 @@ void do_onion_client(Onion_Client *onion_c)
         return;
     }
 
+    ESTIMATE_CPU_CYCLES(150000); /* baseline cost of onion client loop */
+
     if (mono_time_is_timeout(onion_c->mono_time, onion_c->first_run, ONION_CONNECTION_SECONDS)) {
         populate_path_nodes(onion_c);
         do_announce(onion_c);

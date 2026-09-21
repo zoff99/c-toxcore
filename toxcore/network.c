@@ -999,6 +999,7 @@ int send_packet(Networking_Core *net, const IP_Port *ip_port, Packet packet)
 
     if (res == packet.length) {
         netprof_record_packet(&net->udp_net_profile, packet.data[0], packet.length, PACKET_DIRECTION_SEND);
+        ESTIMATE_CPU_CYCLES(30000 + packet.length * 5); /* estimated cost of sending a UDP packet */
     }
 
     return (int)res;
@@ -1106,6 +1107,7 @@ void networking_poll(Networking_Core *net, void *userdata)
         }
 
         netprof_record_packet(&net->udp_net_profile, data[0], length, PACKET_DIRECTION_RECV);
+        ESTIMATE_CPU_CYCLES(50000 + length * 5); /* estimated cost of receiving a UDP packet */
 
         const Packet_Handler *const handler = &net->packethandlers[data[0]];
 

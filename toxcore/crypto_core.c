@@ -303,6 +303,8 @@ int32_t encrypt_data_symmetric(const uint8_t *shared_key, const uint8_t *nonce,
         return -1;
     }
 
+    ESTIMATE_CPU_CYCLES(10000 + length * 12);
+
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     // Don't encrypt anything.
     memcpy(encrypted, plain, length);
@@ -355,6 +357,8 @@ int32_t decrypt_data_symmetric(const uint8_t *shared_key, const uint8_t *nonce,
             || plain == nullptr) {
         return -1;
     }
+
+    ESTIMATE_CPU_CYCLES(10000 + length * 12);
 
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     assert(length >= crypto_box_MACBYTES);
@@ -485,6 +489,8 @@ void new_symmetric_key(const Random *rng, uint8_t *key)
 
 int32_t crypto_new_keypair(const Random *rng, uint8_t *public_key, uint8_t *secret_key)
 {
+    ESTIMATE_CPU_CYCLES(2000000); /* asymmetric crypto generation is very expensive */
+
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     random_bytes(rng, secret_key, CRYPTO_SECRET_KEY_SIZE);
     memset(public_key, 0, CRYPTO_PUBLIC_KEY_SIZE);  // Make MSAN happy

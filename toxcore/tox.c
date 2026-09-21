@@ -73,6 +73,17 @@ static_assert(TOX_GROUP_MAX_MESSAGE_LENGTH == GROUP_MAX_MESSAGE_LENGTH,
 static_assert(TOX_FILE_KIND_FTV2 == FILEKIND_FTV2,
               "TOX_FILE_KIND_FTV2 is assumed to be equal to FILEKIND_FTV2");
 
+uint64_t g_tox_cpu_cycles_used = 0;
+
+uint64_t tox_get_estimated_cpu_cycles(void) {
+    return g_tox_cpu_cycles_used;
+}
+
+void tox_reset_estimated_cpu_cycles(void) {
+    g_tox_cpu_cycles_used = 0;
+}
+
+
 struct Tox_Userdata {
     Tox *tox;
     void *user_data;
@@ -1390,6 +1401,8 @@ void tox_iterate(Tox *tox, void *user_data)
 {
     assert(tox != nullptr);
     tox_lock(tox);
+
+    ESTIMATE_CPU_CYCLES(500000); /* baseline cost of an iterate loop */
 
     mono_time_update(tox->mono_time);
 

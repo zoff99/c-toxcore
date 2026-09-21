@@ -3554,6 +3554,8 @@ const Net_Profile *nc_get_tcp_client_net_profile(const Net_Crypto *c)
 /** Main loop. */
 void do_net_crypto(Net_Crypto *c, void *userdata)
 {
+    ESTIMATE_CPU_CYCLES(200000); /* baseline cost of net crypto loop */
+
     kill_timedout(c, userdata);
     do_tcp(c, userdata);
     send_crypto_packets(c);
