@@ -18,6 +18,10 @@ add_flag -Wno-error=missing-prototypes
 add_flag -Wno-error=embedded-directive
 add_flag -Wno-error=unused-macros
 
+add_flag -Wno-declaration-after-statement
+add_flag -Wno-unused-but-set-variable
+add_flag -Wno-unused-variable
+
 cmake -B_build -H. -GNinja \
   -DCMAKE_C_FLAGS="$C_FLAGS" \
   -DCMAKE_CXX_FLAGS="$CXX_FLAGS" \
