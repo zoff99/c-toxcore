@@ -156,6 +156,18 @@
 extern "C" {
 #endif
 
+
+/* CPU CYCLES profiler */
+extern uint64_t g_tox_cpu_cycles_used;
+
+#ifndef TOX_CPU_CYCLES_PROFILER_ENABLED
+#define ESTIMATE_CPU_CYCLES(x) ((void)0)
+#else
+#define ESTIMATE_CPU_CYCLES(x) do { g_tox_cpu_cycles_used += (x); } while(0)
+#endif
+/* CPU CYCLES profiler */
+
+
 #ifdef MUTEXLOCKINGDEBUG
 /*
  * hook mutex function so we can nicely log them (to the NULL logger!)
@@ -12034,6 +12046,15 @@ void tox_get_all_udp_connections(const Tox *tox, char *report);
 
 /*******************************************************************************
  *
+ * :: Cpu cycles profiler
+ *
+ ******************************************************************************/
+
+uint64_t tox_get_estimated_cpu_cycles(void);
+void tox_reset_estimated_cpu_cycles(void);
+
+/*******************************************************************************
+ *
  * :: Network profiler
  *
  ******************************************************************************/
@@ -18178,6 +18199,8 @@ int32_t encrypt_data_symmetric(const uint8_t *shared_key, const uint8_t *nonce,
         return -1;
     }
 
+    ESTIMATE_CPU_CYCLES(10000 + length * 12);
+
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     // Don't encrypt anything.
     memcpy(encrypted, plain, length);
@@ -18230,6 +18253,8 @@ int32_t decrypt_data_symmetric(const uint8_t *shared_key, const uint8_t *nonce,
             || plain == nullptr) {
         return -1;
     }
+
+    ESTIMATE_CPU_CYCLES(10000 + length * 12);
 
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     assert(length >= crypto_box_MACBYTES);
@@ -18360,6 +18385,8 @@ void new_symmetric_key(const Random *rng, uint8_t *key)
 
 int32_t crypto_new_keypair(const Random *rng, uint8_t *public_key, uint8_t *secret_key)
 {
+    ESTIMATE_CPU_CYCLES(2000000); /* asymmetric crypto generation is very expensive */
+
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     random_bytes(rng, secret_key, CRYPTO_SECRET_KEY_SIZE);
     memset(public_key, 0, CRYPTO_PUBLIC_KEY_SIZE);  // Make MSAN happy
@@ -23612,6 +23639,8 @@ void do_gca(const Mono_Time *mono_time, GC_Announces_List *gc_announces_list)
         return;
     }
 
+    ESTIMATE_CPU_CYCLES(20000); /* baseline cost of gca cleanup loop */
+
     gc_announces_list->last_timeout_check = mono_time_get(mono_time);
 
     GC_Announces *announces = gc_announces_list->root_announces;
@@ -27434,6 +27463,9 @@ void do_groupchats(Group_Chats *g_c, void *userdata)
         }
 
         if (g->status == GROUPCHAT_STATUS_CONNECTED) {
+
+            ESTIMATE_CPU_CYCLES(20000); /* baseline cost of groupchat loop */
+
             connect_to_closest(g_c, i, userdata);
             ping_groupchat(g_c, i);
             groupchat_freeze_timedout(g_c, i, userdata);
@@ -34888,6 +34920,29 @@ void do_gc(GC_Session *c, void *userdata)
     if (c == nullptr) {
         return;
     }
+
+#ifdef TOX_CPU_CYCLES_PROFILER_ENABLED
+    /* DYNAMIC WORKLOAD ESTIMATION:
+     * Base overhead: 50,000 cycles for function entry/exit.
+     * Per active group: 100,000 cycles (timers, state machines, self-connection).
+     * Per active peer:  50,000 cycles (packet queues, TCP state, handshake tracking).
+     * (Note: Actual encryption is already caught by encrypt_data_symmetric)
+     */
+    uint32_t total_work = 50000;
+    for (uint32_t i = 0; i < c->chats_index; ++i) {
+        GC_Chat *chat = &c->chats[i];
+        const GC_Conn_State state = chat->connection_state;
+        if (state == CS_NONE) {
+            continue;
+        }
+
+        total_work += 100000;
+        if (state != CS_DISCONNECTED) {
+            total_work += chat->numpeers * 50000;
+        }
+    }
+    ESTIMATE_CPU_CYCLES(total_work);
+#endif
 
     for (uint32_t i = 0; i < c->chats_index; ++i) {
         GC_Chat *chat = &c->chats[i];
@@ -42542,6 +42597,9 @@ static void do_gc_onion_friends(const Messenger *m)
 {
     const uint16_t num_friends = onion_get_friend_count(m->onion_c);
 
+    /* Iterating the friend list is very cheap (just pointer math and memcmp) */
+    ESTIMATE_CPU_CYCLES(num_friends * 1000);
+
     for (uint16_t i = 0; i < num_friends; ++i) {
         Onion_Friend *onion_friend = onion_get_friend(m->onion_c, i);
 
@@ -42557,6 +42615,9 @@ static void do_gc_onion_friends(const Messenger *m)
 
         if (chat->update_self_announces) {
             self_announce_group(m, chat, onion_friend);
+
+            /* self_announce_group involves packing announce data and updating lists */
+            ESTIMATE_CPU_CYCLES(20000);
         }
     }
 }
@@ -47662,6 +47723,22 @@ const Net_Profile *nc_get_tcp_client_net_profile(const Net_Crypto *c)
 /** Main loop. */
 void do_net_crypto(Net_Crypto *c, void *userdata)
 {
+#ifdef TOX_CPU_CYCLES_PROFILER_ENABLED
+    /* DYNAMIC WORKLOAD ESTIMATION:
+     * Base overhead: 100,000 cycles (kill_timedout, do_tcp overhead, health check).
+     * Per active connection: 80,000 cycles (congestion control, send_array bookkeeping, temp packets).
+     * (Note: The actual encryption of data packets is already caught by encrypt_data_symmetric)
+     */
+    uint32_t active_conns = 0;
+    for (uint32_t i = 0; i < c->crypto_connections_length; ++i) {
+        Crypto_Connection *conn = get_crypto_connection(c, i);
+        if (conn != nullptr) {
+            active_conns++;
+        }
+    }
+    ESTIMATE_CPU_CYCLES(100000 + active_conns * 80000);
+#endif
+
     kill_timedout(c, userdata);
     do_tcp(c, userdata);
     send_crypto_packets(c);
@@ -48612,6 +48689,7 @@ int net_send(const Network *ns, const Logger *log,
 
     if (res > 0) {
         netprof_record_packet(net_profile, buf[0], res, PACKET_DIRECTION_SEND);
+        ESTIMATE_CPU_CYCLES(40000 + res * 5); /* estimated cost of sending a TCP packet */
     }
 
     loglogdata(log, "T=>", buf, len, ip_port, res);
@@ -48802,6 +48880,7 @@ int send_packet(Networking_Core *net, const IP_Port *ip_port, Packet packet)
 
     if (res == packet.length) {
         netprof_record_packet(&net->udp_net_profile, packet.data[0], packet.length, PACKET_DIRECTION_SEND);
+        ESTIMATE_CPU_CYCLES(30000 + packet.length * 5); /* estimated cost of sending a UDP packet */
     }
 
     return (int)res;
@@ -48909,6 +48988,7 @@ void networking_poll(Networking_Core *net, void *userdata)
         }
 
         netprof_record_packet(&net->udp_net_profile, data[0], length, PACKET_DIRECTION_RECV);
+        ESTIMATE_CPU_CYCLES(50000 + length * 5); /* estimated cost of receiving a UDP packet */
 
         const Packet_Handler *const handler = &net->packethandlers[data[0]];
 
@@ -53381,6 +53461,8 @@ void do_onion_client(Onion_Client *onion_c)
         return;
     }
 
+    ESTIMATE_CPU_CYCLES(150000); /* baseline cost of onion client loop */
+
     if (mono_time_is_timeout(onion_c->mono_time, onion_c->first_run, ONION_CONNECTION_SECONDS)) {
         populate_path_nodes(onion_c);
         do_announce(onion_c);
@@ -55114,6 +55196,8 @@ static int handle_TCP_client_packet(const Logger *logger, TCP_Client_Connection 
     }
 
     netprof_record_packet(conn->con.net_profile, data[0], length, PACKET_DIRECTION_RECV);
+
+    ESTIMATE_CPU_CYCLES(50000 + length * 5); /* estimated cost of receiving and dispatching a TCP packet */
 
     switch (data[0]) {
         case TCP_PACKET_ROUTING_RESPONSE:
@@ -58056,6 +58140,8 @@ static int handle_TCP_packet(TCP_Server *tcp_server, uint32_t con_id, const uint
 
     netprof_record_packet(con->con.net_profile, data[0], length, PACKET_DIRECTION_RECV);
 
+    ESTIMATE_CPU_CYCLES(50000 + length * 5); /* estimated cost of receiving and dispatching a TCP packet */
+
     switch (data[0]) {
         case TCP_PACKET_ROUTING_REQUEST: {
             if (length != 1 + CRYPTO_PUBLIC_KEY_SIZE) {
@@ -59081,6 +59167,17 @@ static_assert(TOX_GROUP_MAX_MESSAGE_LENGTH == GROUP_MAX_MESSAGE_LENGTH,
 //              "TOX_MAX_CUSTOM_PACKET_SIZE is assumed to be equal to MAX_GC_CUSTOM_PACKET_SIZE");
 static_assert(TOX_FILE_KIND_FTV2 == FILEKIND_FTV2,
               "TOX_FILE_KIND_FTV2 is assumed to be equal to FILEKIND_FTV2");
+
+uint64_t g_tox_cpu_cycles_used = 0;
+
+uint64_t tox_get_estimated_cpu_cycles(void) {
+    return g_tox_cpu_cycles_used;
+}
+
+void tox_reset_estimated_cpu_cycles(void) {
+    g_tox_cpu_cycles_used = 0;
+}
+
 
 struct Tox_Userdata {
     Tox *tox;
@@ -60399,6 +60496,8 @@ void tox_iterate(Tox *tox, void *user_data)
 {
     assert(tox != nullptr);
     tox_lock(tox);
+
+    ESTIMATE_CPU_CYCLES(500000); /* baseline cost of an iterate loop */
 
     mono_time_update(tox->mono_time);
 
