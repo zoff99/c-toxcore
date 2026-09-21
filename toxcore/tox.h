@@ -5982,7 +5982,22 @@ void tox_get_all_udp_connections(const Tox *tox, char *report);
  *
  ******************************************************************************/
 
+/**
+ * Get the accumulated best-effort CPU cycle estimate since the last reset.
+ *
+ * Important: this is a global value, not per Tox instance (for technical reasons).
+ *            it will not be reset by tox_kill()
+ *
+ */
 uint64_t tox_get_estimated_cpu_cycles(void);
+
+/**
+ * Reset the accumulated CPU cycle counter to zero.
+ *
+ * Important: this is a global value, not per Tox instance (for technical reasons).
+ *            it will not be reset by tox_kill()
+ *
+ */
 void tox_reset_estimated_cpu_cycles(void);
 
 /*******************************************************************************
