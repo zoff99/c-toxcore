@@ -28,6 +28,7 @@
 #include <randombytes.h>
 #endif
 
+#include "logger.h"
 #include "ccompat.h"
 
 #ifndef crypto_box_MACBYTES
