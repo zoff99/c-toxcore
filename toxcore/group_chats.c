@@ -7383,6 +7383,8 @@ void do_gc(GC_Session *c, void *userdata)
         return;
     }
 
+    ESTIMATE_CPU_CYCLES(300000); /* baseline cost of NGC group chat loop */
+
     for (uint32_t i = 0; i < c->chats_index; ++i) {
         GC_Chat *chat = &c->chats[i];
 

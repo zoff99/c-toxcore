@@ -19,6 +19,13 @@
 extern "C" {
 #endif
 
+
+/* CPU CYCLES profiler */
+extern uint64_t g_tox_cpu_cycles_used;
+#define ESTIMATE_CPU_CYCLES(x) do { g_tox_cpu_cycles_used += (x); } while(0)
+/* CPU CYCLES profiler */
+
+
 #ifdef MUTEXLOCKINGDEBUG
 /*
  * hook mutex function so we can nicely log them (to the NULL logger!)

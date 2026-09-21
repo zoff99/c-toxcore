@@ -3797,6 +3797,9 @@ void do_groupchats(Group_Chats *g_c, void *userdata)
         }
 
         if (g->status == GROUPCHAT_STATUS_CONNECTED) {
+
+            ESTIMATE_CPU_CYCLES(20000); /* baseline cost of groupchat loop */
+
             connect_to_closest(g_c, i, userdata);
             ping_groupchat(g_c, i);
             groupchat_freeze_timedout(g_c, i, userdata);

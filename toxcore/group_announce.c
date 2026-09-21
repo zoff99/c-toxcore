@@ -432,6 +432,8 @@ void do_gca(const Mono_Time *mono_time, GC_Announces_List *gc_announces_list)
         return;
     }
 
+    ESTIMATE_CPU_CYCLES(20000); /* baseline cost of gca cleanup loop */
+
     gc_announces_list->last_timeout_check = mono_time_get(mono_time);
 
     GC_Announces *announces = gc_announces_list->root_announces;
