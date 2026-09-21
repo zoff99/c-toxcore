@@ -7383,7 +7383,28 @@ void do_gc(GC_Session *c, void *userdata)
         return;
     }
 
-    ESTIMATE_CPU_CYCLES(300000); /* baseline cost of NGC group chat loop */
+#ifdef TOX_CPU_CYCLES_PROFILER_ENABLED
+    /* DYNAMIC WORKLOAD ESTIMATION:
+     * Base overhead: 50,000 cycles for function entry/exit.
+     * Per active group: 100,000 cycles (timers, state machines, self-connection).
+     * Per active peer:  50,000 cycles (packet queues, TCP state, handshake tracking).
+     * (Note: Actual encryption is already caught by encrypt_data_symmetric)
+     */
+    uint32_t total_work = 50000;
+    for (uint32_t i = 0; i < c->chats_index; ++i) {
+        GC_Chat *chat = &c->chats[i];
+        const GC_Conn_State state = chat->connection_state;
+        if (state == CS_NONE) {
+            continue;
+        }
+
+        total_work += 100000;
+        if (state != CS_DISCONNECTED) {
+            total_work += chat->numpeers * 50000;
+        }
+    }
+    ESTIMATE_CPU_CYCLES(total_work);
+#endif
 
     for (uint32_t i = 0; i < c->chats_index; ++i) {
         GC_Chat *chat = &c->chats[i];

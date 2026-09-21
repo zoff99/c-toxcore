@@ -3093,9 +3093,10 @@ static bool self_announce_group(const Messenger *m, GC_Chat *chat, Onion_Friend 
 non_null()
 static void do_gc_onion_friends(const Messenger *m)
 {
-    ESTIMATE_CPU_CYCLES(100000); /* baseline cost of gc onion friend announce loop */
-
     const uint16_t num_friends = onion_get_friend_count(m->onion_c);
+
+    /* Iterating the friend list is very cheap (just pointer math and memcmp) */
+    ESTIMATE_CPU_CYCLES(num_friends * 1000);
 
     for (uint16_t i = 0; i < num_friends; ++i) {
         Onion_Friend *onion_friend = onion_get_friend(m->onion_c, i);
@@ -3112,6 +3113,9 @@ static void do_gc_onion_friends(const Messenger *m)
 
         if (chat->update_self_announces) {
             self_announce_group(m, chat, onion_friend);
+
+            /* self_announce_group involves packing announce data and updating lists */
+            ESTIMATE_CPU_CYCLES(20000);
         }
     }
 }
