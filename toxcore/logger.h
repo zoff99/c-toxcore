@@ -22,7 +22,12 @@ extern "C" {
 
 /* CPU CYCLES profiler */
 extern uint64_t g_tox_cpu_cycles_used;
+
+#ifndef TOX_CPU_CYCLES_PROFILER_ENABLED
+#define ESTIMATE_CPU_CYCLES(x) ((void)0)
+#else
 #define ESTIMATE_CPU_CYCLES(x) do { g_tox_cpu_cycles_used += (x); } while(0)
+#endif
 /* CPU CYCLES profiler */
 
 
