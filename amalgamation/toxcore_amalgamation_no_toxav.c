@@ -80410,7 +80410,7 @@ void mid_iterate(MidState *s, Tox *tox)
                     g->last_announce = now;
                     int idx = mid_find_identity(g, g->self_identity_key);
                     if (idx >= 0) {
-                        g->records[idx].timestamp = mid_round_timestamp(now);
+                        g->records[idx].last_seen = now;
                     }
 
                     /*
