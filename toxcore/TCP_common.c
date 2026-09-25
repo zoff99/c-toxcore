@@ -22,7 +22,8 @@ void wipe_priority_list(TCP_Priority_List *p)
 
 static void record_sent_tcp_packet(Net_Profile *profile, const uint8_t *data, uint16_t length) {
     if (data[0] >= NUM_RESERVED_PORTS && length >= 2) {
-        netprof_record_tcp_data_packet(profile, TOX_NETPROF_PACKET_ID_TCP_DATA, data[1], length, PACKET_DIRECTION_SEND);
+        /* TOX_NETPROF_PACKET_ID_TCP_DATA */
+        netprof_record_tcp_data_packet(profile, 0x10, data[1], length, PACKET_DIRECTION_SEND);
     } else {
         netprof_record_packet(profile, data[0], length, PACKET_DIRECTION_SEND);
     }
