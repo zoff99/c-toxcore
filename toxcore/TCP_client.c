@@ -800,7 +800,13 @@ static int handle_TCP_client_packet(const Logger *logger, TCP_Client_Connection 
         return -1;
     }
 
-    netprof_record_packet(conn->con.net_profile, data[0], length, PACKET_DIRECTION_RECV);
+    // If the connection ID is >= NUM_RESERVED_PORTS (16), it's a routed TCP Data packet.
+    // The actual Tox packet type is located at data[1].
+    if (data[0] >= NUM_RESERVED_PORTS && length >= 2) {
+        netprof_record_tcp_data_packet(conn->con.net_profile, 0x10, data[1], length, PACKET_DIRECTION_RECV);
+    } else {
+        netprof_record_packet(conn->con.net_profile, data[0], length, PACKET_DIRECTION_RECV);
+    }
 
     ESTIMATE_CPU_CYCLES(50000 + length * 5); /* estimated cost of receiving and dispatching a TCP packet */
 

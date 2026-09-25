@@ -43,6 +43,13 @@ nullable(1)
 void netprof_record_packet(Net_Profile *profile, uint8_t id, size_t length, Packet_Direction dir);
 
 /**
+ * Records a sent or received TCP data packet, recording both the overarching TCP data ID
+ * and the specific inner Tox packet type without double-counting.
+ */
+nullable(1)
+void netprof_record_tcp_data_packet(Net_Profile *profile, uint8_t tcp_id, uint8_t inner_id, size_t length, Packet_Direction dir);
+
+/**
  * Returns the number of sent or received packets of type `id` for the given profile.
  */
 nullable(1)
