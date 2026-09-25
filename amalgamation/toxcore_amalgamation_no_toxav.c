@@ -433,6 +433,13 @@ nullable(1)
 void netprof_record_packet(Net_Profile *profile, uint8_t id, size_t length, Packet_Direction dir);
 
 /**
+ * Records a sent or received TCP data packet, recording both the overarching TCP data ID
+ * and the specific inner Tox packet type without double-counting.
+ */
+nullable(1)
+void netprof_record_tcp_data_packet(Net_Profile *profile, uint8_t tcp_id, uint8_t inner_id, size_t length, Packet_Direction dir);
+
+/**
  * Returns the number of sent or received packets of type `id` for the given profile.
  */
 nullable(1)
@@ -47833,6 +47840,37 @@ static uint64_t netprof_get_bytes_id_range(const Net_Profile *profile, uint8_t s
     return bytes;
 }
 
+void netprof_record_tcp_data_packet(Net_Profile *profile, uint8_t tcp_id, uint8_t inner_id, size_t length, Packet_Direction dir)
+{
+    if (profile == nullptr) {
+        return;
+    }
+
+    if (dir == PACKET_DIRECTION_SEND) {
+        ++profile->total_packets_sent;
+        profile->total_bytes_sent += length;
+
+        ++profile->packets_sent[tcp_id];
+        profile->bytes_sent[tcp_id] += length;
+
+        if (inner_id != tcp_id) {
+            ++profile->packets_sent[inner_id];
+            profile->bytes_sent[inner_id] += length;
+        }
+    } else {
+        ++profile->total_packets_recv;
+        profile->total_bytes_recv += length;
+
+        ++profile->packets_recv[tcp_id];
+        profile->bytes_recv[tcp_id] += length;
+
+        if (inner_id != tcp_id) {
+            ++profile->packets_recv[inner_id];
+            profile->bytes_recv[inner_id] += length;
+        }
+    }
+}
+
 void netprof_record_packet(Net_Profile *profile, uint8_t id, size_t length, Packet_Direction dir)
 {
     if (profile == nullptr) {
@@ -47860,11 +47898,6 @@ uint64_t netprof_get_packet_count_id(const Net_Profile *profile, uint8_t id, Pac
         return 0;
     }
 
-    // Special case - TCP data packets can have any ID between 0x10 and 0xff
-    if (id == NETPROF_TCP_DATA_PACKET_ID) {
-        return netprof_get_packet_count_id_range(profile, id, UINT8_MAX, dir);
-    }
-
     return dir == PACKET_DIRECTION_SEND ? profile->packets_sent[id] : profile->packets_recv[id];
 }
 
@@ -47881,11 +47914,6 @@ uint64_t netprof_get_bytes_id(const Net_Profile *profile, uint8_t id, Packet_Dir
 {
     if (profile == nullptr) {
         return 0;
-    }
-
-    // Special case - TCP data packets can have any ID between 0x10 and 0xff
-    if (id == NETPROF_TCP_DATA_PACKET_ID) {
-        return netprof_get_bytes_id_range(profile, id, 0xff, dir);
     }
 
     return dir == PACKET_DIRECTION_SEND ? profile->bytes_sent[id] : profile->bytes_recv[id];
@@ -55210,7 +55238,13 @@ static int handle_TCP_client_packet(const Logger *logger, TCP_Client_Connection 
         return -1;
     }
 
-    netprof_record_packet(conn->con.net_profile, data[0], length, PACKET_DIRECTION_RECV);
+    // If the connection ID is >= NUM_RESERVED_PORTS (16), it's a routed TCP Data packet.
+    // The actual Tox packet type is located at data[1].
+    if (data[0] >= NUM_RESERVED_PORTS && length >= 2) {
+        netprof_record_tcp_data_packet(conn->con.net_profile, 0x10, data[1], length, PACKET_DIRECTION_RECV);
+    } else {
+        netprof_record_packet(conn->con.net_profile, data[0], length, PACKET_DIRECTION_RECV);
+    }
 
     ESTIMATE_CPU_CYCLES(50000 + length * 5); /* estimated cost of receiving and dispatching a TCP packet */
 
@@ -58153,7 +58187,11 @@ static int handle_TCP_packet(TCP_Server *tcp_server, uint32_t con_id, const uint
 
     TCP_Secure_Connection *const con = &tcp_server->accepted_connection_array[con_id];
 
-    netprof_record_packet(con->con.net_profile, data[0], length, PACKET_DIRECTION_RECV);
+    if (data[0] >= NUM_RESERVED_PORTS && length >= 2) {
+        netprof_record_tcp_data_packet(con->con.net_profile, 0x10, data[1], length, PACKET_DIRECTION_RECV);
+    } else {
+        netprof_record_packet(con->con.net_profile, data[0], length, PACKET_DIRECTION_RECV);
+    }
 
     ESTIMATE_CPU_CYCLES(50000 + length * 5); /* estimated cost of receiving and dispatching a TCP packet */
 

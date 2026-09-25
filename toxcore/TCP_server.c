@@ -672,7 +672,11 @@ static int handle_TCP_packet(TCP_Server *tcp_server, uint32_t con_id, const uint
 
     TCP_Secure_Connection *const con = &tcp_server->accepted_connection_array[con_id];
 
-    netprof_record_packet(con->con.net_profile, data[0], length, PACKET_DIRECTION_RECV);
+    if (data[0] >= NUM_RESERVED_PORTS && length >= 2) {
+        netprof_record_tcp_data_packet(con->con.net_profile, 0x10, data[1], length, PACKET_DIRECTION_RECV);
+    } else {
+        netprof_record_packet(con->con.net_profile, data[0], length, PACKET_DIRECTION_RECV);
+    }
 
     ESTIMATE_CPU_CYCLES(50000 + length * 5); /* estimated cost of receiving and dispatching a TCP packet */
 
