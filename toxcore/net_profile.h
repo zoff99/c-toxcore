@@ -21,8 +21,19 @@ extern "C" {
 /* The max number of packet ID's (must fit inside one byte) */
 #define NET_PROF_MAX_PACKET_IDS 256
 
-/* If passed to a netprof function as a nullptr the function will have no effect. */
-typedef struct Net_Profile Net_Profile;
+typedef struct Net_Profile {
+    uint64_t packets_recv[NET_PROF_MAX_PACKET_IDS];
+    uint64_t packets_sent[NET_PROF_MAX_PACKET_IDS];
+
+    uint64_t total_packets_recv;
+    uint64_t total_packets_sent;
+
+    uint64_t bytes_recv[NET_PROF_MAX_PACKET_IDS];
+    uint64_t bytes_sent[NET_PROF_MAX_PACKET_IDS];
+
+    uint64_t total_bytes_recv;
+    uint64_t total_bytes_sent;
+} Net_Profile;
 
 /** Specifies whether the query is for sent or received packets. */
 typedef enum Packet_Direction {

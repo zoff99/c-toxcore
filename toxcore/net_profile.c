@@ -6,29 +6,14 @@
  * Functions for the network profile.
  */
 
-#include "net_profile.h"
-
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "net_profile.h"
 #include "attributes.h"
 #include "ccompat.h"
 
 #define NETPROF_TCP_DATA_PACKET_ID 0x10
-
-typedef struct Net_Profile {
-    uint64_t packets_recv[NET_PROF_MAX_PACKET_IDS];
-    uint64_t packets_sent[NET_PROF_MAX_PACKET_IDS];
-
-    uint64_t total_packets_recv;
-    uint64_t total_packets_sent;
-
-    uint64_t bytes_recv[NET_PROF_MAX_PACKET_IDS];
-    uint64_t bytes_sent[NET_PROF_MAX_PACKET_IDS];
-
-    uint64_t total_bytes_recv;
-    uint64_t total_bytes_sent;
-} Net_Profile;
 
 /** Returns the number of sent or received packets for all ID's between `start_id` and `end_id`. */
 nullable(1)
