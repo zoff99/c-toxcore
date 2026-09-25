@@ -35938,6 +35938,7 @@ GC_Session *new_dht_groupchats(Messenger *m)
 
     c->messenger = m;
     c->announces_list = m->group_announce;
+    c->tcp_np = m->tcp_np;
 
     networking_registerhandler(m->net, NET_PACKET_GC_LOSSLESS, &handle_gc_udp_packet, m);
     networking_registerhandler(m->net, NET_PACKET_GC_LOSSY, &handle_gc_udp_packet, m);
