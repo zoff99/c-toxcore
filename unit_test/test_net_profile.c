@@ -14,76 +14,145 @@
 
 bool test_netprof_basic_record_and_query(void)
 {
-    Net_Profile profile;
-    memset(&profile, 0, sizeof(profile));
+    Net_Profile *profile = netprof_new(NULL);
+    if (profile == NULL) {
+        return false;
+    }
 
-    netprof_record_packet(&profile, 0x00, 100, PACKET_DIRECTION_SEND);
-    netprof_record_packet(&profile, 0x00, 200, PACKET_DIRECTION_RECV);
-    netprof_record_packet(&profile, 0x01, 50, PACKET_DIRECTION_SEND);
-    netprof_record_packet(&profile, 0x20, 500, PACKET_DIRECTION_RECV);
+    netprof_record_packet(profile, 0x00, 100, PACKET_DIRECTION_SEND);
+    netprof_record_packet(profile, 0x00, 200, PACKET_DIRECTION_RECV);
+    netprof_record_packet(profile, 0x01, 50, PACKET_DIRECTION_SEND);
+    netprof_record_packet(profile, 0x20, 500, PACKET_DIRECTION_RECV);
 
-    T_ASSERT_INT_EQ(netprof_get_packet_count_id(&profile, 0x00, PACKET_DIRECTION_SEND), 1,
+    T_ASSERT_INT_EQ(netprof_get_packet_count_id(profile, 0x00, PACKET_DIRECTION_SEND), 1,
                     "count_id 0x00 send");
-    T_ASSERT_INT_EQ(netprof_get_packet_count_id(&profile, 0x00, PACKET_DIRECTION_RECV), 1,
+    T_ASSERT_INT_EQ(netprof_get_packet_count_id(profile, 0x00, PACKET_DIRECTION_RECV), 1,
                     "count_id 0x00 recv");
-    T_ASSERT_INT_EQ(netprof_get_packet_count_id(&profile, 0x01, PACKET_DIRECTION_SEND), 1,
+    T_ASSERT_INT_EQ(netprof_get_packet_count_id(profile, 0x01, PACKET_DIRECTION_SEND), 1,
                     "count_id 0x01 send");
-    T_ASSERT_INT_EQ(netprof_get_packet_count_id(&profile, 0x01, PACKET_DIRECTION_RECV), 0,
+    T_ASSERT_INT_EQ(netprof_get_packet_count_id(profile, 0x01, PACKET_DIRECTION_RECV), 0,
                     "count_id 0x01 recv (none)");
-    T_ASSERT_INT_EQ(netprof_get_packet_count_id(&profile, 0x20, PACKET_DIRECTION_RECV), 1,
+    T_ASSERT_INT_EQ(netprof_get_packet_count_id(profile, 0x20, PACKET_DIRECTION_RECV), 1,
                     "count_id 0x20 recv");
 
-    T_ASSERT_INT_EQ(netprof_get_bytes_id(&profile, 0x00, PACKET_DIRECTION_SEND), 100,
+    T_ASSERT_INT_EQ(netprof_get_bytes_id(profile, 0x00, PACKET_DIRECTION_SEND), 100,
                     "bytes_id 0x00 send");
-    T_ASSERT_INT_EQ(netprof_get_bytes_id(&profile, 0x00, PACKET_DIRECTION_RECV), 200,
+    T_ASSERT_INT_EQ(netprof_get_bytes_id(profile, 0x00, PACKET_DIRECTION_RECV), 200,
                     "bytes_id 0x00 recv");
-    T_ASSERT_INT_EQ(netprof_get_bytes_id(&profile, 0x20, PACKET_DIRECTION_RECV), 500,
+    T_ASSERT_INT_EQ(netprof_get_bytes_id(profile, 0x20, PACKET_DIRECTION_RECV), 500,
                     "bytes_id 0x20 recv");
 
-    T_ASSERT_INT_EQ(netprof_get_packet_count_total(&profile, PACKET_DIRECTION_SEND), 2,
+    T_ASSERT_INT_EQ(netprof_get_packet_count_total(profile, PACKET_DIRECTION_SEND), 2,
                     "total count send");
-    T_ASSERT_INT_EQ(netprof_get_packet_count_total(&profile, PACKET_DIRECTION_RECV), 2,
+    T_ASSERT_INT_EQ(netprof_get_packet_count_total(profile, PACKET_DIRECTION_RECV), 2,
                     "total count recv");
-    T_ASSERT_INT_EQ(netprof_get_bytes_total(&profile, PACKET_DIRECTION_SEND), 150,
+    T_ASSERT_INT_EQ(netprof_get_bytes_total(profile, PACKET_DIRECTION_SEND), 150,
                     "total bytes send");
-    T_ASSERT_INT_EQ(netprof_get_bytes_total(&profile, PACKET_DIRECTION_RECV), 700,
+    T_ASSERT_INT_EQ(netprof_get_bytes_total(profile, PACKET_DIRECTION_RECV), 700,
                     "total bytes recv");
+
+    netprof_kill(profile);
     return true;
 }
 
 bool test_netprof_tcp_data_range(void)
 {
-    Net_Profile profile;
-    memset(&profile, 0, sizeof(profile));
+    Net_Profile *profile = netprof_new(NULL);
+    if (profile == NULL) {
+        return false;
+    }
 
-    /* With the new TCP data tracking, we use the new helper to record both the 0x10 bucket and the inner ID bucket */
-    netprof_record_tcp_data_packet(&profile, 0x10, 0x80, 100, PACKET_DIRECTION_SEND); // inner ID 0x80
-    netprof_record_tcp_data_packet(&profile, 0x10, 0x80, 200, PACKET_DIRECTION_RECV);
+    /* With the fix to prevent double counting, we ONLY record to the inner_id bucket.
+       The outer tcp_id (0x10) is no longer tracked in the individual ID buckets. */
+    netprof_record_tcp_data_packet(profile, 0x10, 0x80, 100, PACKET_DIRECTION_SEND); // inner ID 0x80
+    netprof_record_tcp_data_packet(profile, 0x10, 0x80, 200, PACKET_DIRECTION_RECV);
 
-    /* Querying 0x10 should give us exactly what was recorded for 0x10 */
-    T_ASSERT_INT_EQ(netprof_get_packet_count_id(&profile, 0x10, PACKET_DIRECTION_SEND), 1, "tcp_data count send");
-    T_ASSERT_INT_EQ(netprof_get_bytes_id(&profile, 0x10, PACKET_DIRECTION_SEND), 100, "tcp_data bytes send");
+    /* Querying the outer TCP ID (0x10) should give us 0, because we only track the inner payload ID */
+    T_ASSERT_INT_EQ(netprof_get_packet_count_id(profile, 0x10, PACKET_DIRECTION_SEND), 0, "tcp_data count send is 0");
+    T_ASSERT_INT_EQ(netprof_get_bytes_id(profile, 0x10, PACKET_DIRECTION_SEND), 0, "tcp_data bytes send is 0");
 
-    T_ASSERT_INT_EQ(netprof_get_packet_count_id(&profile, 0x10, PACKET_DIRECTION_RECV), 1, "tcp_data count recv");
-    T_ASSERT_INT_EQ(netprof_get_bytes_id(&profile, 0x10, PACKET_DIRECTION_RECV), 200, "tcp_data bytes recv");
+    T_ASSERT_INT_EQ(netprof_get_packet_count_id(profile, 0x10, PACKET_DIRECTION_RECV), 0, "tcp_data count recv is 0");
+    T_ASSERT_INT_EQ(netprof_get_bytes_id(profile, 0x10, PACKET_DIRECTION_RECV), 0, "tcp_data bytes recv is 0");
 
-    /* Querying the inner ID (0x80) should also give us the exact same counts */
-    T_ASSERT_INT_EQ(netprof_get_packet_count_id(&profile, 0x80, PACKET_DIRECTION_SEND), 1, "inner id count send");
-    T_ASSERT_INT_EQ(netprof_get_bytes_id(&profile, 0x80, PACKET_DIRECTION_SEND), 100, "inner id bytes send");
+    /* Querying the inner ID (0x80) should give us the exact counts */
+    T_ASSERT_INT_EQ(netprof_get_packet_count_id(profile, 0x80, PACKET_DIRECTION_SEND), 1, "inner id count send");
+    T_ASSERT_INT_EQ(netprof_get_bytes_id(profile, 0x80, PACKET_DIRECTION_SEND), 100, "inner id bytes send");
 
-    T_ASSERT_INT_EQ(netprof_get_packet_count_id(&profile, 0x80, PACKET_DIRECTION_RECV), 1, "inner id count recv");
-    T_ASSERT_INT_EQ(netprof_get_bytes_id(&profile, 0x80, PACKET_DIRECTION_RECV), 200, "inner id bytes recv");
+    T_ASSERT_INT_EQ(netprof_get_packet_count_id(profile, 0x80, PACKET_DIRECTION_RECV), 1, "inner id count recv");
+    T_ASSERT_INT_EQ(netprof_get_bytes_id(profile, 0x80, PACKET_DIRECTION_RECV), 200, "inner id bytes recv");
 
     /* Total should be incremented exactly once per packet (no double counting) */
-    T_ASSERT_INT_EQ(netprof_get_packet_count_total(&profile, PACKET_DIRECTION_SEND), 1, "total count send");
-    T_ASSERT_INT_EQ(netprof_get_bytes_total(&profile, PACKET_DIRECTION_SEND), 100, "total bytes send");
+    T_ASSERT_INT_EQ(netprof_get_packet_count_total(profile, PACKET_DIRECTION_SEND), 1, "total count send");
+    T_ASSERT_INT_EQ(netprof_get_bytes_total(profile, PACKET_DIRECTION_SEND), 100, "total bytes send");
 
-    T_ASSERT_INT_EQ(netprof_get_packet_count_total(&profile, PACKET_DIRECTION_RECV), 1, "total count recv");
-    T_ASSERT_INT_EQ(netprof_get_bytes_total(&profile, PACKET_DIRECTION_RECV), 200, "total bytes recv");
+    T_ASSERT_INT_EQ(netprof_get_packet_count_total(profile, PACKET_DIRECTION_RECV), 1, "total count recv");
+    T_ASSERT_INT_EQ(netprof_get_bytes_total(profile, PACKET_DIRECTION_RECV), 200, "total bytes recv");
 
     /* Querying an ID that wasn't recorded should be 0 */
-    T_ASSERT_INT_EQ(netprof_get_packet_count_id(&profile, 0x11, PACKET_DIRECTION_SEND), 0, "unrecorded id count");
+    T_ASSERT_INT_EQ(netprof_get_packet_count_id(profile, 0x11, PACKET_DIRECTION_SEND), 0, "unrecorded id count");
 
+    netprof_kill(profile);
+    return true;
+}
+
+bool test_netprof_tcp_data_same_ids(void)
+{
+    Net_Profile *profile = netprof_new(NULL);
+    if (profile == NULL) {
+        return false;
+    }
+
+    /* Edge case: what if tcp_id and inner_id happen to be the exact same value?
+       It should still only count as 1 packet and not double-increment the same bucket. */
+    netprof_record_tcp_data_packet(profile, 0x42, 0x42, 100, PACKET_DIRECTION_SEND);
+    
+    T_ASSERT_INT_EQ(netprof_get_packet_count_id(profile, 0x42, PACKET_DIRECTION_SEND), 1, "same id count");
+    T_ASSERT_INT_EQ(netprof_get_bytes_id(profile, 0x42, PACKET_DIRECTION_SEND), 100, "same id bytes");
+    T_ASSERT_INT_EQ(netprof_get_packet_count_total(profile, PACKET_DIRECTION_SEND), 1, "same id total count");
+
+    netprof_kill(profile);
+    return true;
+}
+
+bool test_netprof_mixed_recording(void)
+{
+    Net_Profile *profile = netprof_new(NULL);
+    if (profile == NULL) {
+        return false;
+    }
+
+    /* Record a normal packet and a TCP data packet that share the same inner ID (0x80) */
+    netprof_record_packet(profile, 0x80, 50, PACKET_DIRECTION_SEND);
+    netprof_record_tcp_data_packet(profile, 0x10, 0x80, 100, PACKET_DIRECTION_SEND);
+    
+    /* They should accumulate correctly in the 0x80 bucket */
+    T_ASSERT_INT_EQ(netprof_get_packet_count_id(profile, 0x80, PACKET_DIRECTION_SEND), 2, "mixed id count");
+    T_ASSERT_INT_EQ(netprof_get_bytes_id(profile, 0x80, PACKET_DIRECTION_SEND), 150, "mixed id bytes");
+    
+    /* Total should reflect both packets */
+    T_ASSERT_INT_EQ(netprof_get_packet_count_total(profile, PACKET_DIRECTION_SEND), 2, "mixed total count");
+    T_ASSERT_INT_EQ(netprof_get_bytes_total(profile, PACKET_DIRECTION_SEND), 150, "mixed total bytes");
+
+    netprof_kill(profile);
+    return true;
+}
+
+bool test_netprof_zero_length(void)
+{
+    Net_Profile *profile = netprof_new(NULL);
+    if (profile == NULL) {
+        return false;
+    }
+
+    /* A zero-length packet should increment counts but not bytes */
+    netprof_record_packet(profile, 0x05, 0, PACKET_DIRECTION_SEND);
+    
+    T_ASSERT_INT_EQ(netprof_get_packet_count_id(profile, 0x05, PACKET_DIRECTION_SEND), 1, "zero len count");
+    T_ASSERT_INT_EQ(netprof_get_bytes_id(profile, 0x05, PACKET_DIRECTION_SEND), 0, "zero len bytes");
+    T_ASSERT_INT_EQ(netprof_get_packet_count_total(profile, PACKET_DIRECTION_SEND), 1, "zero len total count");
+    T_ASSERT_INT_EQ(netprof_get_bytes_total(profile, PACKET_DIRECTION_SEND), 0, "zero len total bytes");
+
+    netprof_kill(profile);
     return true;
 }
 
@@ -98,25 +167,31 @@ bool test_netprof_null_safety(void)
     T_ASSERT_INT_EQ(netprof_get_bytes_total(NULL, PACKET_DIRECTION_SEND), 0,
                     "null bytes_total");
 
-    /* Must not crash */
+    /* Must not crash on any function when given NULL */
     netprof_record_packet(NULL, 0x00, 100, PACKET_DIRECTION_SEND);
+    netprof_record_tcp_data_packet(NULL, 0x10, 0x80, 100, PACKET_DIRECTION_SEND);
+    netprof_kill(NULL);
     return true;
 }
 
 bool test_netprof_large_counts(void)
 {
-    Net_Profile profile;
-    memset(&profile, 0, sizeof(profile));
+    Net_Profile *profile = netprof_new(NULL);
+    if (profile == NULL) {
+        return false;
+    }
 
     const uint32_t num_packets = 100000;
     for (uint32_t i = 0; i < num_packets; ++i) {
-        netprof_record_packet(&profile, 0x20, 1400, PACKET_DIRECTION_SEND);
+        netprof_record_packet(profile, 0x20, 1400, PACKET_DIRECTION_SEND);
     }
 
-    T_ASSERT_INT_EQ(netprof_get_packet_count_id(&profile, 0x20, PACKET_DIRECTION_SEND),
+    T_ASSERT_INT_EQ(netprof_get_packet_count_id(profile, 0x20, PACKET_DIRECTION_SEND),
                     num_packets, "large count");
-    T_ASSERT_INT_EQ(netprof_get_bytes_total(&profile, PACKET_DIRECTION_SEND),
+    T_ASSERT_INT_EQ(netprof_get_bytes_total(profile, PACKET_DIRECTION_SEND),
                     (uint64_t)num_packets * 1400, "large bytes");
+
+    netprof_kill(profile);
     return true;
 }
 
@@ -274,6 +349,9 @@ int main(void)
 
     RUN_TEST(test_netprof_basic_record_and_query);
     RUN_TEST(test_netprof_tcp_data_range);
+    RUN_TEST(test_netprof_tcp_data_same_ids);
+    RUN_TEST(test_netprof_mixed_recording);
+    RUN_TEST(test_netprof_zero_length);
     RUN_TEST(test_netprof_null_safety);
     RUN_TEST(test_netprof_large_counts);
     RUN_TEST(test_tox_netprof_api);
