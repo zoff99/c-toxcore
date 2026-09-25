@@ -127,7 +127,7 @@ static Forwarding_Subtox *new_forwarding_subtox(bool no_udp, uint32_t *index, ui
     subtox->dht = new_dht(subtox->log, rng, ns, subtox->mono_time, subtox->net, true, true);
 
     const TCP_Proxy_Info inf = {{{{0}}}};
-    subtox->c = new_net_crypto(subtox->log, rng, ns, subtox->mono_time, subtox->dht, &inf);
+    subtox->c = new_net_crypto(subtox->log, rng, ns, subtox->mono_time, subtox->dht, &inf, NULL);
 
     subtox->forwarding = new_forwarding(subtox->log, rng, subtox->mono_time, subtox->dht);
     ck_assert(subtox->forwarding != nullptr);

@@ -710,11 +710,11 @@ static void test_tcp_connection(void)
     TCP_Proxy_Info proxy_info;
     proxy_info.proxy_type = TCP_PROXY_NONE;
     crypto_new_keypair(rng, self_public_key, self_secret_key);
-    TCP_Connections *tc_1 = new_tcp_connections(logger, rng, ns, mono_time, self_secret_key, &proxy_info);
+    TCP_Connections *tc_1 = new_tcp_connections(logger, rng, ns, mono_time, self_secret_key, &proxy_info, NULL);
     ck_assert_msg(pk_equal(tcp_connections_public_key(tc_1), self_public_key), "Wrong public key");
 
     crypto_new_keypair(rng, self_public_key, self_secret_key);
-    TCP_Connections *tc_2 = new_tcp_connections(logger, rng, ns, mono_time, self_secret_key, &proxy_info);
+    TCP_Connections *tc_2 = new_tcp_connections(logger, rng, ns, mono_time, self_secret_key, &proxy_info, NULL);
     ck_assert_msg(pk_equal(tcp_connections_public_key(tc_2), self_public_key), "Wrong public key");
 
     IP_Port ip_port_tcp_s;
@@ -821,11 +821,11 @@ static void test_tcp_connection2(void)
     TCP_Proxy_Info proxy_info;
     proxy_info.proxy_type = TCP_PROXY_NONE;
     crypto_new_keypair(rng, self_public_key, self_secret_key);
-    TCP_Connections *tc_1 = new_tcp_connections(logger, rng, ns, mono_time, self_secret_key, &proxy_info);
+    TCP_Connections *tc_1 = new_tcp_connections(logger, rng, ns, mono_time, self_secret_key, &proxy_info, NULL);
     ck_assert_msg(pk_equal(tcp_connections_public_key(tc_1), self_public_key), "Wrong public key");
 
     crypto_new_keypair(rng, self_public_key, self_secret_key);
-    TCP_Connections *tc_2 = new_tcp_connections(logger, rng, ns, mono_time, self_secret_key, &proxy_info);
+    TCP_Connections *tc_2 = new_tcp_connections(logger, rng, ns, mono_time, self_secret_key, &proxy_info, NULL);
     ck_assert_msg(pk_equal(tcp_connections_public_key(tc_2), self_public_key), "Wrong public key");
 
     IP_Port ip_port_tcp_s;
