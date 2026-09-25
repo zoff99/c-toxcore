@@ -52,7 +52,8 @@ struct TCP_Connections {
     bool onion_status;
     uint16_t onion_num_conns;
 
-    Net_Profile net_profile;
+    /* Network profile for all TCP client packets. */
+    Net_Profile *net_profile;
 };
 
 
@@ -924,7 +925,7 @@ static int reconnect_tcp_relay_connection(TCP_Connections *tcp_c, int tcp_connec
     uint8_t relay_pk[CRYPTO_PUBLIC_KEY_SIZE];
     memcpy(relay_pk, tcp_con_public_key(tcp_con->connection), CRYPTO_PUBLIC_KEY_SIZE);
     kill_TCP_connection(tcp_con->connection);
-    tcp_con->connection = new_TCP_connection(tcp_c->logger, tcp_c->mono_time, tcp_c->rng, tcp_c->ns, &ip_port, relay_pk, tcp_c->self_public_key, tcp_c->self_secret_key, &tcp_c->proxy_info, &tcp_c->net_profile);
+    tcp_con->connection = new_TCP_connection(tcp_c->logger, tcp_c->mono_time, tcp_c->rng, tcp_c->ns, &ip_port, relay_pk, tcp_c->self_public_key, tcp_c->self_secret_key, &tcp_c->proxy_info, tcp_c->net_profile);
 
     if (tcp_con->connection == nullptr) {
         kill_tcp_relay_connection(tcp_c, tcp_connections_number);
@@ -1013,7 +1014,7 @@ static int unsleep_tcp_relay_connection(TCP_Connections *tcp_c, int tcp_connecti
 
     tcp_con->connection = new_TCP_connection(
             tcp_c->logger, tcp_c->mono_time, tcp_c->rng, tcp_c->ns, &tcp_con->ip_port,
-            tcp_con->relay_pk, tcp_c->self_public_key, tcp_c->self_secret_key, &tcp_c->proxy_info, &tcp_c->net_profile);
+            tcp_con->relay_pk, tcp_c->self_public_key, tcp_c->self_secret_key, &tcp_c->proxy_info, tcp_c->net_profile);
 
     if (tcp_con->connection == nullptr) {
         kill_tcp_relay_connection(tcp_c, tcp_connections_number);
@@ -1309,7 +1310,7 @@ static int add_tcp_relay_instance(TCP_Connections *tcp_c, const IP_Port *ip_port
 
     tcp_con->connection = new_TCP_connection(
             tcp_c->logger, tcp_c->mono_time, tcp_c->rng, tcp_c->ns, &ipp_copy,
-            relay_pk, tcp_c->self_public_key, tcp_c->self_secret_key, &tcp_c->proxy_info, &tcp_c->net_profile);
+            relay_pk, tcp_c->self_public_key, tcp_c->self_secret_key, &tcp_c->proxy_info, tcp_c->net_profile);
 
     if (tcp_con->connection == nullptr) {
         return -1;
@@ -1630,7 +1631,7 @@ int set_tcp_onion_status(TCP_Connections *tcp_c, bool status)
  */
 TCP_Connections *new_tcp_connections(
         const Logger *logger, const Random *rng, const Network *ns, Mono_Time *mono_time, const uint8_t *secret_key,
-        const TCP_Proxy_Info *proxy_info)
+        const TCP_Proxy_Info *proxy_info, Net_Profile *tcp_np)
 {
     if (secret_key == nullptr) {
         return nullptr;
@@ -1642,6 +1643,7 @@ TCP_Connections *new_tcp_connections(
         return nullptr;
     }
 
+    temp->net_profile = tcp_np;
     temp->logger = logger;
     temp->rng = rng;
     temp->mono_time = mono_time;
@@ -1735,15 +1737,6 @@ static void kill_nonused_tcp(TCP_Connections *tcp_c)
             }
         }
     }
-}
-
-const Net_Profile *tcp_connection_get_client_net_profile(const TCP_Connections *tcp_c)
-{
-    if (tcp_c == nullptr) {
-        return nullptr;
-    }
-
-    return &tcp_c->net_profile;
 }
 
 void do_tcp_connections(const Logger *logger, TCP_Connections *tcp_c, void *userdata)

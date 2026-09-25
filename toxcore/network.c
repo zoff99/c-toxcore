@@ -914,7 +914,7 @@ struct Networking_Core {
     uint16_t port;
     /* Our UDP socket. */
     Socket sock;
-    Net_Profile udp_net_profile;
+    Net_Profile *udp_net_profile;
 };
 
 Family net_family(const Networking_Core *net)
@@ -1000,8 +1000,8 @@ int send_packet(Networking_Core *net, const IP_Port *ip_port, Packet packet)
 
     assert(res <= INT_MAX);
 
-    if (res == packet.length) {
-        netprof_record_packet(&net->udp_net_profile, packet.data[0], packet.length, PACKET_DIRECTION_SEND);
+    if (res == packet.length && packet.data != nullptr) {
+        netprof_record_packet(net->udp_net_profile, packet.data[0], packet.length, PACKET_DIRECTION_SEND);
         ESTIMATE_CPU_CYCLES(30000 + packet.length * 5); /* estimated cost of sending a UDP packet */
     }
 
@@ -1109,7 +1109,7 @@ void networking_poll(Networking_Core *net, void *userdata)
             continue;
         }
 
-        netprof_record_packet(&net->udp_net_profile, data[0], length, PACKET_DIRECTION_RECV);
+        netprof_record_packet(net->udp_net_profile, data[0], length, PACKET_DIRECTION_RECV);
         ESTIMATE_CPU_CYCLES(50000 + length * 5); /* estimated cost of receiving a UDP packet */
 
         const Packet_Handler *const handler = &net->packethandlers[data[0]];
@@ -1172,6 +1172,14 @@ Networking_Core *new_networking_ex(
         return nullptr;
     }
 
+    Net_Profile *np = netprof_new(log);
+
+    if (np == nullptr) {
+        free(temp);
+        return nullptr;
+    }
+
+    temp->udp_net_profile = np;
     temp->ns = ns;
     temp->log = log;
     temp->family = ip->family;
@@ -1187,6 +1195,7 @@ Networking_Core *new_networking_ex(
         char *strerror = net_new_strerror(neterror);
         LOGGER_ERROR(log, "failed to get a socket?! %d, %s", neterror, strerror);
         net_kill_strerror(strerror);
+        netprof_kill(temp->udp_net_profile);
         free(temp);
 
         if (error != nullptr) {
@@ -1392,7 +1401,7 @@ const Net_Profile *net_get_net_profile(const Networking_Core *net)
         return nullptr;
     }
 
-    return &net->udp_net_profile;
+    return net->udp_net_profile;
 }
 
 /** Function to cleanup networking stuff (doesn't do much right now). */
@@ -1407,6 +1416,7 @@ void kill_networking(Networking_Core *net)
         kill_sock(net->ns, net->sock);
     }
 
+    netprof_kill(net->udp_net_profile);
     free(net);
 }
 

@@ -15,6 +15,20 @@
 
 #define NETPROF_TCP_DATA_PACKET_ID 0x10
 
+typedef struct Net_Profile {
+    uint64_t packets_recv[NET_PROF_MAX_PACKET_IDS];
+    uint64_t packets_sent[NET_PROF_MAX_PACKET_IDS];
+
+    uint64_t total_packets_recv;
+    uint64_t total_packets_sent;
+
+    uint64_t bytes_recv[NET_PROF_MAX_PACKET_IDS];
+    uint64_t bytes_sent[NET_PROF_MAX_PACKET_IDS];
+
+    uint64_t total_bytes_recv;
+    uint64_t total_bytes_sent;
+} Net_Profile;
+
 /** Returns the number of sent or received packets for all ID's between `start_id` and `end_id`. */
 nullable(1)
 static uint64_t netprof_get_packet_count_id_range(const Net_Profile *profile, uint8_t start_id, uint8_t end_id,
@@ -140,3 +154,23 @@ uint64_t netprof_get_bytes_total(const Net_Profile *profile, Packet_Direction di
 
     return dir == PACKET_DIRECTION_SEND ? profile->total_bytes_sent : profile->total_bytes_recv;
 }
+
+Net_Profile *netprof_new(const Logger *log)
+{
+    Net_Profile *np = (Net_Profile *)calloc(1, sizeof(Net_Profile));
+
+    if (np == nullptr) {
+        LOGGER_ERROR(log, "failed to allocate memory for net profiler");
+        return nullptr;
+    }
+
+    return np;
+}
+
+void netprof_kill(Net_Profile *net_profile)
+{
+    if (net_profile != nullptr) {
+        free(net_profile);
+    }
+}
+

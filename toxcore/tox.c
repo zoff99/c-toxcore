@@ -5626,7 +5626,7 @@ uint64_t tox_netprof_get_packet_id_count(const Tox *tox, Tox_Netprof_Packet_Type
 
     tox_lock(tox);
 
-    const Net_Profile *tcp_c_profile = nc_get_tcp_client_net_profile(tox->m->net_crypto);
+    const Net_Profile *tcp_c_profile = tox->m->tcp_np;
     const Net_Profile *tcp_s_profile = tcp_server_get_net_profile(tox->m->tcp_server);
 
     const Packet_Direction dir = (Packet_Direction) direction;
@@ -5675,7 +5675,7 @@ uint64_t tox_netprof_get_packet_total_count(const Tox *tox, Tox_Netprof_Packet_T
 
     tox_lock(tox);
 
-    const Net_Profile *tcp_c_profile = nc_get_tcp_client_net_profile(tox->m->net_crypto);
+    const Net_Profile *tcp_c_profile = tox->m->tcp_np;
     const Net_Profile *tcp_s_profile = tcp_server_get_net_profile(tox->m->tcp_server);
 
     const Packet_Direction dir = (Packet_Direction) direction;
@@ -5724,7 +5724,7 @@ uint64_t tox_netprof_get_packet_id_bytes(const Tox *tox, Tox_Netprof_Packet_Type
 
     tox_lock(tox);
 
-    const Net_Profile *tcp_c_profile = nc_get_tcp_client_net_profile(tox->m->net_crypto);
+    const Net_Profile *tcp_c_profile = tox->m->tcp_np;
     const Net_Profile *tcp_s_profile = tcp_server_get_net_profile(tox->m->tcp_server);
 
     const Packet_Direction dir = (Packet_Direction) direction;
@@ -5773,7 +5773,7 @@ uint64_t tox_netprof_get_packet_total_bytes(const Tox *tox, Tox_Netprof_Packet_T
 
     tox_lock(tox);
 
-    const Net_Profile *tcp_c_profile = nc_get_tcp_client_net_profile(tox->m->net_crypto);
+    const Net_Profile *tcp_c_profile = tox->m->tcp_np;
     const Net_Profile *tcp_s_profile = tcp_server_get_net_profile(tox->m->tcp_server);
 
     const Packet_Direction dir = (Packet_Direction) direction;
