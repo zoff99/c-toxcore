@@ -50362,24 +50362,17 @@ void netprof_record_tcp_data_packet(Net_Profile *profile, uint8_t tcp_id, uint8_
         ++profile->total_packets_sent;
         profile->total_bytes_sent += length;
 
-        ++profile->packets_sent[tcp_id];
-        profile->bytes_sent[tcp_id] += length;
-
-        if (inner_id != tcp_id) {
-            ++profile->packets_sent[inner_id];
-            profile->bytes_sent[inner_id] += length;
-        }
+        /* FIX: Only record the inner payload ID to prevent double-counting
+           when the UI sums up individual packet ID buckets. */
+        ++profile->packets_sent[inner_id];
+        profile->bytes_sent[inner_id] += length;
     } else {
         ++profile->total_packets_recv;
         profile->total_bytes_recv += length;
 
-        ++profile->packets_recv[tcp_id];
-        profile->bytes_recv[tcp_id] += length;
-
-        if (inner_id != tcp_id) {
-            ++profile->packets_recv[inner_id];
-            profile->bytes_recv[inner_id] += length;
-        }
+        /* FIX: Only record the inner payload ID. */
+        ++profile->packets_recv[inner_id];
+        profile->bytes_recv[inner_id] += length;
     }
 }
 
