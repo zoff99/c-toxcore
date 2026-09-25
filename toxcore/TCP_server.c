@@ -358,7 +358,7 @@ static int handle_TCP_handshake(const Logger *logger, TCP_Secure_Connection *con
 
     // --- NEW: Record the server handshake ---
     /* We use 0x1a (TOX_NETPROF_PACKET_ID_CRYPTO_HS) since the TCP handshake is essentially a cryptographic handshake */
-    netprof_record_packet(con->con.net_profile, TOX_NETPROF_PACKET_ID_CRYPTO_HS, TCP_SERVER_HANDSHAKE_SIZE, PACKET_DIRECTION_SEND);
+    netprof_record_packet(con->con.net_profile, 0x1a, TCP_SERVER_HANDSHAKE_SIZE, PACKET_DIRECTION_SEND);
     // --- END NEW ---
 
     encrypt_precompute(plain, temp_secret_key, con->con.shared_key);
