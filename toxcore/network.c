@@ -808,7 +808,9 @@ int net_send(const Network *ns, const Logger *log,
     const int res = ns->funcs->send(ns->obj, sock.sock, buf, len);
 
     if (res > 0) {
-        netprof_record_packet(net_profile, buf[0], res, PACKET_DIRECTION_SEND);
+        // REMOVED: netprof_record_packet(net_profile, buf[0], res, PACKET_DIRECTION_SEND);
+        // Profiling is now done at a higher level (TCP_common.c) before encryption,
+        // because buf[0] here is the length prefix, not the packet type.
         ESTIMATE_CPU_CYCLES(40000 + res * 5); /* estimated cost of sending a TCP packet */
     }
 

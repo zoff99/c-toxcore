@@ -20,6 +20,14 @@ void wipe_priority_list(TCP_Priority_List *p)
     }
 }
 
+static void record_sent_tcp_packet(Net_Profile *profile, const uint8_t *data, uint16_t length) {
+    if (data[0] >= NUM_RESERVED_PORTS && length >= 2) {
+        netprof_record_tcp_data_packet(profile, TOX_NETPROF_PACKET_ID_TCP_DATA, data[1], length, PACKET_DIRECTION_SEND);
+    } else {
+        netprof_record_packet(profile, data[0], length, PACKET_DIRECTION_SEND);
+    }
+}
+
 /**
  * @retval 0 if pending data was sent completely
  * @retval -1 if it wasn't
@@ -133,7 +141,7 @@ int write_packet_TCP_secure_connection(const Logger *logger, TCP_Connection *con
                                        bool priority)
 {
     if (length + CRYPTO_MAC_SIZE > MAX_PACKET_SIZE) {
-        return -1;
+        return -1; // Failure: do not count
     }
 
     bool sendpriority = true;
@@ -142,7 +150,7 @@ int write_packet_TCP_secure_connection(const Logger *logger, TCP_Connection *con
         if (priority) {
             sendpriority = false;
         } else {
-            return 0;
+            return 0; // Failure: do not count
         }
     }
 
@@ -153,7 +161,7 @@ int write_packet_TCP_secure_connection(const Logger *logger, TCP_Connection *con
     int len = encrypt_data_symmetric(con->shared_key, con->sent_nonce, data, length, packet + sizeof(uint16_t));
 
     if ((unsigned int)len != (SIZEOF_VLA(packet) - sizeof(uint16_t))) {
-        return -1;
+        return -1; // Failure (encryption): do not count
     }
 
     if (priority) {
@@ -165,28 +173,40 @@ int write_packet_TCP_secure_connection(const Logger *logger, TCP_Connection *con
 
         increment_nonce(con->sent_nonce);
 
+        // Success path 1: Fully sent immediately
         if ((unsigned int)len == SIZEOF_VLA(packet)) {
+            record_sent_tcp_packet(con->net_profile, data, length);
             return 1;
         }
 
-        return add_priority(con, packet, SIZEOF_VLA(packet), len) ? 1 : 0;
+        // Success path 2: Partially sent or blocked, successfully queued
+        bool added = add_priority(con, packet, SIZEOF_VLA(packet), len);
+        if (added) {
+            record_sent_tcp_packet(con->net_profile, data, length);
+        }
+        return added ? 1 : 0;
     }
 
     len = net_send(con->ns, logger, con->sock, packet, SIZEOF_VLA(packet), &con->ip_port, con->net_profile);
 
     if (len <= 0) {
-        return 0;
+        return 0; // Failure: do not count
     }
 
     increment_nonce(con->sent_nonce);
 
+    // Success path 3: Fully sent immediately (non-priority)
     if ((unsigned int)len == SIZEOF_VLA(packet)) {
+        record_sent_tcp_packet(con->net_profile, data, length);
         return 1;
     }
 
+    // Success path 4: Partially sent, saved to last_packet for later flushing
     memcpy(con->last_packet, packet, SIZEOF_VLA(packet));
     con->last_packet_length = SIZEOF_VLA(packet);
     con->last_packet_sent = len;
+
+    record_sent_tcp_packet(con->net_profile, data, length);
     return 1;
 }
 
