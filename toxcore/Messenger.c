@@ -21,6 +21,7 @@
 #include "logger.h"
 #include "mono_time.h"
 #include "network.h"
+#include "net_profile.h"
 #include "state.h"
 #include "util.h"
 
@@ -4235,9 +4236,22 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
         return nullptr;
     }
 
-    m->net_crypto = new_net_crypto(m->log, m->rng, m->ns, m->mono_time, m->dht, &options->proxy_info);
+    Net_Profile *tcp_np = netprof_new(m->log);
+    if (tcp_np == nullptr) {
+        LOGGER_WARNING(m->log, "TCP netprof initialisation failed");
+        kill_dht(m->dht);
+        kill_networking(m->net);
+        friendreq_kill(m->fr);
+        logger_kill(m->log);
+        free(m);
+        return nullptr;
+    }
+    m->tcp_np = tcp_np;
+
+    m->net_crypto = new_net_crypto(m->log, m->rng, m->ns, m->mono_time, m->dht, &options->proxy_info, m->tcp_np);
 
     if (m->net_crypto == nullptr) {
+        netprof_kill(m->tcp_np);
         kill_dht(m->dht);
         kill_networking(m->net);
         friendreq_kill(m->fr);
@@ -4250,6 +4264,7 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
     m->group_announce = new_gca_list();
 
     if (m->group_announce == nullptr) {
+        netprof_kill(m->tcp_np);
         kill_net_crypto(m->net_crypto);
         kill_dht(m->dht);
         kill_networking(m->net);
@@ -4282,6 +4297,7 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
 #ifndef VANILLA_NACL
         kill_gca(m->group_announce);
 #endif /* VANILLA_NACL */
+        netprof_kill(m->tcp_np);
         kill_friend_connections(m->fr_c);
         kill_announcements(m->announce);
         kill_forwarding(m->forwarding);
@@ -4310,6 +4326,7 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
         kill_net_crypto(m->net_crypto);
         kill_dht(m->dht);
         kill_networking(m->net);
+        netprof_kill(m->tcp_np);
         friendreq_kill(m->fr);
         logger_kill(m->log);
         free(m);
@@ -4338,6 +4355,7 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
             kill_net_crypto(m->net_crypto);
             kill_dht(m->dht);
             kill_networking(m->net);
+            netprof_kill(m->tcp_np);
             friendreq_kill(m->fr);
             logger_kill(m->log);
             free(m);
@@ -4394,6 +4412,7 @@ void kill_messenger(Messenger *m)
     kill_announcements(m->announce);
     kill_forwarding(m->forwarding);
     kill_net_crypto(m->net_crypto);
+    netprof_kill(m->tcp_np);
     kill_dht(m->dht);
     kill_networking(m->net);
 

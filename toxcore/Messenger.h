@@ -19,6 +19,7 @@
 #include "group_common.h"
 #include "logger.h"
 #include "net_crypto.h"
+#include "net_profile.h"
 #include "state.h"
 
 #define MAX_NAME_LENGTH 128
@@ -282,6 +283,7 @@ struct Messenger {
     const Network *ns;
 
     Networking_Core *net;
+    Net_Profile *tcp_np;
     Net_Crypto *net_crypto;
     DHT *dht;
 

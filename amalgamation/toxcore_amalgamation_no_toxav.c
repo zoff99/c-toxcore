@@ -406,19 +406,8 @@ void mono_time_set_current_time_callback(Mono_Time *mono_time,
 /* The max number of packet ID's (must fit inside one byte) */
 #define NET_PROF_MAX_PACKET_IDS 256
 
-typedef struct Net_Profile {
-    uint64_t packets_recv[NET_PROF_MAX_PACKET_IDS];
-    uint64_t packets_sent[NET_PROF_MAX_PACKET_IDS];
-
-    uint64_t total_packets_recv;
-    uint64_t total_packets_sent;
-
-    uint64_t bytes_recv[NET_PROF_MAX_PACKET_IDS];
-    uint64_t bytes_sent[NET_PROF_MAX_PACKET_IDS];
-
-    uint64_t total_bytes_recv;
-    uint64_t total_bytes_sent;
-} Net_Profile;
+/* If passed to a netprof function as a nullptr the function will have no effect. */
+typedef struct Net_Profile Net_Profile;
 
 /** Specifies whether the query is for sent or received packets. */
 typedef enum Packet_Direction {
@@ -462,6 +451,17 @@ uint64_t netprof_get_bytes_id(const Net_Profile *profile, uint8_t id, Packet_Dir
  */
 nullable(1)
 uint64_t netprof_get_bytes_total(const Net_Profile *profile, Packet_Direction dir);
+
+/**
+ * Returns a new net_profile object. The caller is responsible for freeing the
+ * returned memory via `netprof_kill`.
+ */
+Net_Profile *netprof_new(const Logger *log);
+
+/**
+ * Kills a net_profile object and frees all associated memory.
+ */
+void netprof_kill(Net_Profile *net_profile);
 
 #endif  /* C_TOXCORE_TOXCORE_NET_PROFILE_H */
 
@@ -2871,8 +2871,8 @@ uint32_t tcp_copy_connected_relays_index(const TCP_Connections *tcp_c, Node_form
  */
 non_null()
 TCP_Connections *new_tcp_connections(
-        const Logger *logger, const Random *rng, const Network *ns, Mono_Time *mono_time,
-        const uint8_t *secret_key, const TCP_Proxy_Info *proxy_info);
+        const Logger *logger, const Random *rng, const Network *ns, Mono_Time *mono_time, const uint8_t *secret_key,
+        const TCP_Proxy_Info *proxy_info, Net_Profile *net_profile);
 
 non_null()
 int kill_tcp_relay_connection(TCP_Connections *tcp_c, int tcp_connections_number);
@@ -2891,13 +2891,6 @@ TCP_Connection_to *get_connection(const TCP_Connections *tcp_c, int connections_
 
 non_null()
 TCP_con *get_tcp_connection(const TCP_Connections *tcp_c, int tcp_connections_number);
-
-/** @brief Returns a pointer to the tcp client net profile associated with tcp_c.
- *
- * @retval null if tcp_c is null.
- */
-non_null()
-const Net_Profile *tcp_connection_get_client_net_profile(const TCP_Connections *tcp_c);
 
 #endif
 /* SPDX-License-Identifier: GPL-3.0-or-later
@@ -3317,7 +3310,7 @@ void load_secret_key(Net_Crypto *c, const uint8_t *sk);
  * Sets all the global connection variables to their default values.
  */
 non_null()
-Net_Crypto *new_net_crypto(const Logger *log, const Random *rng, const Network *ns, Mono_Time *mono_time, DHT *dht, const TCP_Proxy_Info *proxy_info);
+Net_Crypto *new_net_crypto(const Logger *log, const Random *rng, const Network *ns, Mono_Time *mono_time, DHT *dht, const TCP_Proxy_Info *proxy_info, Net_Profile *tcp_np);
 
 /** return the optimal interval in ms for running do_net_crypto. */
 non_null()
@@ -3340,13 +3333,6 @@ void copy_friend_ip_port(Net_Crypto *c, const int crypt_conn_id, char *report_st
 
 non_null()
 char *udp_copy_all_connected(IP_Port conn_ip_port, char *connections_report_string, uint16_t max_num, uint32_t* num);
-
-/**
- * Returns a pointer to the net profile object for the TCP client associated with `c`.
- * Returns null if `c` is null or the TCP_Connections associated with `c` is null.
- */
-non_null()
-const Net_Profile *nc_get_tcp_client_net_profile(const Net_Crypto *c);
 
 #endif
 /* SPDX-License-Identifier: GPL-3.0-or-later
@@ -3661,6 +3647,9 @@ typedef struct TCP_Connection {
 
     TCP_Priority_List *priority_queue_start;
     TCP_Priority_List *priority_queue_end;
+
+    // This is a shared pointer to the parent's respective Net_Profile object
+    // (either TCP_Server for TCP server packets or TCP_Connections for TCP client packets).
     Net_Profile *net_profile;
 } TCP_Connection;
 
@@ -3747,13 +3736,6 @@ TCP_Server *new_TCP_server(const Logger *logger, const Random *rng, const Networ
                            bool ipv6_enabled, uint16_t num_sockets, const uint16_t *ports,
                            const uint8_t *secret_key, Onion *onion, Forwarding *forwarding);
 
-/** @brief Returns a pointer to the net profile associated with `tcp_server`.
- *
- * Returns null if `tcp_server` is null.
- */
-nullable(1)
-const Net_Profile *tcp_server_get_net_profile(const TCP_Server *tcp_server);
-
 /** Run the TCP_server */
 non_null()
 void do_TCP_server(TCP_Server *tcp_server, const Mono_Time *mono_time);
@@ -3762,7 +3744,11 @@ void do_TCP_server(TCP_Server *tcp_server, const Mono_Time *mono_time);
 nullable(1)
 void kill_TCP_server(TCP_Server *tcp_server);
 
-
+/** @brief Returns a pointer to the net profile associated with `tcp_server`.
+ *
+ * Returns null if `tcp_server` is null.
+ */
+const Net_Profile *tcp_server_get_net_profile(const TCP_Server *tcp_server);
 #endif
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright © 2016-2020 The TokTok team.
@@ -4427,6 +4413,7 @@ typedef enum GC_Health {
 typedef struct GC_Session {
     Messenger                 *messenger;
     GC_Chat                   *chats;
+    Net_Profile               *tcp_np;
     struct GC_Announces_List  *announces_list;
 
     uint32_t     chats_index;
@@ -15131,6 +15118,7 @@ struct Messenger {
     const Network *ns;
 
     Networking_Core *net;
+    Net_Profile *tcp_np;
     Net_Crypto *net_crypto;
     DHT *dht;
 
@@ -35094,7 +35082,7 @@ static bool init_gc_tcp_connection(const GC_Session *c, GC_Chat *chat)
     const Messenger *m = c->messenger;
 
     chat->tcp_conn = new_tcp_connections(chat->log, chat->rng, m->ns, chat->mono_time, chat->self_secret_key,
-                                         &m->options.proxy_info);
+                                         &m->options.proxy_info, c->tcp_np);
 
     if (chat->tcp_conn == nullptr) {
         return false;
@@ -43759,9 +43747,22 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
         return nullptr;
     }
 
-    m->net_crypto = new_net_crypto(m->log, m->rng, m->ns, m->mono_time, m->dht, &options->proxy_info);
+    Net_Profile *tcp_np = netprof_new(m->log);
+    if (tcp_np == nullptr) {
+        LOGGER_WARNING(m->log, "TCP netprof initialisation failed");
+        kill_dht(m->dht);
+        kill_networking(m->net);
+        friendreq_kill(m->fr);
+        logger_kill(m->log);
+        free(m);
+        return nullptr;
+    }
+    m->tcp_np = tcp_np;
+
+    m->net_crypto = new_net_crypto(m->log, m->rng, m->ns, m->mono_time, m->dht, &options->proxy_info, m->tcp_np);
 
     if (m->net_crypto == nullptr) {
+        netprof_kill(m->tcp_np);
         kill_dht(m->dht);
         kill_networking(m->net);
         friendreq_kill(m->fr);
@@ -43774,6 +43775,7 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
     m->group_announce = new_gca_list();
 
     if (m->group_announce == nullptr) {
+        netprof_kill(m->tcp_np);
         kill_net_crypto(m->net_crypto);
         kill_dht(m->dht);
         kill_networking(m->net);
@@ -43806,6 +43808,7 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
 #ifndef VANILLA_NACL
         kill_gca(m->group_announce);
 #endif /* VANILLA_NACL */
+        netprof_kill(m->tcp_np);
         kill_friend_connections(m->fr_c);
         kill_announcements(m->announce);
         kill_forwarding(m->forwarding);
@@ -43834,6 +43837,7 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
         kill_net_crypto(m->net_crypto);
         kill_dht(m->dht);
         kill_networking(m->net);
+        netprof_kill(m->tcp_np);
         friendreq_kill(m->fr);
         logger_kill(m->log);
         free(m);
@@ -43862,6 +43866,7 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
             kill_net_crypto(m->net_crypto);
             kill_dht(m->dht);
             kill_networking(m->net);
+            netprof_kill(m->tcp_np);
             friendreq_kill(m->fr);
             logger_kill(m->log);
             free(m);
@@ -43918,6 +43923,7 @@ void kill_messenger(Messenger *m)
     kill_announcements(m->announce);
     kill_forwarding(m->forwarding);
     kill_net_crypto(m->net_crypto);
+    netprof_kill(m->tcp_np);
     kill_dht(m->dht);
     kill_networking(m->net);
 
@@ -47627,7 +47633,7 @@ void load_secret_key(Net_Crypto *c, const uint8_t *sk)
 /** @brief Create new instance of Net_Crypto.
  * Sets all the global connection variables to their default values.
  */
-Net_Crypto *new_net_crypto(const Logger *log, const Random *rng, const Network *ns, Mono_Time *mono_time, DHT *dht, const TCP_Proxy_Info *proxy_info)
+Net_Crypto *new_net_crypto(const Logger *log, const Random *rng, const Network *ns, Mono_Time *mono_time, DHT *dht, const TCP_Proxy_Info *proxy_info, Net_Profile *tcp_np)
 {
     if (dht == nullptr) {
         return nullptr;
@@ -47644,7 +47650,7 @@ Net_Crypto *new_net_crypto(const Logger *log, const Random *rng, const Network *
     temp->mono_time = mono_time;
     temp->ns = ns;
 
-    temp->tcp_c = new_tcp_connections(log, rng, ns, mono_time, dht_get_self_secret_key(dht), proxy_info);
+    temp->tcp_c = new_tcp_connections(log, rng, ns, mono_time, dht_get_self_secret_key(dht), proxy_info, tcp_np);
 
     if (temp->tcp_c == nullptr) {
         free(temp);
@@ -47727,21 +47733,6 @@ uint32_t crypto_run_interval(const Net_Crypto *c)
     return c->current_sleep_time;
 }
 
-const Net_Profile *nc_get_tcp_client_net_profile(const Net_Crypto *c)
-{
-    if (c == nullptr) {
-        return nullptr;
-    }
-
-    const TCP_Connections *tcp_c = nc_get_tcp_c(c);
-
-    if (tcp_c == nullptr) {
-        return nullptr;
-    }
-
-    return tcp_connection_get_client_net_profile(tcp_c);
-}
-
 /** Main loop. */
 void do_net_crypto(Net_Crypto *c, void *userdata)
 {
@@ -47801,6 +47792,20 @@ void kill_net_crypto(Net_Crypto *c)
 
 
 #define NETPROF_TCP_DATA_PACKET_ID 0x10
+
+typedef struct Net_Profile {
+    uint64_t packets_recv[NET_PROF_MAX_PACKET_IDS];
+    uint64_t packets_sent[NET_PROF_MAX_PACKET_IDS];
+
+    uint64_t total_packets_recv;
+    uint64_t total_packets_sent;
+
+    uint64_t bytes_recv[NET_PROF_MAX_PACKET_IDS];
+    uint64_t bytes_sent[NET_PROF_MAX_PACKET_IDS];
+
+    uint64_t total_bytes_recv;
+    uint64_t total_bytes_sent;
+} Net_Profile;
 
 /** Returns the number of sent or received packets for all ID's between `start_id` and `end_id`. */
 nullable(1)
@@ -47927,6 +47932,26 @@ uint64_t netprof_get_bytes_total(const Net_Profile *profile, Packet_Direction di
 
     return dir == PACKET_DIRECTION_SEND ? profile->total_bytes_sent : profile->total_bytes_recv;
 }
+
+Net_Profile *netprof_new(const Logger *log)
+{
+    Net_Profile *np = (Net_Profile *)calloc(1, sizeof(Net_Profile));
+
+    if (np == nullptr) {
+        LOGGER_ERROR(log, "failed to allocate memory for net profiler");
+        return nullptr;
+    }
+
+    return np;
+}
+
+void netprof_kill(Net_Profile *net_profile)
+{
+    if (net_profile != nullptr) {
+        free(net_profile);
+    }
+}
+
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright © 2016-2018 The TokTok team.
  * Copyright © 2013 Tox project.
@@ -48837,7 +48862,7 @@ struct Networking_Core {
     uint16_t port;
     /* Our UDP socket. */
     Socket sock;
-    Net_Profile udp_net_profile;
+    Net_Profile *udp_net_profile;
 };
 
 Family net_family(const Networking_Core *net)
@@ -48923,8 +48948,8 @@ int send_packet(Networking_Core *net, const IP_Port *ip_port, Packet packet)
 
     assert(res <= INT_MAX);
 
-    if (res == packet.length) {
-        netprof_record_packet(&net->udp_net_profile, packet.data[0], packet.length, PACKET_DIRECTION_SEND);
+    if (res == packet.length && packet.data != nullptr) {
+        netprof_record_packet(net->udp_net_profile, packet.data[0], packet.length, PACKET_DIRECTION_SEND);
         ESTIMATE_CPU_CYCLES(30000 + packet.length * 5); /* estimated cost of sending a UDP packet */
     }
 
@@ -49032,7 +49057,7 @@ void networking_poll(Networking_Core *net, void *userdata)
             continue;
         }
 
-        netprof_record_packet(&net->udp_net_profile, data[0], length, PACKET_DIRECTION_RECV);
+        netprof_record_packet(net->udp_net_profile, data[0], length, PACKET_DIRECTION_RECV);
         ESTIMATE_CPU_CYCLES(50000 + length * 5); /* estimated cost of receiving a UDP packet */
 
         const Packet_Handler *const handler = &net->packethandlers[data[0]];
@@ -49095,6 +49120,14 @@ Networking_Core *new_networking_ex(
         return nullptr;
     }
 
+    Net_Profile *np = netprof_new(log);
+
+    if (np == nullptr) {
+        free(temp);
+        return nullptr;
+    }
+
+    temp->udp_net_profile = np;
     temp->ns = ns;
     temp->log = log;
     temp->family = ip->family;
@@ -49110,6 +49143,7 @@ Networking_Core *new_networking_ex(
         char *strerror = net_new_strerror(neterror);
         LOGGER_ERROR(log, "failed to get a socket?! %d, %s", neterror, strerror);
         net_kill_strerror(strerror);
+        netprof_kill(temp->udp_net_profile);
         free(temp);
 
         if (error != nullptr) {
@@ -49315,7 +49349,7 @@ const Net_Profile *net_get_net_profile(const Networking_Core *net)
         return nullptr;
     }
 
-    return &net->udp_net_profile;
+    return net->udp_net_profile;
 }
 
 /** Function to cleanup networking stuff (doesn't do much right now). */
@@ -49330,6 +49364,7 @@ void kill_networking(Networking_Core *net)
         kill_sock(net->ns, net->sock);
     }
 
+    netprof_kill(net->udp_net_profile);
     free(net);
 }
 
@@ -55833,7 +55868,8 @@ struct TCP_Connections {
     bool onion_status;
     uint16_t onion_num_conns;
 
-    Net_Profile net_profile;
+    /* Network profile for all TCP client packets. */
+    Net_Profile *net_profile;
 };
 
 
@@ -56705,7 +56741,7 @@ static int reconnect_tcp_relay_connection(TCP_Connections *tcp_c, int tcp_connec
     uint8_t relay_pk[CRYPTO_PUBLIC_KEY_SIZE];
     memcpy(relay_pk, tcp_con_public_key(tcp_con->connection), CRYPTO_PUBLIC_KEY_SIZE);
     kill_TCP_connection(tcp_con->connection);
-    tcp_con->connection = new_TCP_connection(tcp_c->logger, tcp_c->mono_time, tcp_c->rng, tcp_c->ns, &ip_port, relay_pk, tcp_c->self_public_key, tcp_c->self_secret_key, &tcp_c->proxy_info, &tcp_c->net_profile);
+    tcp_con->connection = new_TCP_connection(tcp_c->logger, tcp_c->mono_time, tcp_c->rng, tcp_c->ns, &ip_port, relay_pk, tcp_c->self_public_key, tcp_c->self_secret_key, &tcp_c->proxy_info, tcp_c->net_profile);
 
     if (tcp_con->connection == nullptr) {
         kill_tcp_relay_connection(tcp_c, tcp_connections_number);
@@ -56794,7 +56830,7 @@ static int unsleep_tcp_relay_connection(TCP_Connections *tcp_c, int tcp_connecti
 
     tcp_con->connection = new_TCP_connection(
             tcp_c->logger, tcp_c->mono_time, tcp_c->rng, tcp_c->ns, &tcp_con->ip_port,
-            tcp_con->relay_pk, tcp_c->self_public_key, tcp_c->self_secret_key, &tcp_c->proxy_info, &tcp_c->net_profile);
+            tcp_con->relay_pk, tcp_c->self_public_key, tcp_c->self_secret_key, &tcp_c->proxy_info, tcp_c->net_profile);
 
     if (tcp_con->connection == nullptr) {
         kill_tcp_relay_connection(tcp_c, tcp_connections_number);
@@ -57090,7 +57126,7 @@ static int add_tcp_relay_instance(TCP_Connections *tcp_c, const IP_Port *ip_port
 
     tcp_con->connection = new_TCP_connection(
             tcp_c->logger, tcp_c->mono_time, tcp_c->rng, tcp_c->ns, &ipp_copy,
-            relay_pk, tcp_c->self_public_key, tcp_c->self_secret_key, &tcp_c->proxy_info, &tcp_c->net_profile);
+            relay_pk, tcp_c->self_public_key, tcp_c->self_secret_key, &tcp_c->proxy_info, tcp_c->net_profile);
 
     if (tcp_con->connection == nullptr) {
         return -1;
@@ -57411,7 +57447,7 @@ int set_tcp_onion_status(TCP_Connections *tcp_c, bool status)
  */
 TCP_Connections *new_tcp_connections(
         const Logger *logger, const Random *rng, const Network *ns, Mono_Time *mono_time, const uint8_t *secret_key,
-        const TCP_Proxy_Info *proxy_info)
+        const TCP_Proxy_Info *proxy_info, Net_Profile *tcp_np)
 {
     if (secret_key == nullptr) {
         return nullptr;
@@ -57423,6 +57459,7 @@ TCP_Connections *new_tcp_connections(
         return nullptr;
     }
 
+    temp->net_profile = tcp_np;
     temp->logger = logger;
     temp->rng = rng;
     temp->mono_time = mono_time;
@@ -57516,15 +57553,6 @@ static void kill_nonused_tcp(TCP_Connections *tcp_c)
             }
         }
     }
-}
-
-const Net_Profile *tcp_connection_get_client_net_profile(const TCP_Connections *tcp_c)
-{
-    if (tcp_c == nullptr) {
-        return nullptr;
-    }
-
-    return &tcp_c->net_profile;
 }
 
 void do_tcp_connections(const Logger *logger, TCP_Connections *tcp_c, void *userdata)
@@ -57630,7 +57658,8 @@ struct TCP_Server {
 
     BS_List accepted_key_list;
 
-    Net_Profile net_profile;
+    /* Network profile for all TCP server packets. */
+    Net_Profile *net_profile;
 };
 
 const uint8_t *tcp_server_public_key(const TCP_Server *tcp_server)
@@ -57773,7 +57802,7 @@ static int add_accepted(TCP_Server *tcp_server, const Mono_Time *mono_time, TCP_
     tcp_server->accepted_connection_array[index].identifier = ++tcp_server->counter;
     tcp_server->accepted_connection_array[index].last_pinged = mono_time_get(mono_time);
     tcp_server->accepted_connection_array[index].ping_id = 0;
-    tcp_server->accepted_connection_array[index].con.net_profile = &tcp_server->net_profile;
+    tcp_server->accepted_connection_array[index].con.net_profile = tcp_server->net_profile;
 
     return index;
 }
@@ -58517,6 +58546,14 @@ TCP_Server *new_TCP_server(const Logger *logger, const Random *rng, const Networ
         return nullptr;
     }
 
+    Net_Profile *np = netprof_new(logger);
+
+    if (np == nullptr) {
+        free(temp);
+        return nullptr;
+    }
+
+    temp->net_profile = np;
     temp->logger = logger;
     temp->ns = ns;
     temp->rng = rng;
@@ -58525,6 +58562,7 @@ TCP_Server *new_TCP_server(const Logger *logger, const Random *rng, const Networ
 
     if (temp->socks_listening == nullptr) {
         LOGGER_ERROR(logger, "socket allocation failed");
+        netprof_kill(temp->net_profile);
         free(temp);
         return nullptr;
     }
@@ -58534,6 +58572,7 @@ TCP_Server *new_TCP_server(const Logger *logger, const Random *rng, const Networ
 
     if (temp->efd == -1) {
         LOGGER_ERROR(logger, "epoll initialisation failed");
+        netprof_kill(temp->net_profile);
         free(temp->socks_listening);
         free(temp);
         return nullptr;
@@ -58567,6 +58606,7 @@ TCP_Server *new_TCP_server(const Logger *logger, const Random *rng, const Networ
     }
 
     if (temp->num_listening_socks == 0) {
+        netprof_kill(temp->net_profile);
         free(temp->socks_listening);
         free(temp);
         return nullptr;
@@ -58920,15 +58960,6 @@ static void do_TCP_epoll(TCP_Server *tcp_server, const Mono_Time *mono_time)
 }
 #endif
 
-const Net_Profile *tcp_server_get_net_profile(const TCP_Server *tcp_server)
-{
-    if (tcp_server == nullptr) {
-        return nullptr;
-    }
-
-    return &tcp_server->net_profile;
-}
-
 void do_TCP_server(TCP_Server *tcp_server, const Mono_Time *mono_time)
 {
 #ifdef TCP_SERVER_USE_EPOLL
@@ -58976,8 +59007,18 @@ void kill_TCP_server(TCP_Server *tcp_server)
 
     crypto_memzero(tcp_server->secret_key, sizeof(tcp_server->secret_key));
 
+    netprof_kill(tcp_server->net_profile);
     free(tcp_server->socks_listening);
     free(tcp_server);
+}
+
+const Net_Profile *tcp_server_get_net_profile(const TCP_Server *tcp_server)
+{
+    if (tcp_server == nullptr) {
+        return nullptr;
+    }
+
+    return tcp_server->net_profile;
 }
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright © 2019-2021 The TokTok team.
@@ -64808,7 +64849,7 @@ uint64_t tox_netprof_get_packet_id_count(const Tox *tox, Tox_Netprof_Packet_Type
 
     tox_lock(tox);
 
-    const Net_Profile *tcp_c_profile = nc_get_tcp_client_net_profile(tox->m->net_crypto);
+    const Net_Profile *tcp_c_profile = tox->m->tcp_np;
     const Net_Profile *tcp_s_profile = tcp_server_get_net_profile(tox->m->tcp_server);
 
     const Packet_Direction dir = (Packet_Direction) direction;
@@ -64857,7 +64898,7 @@ uint64_t tox_netprof_get_packet_total_count(const Tox *tox, Tox_Netprof_Packet_T
 
     tox_lock(tox);
 
-    const Net_Profile *tcp_c_profile = nc_get_tcp_client_net_profile(tox->m->net_crypto);
+    const Net_Profile *tcp_c_profile = tox->m->tcp_np;
     const Net_Profile *tcp_s_profile = tcp_server_get_net_profile(tox->m->tcp_server);
 
     const Packet_Direction dir = (Packet_Direction) direction;
@@ -64906,7 +64947,7 @@ uint64_t tox_netprof_get_packet_id_bytes(const Tox *tox, Tox_Netprof_Packet_Type
 
     tox_lock(tox);
 
-    const Net_Profile *tcp_c_profile = nc_get_tcp_client_net_profile(tox->m->net_crypto);
+    const Net_Profile *tcp_c_profile = tox->m->tcp_np;
     const Net_Profile *tcp_s_profile = tcp_server_get_net_profile(tox->m->tcp_server);
 
     const Packet_Direction dir = (Packet_Direction) direction;
@@ -64955,7 +64996,7 @@ uint64_t tox_netprof_get_packet_total_bytes(const Tox *tox, Tox_Netprof_Packet_T
 
     tox_lock(tox);
 
-    const Net_Profile *tcp_c_profile = nc_get_tcp_client_net_profile(tox->m->net_crypto);
+    const Net_Profile *tcp_c_profile = tox->m->tcp_np;
     const Net_Profile *tcp_s_profile = tcp_server_get_net_profile(tox->m->tcp_server);
 
     const Packet_Direction dir = (Packet_Direction) direction;

@@ -76,6 +76,9 @@ typedef struct TCP_Connection {
 
     TCP_Priority_List *priority_queue_start;
     TCP_Priority_List *priority_queue_end;
+
+    // This is a shared pointer to the parent's respective Net_Profile object
+    // (either TCP_Server for TCP server packets or TCP_Connections for TCP client packets).
     Net_Profile *net_profile;
 } TCP_Connection;
 

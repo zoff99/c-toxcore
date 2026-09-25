@@ -300,8 +300,8 @@ uint32_t tcp_copy_connected_relays_index(const TCP_Connections *tcp_c, Node_form
  */
 non_null()
 TCP_Connections *new_tcp_connections(
-        const Logger *logger, const Random *rng, const Network *ns, Mono_Time *mono_time,
-        const uint8_t *secret_key, const TCP_Proxy_Info *proxy_info);
+        const Logger *logger, const Random *rng, const Network *ns, Mono_Time *mono_time, const uint8_t *secret_key,
+        const TCP_Proxy_Info *proxy_info, Net_Profile *net_profile);
 
 non_null()
 int kill_tcp_relay_connection(TCP_Connections *tcp_c, int tcp_connections_number);
@@ -320,12 +320,5 @@ TCP_Connection_to *get_connection(const TCP_Connections *tcp_c, int connections_
 
 non_null()
 TCP_con *get_tcp_connection(const TCP_Connections *tcp_c, int tcp_connections_number);
-
-/** @brief Returns a pointer to the tcp client net profile associated with tcp_c.
- *
- * @retval null if tcp_c is null.
- */
-non_null()
-const Net_Profile *tcp_connection_get_client_net_profile(const TCP_Connections *tcp_c);
 
 #endif

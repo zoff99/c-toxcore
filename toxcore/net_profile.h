@@ -12,23 +12,13 @@
 #include <stdint.h>
 
 #include "attributes.h"
+#include "logger.h"
 
 /* The max number of packet ID's (must fit inside one byte) */
 #define NET_PROF_MAX_PACKET_IDS 256
 
-typedef struct Net_Profile {
-    uint64_t packets_recv[NET_PROF_MAX_PACKET_IDS];
-    uint64_t packets_sent[NET_PROF_MAX_PACKET_IDS];
-
-    uint64_t total_packets_recv;
-    uint64_t total_packets_sent;
-
-    uint64_t bytes_recv[NET_PROF_MAX_PACKET_IDS];
-    uint64_t bytes_sent[NET_PROF_MAX_PACKET_IDS];
-
-    uint64_t total_bytes_recv;
-    uint64_t total_bytes_sent;
-} Net_Profile;
+/* If passed to a netprof function as a nullptr the function will have no effect. */
+typedef struct Net_Profile Net_Profile;
 
 /** Specifies whether the query is for sent or received packets. */
 typedef enum Packet_Direction {
@@ -72,6 +62,17 @@ uint64_t netprof_get_bytes_id(const Net_Profile *profile, uint8_t id, Packet_Dir
  */
 nullable(1)
 uint64_t netprof_get_bytes_total(const Net_Profile *profile, Packet_Direction dir);
+
+/**
+ * Returns a new net_profile object. The caller is responsible for freeing the
+ * returned memory via `netprof_kill`.
+ */
+Net_Profile *netprof_new(const Logger *log);
+
+/**
+ * Kills a net_profile object and frees all associated memory.
+ */
+void netprof_kill(Net_Profile *net_profile);
 
 #endif  /* C_TOXCORE_TOXCORE_NET_PROFILE_H */
 

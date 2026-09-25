@@ -86,7 +86,8 @@ struct TCP_Server {
 
     BS_List accepted_key_list;
 
-    Net_Profile net_profile;
+    /* Network profile for all TCP server packets. */
+    Net_Profile *net_profile;
 };
 
 const uint8_t *tcp_server_public_key(const TCP_Server *tcp_server)
@@ -229,7 +230,7 @@ static int add_accepted(TCP_Server *tcp_server, const Mono_Time *mono_time, TCP_
     tcp_server->accepted_connection_array[index].identifier = ++tcp_server->counter;
     tcp_server->accepted_connection_array[index].last_pinged = mono_time_get(mono_time);
     tcp_server->accepted_connection_array[index].ping_id = 0;
-    tcp_server->accepted_connection_array[index].con.net_profile = &tcp_server->net_profile;
+    tcp_server->accepted_connection_array[index].con.net_profile = tcp_server->net_profile;
 
     return index;
 }
@@ -973,6 +974,14 @@ TCP_Server *new_TCP_server(const Logger *logger, const Random *rng, const Networ
         return nullptr;
     }
 
+    Net_Profile *np = netprof_new(logger);
+
+    if (np == nullptr) {
+        free(temp);
+        return nullptr;
+    }
+
+    temp->net_profile = np;
     temp->logger = logger;
     temp->ns = ns;
     temp->rng = rng;
@@ -981,6 +990,7 @@ TCP_Server *new_TCP_server(const Logger *logger, const Random *rng, const Networ
 
     if (temp->socks_listening == nullptr) {
         LOGGER_ERROR(logger, "socket allocation failed");
+        netprof_kill(temp->net_profile);
         free(temp);
         return nullptr;
     }
@@ -990,6 +1000,7 @@ TCP_Server *new_TCP_server(const Logger *logger, const Random *rng, const Networ
 
     if (temp->efd == -1) {
         LOGGER_ERROR(logger, "epoll initialisation failed");
+        netprof_kill(temp->net_profile);
         free(temp->socks_listening);
         free(temp);
         return nullptr;
@@ -1023,6 +1034,7 @@ TCP_Server *new_TCP_server(const Logger *logger, const Random *rng, const Networ
     }
 
     if (temp->num_listening_socks == 0) {
+        netprof_kill(temp->net_profile);
         free(temp->socks_listening);
         free(temp);
         return nullptr;
@@ -1376,15 +1388,6 @@ static void do_TCP_epoll(TCP_Server *tcp_server, const Mono_Time *mono_time)
 }
 #endif
 
-const Net_Profile *tcp_server_get_net_profile(const TCP_Server *tcp_server)
-{
-    if (tcp_server == nullptr) {
-        return nullptr;
-    }
-
-    return &tcp_server->net_profile;
-}
-
 void do_TCP_server(TCP_Server *tcp_server, const Mono_Time *mono_time)
 {
 #ifdef TCP_SERVER_USE_EPOLL
@@ -1432,6 +1435,16 @@ void kill_TCP_server(TCP_Server *tcp_server)
 
     crypto_memzero(tcp_server->secret_key, sizeof(tcp_server->secret_key));
 
+    netprof_kill(tcp_server->net_profile);
     free(tcp_server->socks_listening);
     free(tcp_server);
+}
+
+const Net_Profile *tcp_server_get_net_profile(const TCP_Server *tcp_server)
+{
+    if (tcp_server == nullptr) {
+        return nullptr;
+    }
+
+    return tcp_server->net_profile;
 }

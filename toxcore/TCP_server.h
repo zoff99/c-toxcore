@@ -40,13 +40,6 @@ TCP_Server *new_TCP_server(const Logger *logger, const Random *rng, const Networ
                            bool ipv6_enabled, uint16_t num_sockets, const uint16_t *ports,
                            const uint8_t *secret_key, Onion *onion, Forwarding *forwarding);
 
-/** @brief Returns a pointer to the net profile associated with `tcp_server`.
- *
- * Returns null if `tcp_server` is null.
- */
-nullable(1)
-const Net_Profile *tcp_server_get_net_profile(const TCP_Server *tcp_server);
-
 /** Run the TCP_server */
 non_null()
 void do_TCP_server(TCP_Server *tcp_server, const Mono_Time *mono_time);
@@ -55,5 +48,9 @@ void do_TCP_server(TCP_Server *tcp_server, const Mono_Time *mono_time);
 nullable(1)
 void kill_TCP_server(TCP_Server *tcp_server);
 
-
+/** @brief Returns a pointer to the net profile associated with `tcp_server`.
+ *
+ * Returns null if `tcp_server` is null.
+ */
+const Net_Profile *tcp_server_get_net_profile(const TCP_Server *tcp_server);
 #endif

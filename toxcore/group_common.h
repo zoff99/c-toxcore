@@ -15,6 +15,7 @@
 #include "DHT.h"
 #include "TCP_connection.h"
 #include "group_moderation.h"
+#include "net_profile.h"
 
 #define MAX_GC_PART_MESSAGE_SIZE 128
 #define MAX_GC_NICK_SIZE 128
@@ -370,6 +371,7 @@ typedef enum GC_Health {
 typedef struct GC_Session {
     Messenger                 *messenger;
     GC_Chat                   *chats;
+    Net_Profile               *tcp_np;
     struct GC_Announces_List  *announces_list;
 
     uint32_t     chats_index;
