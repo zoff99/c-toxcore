@@ -310,6 +310,12 @@ static int generate_handshake(TCP_Client_Connection *tcp_conn)
 
     tcp_conn->con.last_packet_length = CRYPTO_PUBLIC_KEY_SIZE + CRYPTO_NONCE_SIZE + sizeof(plain) + CRYPTO_MAC_SIZE;
     tcp_conn->con.last_packet_sent = 0;
+
+    // --- NEW: Record the TCP handshake packet ---
+    /* We use 0x1a (TOX_NETPROF_PACKET_ID_CRYPTO_HS) since the TCP handshake is essentially a cryptographic handshake */
+    netprof_record_packet(tcp_conn->con.net_profile, TOX_NETPROF_PACKET_ID_CRYPTO_HS, tcp_conn->con.last_packet_length, PACKET_DIRECTION_SEND);
+    // --- END NEW ---
+
     return 0;
 }
 
