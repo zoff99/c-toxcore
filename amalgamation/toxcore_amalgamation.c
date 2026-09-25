@@ -50289,6 +50289,7 @@ void kill_net_crypto(Net_Crypto *c)
 
 
 #include <stdint.h>
+#include <stdlib.h>
 
 
 #define NETPROF_TCP_DATA_PACKET_ID 0x10
