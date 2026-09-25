@@ -9,6 +9,7 @@
 #include "net_profile.h"
 
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "attributes.h"
 #include "ccompat.h"
