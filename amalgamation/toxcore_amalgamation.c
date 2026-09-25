@@ -403,6 +403,10 @@ void mono_time_set_current_time_callback(Mono_Time *mono_time,
 #include <stdint.h>
 
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* The max number of packet ID's (must fit inside one byte) */
 #define NET_PROF_MAX_PACKET_IDS 256
 
@@ -463,7 +467,12 @@ Net_Profile *netprof_new(const Logger *log);
  */
 void netprof_kill(Net_Profile *net_profile);
 
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
+
 #endif  /* C_TOXCORE_TOXCORE_NET_PROFILE_H */
+
 
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright © 2016-2018 The TokTok team.
