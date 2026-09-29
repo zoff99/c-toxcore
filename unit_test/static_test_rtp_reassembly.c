@@ -346,6 +346,104 @@ bool test_fill_offset_equals_length(void)
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+ * TESTS: fill_data_into_slot (additional)
+ * ═══════════════════════════════════════════════════════════════════ */
+
+bool test_fill_keyframe_flag(void)
+{
+    RTPSession *session = create_test_rtp_session();
+    T_ASSERT_PTR_NOT_NULL(session, "alloc failed");
+    
+    struct RTPHeader header = {0};
+    header.sequnum = 100;
+    header.timestamp = 12345;
+    header.data_length_full = 1000;
+    header.offset_full = 0;
+    
+    uint8_t data[1000];
+    
+    bool result = fill_data_into_slot(
+        session->tox,
+        session->work_buffer_list,
+        0,
+        true, /* is_keyframe */
+        &header,
+        data,
+        1000
+    );
+    
+    T_ASSERT_TRUE(result, "frame should complete");
+    T_ASSERT_TRUE(session->work_buffer_list->work_buffer[0].is_keyframe, "is_keyframe should be true");
+    
+    destroy_test_rtp_session(session);
+    return true;
+}
+
+bool test_fill_exact_remaining_space(void)
+{
+    RTPSession *session = create_test_rtp_session();
+    T_ASSERT_PTR_NOT_NULL(session, "alloc failed");
+    
+    struct RTPHeader header = {0};
+    header.sequnum = 400;
+    header.timestamp = 11111;
+    header.data_length_full = 1000;
+    
+    uint8_t chunk1[500];
+    uint8_t chunk2[500];
+    
+    /* First chunk: offset 0, length 500 */
+    header.offset_full = 0;
+    fill_data_into_slot(session->tox, session->work_buffer_list, 0, false, &header, chunk1, 500);
+    
+    /* Second chunk: offset 500, length 500. 
+     * Bounds check: 1000 - 500 < 500 -> 500 < 500 is FALSE -> passes */
+    header.offset_full = 500;
+    bool result = fill_data_into_slot(session->tox, session->work_buffer_list, 0, false, &header, chunk2, 500);
+    
+    T_ASSERT_TRUE(result, "packet with exact remaining space should be accepted and complete frame");
+    T_ASSERT_INT_EQ(session->work_buffer_list->work_buffer[0].received_len, 1000, "should have received all bytes");
+    
+    destroy_test_rtp_session(session);
+    return true;
+}
+
+bool test_fill_exactly_max_frame_size(void)
+{
+    RTPSession *session = create_test_rtp_session();
+    T_ASSERT_PTR_NOT_NULL(session, "alloc failed");
+    
+    struct RTPHeader header = {0};
+    header.sequnum = 100;
+    header.timestamp = 12345;
+    header.data_length_full = MAX_RTP_FRAME_SIZE;
+    header.offset_full = 0;
+    
+    uint8_t *data = (uint8_t *)calloc(1, 100); /* Just send a small chunk to test allocation */
+    T_ASSERT_PTR_NOT_NULL(data, "alloc failed");
+    
+    /* Note: This will allocate ~32MB. It should succeed and not trigger the > MAX check */
+    bool result = fill_data_into_slot(
+        session->tox,
+        session->work_buffer_list,
+        0, /* slot_id */
+        false, /* is_keyframe */
+        &header,
+        data,
+        100
+    );
+    
+    T_ASSERT_FALSE(result, "frame should not complete since only 100 of 32MB bytes sent");
+    T_ASSERT_INT_EQ(session->work_buffer_list->next_free_entry, 1, "one slot used");
+    T_ASSERT_PTR_NOT_NULL(session->work_buffer_list->work_buffer[0].buf, "slot has buffer");
+    T_ASSERT_INT_EQ(session->work_buffer_list->work_buffer[0].received_len, 100, "received 100 bytes");
+    
+    free(data);
+    destroy_test_rtp_session(session);
+    return true;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
  * TESTS: get_slot
  * ═══════════════════════════════════════════════════════════════════ */
 
@@ -416,6 +514,115 @@ bool test_get_slot_eviction_when_full(void)
     
     T_ASSERT_INT_EQ(result, GET_SLOT_RESULT_DROP_OLDEST_SLOT,
                     "should request eviction when all slots full");
+    
+    destroy_test_rtp_session(session);
+    return true;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * TESTS: get_slot (additional)
+ * ═══════════════════════════════════════════════════════════════════ */
+
+bool test_get_slot_new_frame_with_partial_slots(void)
+{
+    RTPSession *session = create_test_rtp_session();
+    T_ASSERT_PTR_NOT_NULL(session, "alloc failed");
+    
+    /* Fill 1 slot */
+    struct RTPWorkBuffer *slot = &session->work_buffer_list->work_buffer[0];
+    slot->buf = (struct RTPMessage *)calloc(1, sizeof(struct RTPMessage) + 100);
+    slot->buf->header.sequnum = 1000;
+    slot->buf->header.timestamp = 10000;
+    session->work_buffer_list->next_free_entry = 1;
+    
+    /* Try to add a new frame (not multipart) */
+    struct RTPHeader header = {0};
+    header.sequnum = 2000;
+    header.timestamp = 20000;
+    
+    int8_t result = get_slot(session->tox, session->work_buffer_list, false, &header, false);
+    
+    T_ASSERT_INT_EQ(result, 1, "should return next free entry (1)");
+    
+    destroy_test_rtp_session(session);
+    return true;
+}
+
+bool test_get_slot_multipart_miss_with_free_slot(void)
+{
+    RTPSession *session = create_test_rtp_session();
+    T_ASSERT_PTR_NOT_NULL(session, "alloc failed");
+    
+    /* Fill 1 slot */
+    struct RTPWorkBuffer *slot = &session->work_buffer_list->work_buffer[0];
+    slot->buf = (struct RTPMessage *)calloc(1, sizeof(struct RTPMessage) + 100);
+    slot->buf->header.sequnum = 1000;
+    slot->buf->header.timestamp = 10000;
+    session->work_buffer_list->next_free_entry = 1;
+    
+    /* Try to add a multipart frame that DOES NOT match slot 0 */
+    struct RTPHeader header = {0};
+    header.sequnum = 2000;
+    header.timestamp = 20000;
+    
+    int8_t result = get_slot(session->tox, session->work_buffer_list, false, &header, true);
+    
+    T_ASSERT_INT_EQ(result, 1, "should return next free entry (1) since no match found");
+    
+    destroy_test_rtp_session(session);
+    return true;
+}
+
+bool test_get_slot_multipart_miss_all_full(void)
+{
+    RTPSession *session = create_test_rtp_session();
+    T_ASSERT_PTR_NOT_NULL(session, "alloc failed");
+    
+    /* Fill all 3 slots */
+    for (int i = 0; i < USED_RTP_WORKBUFFER_COUNT; i++) {
+        struct RTPWorkBuffer *slot = &session->work_buffer_list->work_buffer[i];
+        slot->buf = (struct RTPMessage *)calloc(1, sizeof(struct RTPMessage) + 100);
+        slot->buf->header.sequnum = 1000 + i;
+        slot->buf->header.timestamp = 10000 + i;
+    }
+    session->work_buffer_list->next_free_entry = USED_RTP_WORKBUFFER_COUNT;
+    
+    /* Try to add a multipart frame that DOES NOT match any slot */
+    struct RTPHeader header = {0};
+    header.sequnum = 9999;
+    header.timestamp = 99999;
+    
+    int8_t result = get_slot(session->tox, session->work_buffer_list, false, &header, true);
+    
+    T_ASSERT_INT_EQ(result, GET_SLOT_RESULT_DROP_OLDEST_SLOT,
+                    "should request eviction when all slots full and no multipart match");
+    
+    destroy_test_rtp_session(session);
+    return true;
+}
+
+bool test_get_slot_multipart_match_last_slot(void)
+{
+    RTPSession *session = create_test_rtp_session();
+    T_ASSERT_PTR_NOT_NULL(session, "alloc failed");
+    
+    /* Fill 2 slots */
+    for (int i = 0; i < 2; i++) {
+        struct RTPWorkBuffer *slot = &session->work_buffer_list->work_buffer[i];
+        slot->buf = (struct RTPMessage *)calloc(1, sizeof(struct RTPMessage) + 100);
+        slot->buf->header.sequnum = 1000 + i;
+        slot->buf->header.timestamp = 10000 + i;
+    }
+    session->work_buffer_list->next_free_entry = 2;
+    
+    /* Try to find slot for second packet of frame in slot 1 */
+    struct RTPHeader header = {0};
+    header.sequnum = 1001;
+    header.timestamp = 10001;
+    
+    int8_t found_slot = get_slot(session->tox, session->work_buffer_list, false, &header, true);
+    
+    T_ASSERT_INT_EQ(found_slot, 1, "should find existing slot 1 for same frame");
     
     destroy_test_rtp_session(session);
     return true;
@@ -543,10 +750,17 @@ int main(void)
     RUN_TEST(test_fill_overlapping_chunks);
     RUN_TEST(test_fill_duplicate_packet);
     RUN_TEST(test_fill_offset_equals_length);
+    RUN_TEST(test_fill_keyframe_flag);
+    RUN_TEST(test_fill_exact_remaining_space);
+    RUN_TEST(test_fill_exactly_max_frame_size);
     
     RUN_TEST(test_get_slot_empty);
     RUN_TEST(test_get_slot_multipart_match);
     RUN_TEST(test_get_slot_eviction_when_full);
+    RUN_TEST(test_get_slot_new_frame_with_partial_slots);
+    RUN_TEST(test_get_slot_multipart_miss_with_free_slot);
+    RUN_TEST(test_get_slot_multipart_miss_all_full);
+    RUN_TEST(test_get_slot_multipart_match_last_slot);
     
     RUN_TEST(test_process_frame_shift);
     
