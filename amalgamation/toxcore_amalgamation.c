@@ -77295,9 +77295,10 @@ static bool fill_data_into_slot(Tox *tox, struct RTPWorkBufferList *wkbl, const 
 
     assert(header != nullptr);
 
-    if (slot->received_len == 0) {
-        assert(slot->buf == nullptr);
-
+    // FIX: Check if the buffer is null, rather than checking received_len == 0.
+    // This prevents a null pointer dereference if received_len is somehow > 0
+    // but the buffer was not allocated (e.g., due to memory corruption or edge cases).
+    if (slot->buf == nullptr) {
         if (header->data_length_full > MAX_RTP_FRAME_SIZE) {
             LOGGER_API_WARNING(tox, "RTP frame too large: %u > %u", (unsigned)header->data_length_full, (unsigned)MAX_RTP_FRAME_SIZE);
             return false;
@@ -77324,8 +77325,6 @@ static bool fill_data_into_slot(Tox *tox, struct RTPWorkBufferList *wkbl, const 
         slot->buf = msg;
         slot->is_keyframe = is_keyframe;
         slot->received_len = 0;
-
-
 
         assert(wkbl->next_free_entry < USED_RTP_WORKBUFFER_COUNT);
         ++wkbl->next_free_entry;
