@@ -443,6 +443,68 @@ bool test_fill_exactly_max_frame_size(void)
     return true;
 }
 
+bool test_fill_data_into_slot_pr3093_fix(void)
+{
+    /*
+     * This test verifies the fix from PR #3093:
+     * "fix(rtp): wrong slot used check could lead to oob"
+     * 
+     * The vulnerable code checked `if (slot->received_len == 0)` to decide 
+     * whether to allocate a new buffer. If a slot somehow had `received_len > 0` 
+     * but `buf == NULL` (e.g., due to memory corruption or edge cases), 
+     * it would skip allocation and later crash or cause OOB when accessing 
+     * `slot->buf->data`.
+     * 
+     * The fix changes the check to `if (slot->buf == NULL)`, ensuring 
+     * allocation happens whenever the buffer is missing, regardless of 
+     * the `received_len` value.
+     */
+    RTPSession *session = create_test_rtp_session();
+    T_ASSERT_PTR_NOT_NULL(session, "alloc failed");
+    
+    struct RTPHeader header = {0};
+    header.sequnum = 999;
+    header.timestamp = 88888;
+    header.data_length_full = 1000;
+    header.offset_full = 0;
+    
+    uint8_t data[500];
+    memset(data, 0x77, sizeof(data));
+    
+    /* Manually set up the slot to simulate the edge case:
+     * buf is NULL, but received_len is non-zero.
+     */
+    session->work_buffer_list->work_buffer[0].buf = NULL;
+    session->work_buffer_list->work_buffer[0].received_len = 50; /* Non-zero! */
+    session->work_buffer_list->next_free_entry = 1;
+    
+    /* This should succeed and allocate a new buffer, ignoring the bogus received_len */
+    bool result = fill_data_into_slot(
+        session->tox,
+        session->work_buffer_list,
+        0, /* slot_id */
+        false, /* is_keyframe */
+        &header,
+        data,
+        500
+    );
+    
+    /* The frame is not complete yet (only 500 of 1000 bytes received) */
+    T_ASSERT_FALSE(result, "frame should not complete yet (only 500 of 1000 bytes)");
+    
+    /* Verify that a new buffer was correctly allocated despite received_len > 0 */
+    T_ASSERT_PTR_NOT_NULL(session->work_buffer_list->work_buffer[0].buf, "buffer should have been allocated");
+    
+    /* Verify that received_len was reset and updated correctly */
+    T_ASSERT_INT_EQ(session->work_buffer_list->work_buffer[0].received_len, 500, "received_len should be reset and updated to 500");
+    
+    /* Verify data was copied correctly */
+    T_ASSERT_INT_EQ(memcmp(session->work_buffer_list->work_buffer[0].buf->data, data, 500), 0, "data should match");
+    
+    destroy_test_rtp_session(session);
+    return true;
+}
+
 /* ═══════════════════════════════════════════════════════════════════
  * TESTS: get_slot
  * ═══════════════════════════════════════════════════════════════════ */
@@ -753,6 +815,7 @@ int main(void)
     RUN_TEST(test_fill_keyframe_flag);
     RUN_TEST(test_fill_exact_remaining_space);
     RUN_TEST(test_fill_exactly_max_frame_size);
+    RUN_TEST(test_fill_data_into_slot_pr3093_fix); /* <-- ADDED: PR #3093 regression test */
     
     RUN_TEST(test_get_slot_empty);
     RUN_TEST(test_get_slot_multipart_match);
