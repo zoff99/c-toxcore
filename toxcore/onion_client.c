@@ -27,8 +27,8 @@
 #define ANNOUNCE_POPULATE_TIMEOUT_LOW 30
 
 /* Limit for reactive node pings from client_ping_nodes() */
-#define ONION_PING_NODES_MAX_PER_SECOND 40
-#define ONION_PING_NODES_MAX_PER_CALL 4
+#define ONION_PING_NODES_MAX_PER_SECOND 20
+#define ONION_PING_NODES_MAX_PER_CALL 3
 
 #define ONION_REPOPULATE_MAX_PER_SECOND 60
 
