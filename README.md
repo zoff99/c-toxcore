@@ -52,6 +52,7 @@ some of the subjects we are teaching here are:<br><br>
 - [x] fix wrong self connection status when only connected to LAN (see: https://github.com/zoff99/c-toxcore/commit/6e1c0a24b0c74575a6a23d264f41493425424e34)
 - [x] Video in NGC Groups (see: https://github.com/zoff99/c-toxcore/blob/zoff99/zoxcore_local_fork/docs/ngc_video_v2.md)
 - [x] Audio in NGC Groups (see: https://github.com/zoff99/c-toxcore/blob/zoff99/zoxcore_local_fork/docs/ngc_audio.md)
+- [x] NGC Group Persistent Peerlist (see: https://github.com/zoff99/c-toxcore/blob/zoff99/zoxcore_local_fork/ngc_ppeerlist/README.md)
 
 <br>
 Any use of this project's code by GitHub Copilot, past or present, is done
