@@ -3769,6 +3769,19 @@ void mid_on_group_delete(MidState *s, Tox *tox, uint32_t group_number)
     if (changed && cb) cb(chat_id, ud);
 }
 
+void mid_on_group_chat_delete(MidState *s, const uint8_t chat_id[TOX_GROUP_CHAT_ID_SIZE])
+{
+    if (!s || !chat_id) return;
+
+    mid_lock(s);
+    bool changed = mid_on_group_delete_internal(s, chat_id);
+    mid_peer_list_changed_cb cb = s->peer_list_changed_cb;
+    void *ud = s->peer_list_changed_user_data;
+    mid_unlock(s);
+
+    if (changed && cb) cb(chat_id, ud);
+}
+
 void mid_on_group_peer_join(MidState *s, Tox *tox, uint32_t group_number, uint32_t peer_id)
 {
     if (!s || !tox) return;

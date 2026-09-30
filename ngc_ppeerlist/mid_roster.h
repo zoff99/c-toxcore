@@ -143,10 +143,17 @@ The middleware will fetch keys, announce the client, and request the roster.
 void mid_on_group_self_join(MidState *s, Tox *tox, uint32_t group_number, const uint8_t *nickname, size_t nickname_len);
 
 /*
-Call this when the client leaves or deletes a group.
 The middleware will securely wipe keys and free the roster for this group.
+but this "legacy" function queries toxcore for the chat ID, so you must call this before toxcore deleted the group!
 */
 void mid_on_group_delete(MidState *s, Tox *tox, uint32_t group_number);
+
+/*
+Call this after the client deletes a group.
+The middleware will securely wipe keys and free the roster for this group.
+We need the chat ID here, since toxcore already has deleted the information for the group!
+*/
+void mid_on_group_chat_delete(MidState *s, const uint8_t chat_id[TOX_GROUP_CHAT_ID_SIZE]);
 
 /******************************************************************************
 Peer Event Hooks
