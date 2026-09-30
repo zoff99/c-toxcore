@@ -63,6 +63,8 @@ struct BWController_s {
     Mono_Time *bwc_mono_time;
     uint32_t packet_loss_counted_cycles;
     bool bwc_receive_active;
+    pthread_mutex_t mutex_bwc[1];
+    int refcount;
 };
 
 struct BWCMessage {
@@ -77,8 +79,16 @@ void send_update(BWController *bwc, bool force_update_now);
 
 BWController *bwc_new(Tox *tox, Mono_Time *mono_time_given, uint32_t friendnumber, m_cb *mcb, void *mcb_user_data)
 {
-    int i = 0;
     BWController *retu = (BWController *)calloc(sizeof(struct BWController_s), 1);
+
+    if (retu == nullptr) {
+        return nullptr;
+    }
+
+    if (create_recursive_mutex(retu->mutex_bwc) != 0) {
+        free(retu);
+        return nullptr;
+    }
 
     retu->mcb = mcb;
     retu->mcb_user_data = mcb_user_data;
@@ -93,19 +103,67 @@ BWController *bwc_new(Tox *tox, Mono_Time *mono_time_given, uint32_t friendnumbe
     retu->cycle.lost = 0;
     retu->cycle.recv = 0;
     retu->packet_loss_counted_cycles = 0;
+    retu->refcount = 1;  // owned by call
 
     return retu;
 }
 
-void bwc_kill(BWController *bwc)
+static BWController *bwc_ref_if_active(BWController *bwc)
 {
-    if (!bwc) {
+    if (bwc == nullptr) {
+        return nullptr;
+    }
+
+    pthread_mutex_lock(bwc->mutex_bwc);
+
+    if (!bwc->bwc_receive_active || bwc->refcount <= 0) {
+        pthread_mutex_unlock(bwc->mutex_bwc);
+        return nullptr;
+    }
+
+    bwc->refcount++;
+
+    pthread_mutex_unlock(bwc->mutex_bwc);
+
+    return bwc;
+}
+
+static void bwc_unref(BWController *bwc)
+{
+    if (bwc == nullptr) {
         return;
     }
 
+    bool do_free = false;
+
+    pthread_mutex_lock(bwc->mutex_bwc);
+
+    bwc->refcount--;
+
+    if (bwc->refcount == 0) {
+        do_free = true;
+    }
+
+    pthread_mutex_unlock(bwc->mutex_bwc);
+
+    if (do_free) {
+        pthread_mutex_destroy(bwc->mutex_bwc);
+        free(bwc);
+    }
+}
+
+void bwc_kill(BWController *bwc)
+{
+    if (bwc == nullptr) {
+        return;
+    }
+
+    pthread_mutex_lock(bwc->mutex_bwc);
     bwc->bwc_receive_active = false;
-    free(bwc);
-    bwc = nullptr;
+    pthread_mutex_unlock(bwc->mutex_bwc);
+
+    // Drop the owner reference held by the call.
+    bwc_unref(bwc);
 }
 
 void bwc_add_lost_v3(BWController *bwc, uint32_t bytes_lost, bool dummy)

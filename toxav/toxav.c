@@ -2587,46 +2587,73 @@ static ToxAVCall *call_remove(ToxAVCall *call)
         call->msi_call->av_call = nullptr;
     }
 
+    /*
+     * FIX: Lock av->toxav_endcall_mutex to synchronize with incoming packet handlers
+     * (like handle_rtp_packet -> call_get) which read av->calls under this exact lock.
+     * If we don't hold this lock here, we will trigger a data race and potential crashes.
+     */
+    pthread_mutex_lock(av->toxav_endcall_mutex);
     pthread_mutex_lock(call->toxav_call_mutex);
     LOGGER_API_DEBUG(av->tox, "call:calls[friend_number] NULL ...");
     av->calls[friend_number] = nullptr;
     pthread_mutex_unlock(call->toxav_call_mutex);
 
-    LOGGER_API_WARNING(av->tox, "call:freeing ...");
-    pthread_mutex_destroy(call->toxav_call_mutex);
-    free(call);
-    call = nullptr;
-    LOGGER_API_WARNING(av->tox, "call:freed");
-
+    /*
+     * FIX: Unlink the call from the linked list while STILL holding toxav_endcall_mutex.
+     * This ensures that no reader traversing the list sees an inconsistent state.
+     *
+     * IMPORTANT: We MUST unlink BEFORE freeing the call object. The original code
+     * freed the object first, causing a use-after-free if another thread was traversing!
+     */
     if (prev) {
         prev->next = next;
     } else if (next) {
         av->calls_head = next->friend_number;
-    } else {
-        goto CLEAR;
     }
 
     if (next) {
         next->prev = prev;
     } else if (prev) {
         av->calls_tail = prev->friend_number;
-    } else {
-        goto CLEAR;
     }
 
     LOGGER_API_INFO(av->tox, "call:remove:fnum=%d after_01:h=%d t=%d", friend_number, av->calls_head, av->calls_tail);
 
+    ToxAVCall **calls_array_to_free = nullptr;
+
+    /* If the list is now empty, prepare to free the array, but don't free it yet */
+    if (!prev && !next) {
+        av->calls_head = 0;
+        av->calls_tail = 0;
+        calls_array_to_free = av->calls;
+        av->calls = nullptr;
+
+        LOGGER_API_INFO(av->tox, "call:remove:fnum=%d after_02:h=%d t=%d", friend_number, av->calls_head, av->calls_tail);
+    }
+
+    pthread_mutex_unlock(av->toxav_endcall_mutex);
+
+    /*
+     * Now it is safe to free the av->calls array. By doing this OUTSIDE the lock,
+     * we guarantee that any reader currently inside call_get has finished its
+     * critical section and released its reference.
+     */
+    if (calls_array_to_free) {
+        free(calls_array_to_free);
+    }
+
+    /*
+     * Finally, destroy the call's own mutex and free the call object itself.
+     * This is completely safe now because the call is fully unlinked from the
+     * av->calls array and the linked list, meaning no new readers can find it.
+     */
+    LOGGER_API_WARNING(av->tox, "call:freeing ...");
+    pthread_mutex_destroy(call->toxav_call_mutex);
+    free(call);
+    call = nullptr;
+    LOGGER_API_WARNING(av->tox, "call:freed");
+
     return next;
-
-CLEAR:
-    av->calls_head = 0;
-    av->calls_tail = 0;
-    free(av->calls);
-    av->calls = nullptr;
-
-    LOGGER_API_INFO(av->tox, "call:remove:fnum=%d after_02:h=%d t=%d", friend_number, av->calls_head, av->calls_tail);
-
-    return nullptr;
 }
 
 static bool call_prepare_transmission(ToxAVCall *call)
@@ -2724,6 +2751,8 @@ static void call_kill_transmission(ToxAVCall *call)
         return;
     }
 
+    ToxAV *av = call->av;
+
     pthread_mutex_lock(call->toxav_call_mutex);
     if (call->active == 0) {
         pthread_mutex_unlock(call->toxav_call_mutex);
@@ -2736,52 +2765,79 @@ static void call_kill_transmission(ToxAVCall *call)
     pthread_mutex_unlock(call->mutex_audio);
 
     /*
-     * Destroy bwc while holding the video mutex and the call mutex in the
-     * same order as toxav_video_send_frame_age():
+     * Wait for in-flight video senders and iterate loops to finish their current work.
+     * We lock and immediately unlock to act as a memory barrier and ensure
+     * any threads currently holding these locks have released them.
+     */
+    pthread_mutex_lock(call->mutex_video);
+    pthread_mutex_unlock(call->mutex_video);
+
+    /*
+     * The incoming packet callbacks (like bwc_handle_data and handle_rtp_packet)
+     * lock av->toxav_endcall_mutex before reading call->bwc, call->audio_rtp, etc.
      *
-     *     call->mutex_video -> call->toxav_call_mutex
-     *
-     * This synchronizes with in-flight video senders and with toxav_iterate()
-     * without creating a lock-order inversion.
+     * We MUST lock av->toxav_endcall_mutex here to synchronize with those callbacks.
+     * If we don't, they could read internal pointers just before we free them,
+     * causing a data race or use-after-free.
+     */
+    pthread_mutex_lock(av->toxav_endcall_mutex);
+
+    /*
+     * Safely detach call->bwc.
+     * We hold call->mutex_video here because toxav_video_send_frame_age()
+     * accesses call->bwc under call->mutex_video. This prevents senders
+     * from reading a non-null bwc while we are tearing it down.
      */
     pthread_mutex_lock(call->mutex_video);
     pthread_mutex_lock(call->toxav_call_mutex);
-    bwc_kill(call->bwc);
+
+    BWController *bwc_copy = call->bwc;
     call->bwc = nullptr;
+
     pthread_mutex_unlock(call->toxav_call_mutex);
     pthread_mutex_unlock(call->mutex_video);
 
-    ToxAV *av = call->av;
-
-    pthread_mutex_lock(av->toxav_endcall_mutex);
-
+    /*
+     * Safely detach and destroy the rest of the RTP and codec objects.
+     * We hold call->toxav_call_mutex to protect them from concurrent API threads.
+     * We are still holding toxav_endcall_mutex to protect them from incoming packet handlers.
+     */
     pthread_mutex_lock(call->toxav_call_mutex);
+
     RTPSession *audio_rtp_copy = call->audio_rtp;
     call->audio_rtp = nullptr;
     rtp_kill(av->tox, audio_rtp_copy);
-    pthread_mutex_unlock(call->toxav_call_mutex);
 
-    pthread_mutex_lock(call->toxav_call_mutex);
     ac_kill(call->audio);
     call->audio = nullptr;
-    pthread_mutex_unlock(call->toxav_call_mutex);
 
-    pthread_mutex_lock(call->toxav_call_mutex);
     RTPSession *video_rtp_copy = call->video_rtp;
     call->video_rtp = nullptr;
     rtp_kill(av->tox, video_rtp_copy);
-    pthread_mutex_unlock(call->toxav_call_mutex);
 
-    pthread_mutex_lock(call->toxav_call_mutex);
     VCSession *vc_copy = (VCSession *)call->video;
     call->video = nullptr;
     vc_kill(vc_copy);
+
     pthread_mutex_unlock(call->toxav_call_mutex);
+
+    /*
+     * Now we can release the endcall mutex. Incoming packet handlers will
+     * either fail to acquire it (via trylock) or will get nullptr pointers
+     * and return safely.
+     */
+    pthread_mutex_unlock(av->toxav_endcall_mutex);
+
+    /*
+     * Finally, destroy the BWController outside of all critical sections
+     * so we don't block the network thread or API threads during its destruction.
+     */
+    if (bwc_copy != nullptr) {
+        bwc_kill(bwc_copy);
+    }
 
     pthread_mutex_destroy(call->mutex_audio);
     pthread_mutex_destroy(call->mutex_video);
-
-    pthread_mutex_unlock(av->toxav_endcall_mutex);
 }
 
 Mono_Time *toxav_get_av_mono_time(ToxAV *toxav)
