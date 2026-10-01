@@ -29,6 +29,7 @@
 #pragma GCC diagnostic ignored "-Wmissing-variable-declarations"
 
 #include <time.h>
+#include <pthread.h>
 
 #include "../toxcore/Messenger.h"
 
@@ -95,7 +96,8 @@ typedef struct global_msgv2_outgoing_ft_entry {
 } global_msgv2_outgoing_ft_entry;
 
 static uint16_t global_ts_ms = 0;
-static pthread_mutex_t mutex_tox_util[1];
+// FIX: Statically initialize the mutex to prevent TSAN "uninitialized/destroyed" warnings.
+static pthread_mutex_t mutex_tox_util = PTHREAD_MUTEX_INITIALIZER;
 
 // ------------ UTILS ------------
 
@@ -183,15 +185,15 @@ get_hex(char *buf, int buf_len, char *hex_, int hex_len, int num_col)
 
 static void tox_utils_list_init(tox_utils_List *l)
 {
-    pthread_mutex_lock(mutex_tox_util);
+    pthread_mutex_lock(&mutex_tox_util);
     l->size = 0;
     l->head = NULL;
-    pthread_mutex_unlock(mutex_tox_util);
+    pthread_mutex_unlock(&mutex_tox_util);
 }
 
 static void tox_utils_list_clear(tox_utils_List *l)
 {
-    pthread_mutex_lock(mutex_tox_util);
+    pthread_mutex_lock(&mutex_tox_util);
 
     tox_utils_Node *head = l->head;
     tox_utils_Node *next_ = NULL;
@@ -213,13 +215,13 @@ static void tox_utils_list_clear(tox_utils_List *l)
     l->size = 0;
     l->head = NULL;
 
-    pthread_mutex_unlock(mutex_tox_util);
+    pthread_mutex_unlock(&mutex_tox_util);
 }
 
 
 static void tox_utils_list_add(tox_utils_List *l, uint8_t *key, uint32_t key2, void *data)
 {
-    pthread_mutex_lock(mutex_tox_util);
+    pthread_mutex_lock(&mutex_tox_util);
 
     tox_utils_Node *n = (tox_utils_Node *)calloc(1, sizeof(tox_utils_Node));
 
@@ -236,19 +238,19 @@ static void tox_utils_list_add(tox_utils_List *l, uint8_t *key, uint32_t key2, v
     l->head = n;
     l->size++;
 
-    pthread_mutex_unlock(mutex_tox_util);
+    pthread_mutex_unlock(&mutex_tox_util);
 }
 
 static tox_utils_Node *tox_utils_list_get(tox_utils_List *l, uint8_t *key, uint32_t key2)
 {
-    pthread_mutex_lock(mutex_tox_util);
+    pthread_mutex_lock(&mutex_tox_util);
 
     tox_utils_Node *head = l->head;
 
     while (head) {
         if (head->key2 == key2) {
             if (check_file_signature(head->key, key, TOX_PUBLIC_KEY_SIZE) == 0) {
-                pthread_mutex_unlock(mutex_tox_util);
+                pthread_mutex_unlock(&mutex_tox_util);
                 return head;
             }
         }
@@ -256,7 +258,7 @@ static tox_utils_Node *tox_utils_list_get(tox_utils_List *l, uint8_t *key, uint3
         head = head->next;
     }
 
-    pthread_mutex_unlock(mutex_tox_util);
+    pthread_mutex_unlock(&mutex_tox_util);
     return NULL;
 }
 
@@ -298,7 +300,7 @@ static void tox_utils_list_remove_single_node(tox_utils_List *l, tox_utils_Node 
 
 static void tox_utils_list_remove(tox_utils_List *l, uint8_t *key, uint32_t key2)
 {
-    pthread_mutex_lock(mutex_tox_util);
+    pthread_mutex_lock(&mutex_tox_util);
 
     tox_utils_Node *head = l->head;
     tox_utils_Node *prev_ = NULL;
@@ -322,12 +324,12 @@ static void tox_utils_list_remove(tox_utils_List *l, uint8_t *key, uint32_t key2
         head = next_;
     }
 
-    pthread_mutex_unlock(mutex_tox_util);
+    pthread_mutex_unlock(&mutex_tox_util);
 }
 
 static void tox_utils_list_remove_2(tox_utils_List *l, uint8_t *key)
 {
-    pthread_mutex_lock(mutex_tox_util);
+    pthread_mutex_lock(&mutex_tox_util);
 
     tox_utils_Node *head = l->head;
     tox_utils_Node *prev_ = NULL;
@@ -349,7 +351,7 @@ static void tox_utils_list_remove_2(tox_utils_List *l, uint8_t *key)
         head = next_;
     }
 
-    pthread_mutex_unlock(mutex_tox_util);
+    pthread_mutex_unlock(&mutex_tox_util);
 }
 
 // ------------ UTILS ------------
@@ -496,7 +498,7 @@ static void tox_utils_housekeeping(Tox *tox)
 {
 #if 0
 
-    pthread_mutex_lock(mutex_tox_util);
+    pthread_mutex_lock(&mutex_tox_util);
 
     // cancel and clear old outgoing FTs ----------------
     tox_utils_List *l = &global_msgv2_outgoing_ft_list;
@@ -584,7 +586,7 @@ static void tox_utils_housekeeping(Tox *tox)
         head = next_;
     }
 
-    pthread_mutex_unlock(mutex_tox_util);
+    pthread_mutex_unlock(&mutex_tox_util);
 
     // cancel and clear old incoming FTs ----------------
 #endif
@@ -695,15 +697,7 @@ void tox_utils_callback_friend_read_receipt_message_v2(Tox *tox,
 
 Tox *tox_utils_new(const struct Tox_Options *options, TOX_ERR_NEW *error)
 {
-    if (pthread_mutex_init(mutex_tox_util, NULL) != 0) {
-        if (error) {
-            // TODO: find a better error code, use malloc error for now
-            *error = TOX_ERR_NEW_MALLOC;
-        }
-
-        return NULL;
-    }
-
+    // FIX: Mutex is now statically initialized, no need for pthread_mutex_init
     tox_utils_list_init(&global_friend_capability_list);
     tox_utils_list_init(&global_msgv2_incoming_ft_list);
     tox_utils_list_init(&global_msgv2_outgoing_ft_list);
@@ -720,7 +714,9 @@ void tox_utils_kill(Tox *tox)
 
     tox_kill(tox);
 
-    pthread_mutex_destroy(mutex_tox_util);
+    // FIX: Statically initialized mutexes do not require destruction.
+    // Removing pthread_mutex_destroy avoids TSAN "use of destroyed mutex" errors
+    // if toxcore fires stray callbacks during teardown.
 }
 
 bool tox_utils_friend_delete(Tox *tox, uint32_t friend_number, TOX_ERR_FRIEND_DELETE *error)
