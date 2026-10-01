@@ -123,6 +123,27 @@ static int _tests_failed = 0;
         return false; \
     } } while (0)
 
+/* ── Pointer equality macros ──────────────────────────────────── */
+#define T_ASSERT_PTR_EQ(a, b, msg) \
+    do { \
+        const void *_pa = (const void *)(a), *_pb = (const void *)(b); \
+        if (_pa != _pb) { \
+            printf(C_RED "    FAIL  %s:%d  %s  (got %p, want %p)\n" C_RESET, \
+                   __func__, __LINE__, (msg), _pa, _pb); \
+            return false; \
+        } \
+    } while (0)
+
+#define T_ASSERT_PTR_NE(a, b, msg) \
+    do { \
+        const void *_pa = (const void *)(a), *_pb = (const void *)(b); \
+        if (_pa == _pb) { \
+            printf(C_RED "    FAIL  %s:%d  %s  (both %p)\n" C_RESET, \
+                   __func__, __LINE__, (msg), _pa); \
+            return false; \
+        } \
+    } while (0)
+
 /* ── Helpers: capture child output via a pipe ─────────────────── */
 static char *_tf_read_all(int fd, size_t *out_len)
 {
