@@ -416,9 +416,6 @@ void kill_gca(GC_Announces_List *announces_list)
     free(announces_list);
 }
 
-/* How long we save a peer's announce before we consider it stale and remove it. */
-#define GCA_ANNOUNCE_SAVE_TIMEOUT 30
-
 /* How often we run do_gca() */
 #define GCA_DO_GCA_TIMEOUT 1
 
