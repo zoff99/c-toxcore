@@ -92737,13 +92737,6 @@ static const uint8_t MID_MAGIC[MID_MAGIC_BYTES_TOTAL] = {
  */
 #define MID_MAX_PACKET_PADDING  64
 
-/*
- * Maximum payload size BEFORE padding. Reserves room for the maximum padding
- * plus the 1-byte padding-length indicator so the final padded packet never
- * exceeds MID_MAX_PACKET_SIZE.
- */
-#define MID_MAX_PAYLOAD_SIZE (MID_MAX_PACKET_SIZE - MID_MAX_PACKET_PADDING - 1)
-
 #define MID_RECORD_STATUS_SIZE    sizeof(uint8_t)
 #define MID_RECORD_TIMESTAMP_SIZE sizeof(uint64_t)
 
