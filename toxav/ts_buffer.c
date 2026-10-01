@@ -253,6 +253,8 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
+#include <stdint.h>
 
 struct TSBuffer {
     uint16_t  size; /* max. number of elements in buffer [ MAX ALLOWED = (UINT16MAX - 1) !! ] */
@@ -356,7 +358,7 @@ static uint16_t tsb_delete_old_entries(TSBuffer *b, const uint64_t timestamp_thr
     for (int i = 0; i < tsb_size(b); i++) {
         current_element = (start_entry + i) % b->size;
 
-        if ((uint64_t)b->timestamp[current_element] < (uint64_t)timestamp_threshold) {
+        if ((uint64_t)b->timestamp[current_element] < timestamp_threshold) {
             tsb_close_hole(b, start_entry, current_element);
 
             if ((uint64_t)b->timestamp[current_element] < (uint64_t)b->last_timestamp_out) {
@@ -397,23 +399,26 @@ static bool tsb_return_oldest_entry_in_range(TSBuffer *b, void **p, uint64_t *da
         const uint32_t timestamp_in, const uint32_t timestamp_range)
 {
     int32_t found_element = -1;
-    uint32_t found_timestamp = UINT32_MAX;
+    uint32_t found_timestamp = 0;
     uint16_t start_entry = b->start;
     uint16_t current_element;
+    bool found_any = false;
+
+    /* FIX: Precompute bounds using int64_t to prevent overflow/underflow */
+    const int64_t lower_bound = (int64_t)timestamp_in - (int64_t)timestamp_range;
+    const int64_t upper_bound = (int64_t)timestamp_in + 1;
 
     for (int i = 0; i < tsb_size(b); i++) {
         current_element = (start_entry + i) % b->size;
 
-        if ((((int64_t)b->timestamp[current_element]) >= ((int64_t)timestamp_in - (int64_t)timestamp_range))
-                &&
-                ((int64_t)b->timestamp[current_element] <= ((int64_t)timestamp_in + (int64_t)1))) {
-            // printf("tsb_return_oldest_entry_in_range:1:%p data=%p\n", (void *)b, (void *)b->data[current_element]);
-            // timestamp of entry is in range
-            if ((int64_t)b->timestamp[current_element] < (int64_t)found_timestamp) {
-                // printf("tsb_return_oldest_entry_in_range:2:%p data=%p\n", (void *)b, (void *)b->data[current_element]);
-                // entry is older than previous found entry, or is the first found entry
-                found_timestamp = (uint32_t)b->timestamp[current_element];
+        const int64_t entry_ts = (int64_t)b->timestamp[current_element];
+
+        if (entry_ts >= lower_bound && entry_ts <= upper_bound) {
+            // FIX: Use found_any flag to correctly handle entries with timestamp == UINT32_MAX
+            if (!found_any || entry_ts < (int64_t)found_timestamp) {
+                found_timestamp = (uint32_t)entry_ts;
                 found_element = (int32_t)current_element;
+                found_any = true;
             }
         }
     }
@@ -464,20 +469,21 @@ static bool tsb_return_newest_entry_in_range(TSBuffer *b, void **p, uint64_t *da
     uint32_t found_timestamp = 0;
     uint16_t start_entry = b->start;
     uint16_t current_element;
+    bool found_any = false;
+
+    const int64_t lower_bound = (int64_t)timestamp_in - (int64_t)timestamp_range;
+    const int64_t upper_bound = (int64_t)timestamp_in + 1;
 
     for (int i = 0; i < tsb_size(b); i++) {
         current_element = (start_entry + i) % b->size;
 
-        if ((((int64_t)b->timestamp[current_element]) >= ((int64_t)timestamp_in - (int64_t)timestamp_range))
-                &&
-                ((int64_t)b->timestamp[current_element] <= ((int64_t)timestamp_in + (int64_t)1))) {
+        const int64_t entry_ts = (int64_t)b->timestamp[current_element];
 
-            // timestamp of entry is in range
-            if ((int64_t)b->timestamp[current_element] > (int64_t)found_timestamp) {
-
-                // entry is newer than previous found entry, or is the first found entry
-                found_timestamp = (uint32_t)b->timestamp[current_element];
+        if (entry_ts >= lower_bound && entry_ts <= upper_bound) {
+            if (!found_any || entry_ts > (int64_t)found_timestamp) {
+                found_timestamp = (uint32_t)entry_ts;
                 found_element = (int32_t)current_element;
+                found_any = true;
             }
         }
     }
@@ -534,9 +540,14 @@ bool tsb_read(TSBuffer *b, void **p, uint64_t *data_type, uint32_t *timestamp_ou
         return false;
     }
 
-    if ((int64_t)b->last_timestamp_out < ((int64_t)timestamp_in - (int64_t)timestamp_range)) {
+    /* FIX: Compute lower bound safely using int64_t to prevent underflow */
+    const int64_t lower_bound = (int64_t)timestamp_in - (int64_t)timestamp_range;
+
+    if ((int64_t)b->last_timestamp_out < lower_bound) {
         /* caller is missing a time range, either call more often, or increase range */
-        *is_skipping = (timestamp_in - timestamp_range) - b->last_timestamp_out;
+        /* FIX: Prevent overflow when assigning to uint16_t */
+        int64_t skip_amount = lower_bound - (int64_t)b->last_timestamp_out;
+        *is_skipping = (uint16_t)(skip_amount > UINT16_MAX ? UINT16_MAX : skip_amount);
     }
 
     bool have_found_element = tsb_return_oldest_entry_in_range(b, p, data_type,
@@ -549,7 +560,9 @@ bool tsb_read(TSBuffer *b, void **p, uint64_t *data_type, uint32_t *timestamp_ou
 
     if (have_found_element == true) {
         // only delete old entries if we found a "wanted" entry
-        uint16_t removed_entries = tsb_delete_old_entries(b, ((int64_t)timestamp_in - (int64_t)timestamp_range));
+        /* FIX: Clamp threshold to 0 if negative to prevent deleting everything */
+        uint64_t threshold = (lower_bound < 0) ? 0 : (uint64_t)lower_bound;
+        uint16_t removed_entries = tsb_delete_old_entries(b, threshold);
 
         // printf("tsb_read:%p size=%d st=%d end=%d removed_entries=%d\n", (void *)b, b->size, b->start, b->end,
         //       (int)removed_entries);
