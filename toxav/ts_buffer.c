@@ -18,7 +18,235 @@
  */
 
 /*
- * TimeStamp Buffer implementation
+ * TimeStamp Buffer (TSBuffer) — Implementation & Usage Guide
+ * ==========================================================
+ *
+ * OVERVIEW
+ * --------
+ * TSBuffer is a fixed-capacity circular (ring) buffer where each entry carries
+ * a timestamp, an opaque type tag, and a void* data pointer.  It was designed
+ * as a jitter buffer for real-time media streams (video frames in ToxAV):
+ * frames arrive out of order or with varying network delay, and the consumer
+ * asks "give me the oldest frame whose timestamp is close to X".
+ *
+ * The buffer does NOT sort entries by timestamp.  Entries are stored in
+ * insertion (ring) order.  Timestamp-based selection happens only at read time
+ * by scanning all live entries.
+ *
+ *
+ * CAPACITY
+ * --------
+ *   TSBuffer *b = tsb_new(N);
+ *
+ * Internally allocates N+1 slots.  One slot is always kept empty so the
+ * classic ring-buffer trick (start == end → empty) works.  Therefore the
+ * usable capacity is exactly N entries.
+ *
+ * Because all indices are uint16_t, the maximum safe value for N is
+ * (UINT16_MAX - 2) = 65533.  Passing a larger value causes silent wrap-around
+ * and corruption.
+ *
+ *
+ * MEMORY OWNERSHIP  —  THE CRITICAL PART
+ * --------------------------------------
+ * TSBuffer takes OWNERSHIP of every pointer you hand to tsb_write().
+ * After a successful tsb_write() you must NOT free that pointer yourself.
+ * The buffer (or a later caller) will free it.
+ *
+ *   Allocating:  ALWAYS heap-allocate (malloc / calloc) the data you pass in.
+ *                Never pass a stack pointer - the buffer will call free() on it
+ *                and you will get an ASAN "bad-free" / glibc "invalid pointer"
+ *                abort.
+ *
+ *   Freeing happens in exactly four places:
+ *
+ *   1. tsb_write() return value (EVICTED entry)
+ *      If the buffer is full when you write, the entry at the ring's `start`
+ *      position is evicted and its pointer is RETURNED to you.
+ *      You MUST free() it:
+ *
+ *          void *evicted = tsb_write(b, my_data, type, ts);
+ *          if (evicted) free(evicted);   // <-- mandatory
+ *
+ *      If the buffer was not full, NULL is returned and nothing to free.
+ *
+ *   2. tsb_read() output parameter (EXTRACTED entry)
+ *      On success the matched entry's pointer is stored in *p.
+ *      Ownership transfers to you.  You MUST free(*p) after use:
+ *
+ *          void *frame; uint64_t type; uint32_t ts_out;
+ *          uint16_t removed, skip;
+ *          if (tsb_read(b, &frame, &type, &ts_out, want_ts, range,
+ *                       &removed, &skip)) {
+ *              process(frame);
+ *              free(frame);              // <-- mandatory
+ *          }
+ *
+ *   3. Internal deletion (tsb_delete_old_entries, called by tsb_read)
+ *      After a successful read, tsb_read() silently deletes every entry whose
+ *      timestamp is strictly less than (timestamp_in - timestamp_range).
+ *      Those entries are freed INTERNALLY - you never see them and must not
+ *      try to free them.
+ *
+ *   4. tsb_drain() / tsb_kill()
+ *      tsb_drain() extracts and free()s every remaining entry.
+ *      tsb_kill() calls tsb_drain() and then frees the buffer struct itself.
+ *      After tsb_kill() the pointer is invalid - do not touch it.
+ *
+ *   Summary table:
+ *   ┌─────────────────────────┬────────────────────────────────────────────┐
+ *   │ Event                   │ Who frees the data pointer?                │
+ *   ├─────────────────────────┼────────────────────────────────────────────┤
+ *   │ tsb_write (not full)    │ Buffer owns it; freed later by read/drain  │
+ *   │ tsb_write (full)        │ Caller MUST free the returned pointer      │
+ *   │ tsb_read (match found)  │ Caller MUST free *p                        │
+ *   │ tsb_read (internal del) │ Buffer frees internally — caller never sees│
+ *   │ tsb_drain / tsb_kill    │ Buffer frees everything remaining          │
+ *   └─────────────────────────┴────────────────────────────────────────────┘
+ *
+ *
+ * WHAT GETS EVICTED ON A FULL BUFFER?
+ * -----------------------------------
+ * When the buffer is full and tsb_write() is called, the entry at the
+ * physical `start` index of the ring is evicted.  This is the OLDEST entry
+ * in INSERTION ORDER, which is NOT necessarily the entry with the smallest
+ * timestamp.  (There is a TODO in the source acknowledging this.)
+ *
+ * Example:
+ *     write(A, ts=500)   →  ring: [A]
+ *     write(B, ts=100)   →  ring: [A, B]
+ *     write(C, ts=300)   →  ring: [A, B, C]   ← buffer now full (capacity 3)
+ *     evicted = write(D, ts=400)
+ *     → evicted == A  (ts=500), NOT B (ts=100)
+ *
+ * If you need true oldest-timestamp eviction, you must handle it in the
+ * caller before writing.
+ *
+ *
+ * HOW DOES tsb_read() SELECT AN ENTRY?
+ * ------------------------------------
+ * tsb_read(b, &p, &type, &ts_out, timestamp_in, timestamp_range, ...)
+ *
+ * 1. It scans ALL live entries and collects those whose timestamp falls in
+ *    the inclusive window:
+ *
+ *        [ timestamp_in - timestamp_range ,  timestamp_in + 1 ]
+ *
+ *    Note the asymmetric bounds: the lower end is inclusive, and the upper
+ *    end is timestamp_in + 1 (also inclusive), so an entry at exactly
+ *    timestamp_in + 1 WILL match.
+ *
+ * 2. Among all matching entries, it picks the one with the SMALLEST
+ *    timestamp (the "oldest" in time).  Ties are broken by ring position
+ *    (first found wins).
+ *
+ * 3. The chosen entry is swapped into the `start` slot and extracted.
+ *
+ * 4. Then tsb_delete_old_entries() is called with
+ *    threshold = timestamp_in - timestamp_range.  Every remaining entry
+ *    with timestamp STRICTLY LESS than this threshold is deleted and freed
+ *    internally.
+ *
+ * What if there is no exact timestamp match?
+ *    → The buffer returns the closest EARLIER entry that still falls inside
+ *      the range window.  It will NEVER return an entry with a timestamp
+ *      greater than timestamp_in + 1.
+ *    → If the range window contains no entries at all, tsb_read() returns
+ *      false and *p is set to NULL.  Nothing is deleted.
+ *
+ * Example (range = 100):
+ *     entries: ts=10, ts=150, ts=250, ts=400
+ *     tsb_read(want=300, range=100)
+ *       window = [200 .. 301]
+ *       matches: ts=250  →  returned
+ *       internal delete: entries with ts < 200  →  ts=10 and ts=150 freed
+ *
+ *
+ * THE is_skipping OUTPUT
+ * ----------------------
+ * If the caller's requested window starts AFTER the last timestamp that was
+ * read (last_timestamp_out), it means some time range was never consumed.
+ * is_skipping is set to the size of that gap:
+ *
+ *     is_skipping = (timestamp_in - timestamp_range) - last_timestamp_out
+ *
+ * A non-zero value warns the caller that frames were missed.  This is
+ * informational only; the buffer does not act on it.
+ *
+ *
+ * THE removed_entries_back OUTPUT
+ * -------------------------------
+ * Despite the name, this does NOT report the total number of deleted entries.
+ * It counts only those deleted entries whose timestamp was ALSO less than
+ * last_timestamp_out (i.e. entries that were already "behind" the last
+ * consumed timestamp).  In practice this is almost always 0 because
+ * last_timestamp_out starts at 0 and timestamps are typically positive.
+ * Do not rely on this value as a general "how many were cleaned up" counter.
+ *
+ *
+ * THE type FIELD
+ * --------------
+ * The uint64_t `type` stored alongside each entry is entirely opaque to the
+ * buffer.  The caller can use it for flags, frame type (keyframe / delta),
+ * codec ID, or anything else.  It is returned unchanged by tsb_read().
+ *
+ *
+ * THREAD SAFETY
+ * -------------
+ * TSBuffer is NOT thread-safe.  All functions operate without locking.
+ * If multiple threads produce/consume entries, the caller must provide
+ * external synchronisation (e.g. pthread_mutex).  In ToxAV, vc->queue_mutex
+ * protects the TSBuffer used for incoming video frames.
+ *
+ *
+ * TYPICAL LIFECYCLE (producer/consumer pattern)
+ * ---------------------------------------------
+ *     // --- setup ---
+ *     TSBuffer *buf = tsb_new(64);           // 64-entry jitter buffer
+ *
+ *     // --- producer (network receive thread) ---
+ *     void *frame = decode_packet(pkt);      // heap-allocated!
+ *     void *evicted = tsb_write(buf, frame, flags, record_ts);
+ *     if (evicted) {
+ *         free(evicted);                     // buffer was full, drop oldest
+ *     }
+ *
+ *     // --- consumer (playback / iterate thread) ---
+ *     void *out; uint64_t type; uint32_t ts_out;
+ *     uint16_t removed, skip;
+ *     uint32_t now = current_playback_time();
+ *     if (tsb_read(buf, &out, &type, &ts_out, now, 90, &removed, &skip)) {
+ *         render_frame(out);
+ *         free(out);                         // caller owns extracted data
+ *     }
+ *
+ *     // --- teardown ---
+ *     tsb_kill(buf);                         // frees all remaining entries
+ *     buf = NULL;
+ *
+ *
+ * EDGE CASES & CAVEATS
+ * --------------------
+ * • tsb_new(0) creates a buffer of capacity 0.  It is immediately "full".
+ *   Every tsb_write() will evict and return the just-written pointer.
+ *   This is technically safe but useless.
+ *
+ * • Timestamps wrap at UINT32_MAX.  The range comparison in tsb_read()
+ *   casts to int64_t, so a small window near 0 or UINT32_MAX works
+ *   correctly.  However, a range larger than ~2^31 will produce negative
+ *   lower bounds that may match unexpectedly.
+ *
+ * • tsb_read() with range = UINT32_MAX (as used by tsb_drain) matches
+ *   every entry regardless of timestamp.
+ *
+ * • The internal deletion pass (tsb_delete_old_entries) only runs after a
+ *   SUCCESSFUL read.  If tsb_read() finds no matching entry, old entries
+ *   are NOT cleaned up, even if they are far outside the window.
+ *
+ * • Calling tsb_read() on an empty buffer is safe: it returns false and
+ *   sets *p = NULL, *removed_entries_back = 0.
+ *
+ * • Calling tsb_kill(NULL) or tsb_drain(NULL) is safe (no-op).
  */
 
 #include "ts_buffer.h"
