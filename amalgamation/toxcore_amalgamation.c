@@ -82444,7 +82444,7 @@ bool tsb_read(TSBuffer *b, void **p, uint64_t *data_type, uint32_t *timestamp_ou
 
 TSBuffer *tsb_new(const int size)
 {
-    TSBuffer *buf = (TSBuffer *)calloc(sizeof(TSBuffer), 1);
+    TSBuffer *buf = (TSBuffer *)calloc(1, sizeof(TSBuffer));
 
     if (!buf) {
         return NULL;
