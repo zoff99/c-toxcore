@@ -76793,6 +76793,7 @@ static void handle_init(MSICall *call, const MSIMessage *msg)
     return;
 FAILURE:
     send_error(call->session->tox, call->friend_number, call->error);
+    invoke_callback(call, MSI_ON_ERROR);
     kill_call(call);
 }
 
@@ -76856,6 +76857,7 @@ static void handle_push(MSICall *call, const MSIMessage *msg)
 
 FAILURE:
     send_error(call->session->tox, call->friend_number, call->error);
+    invoke_callback(call, MSI_ON_ERROR);
     kill_call(call);
 }
 
