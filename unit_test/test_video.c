@@ -1,7 +1,7 @@
 /*
  * test_video.c
  *
- * Static unit tests for video.c logic.
+ * unit tests for video.c logic.
  * 
  * NOTE: video.c is heavily coupled with ToxAV, VPX/H264 codecs, and toxcore internals.
  * To statically unit test it without pulling in the entire toxav build tree, we extract 
