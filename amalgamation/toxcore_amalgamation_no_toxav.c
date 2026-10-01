@@ -51556,9 +51556,9 @@ void kill_onion(Onion *onion)
 
 /* Limit for reactive node pings from client_ping_nodes() */
 #define ONION_PING_NODES_MAX_PER_SECOND 20
-#define ONION_PING_NODES_MAX_PER_CALL 3
+#define ONION_PING_NODES_MAX_PER_CALL 2
 
-#define ONION_REPOPULATE_MAX_PER_SECOND 50
+#define ONION_REPOPULATE_MAX_PER_SECOND 40
 
 typedef struct Onion_Node {
     uint8_t     public_key[CRYPTO_PUBLIC_KEY_SIZE];
