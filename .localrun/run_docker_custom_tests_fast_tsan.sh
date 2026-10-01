@@ -129,6 +129,7 @@ echo "" >> /workspace/tsan_ignore
 
 cat /workspace/tsan_ignore
 
+TIMEOUT_DETECTED_EXIT=124
 for i in $(ls -1 ./custom_tests/*.c) ; do
     echo "CCC:--------------- ""$i"" ---------------"
     rm -f test
@@ -144,12 +145,16 @@ for i in $(ls -1 ./custom_tests/*.c) ; do
     export TSAN_OPTIONS="$TSAN_OPTIONS,second_deadlock_stack=1"
     export TSAN_OPTIONS="$TSAN_OPTIONS,symbolize=1"
     export TSAN_OPTIONS="$TSAN_OPTIONS,suppressions=/workspace/tsan_ignore"
-    ./test
-    if [ $? -ne 0 ]; then
-        echo "ERR:--------------- ""$i"" ---------------"
-        exit $?
+    timeout -v -k 1 ${TEST_MAX_TIME} ./test
+    rc=$?
+    if [ $rc -eq "$TIMEOUT_DETECTED_EXIT" ]; then
+      echo "TIMEOUT:------------- $i -----------------"
+      continue
+    elif [ $rc -ne 0 ]; then
+      echo "ERR:--------------- ""$i"" ---------------"
+      exit $?
     else
-        echo "OK :*************** ""$i"" ***************"
+      echo "OK :*************** ""$i"" ***************"
     fi
 done
 

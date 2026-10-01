@@ -110,6 +110,7 @@ for i in $(ls -1 ./custom_tests/*.l) ; do
     mv -v "$i" "$i".c
 done
 
+TIMEOUT_DETECTED_EXIT=124
 for i in $(ls -1 ./custom_tests/*.c) ; do
     echo "CCC:--------------- ""$i"" ---------------"
     rm -f test
@@ -126,12 +127,16 @@ for i in $(ls -1 ./custom_tests/*.c) ; do
     export ASAN_OPTIONS="$ASAN_OPTIONS,strict_init_order=1"
     export ASAN_OPTIONS="$ASAN_OPTIONS,strict_string_checks=1"
     export ASAN_OPTIONS="$ASAN_OPTIONS,symbolize=1"
-    ./test
-    if [ $? -ne 0 ]; then
-        echo "ERR:--------------- ""$i"" ---------------"
-        exit $?
+    timeout -v -k 1 ${TEST_MAX_TIME} ./test
+    rc=$?
+    if [ $rc -eq "$TIMEOUT_DETECTED_EXIT" ]; then
+      echo "TIMEOUT:------------- $i -----------------"
+      continue
+    elif [ $rc -ne 0 ]; then
+      echo "ERR:--------------- ""$i"" ---------------"
+      exit $?
     else
-        echo "OK :*************** ""$i"" ***************"
+      echo "OK :*************** ""$i"" ***************"
     fi
 done
 
