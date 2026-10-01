@@ -74955,7 +74955,7 @@ void send_update(BWController *bwc, bool dummy)
     }
 }
 
-inline __attribute__((always_inline)) static int on_update(BWController *bwc, const struct BWCMessage *msg)
+inline static int on_update(BWController *bwc, const struct BWCMessage *msg)
 {
     if (!bwc) {
         return -1;
