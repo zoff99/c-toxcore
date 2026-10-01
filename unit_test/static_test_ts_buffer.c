@@ -145,19 +145,18 @@ bool test_tsb_timestamp_extremes(void)
     int *d1 = (int *)malloc(sizeof(int)); *d1 = 1;
     int *d2 = (int *)malloc(sizeof(int)); *d2 = 2;
 
-    /* Use large but not extreme timestamps to avoid edge case issues */
-    tsb_write(tsb, d1, 0, 100);
-    tsb_write(tsb, d2, 0, 1000000);
+    tsb_write(tsb, d1, 0, 0);
+    tsb_write(tsb, d2, 0, UINT32_MAX);
 
     void *p; uint64_t t; uint32_t ts; uint16_t rm, sk;
 
-    bool res = tsb_read(tsb, &p, &t, &ts, 100, 0, &rm, &sk);
-    T_ASSERT_TRUE(res, "find ts 100");
+    bool res = tsb_read(tsb, &p, &t, &ts, 0, 0, &rm, &sk);
+    T_ASSERT_TRUE(res, "find ts 0");
     T_ASSERT_PTR_EQ(p, d1, "got d1");
     free(p);
 
-    res = tsb_read(tsb, &p, &t, &ts, 1000000, 0, &rm, &sk);
-    T_ASSERT_TRUE(res, "find ts 1000000");
+    res = tsb_read(tsb, &p, &t, &ts, UINT32_MAX, 0, &rm, &sk);
+    T_ASSERT_TRUE(res, "find ts UINT32_MAX");
     T_ASSERT_PTR_EQ(p, d2, "got d2");
     free(p);
 
