@@ -13,26 +13,20 @@
 
 /*
  * The internal list functions in toxutil.c:
- *   - Always lock/unlock `mutex_tox_util` (must be initialized first)
+ *   - Always lock/unlock `mutex_tox_util` (now statically initialized via PTHREAD_MUTEX_INITIALIZER)
  *   - `tox_utils_list_remove` calls free(n->data) unconditionally
  *     → callers must pass heap-allocated data (ownership transfer)
  */
 
-/* Initialize the mutex exactly like tox_utils_new() does */
-static void init_test_mutex(void)
-{
-    pthread_mutex_init(mutex_tox_util, NULL);
-}
-
-static void destroy_test_mutex(void)
-{
-    pthread_mutex_destroy(mutex_tox_util);
-}
+/*
+ * NOTE: init_test_mutex() and destroy_test_mutex() have been removed.
+ * The mutex is now statically initialized in toxutil.c via PTHREAD_MUTEX_INITIALIZER.
+ * Calling pthread_mutex_init() on an already initialized mutex is undefined behavior,
+ * and pthread_mutex_destroy() is no longer called in tox_utils_kill().
+ */
 
 bool test_list_operations(void)
 {
-    init_test_mutex();
-
     tox_utils_List list;
     tox_utils_list_init(&list);
     T_ASSERT_INT_EQ(list.size, 0, "empty list size");
@@ -62,14 +56,11 @@ bool test_list_operations(void)
     T_ASSERT_INT_EQ(list.size, 0, "size after remove");
     T_ASSERT_PTR_NULL(list.head, "head should be NULL after remove");
 
-    destroy_test_mutex();
     return true;
 }
 
 bool test_list_multiple_entries(void)
 {
-    init_test_mutex();
-
     tox_utils_List list;
     tox_utils_list_init(&list);
 
@@ -110,14 +101,11 @@ bool test_list_multiple_entries(void)
     T_ASSERT_INT_EQ(list.size, 0, "size after clear");
     T_ASSERT_PTR_NULL(list.head, "head NULL after clear");
 
-    destroy_test_mutex();
     return true;
 }
 
 bool test_list_remove_by_key_only(void)
 {
-    init_test_mutex();
-
     tox_utils_List list;
     tox_utils_list_init(&list);
 
@@ -136,7 +124,6 @@ bool test_list_remove_by_key_only(void)
     tox_utils_list_remove_2(&list, key);
     T_ASSERT_INT_EQ(list.size, 0, "all entries with that key removed");
 
-    destroy_test_mutex();
     return true;
 }
 
@@ -172,6 +159,65 @@ bool test_globals_initialized_to_zero(void)
     return true;
 }
 
+/*
+ * Regression test for TSAN "use of an invalid mutex" crash.
+ * Previously, mutex_tox_util was dynamically initialized in tox_utils_new()
+ * and destroyed in tox_utils_kill(). This caused crashes if:
+ * 1. List functions were called before tox_utils_new().
+ * 2. Stray callbacks triggered list functions after tox_utils_kill().
+ *
+ * Now, the mutex is statically initialized via PTHREAD_MUTEX_INITIALIZER.
+ * This test verifies that list operations work perfectly WITHOUT any
+ * explicit init/destroy calls, and that we can simulate multiple
+ * "lifecycles" (tox_utils_new -> tox_utils_kill -> tox_utils_new) safely.
+ */
+bool test_static_mutex_regression(void)
+{
+    tox_utils_List list;
+    
+    /* 1. Verify it works right out of the box without any init function */
+    tox_utils_list_init(&list);
+
+    uint8_t key[TOX_PUBLIC_KEY_SIZE];
+    memset(key, 0xDD, sizeof(key));
+
+    int *data = (int *)malloc(sizeof(int));
+    *data = 999;
+
+    tox_utils_list_add(&list, key, 1, data);
+    T_ASSERT_INT_EQ(list.size, 1, "list add works with static mutex");
+
+    tox_utils_list_clear(&list);
+    T_ASSERT_INT_EQ(list.size, 0, "list clear works with static mutex");
+
+    /* 2. Simulate multiple lifecycles (what used to cause the destroyed mutex crash) */
+    for (int i = 0; i < 3; i++) {
+        /* Simulate tox_utils_new() */
+        tox_utils_list_init(&list);
+
+        int *d = (int *)malloc(sizeof(int));
+        *d = i;
+        tox_utils_list_add(&list, key, (uint32_t)i, d);
+        T_ASSERT_INT_EQ(list.size, 1, "add in lifecycle");
+
+        /* Simulate tox_utils_kill() */
+        tox_utils_list_clear(&list);
+        /* Note: NO pthread_mutex_destroy() is called anymore! */
+    }
+
+    /* 3. Verify it still works after the simulated "kills" */
+    int *final_data = (int *)malloc(sizeof(int));
+    *final_data = 777;
+    tox_utils_list_add(&list, key, 99, final_data);
+    tox_utils_Node *n = tox_utils_list_get(&list, key, 99);
+    T_ASSERT_PTR_NOT_NULL(n, "list still usable after multiple clears");
+    T_ASSERT_INT_EQ(*(int *)n->data, 777, "data intact");
+
+    tox_utils_list_clear(&list);
+    
+    return true;
+}
+
 int main(void)
 {
     TEST_SUITE("Internal static functions (toxutil list ops)");
@@ -180,6 +226,7 @@ int main(void)
     RUN_TEST(test_list_remove_by_key_only);
     RUN_TEST(test_check_file_signature);
     RUN_TEST(test_globals_initialized_to_zero);
+    RUN_TEST(test_static_mutex_regression);
     SUITE_END();
     return test_summary("static_internals");
 }
