@@ -10,7 +10,10 @@ BUILD_DIR_TSAN := _build_tsan
 
 # ── Compiler flags ───────────────────────────────────────────────
 CFLAGS     := -std=gnu11 -D_GNU_SOURCE -DTOX_HAVE_TOXUTIL -Wall -Wextra -g -O0 \
-              -I. -I../amalgamation -I../toxcore -I../toxutil -Wno-unused-parameter
+              -I. -I../amalgamation -I../toxcore -I../toxutil -Wno-unused-parameter -Wno-unused-but-set-variable \
+              -Wno-unknown-pragmas -Wno-sign-compare -Wno-type-limits -Wno-missing-field-initializers \
+              -Wno-unused-variable -Wno-array-parameter -Wno-enum-compare -Wno-calloc-transposed-args \
+              -Wno-discarded-qualifiers
 CFLAGS     += $(shell pkg-config --cflags libsodium opus vpx libavutil libavcodec x264)
 
 # ── Linker flags ─────────────────────────────────────────────────
