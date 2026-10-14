@@ -47251,32 +47251,37 @@ static void send_crypto_packets(Net_Crypto *c)
         if (c->current_sleep_time > sleep_time) {
             c->current_sleep_time = sleep_time + 1;
 
-            /* --- ADDED THROTTLED DEBUG LOGGING --- */
+            /* --- ADDED THROTTLED DEBUG LOGGING (WITH QUEUE PROOF) --- */
             if (c->current_sleep_time < 10) {
-                // Throttle: Only log once every 2000ms (2 seconds)
 
-                if (((temp_time - net_crypto_last_sub10_log_time) >= 2000) || (net_crypto_last_sub10_log_time == 0)) {
+                if (temp_time - net_crypto_last_sub10_log_time >= 2000 || net_crypto_last_sub10_log_time == 0) {
                     net_crypto_last_sub10_log_time = temp_time;
 
-                    LOGGER_WARNING(c->log, "tox_iteration_interval DROPPED to %ums due to high total_send_rate (%.1f pkts/sec)",
+                    LOGGER_WARNING(c->log, "tox_iteration_interval DROPPED to %ums (total_send_rate=%.1f pkts/sec)",
                                  c->current_sleep_time, total_send_rate);
 
-                    // Break down which connections are driving the high send rate
                     for (uint32_t dbg_i = 0; dbg_i < c->crypto_connections_length; ++dbg_i) {
                         const Crypto_Connection *dbg_conn = get_crypto_connection(c, dbg_i);
-                        if (dbg_conn != nullptr && dbg_conn->status == CRYPTO_CONN_ESTABLISHED &&
-                            dbg_conn->packet_send_rate > CRYPTO_PACKET_MIN_RATE * 1.5) {
+                        if ((dbg_conn != nullptr) && (dbg_conn->status == CRYPTO_CONN_ESTABLISHED) &&
+                            (dbg_conn->packet_send_rate > CRYPTO_PACKET_MIN_RATE * 1.5)) {
 
                             bool direct_connected = false;
                             crypto_connection_status(c, dbg_i, &direct_connected, nullptr);
 
-                            LOGGER_WARNING(c->log, "  -> conn %u (%s) contributing %.1f pkts/sec to total_send_rate",
-                                         dbg_i, direct_connected ? "UDP_DIRECT" : "TCP_RELAY", dbg_conn->packet_send_rate);
+                            // THIS IS THE PROOF: Check the actual send queue
+                            uint32_t queue_size = num_packets_array(&dbg_conn->send_array);
+
+                            LOGGER_WARNING(c->log, "  -> conn %u (%s) budget=%.1f pkts/sec | queue_size=%u (%s)",
+                                           dbg_i,
+                                           direct_connected ? "UDP_DIRECT" : "TCP_RELAY",
+                                           dbg_conn->packet_send_rate,
+                                           queue_size,
+                                           queue_size > 0 ? "ACTUALLY SENDING" : "IDLE (just probing/holding budget)");
                         }
                     }
                 }
             }
-            /* ------------------------------------ */
+            /* ------------------------------------------------------- */
         }
     }
 
