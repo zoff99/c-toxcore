@@ -2972,7 +2972,10 @@ static void send_crypto_packets(Net_Crypto *c)
                 }
             }
 
-            if (conn->packet_send_rate > CRYPTO_PACKET_MIN_RATE * 1.5) {
+            // Only force a short iteration interval if we ACTUALLY have data to send.
+            // If the queue is empty, holding a high budget shouldn't prevent the app from sleeping.
+            if ((conn->packet_send_rate > CRYPTO_PACKET_MIN_RATE * 1.5) &&
+                (num_packets_array(&conn->send_array) > 0)) {
                 total_send_rate += conn->packet_send_rate;
             }
         }
