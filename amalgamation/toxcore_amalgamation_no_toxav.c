@@ -18214,7 +18214,7 @@ bool crypto_signature_verify(const uint8_t *signature, const uint8_t *message, u
 #ifdef VANILLA_NACL
     return false;
 #else
-    ESTIMATE_CPU_CYCLES(500000 + message_length * 5); /* Ed25519 signature verification */
+    ESTIMATE_CPU_CYCLES(1000000 + message_length * 5); /* Ed25519 signature verification (2x scalar mults) */
     return crypto_sign_verify_detached(signature, message, message_length, public_key) == 0;
 #endif
 }
@@ -59182,6 +59182,8 @@ static void do_TCP_epoll(TCP_Server *tcp_server, const Mono_Time *mono_time)
 
 void do_TCP_server(TCP_Server *tcp_server, const Mono_Time *mono_time)
 {
+    ESTIMATE_CPU_CYCLES(50000); /* baseline cost of TCP server loop */
+
 #ifdef TCP_SERVER_USE_EPOLL
     do_TCP_epoll(tcp_server, mono_time);
 
