@@ -18047,8 +18047,6 @@ bool validate_sig_pk(const uint8_t *enc_pk, const uint8_t *sig_pk)
 {
     uint8_t expected_enc_pk[ENC_PUBLIC_KEY_SIZE];
 
-    ESTIMATE_CPU_CYCLES(200000); /* Ed25519 to Curve25519 public key conversion */
-
     if (crypto_sign_ed25519_pk_to_curve25519(expected_enc_pk, sig_pk) != 0) {
         return false;
     }
@@ -18446,7 +18444,6 @@ int32_t crypto_new_keypair(const Random *rng, uint8_t *public_key, uint8_t *secr
 
 void crypto_derive_public_key(uint8_t *public_key, const uint8_t *secret_key)
 {
-    ESTIMATE_CPU_CYCLES(200000); /* Curve25519 base point multiplication */
     crypto_scalarmult_curve25519_base(public_key, secret_key);
 }
 
