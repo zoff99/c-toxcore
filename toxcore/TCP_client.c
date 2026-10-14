@@ -931,6 +931,8 @@ void do_TCP_connection(const Logger *logger, const Mono_Time *mono_time,
         return;
     }
 
+    ESTIMATE_CPU_CYCLES(50000); /* baseline cost of TCP client connection loop */
+
     if (tcp_connection->status == TCP_CLIENT_PROXY_HTTP_CONNECTING) {
         if (send_pending_data(logger, &tcp_connection->con) == 0) {
             const int ret = proxy_http_read_connection_response(logger, tcp_connection);

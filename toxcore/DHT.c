@@ -2800,6 +2800,8 @@ void do_dht(DHT *dht)
         dht_connect_after_load(dht);
     }
 
+    ESTIMATE_CPU_CYCLES(200000 + dht->num_friends * 20000); /* baseline DHT loop + cost per DHT friend */
+
     do_Close(dht);
     do_dht_friends(dht);
     do_NAT(dht);

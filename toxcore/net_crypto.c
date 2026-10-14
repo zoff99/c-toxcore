@@ -3552,7 +3552,7 @@ void do_net_crypto(Net_Crypto *c, void *userdata)
             active_conns++;
         }
     }
-    ESTIMATE_CPU_CYCLES(100000 + active_conns * 80000);
+    ESTIMATE_CPU_CYCLES(100000 + active_conns * 80000); /* estimated cost of managing active crypto connections */
 #endif
 
     kill_timedout(c, userdata);
