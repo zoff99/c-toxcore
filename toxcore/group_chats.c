@@ -7423,7 +7423,7 @@ void do_gc(GC_Session *c, void *userdata)
             total_work += chat->numpeers * 50000;
         }
     }
-    ESTIMATE_CPU_CYCLES(total_work);
+    ESTIMATE_CPU_CYCLES(total_work); /* estimated cost of processing active group chats and peers */
 #endif
 
     for (uint32_t i = 0; i < c->chats_index; ++i) {

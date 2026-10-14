@@ -78,6 +78,8 @@ bool create_extended_keypair(uint8_t *pk, uint8_t *sk)
 #ifdef VANILLA_NACL
     return false;
 #else
+    ESTIMATE_CPU_CYCLES(3000000); /* extended keypair generation (Ed25519 + Curve25519 conversion) is very expensive */
+
     /* create signature key pair */
     crypto_sign_keypair(pk + ENC_PUBLIC_KEY_SIZE, sk + ENC_SECRET_KEY_SIZE);
 
@@ -109,6 +111,8 @@ void set_sig_pk(uint8_t *key, const uint8_t *sig_pk)
 bool validate_sig_pk(const uint8_t *enc_pk, const uint8_t *sig_pk)
 {
     uint8_t expected_enc_pk[ENC_PUBLIC_KEY_SIZE];
+
+    ESTIMATE_CPU_CYCLES(200000); /* Ed25519 to Curve25519 public key conversion */
 
     if (crypto_sign_ed25519_pk_to_curve25519(expected_enc_pk, sig_pk) != 0) {
         return false;
@@ -266,6 +270,7 @@ bool crypto_signature_create(uint8_t *signature, const uint8_t *message, uint64_
 #ifdef VANILLA_NACL
     return false;
 #else
+    ESTIMATE_CPU_CYCLES(500000 + message_length * 5); /* Ed25519 signature creation */
     return crypto_sign_detached(signature, nullptr, message, message_length, secret_key) == 0;
 #endif // VANILLA_NACL
 }
@@ -276,6 +281,7 @@ bool crypto_signature_verify(const uint8_t *signature, const uint8_t *message, u
 #ifdef VANILLA_NACL
     return false;
 #else
+    ESTIMATE_CPU_CYCLES(500000 + message_length * 5); /* Ed25519 signature verification */
     return crypto_sign_verify_detached(signature, message, message_length, public_key) == 0;
 #endif
 }
@@ -293,6 +299,7 @@ int32_t encrypt_precompute(const uint8_t *public_key, const uint8_t *secret_key,
     memcpy(shared_key, public_key, CRYPTO_SHARED_KEY_SIZE);
     return 0;
 #else
+    ESTIMATE_CPU_CYCLES(500000); /* ECDH scalar multiplication (Diffie-Hellman key derivation) is very expensive */
     return crypto_box_beforenm(shared_key, public_key, secret_key);
 #endif
 }
@@ -304,7 +311,7 @@ int32_t encrypt_data_symmetric(const uint8_t *shared_key, const uint8_t *nonce,
         return -1;
     }
 
-    ESTIMATE_CPU_CYCLES(10000 + length * 12);
+    ESTIMATE_CPU_CYCLES(10000 + length * 12); /* estimated cost of symmetric crypto encryption */
 
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     // Don't encrypt anything.
@@ -359,7 +366,7 @@ int32_t decrypt_data_symmetric(const uint8_t *shared_key, const uint8_t *nonce,
         return -1;
     }
 
-    ESTIMATE_CPU_CYCLES(10000 + length * 12);
+    ESTIMATE_CPU_CYCLES(10000 + length * 12); /* estimated cost of symmetric crypto decryption */
 
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     assert(length >= crypto_box_MACBYTES);
@@ -504,6 +511,7 @@ int32_t crypto_new_keypair(const Random *rng, uint8_t *public_key, uint8_t *secr
 
 void crypto_derive_public_key(uint8_t *public_key, const uint8_t *secret_key)
 {
+    ESTIMATE_CPU_CYCLES(200000); /* Curve25519 base point multiplication */
     crypto_scalarmult_curve25519_base(public_key, secret_key);
 }
 
@@ -519,6 +527,7 @@ void crypto_hmac(uint8_t auth[CRYPTO_HMAC_SIZE], const uint8_t key[CRYPTO_HMAC_K
     memcpy(auth, key, 16);
     memcpy(auth + 16, data, length < 16 ? length : 16);
 #else
+    ESTIMATE_CPU_CYCLES(10000 + length * 5); /* HMAC generation */
     crypto_auth(auth, data, length, key);
 #endif
 }
@@ -529,6 +538,7 @@ bool crypto_hmac_verify(const uint8_t auth[CRYPTO_HMAC_SIZE], const uint8_t key[
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     return memcmp(auth, key, 16) == 0 && memcmp(auth + 16, data, length < 16 ? length : 16) == 0;
 #else
+    ESTIMATE_CPU_CYCLES(15000 + length * 5); /* HMAC verification */
     return crypto_auth_verify(auth, data, length, key) == 0;
 #endif
 }
@@ -539,6 +549,7 @@ void crypto_sha256(uint8_t *hash, const uint8_t *data, size_t length)
     memset(hash, 0, CRYPTO_SHA256_SIZE);
     memcpy(hash, data, length < CRYPTO_SHA256_SIZE ? length : CRYPTO_SHA256_SIZE);
 #else
+    ESTIMATE_CPU_CYCLES(5000 + length * 5); /* SHA256 hashing */
     crypto_hash_sha256(hash, data, length);
 #endif
 }
@@ -549,6 +560,7 @@ void crypto_sha512(uint8_t *hash, const uint8_t *data, size_t length)
     memset(hash, 0, CRYPTO_SHA512_SIZE);
     memcpy(hash, data, length < CRYPTO_SHA512_SIZE ? length : CRYPTO_SHA512_SIZE);
 #else
+    ESTIMATE_CPU_CYCLES(5000 + length * 5); /* SHA512 hashing */
     crypto_hash_sha512(hash, data, length);
 #endif
 }

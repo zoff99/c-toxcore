@@ -980,6 +980,8 @@ void do_friend_connections(Friend_Connections *fr_c, void *userdata)
 {
     const uint64_t temp_time = mono_time_get(fr_c->mono_time);
 
+    ESTIMATE_CPU_CYCLES(fr_c->num_cons * 10000); /* estimated cost of iterating friend connections */
+
     for (uint32_t i = 0; i < fr_c->num_cons; ++i) {
         Friend_Conn *const friend_con = get_conn(fr_c, i);
 

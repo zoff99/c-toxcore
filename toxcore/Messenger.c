@@ -2920,6 +2920,8 @@ static void do_friends(Messenger *m, void *userdata)
 {
     const uint64_t temp_time = mono_time_get(m->mono_time);
 
+    ESTIMATE_CPU_CYCLES(m->numfriends * 10000); /* estimated cost of processing friends loop */
+
     for (uint32_t i = 0; i < m->numfriends; ++i) {
         if (m->friendlist[i].status == FRIEND_ADDED) {
             const int fr = send_friend_request_packet(m->fr_c, m->friendlist[i].friendcon_id, m->friendlist[i].friendrequest_nospam,
@@ -3096,8 +3098,7 @@ static void do_gc_onion_friends(const Messenger *m)
 {
     const uint16_t num_friends = onion_get_friend_count(m->onion_c);
 
-    /* Iterating the friend list is very cheap (just pointer math and memcmp) */
-    ESTIMATE_CPU_CYCLES(num_friends * 1000);
+    ESTIMATE_CPU_CYCLES(num_friends * 1000); /* estimated cost of iterating onion friends (just pointer math and memcmp) */
 
     for (uint16_t i = 0; i < num_friends; ++i) {
         Onion_Friend *onion_friend = onion_get_friend(m->onion_c, i);
@@ -3115,8 +3116,7 @@ static void do_gc_onion_friends(const Messenger *m)
         if (chat->update_self_announces) {
             self_announce_group(m, chat, onion_friend);
 
-            /* self_announce_group involves packing announce data and updating lists */
-            ESTIMATE_CPU_CYCLES(20000);
+            ESTIMATE_CPU_CYCLES(20000); /* estimated cost of packing announce data and updating lists */
         }
     }
 }
@@ -3341,6 +3341,8 @@ void do_messenger(Messenger *m, void *userdata)
             }
         }
     }
+
+    ESTIMATE_CPU_CYCLES(50000); /* baseline cost of messenger loop overhead */
 
 #ifdef DEBUG_DO_MESSENGER
         xttt12 = current_time_monotonic(m->mono_time);

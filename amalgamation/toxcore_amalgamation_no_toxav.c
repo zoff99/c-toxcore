@@ -18013,6 +18013,8 @@ bool create_extended_keypair(uint8_t *pk, uint8_t *sk)
 #ifdef VANILLA_NACL
     return false;
 #else
+    ESTIMATE_CPU_CYCLES(3000000); /* extended keypair generation (Ed25519 + Curve25519 conversion) is very expensive */
+
     /* create signature key pair */
     crypto_sign_keypair(pk + ENC_PUBLIC_KEY_SIZE, sk + ENC_SECRET_KEY_SIZE);
 
@@ -18044,6 +18046,8 @@ void set_sig_pk(uint8_t *key, const uint8_t *sig_pk)
 bool validate_sig_pk(const uint8_t *enc_pk, const uint8_t *sig_pk)
 {
     uint8_t expected_enc_pk[ENC_PUBLIC_KEY_SIZE];
+
+    ESTIMATE_CPU_CYCLES(200000); /* Ed25519 to Curve25519 public key conversion */
 
     if (crypto_sign_ed25519_pk_to_curve25519(expected_enc_pk, sig_pk) != 0) {
         return false;
@@ -18201,6 +18205,7 @@ bool crypto_signature_create(uint8_t *signature, const uint8_t *message, uint64_
 #ifdef VANILLA_NACL
     return false;
 #else
+    ESTIMATE_CPU_CYCLES(500000 + message_length * 5); /* Ed25519 signature creation */
     return crypto_sign_detached(signature, nullptr, message, message_length, secret_key) == 0;
 #endif // VANILLA_NACL
 }
@@ -18211,6 +18216,7 @@ bool crypto_signature_verify(const uint8_t *signature, const uint8_t *message, u
 #ifdef VANILLA_NACL
     return false;
 #else
+    ESTIMATE_CPU_CYCLES(500000 + message_length * 5); /* Ed25519 signature verification */
     return crypto_sign_verify_detached(signature, message, message_length, public_key) == 0;
 #endif
 }
@@ -18228,6 +18234,7 @@ int32_t encrypt_precompute(const uint8_t *public_key, const uint8_t *secret_key,
     memcpy(shared_key, public_key, CRYPTO_SHARED_KEY_SIZE);
     return 0;
 #else
+    ESTIMATE_CPU_CYCLES(500000); /* ECDH scalar multiplication (Diffie-Hellman key derivation) is very expensive */
     return crypto_box_beforenm(shared_key, public_key, secret_key);
 #endif
 }
@@ -18239,7 +18246,7 @@ int32_t encrypt_data_symmetric(const uint8_t *shared_key, const uint8_t *nonce,
         return -1;
     }
 
-    ESTIMATE_CPU_CYCLES(10000 + length * 12);
+    ESTIMATE_CPU_CYCLES(10000 + length * 12); /* estimated cost of symmetric crypto encryption */
 
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     // Don't encrypt anything.
@@ -18294,7 +18301,7 @@ int32_t decrypt_data_symmetric(const uint8_t *shared_key, const uint8_t *nonce,
         return -1;
     }
 
-    ESTIMATE_CPU_CYCLES(10000 + length * 12);
+    ESTIMATE_CPU_CYCLES(10000 + length * 12); /* estimated cost of symmetric crypto decryption */
 
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     assert(length >= crypto_box_MACBYTES);
@@ -18439,6 +18446,7 @@ int32_t crypto_new_keypair(const Random *rng, uint8_t *public_key, uint8_t *secr
 
 void crypto_derive_public_key(uint8_t *public_key, const uint8_t *secret_key)
 {
+    ESTIMATE_CPU_CYCLES(200000); /* Curve25519 base point multiplication */
     crypto_scalarmult_curve25519_base(public_key, secret_key);
 }
 
@@ -18454,6 +18462,7 @@ void crypto_hmac(uint8_t auth[CRYPTO_HMAC_SIZE], const uint8_t key[CRYPTO_HMAC_K
     memcpy(auth, key, 16);
     memcpy(auth + 16, data, length < 16 ? length : 16);
 #else
+    ESTIMATE_CPU_CYCLES(10000 + length * 5); /* HMAC generation */
     crypto_auth(auth, data, length, key);
 #endif
 }
@@ -18464,6 +18473,7 @@ bool crypto_hmac_verify(const uint8_t auth[CRYPTO_HMAC_SIZE], const uint8_t key[
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     return memcmp(auth, key, 16) == 0 && memcmp(auth + 16, data, length < 16 ? length : 16) == 0;
 #else
+    ESTIMATE_CPU_CYCLES(15000 + length * 5); /* HMAC verification */
     return crypto_auth_verify(auth, data, length, key) == 0;
 #endif
 }
@@ -18474,6 +18484,7 @@ void crypto_sha256(uint8_t *hash, const uint8_t *data, size_t length)
     memset(hash, 0, CRYPTO_SHA256_SIZE);
     memcpy(hash, data, length < CRYPTO_SHA256_SIZE ? length : CRYPTO_SHA256_SIZE);
 #else
+    ESTIMATE_CPU_CYCLES(5000 + length * 5); /* SHA256 hashing */
     crypto_hash_sha256(hash, data, length);
 #endif
 }
@@ -18484,6 +18495,7 @@ void crypto_sha512(uint8_t *hash, const uint8_t *data, size_t length)
     memset(hash, 0, CRYPTO_SHA512_SIZE);
     memcpy(hash, data, length < CRYPTO_SHA512_SIZE ? length : CRYPTO_SHA512_SIZE);
 #else
+    ESTIMATE_CPU_CYCLES(5000 + length * 5); /* SHA512 hashing */
     crypto_hash_sha512(hash, data, length);
 #endif
 }
@@ -21330,6 +21342,8 @@ void do_dht(DHT *dht)
         dht_connect_after_load(dht);
     }
 
+    ESTIMATE_CPU_CYCLES(200000 + dht->num_friends * 20000); /* baseline DHT loop + cost per DHT friend */
+
     do_Close(dht);
     do_dht_friends(dht);
     do_NAT(dht);
@@ -23020,6 +23034,8 @@ static void lan_discovery(Friend_Connections *fr_c)
 void do_friend_connections(Friend_Connections *fr_c, void *userdata)
 {
     const uint64_t temp_time = mono_time_get(fr_c->mono_time);
+
+    ESTIMATE_CPU_CYCLES(fr_c->num_cons * 10000); /* estimated cost of iterating friend connections */
 
     for (uint32_t i = 0; i < fr_c->num_cons; ++i) {
         Friend_Conn *const friend_con = get_conn(fr_c, i);
@@ -34998,7 +35014,7 @@ void do_gc(GC_Session *c, void *userdata)
             total_work += chat->numpeers * 50000;
         }
     }
-    ESTIMATE_CPU_CYCLES(total_work);
+    ESTIMATE_CPU_CYCLES(total_work); /* estimated cost of processing active group chats and peers */
 #endif
 
     for (uint32_t i = 0; i < c->chats_index; ++i) {
@@ -42479,6 +42495,8 @@ static void do_friends(Messenger *m, void *userdata)
 {
     const uint64_t temp_time = mono_time_get(m->mono_time);
 
+    ESTIMATE_CPU_CYCLES(m->numfriends * 10000); /* estimated cost of processing friends loop */
+
     for (uint32_t i = 0; i < m->numfriends; ++i) {
         if (m->friendlist[i].status == FRIEND_ADDED) {
             const int fr = send_friend_request_packet(m->fr_c, m->friendlist[i].friendcon_id, m->friendlist[i].friendrequest_nospam,
@@ -42655,8 +42673,7 @@ static void do_gc_onion_friends(const Messenger *m)
 {
     const uint16_t num_friends = onion_get_friend_count(m->onion_c);
 
-    /* Iterating the friend list is very cheap (just pointer math and memcmp) */
-    ESTIMATE_CPU_CYCLES(num_friends * 1000);
+    ESTIMATE_CPU_CYCLES(num_friends * 1000); /* estimated cost of iterating onion friends (just pointer math and memcmp) */
 
     for (uint16_t i = 0; i < num_friends; ++i) {
         Onion_Friend *onion_friend = onion_get_friend(m->onion_c, i);
@@ -42674,8 +42691,7 @@ static void do_gc_onion_friends(const Messenger *m)
         if (chat->update_self_announces) {
             self_announce_group(m, chat, onion_friend);
 
-            /* self_announce_group involves packing announce data and updating lists */
-            ESTIMATE_CPU_CYCLES(20000);
+            ESTIMATE_CPU_CYCLES(20000); /* estimated cost of packing announce data and updating lists */
         }
     }
 }
@@ -42900,6 +42916,8 @@ void do_messenger(Messenger *m, void *userdata)
             }
         }
     }
+
+    ESTIMATE_CPU_CYCLES(50000); /* baseline cost of messenger loop overhead */
 
 #ifdef DEBUG_DO_MESSENGER
         xttt12 = current_time_monotonic(m->mono_time);
@@ -47797,7 +47815,7 @@ void do_net_crypto(Net_Crypto *c, void *userdata)
             active_conns++;
         }
     }
-    ESTIMATE_CPU_CYCLES(100000 + active_conns * 80000);
+    ESTIMATE_CPU_CYCLES(100000 + active_conns * 80000); /* estimated cost of managing active crypto connections */
 #endif
 
     kill_timedout(c, userdata);
@@ -55608,6 +55626,8 @@ void do_TCP_connection(const Logger *logger, const Mono_Time *mono_time,
     if (tcp_connection->status == TCP_CLIENT_DISCONNECTED) {
         return;
     }
+
+    ESTIMATE_CPU_CYCLES(50000); /* baseline cost of TCP client connection loop */
 
     if (tcp_connection->status == TCP_CLIENT_PROXY_HTTP_CONNECTING) {
         if (send_pending_data(logger, &tcp_connection->con) == 0) {
