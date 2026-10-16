@@ -3040,6 +3040,11 @@ static int validate_unpack_mod_list(GC_Chat *chat, const uint8_t *data, uint16_t
         return -1;
     }
 
+    // Refuse until a founder-signed hash to check the mod list against.
+    if (chat->shared_state.version == 0) {
+        return 1;
+    }
+
     uint8_t mod_list_hash[MOD_MODERATION_HASH_SIZE] = {0};
 
     if (length > 0) {
@@ -3047,8 +3052,7 @@ static int validate_unpack_mod_list(GC_Chat *chat, const uint8_t *data, uint16_t
     }
 
     // we make sure that this mod list's hash matches the one we got in our last shared state update
-    if (chat->shared_state.version > 0
-            && memcmp(mod_list_hash, chat->shared_state.mod_list_hash, MOD_MODERATION_HASH_SIZE) != 0) {
+    if (memcmp(mod_list_hash, chat->shared_state.mod_list_hash, MOD_MODERATION_HASH_SIZE) != 0) {
         LOGGER_WARNING(chat->log, "failed to validate mod list hash");
         return 1;
     }
