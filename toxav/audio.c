@@ -332,12 +332,12 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
             || rc == AUDIO_LOST_FRAME_INDICATOR) {
         pthread_mutex_unlock(ac->queue_mutex);
 
-        LOGGER_API_DEBUG(ac->tox, "A:TSB:%d", (int)tsb_size(jbuffer));
-        LOGGER_API_DEBUG(ac->tox, "TOXAV:A2V_DELAY:(pos==audio-before-video)%d", (int)(*a_r_timestamp - *v_r_timestamp));
+        LOGGER_API_WARNING(ac->tox, "A:TSB:%d", (int)tsb_size(jbuffer));
+        LOGGER_API_WARNING(ac->tox, "TOXAV:A2V_DELAY:(pos==audio-before-video)%d", (int)(*a_r_timestamp - *v_r_timestamp));
 
 
         if (rc == AUDIO_LOST_FRAME_INDICATOR) {
-            LOGGER_API_DEBUG(ac->tox, "OPUS correction for lost frame (3)");
+            LOGGER_API_WARNING(ac->tox, "OPUS correction for lost frame (3)");
 
             if (ac->lp_sampling_rate > 0) {
                 int fs = (ac->lp_sampling_rate * ac->lp_frame_duration) / 1000;
@@ -409,13 +409,13 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
                         *a_l_timestamp = current_time_monotonic(ac->mono_time);
                     } else {
                         // TODO: this should not happen here!
-                        LOGGER_API_DEBUG(ac->tox, "AUDIO: remote timestamp older");
+                        LOGGER_API_WARNING(ac->tox, "AUDIO: remote timestamp older");
                     }
                 }
 
                 // what is the audio to video latency?
             } else {
-                LOGGER_API_DEBUG(ac->tox, "AUDIO: rc=%d", (int)rc);
+                LOGGER_API_WARNING(ac->tox, "AUDIO: rc=%d", (int)rc);
             }
 
 #endif
@@ -427,19 +427,19 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
             msg = NULL;
         }
 
-        LOGGER_API_DEBUG(ac->tox, "AUDIO: iterate 001");
+        LOGGER_API_WARNING(ac->tox, "AUDIO: iterate 001");
         if (rc < 0) {
             LOGGER_API_WARNING(ac->tox, "Decoding error: %s", opus_strerror(rc));
         } else {
-            LOGGER_API_DEBUG(ac->tox, "AUDIO: iterate 002");
+            LOGGER_API_WARNING(ac->tox, "AUDIO: iterate 002");
             if (ac->acb_pts) {
-                LOGGER_API_DEBUG(ac->tox, "AUDIO: iterate 003:acb_pts");
+                LOGGER_API_WARNING(ac->tox, "AUDIO: iterate 003:acb_pts");
                 ac->lp_frame_duration = (rc * 1000) / ac->lp_sampling_rate;
                 ac->acb_pts(ac->av, ac->friend_number, ac->temp_audio_buffer, rc, ac->lp_channel_count,
                         ac->lp_sampling_rate, ac->acb_pts_user_data, header_pts_saved);
                 return ret_value;
             } else if (ac->acb) {
-                LOGGER_API_DEBUG(ac->tox, "AUDIO: iterate 003:acb");
+                LOGGER_API_WARNING(ac->tox, "AUDIO: iterate 003:acb");
                 ac->lp_frame_duration = (rc * 1000) / ac->lp_sampling_rate;
                 ac->acb(ac->av, ac->friend_number, ac->temp_audio_buffer, rc, ac->lp_channel_count,
                         ac->lp_sampling_rate, ac->acb_user_data);
@@ -447,15 +447,15 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
             }
         }
 
-        LOGGER_API_DEBUG(ac->tox, "AUDIO: iterate ret:002");
+        LOGGER_API_WARNING(ac->tox, "AUDIO: iterate ret:002");
         return ret_value;
     }
 
-    LOGGER_API_DEBUG(ac->tox, "AUDIO: iterate mutes:002");
+    LOGGER_API_WARNING(ac->tox, "AUDIO: iterate mutes:002");
     pthread_mutex_unlock(ac->queue_mutex);
-    LOGGER_API_DEBUG(ac->tox, "AUDIO: iterate mutes:003");
+    LOGGER_API_WARNING(ac->tox, "AUDIO: iterate mutes:003");
 
-    LOGGER_API_DEBUG(ac->tox, "AUDIO: iterate ret:099");
+    LOGGER_API_WARNING(ac->tox, "AUDIO: iterate ret:099");
     return ret_value;
 }
 
