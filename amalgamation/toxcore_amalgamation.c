@@ -49754,14 +49754,13 @@ static void send_crypto_packets(Net_Crypto *c)
         if (c->current_sleep_time > sleep_time) {
             c->current_sleep_time = sleep_time + 1;
 
-#if 0
             /* --- ADDED THROTTLED DEBUG LOGGING (WITH QUEUE PROOF) --- */
             if (c->current_sleep_time < 10) {
 
                 if (temp_time - net_crypto_last_sub10_log_time >= 2000 || net_crypto_last_sub10_log_time == 0) {
                     net_crypto_last_sub10_log_time = temp_time;
 
-                    LOGGER_DEBUG(c->log, "tox_iteration_interval DROPPED to %ums (total_send_rate=%.1f pkts/sec)",
+                    LOGGER_WARNING(c->log, "tox_iteration_interval DROPPED to %ums (total_send_rate=%.1f pkts/sec)",
                                  c->current_sleep_time, total_send_rate);
 
                     for (uint32_t dbg_i = 0; dbg_i < c->crypto_connections_length; ++dbg_i) {
@@ -49775,18 +49774,17 @@ static void send_crypto_packets(Net_Crypto *c)
                             // THIS IS THE PROOF: Check the actual send queue
                             uint32_t queue_size = num_packets_array(&dbg_conn->send_array);
 
-                            LOGGER_DEBUG(c->log, "  -> conn %u (%s) budget=%.1f pkts/sec | queue_size=%u (%s)",
-                                         dbg_i,
-                                         direct_connected ? "UDP_DIRECT" : "TCP_RELAY",
-                                         dbg_conn->packet_send_rate,
-                                         queue_size,
-                                         queue_size > 0 ? "ACTUALLY SENDING" : "IDLE (just probing/holding budget)");
+                            LOGGER_WARNING(c->log, "  -> conn %u (%s) budget=%.1f pkts/sec | queue_size=%u (%s)",
+                                           dbg_i,
+                                           direct_connected ? "UDP_DIRECT" : "TCP_RELAY",
+                                           dbg_conn->packet_send_rate,
+                                           queue_size,
+                                           queue_size > 0 ? "ACTUALLY SENDING" : "IDLE (just probing/holding budget)");
                         }
                     }
                 }
             }
             /* ------------------------------------------------------- */
-#endif
         }
     }
 
@@ -74258,7 +74256,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     int64_t want_remote_video_ts = (current_time_monotonic(ac->mono_time) +
                                     timestamp_difference_to_sender_ +
                                     timestamp_difference_adjustment_for_audio2);
-    LOGGER_API_WARNING(ac->tox, "want_remote_video_ts:a:002=%d, %d %d %d",
+    LOGGER_API_DEBUG(ac->tox, "want_remote_video_ts:a:002=%d, %d %d %d",
             (int)want_remote_video_ts,
             (int)current_time_monotonic(ac->mono_time),
             (int)timestamp_difference_to_sender_,
@@ -74276,7 +74274,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     // HINT: compensate for older clients ----------------
     //       or when only receiving audio (no incoming video)
     if ((encoder_frame_has_record_timestamp == 0) || (video_send_cap == 0)) {
-        LOGGER_API_WARNING(ac->tox, "old client:003");
+        LOGGER_API_DEBUG(ac->tox, "old client:003");
         tsb_range_ms = UINT32_MAX;
         want_remote_video_ts = UINT32_MAX;
     }
@@ -74291,7 +74289,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     tsb_get_range_in_buffer(ac->tox, q, &timestamp_min, &timestamp_max);
 
     if ((int)tsb_size(q) > 0) {
-        LOGGER_API_WARNING(ac->tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d",
+        LOGGER_API_DEBUG(ac->tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d",
                        (int)tsb_size(q),
                        timestamp_min,
                        timestamp_max,
@@ -74313,7 +74311,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
         (video_has_rountrip_time_ms == 0)
         )
     {
-        LOGGER_API_WARNING(ac->tox, "AA:%d %d", (int)ac->audio_received_first_frame, (int)video_has_rountrip_time_ms);
+        LOGGER_API_DEBUG(ac->tox, "AA:%d %d", (int)ac->audio_received_first_frame, (int)video_has_rountrip_time_ms);
         tsb_range_ms_used = UINT32_MAX;
         timestamp_want_get_used = UINT32_MAX;
     }
@@ -74328,7 +74326,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
                         &is_skipping);
 
     if (removed_entries > 0) {
-        LOGGER_API_WARNING(ac->tox, "removed entries=%d", (int)removed_entries);
+        LOGGER_API_DEBUG(ac->tox, "removed entries=%d", (int)removed_entries);
     }
 
     if (res == true) {
@@ -74340,7 +74338,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
         }
 
         struct RTPMessage *m = (struct RTPMessage *)ret;
-        LOGGER_API_WARNING(ac->tox, "AudioFramesIN: header sequnum=%d", (int)m->header.sequnum);
+        LOGGER_API_DEBUG(ac->tox, "AudioFramesIN: header sequnum=%d", (int)m->header.sequnum);
 
         if (ac->lp_seqnum_new == -1) {
             ac->lp_seqnum_new = m->header.sequnum;
@@ -74351,22 +74349,22 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
                 ) &&
                 (m->header.sequnum <= ac->lp_seqnum_new)
             ) {
-                LOGGER_API_WARNING(ac->tox, "AudioFramesIN: drop pkt num: %d", (int)m->header.sequnum);
+                LOGGER_API_DEBUG(ac->tox, "AudioFramesIN: drop pkt num: %d", (int)m->header.sequnum);
 
                 free(ret);
                 ret = NULL;
             } else {
 
-                LOGGER_API_WARNING(ac->tox, "AudioFramesIN: using sequnum=%d", (int)m->header.sequnum);
+                LOGGER_API_DEBUG(ac->tox, "AudioFramesIN: using sequnum=%d", (int)m->header.sequnum);
 
                 if (
                     ((m->header.sequnum > 8) && (ac->lp_seqnum_new < (UINT16_MAX - 7)))
                 ) {
-                    LOGGER_API_WARNING(ac->tox, "AudioFramesIN:2: %d %d", (int)ac->lp_seqnum_new, (int)m->header.sequnum);
+                    LOGGER_API_DEBUG(ac->tox, "AudioFramesIN:2: %d %d", (int)ac->lp_seqnum_new, (int)m->header.sequnum);
                     int64_t diff = (m->header.sequnum - ac->lp_seqnum_new);
 
                     if (diff > 1) {
-                        LOGGER_API_WARNING(ac->tox, "AudioFramesIN: missing %d audio frames sequnum missing=%d",
+                        LOGGER_API_DEBUG(ac->tox, "AudioFramesIN: missing %d audio frames sequnum missing=%d",
                                      (int)(diff - 1),
                                      (ac->lp_seqnum_new + 1));
                         lost_frame = 1;
@@ -74378,7 +74376,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
         }
     }
 
-    LOGGER_API_WARNING(ac->tox, "jbuf_read:lost_frame=%d", (int)lost_frame);
+    LOGGER_API_DEBUG(ac->tox, "jbuf_read:lost_frame=%d", (int)lost_frame);
 
     if (lost_frame == 1) {
         *success = AUDIO_LOST_FRAME_INDICATOR;
@@ -74433,12 +74431,12 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
             || rc == AUDIO_LOST_FRAME_INDICATOR) {
         pthread_mutex_unlock(ac->queue_mutex);
 
-        LOGGER_API_WARNING(ac->tox, "A:TSB:%d", (int)tsb_size(jbuffer));
-        LOGGER_API_WARNING(ac->tox, "TOXAV:A2V_DELAY:(pos==audio-before-video)%d", (int)(*a_r_timestamp - *v_r_timestamp));
+        LOGGER_API_DEBUG(ac->tox, "A:TSB:%d", (int)tsb_size(jbuffer));
+        LOGGER_API_DEBUG(ac->tox, "TOXAV:A2V_DELAY:(pos==audio-before-video)%d", (int)(*a_r_timestamp - *v_r_timestamp));
 
 
         if (rc == AUDIO_LOST_FRAME_INDICATOR) {
-            LOGGER_API_WARNING(ac->tox, "OPUS correction for lost frame (3)");
+            LOGGER_API_DEBUG(ac->tox, "OPUS correction for lost frame (3)");
 
             if (ac->lp_sampling_rate > 0) {
                 int fs = (ac->lp_sampling_rate * ac->lp_frame_duration) / 1000;
@@ -74510,13 +74508,11 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
                         *a_l_timestamp = current_time_monotonic(ac->mono_time);
                     } else {
                         // TODO: this should not happen here!
-                        LOGGER_API_WARNING(ac->tox, "AUDIO: remote timestamp older");
+                        LOGGER_API_DEBUG(ac->tox, "AUDIO: remote timestamp older");
                     }
                 }
 
                 // what is the audio to video latency?
-            } else {
-                LOGGER_API_WARNING(ac->tox, "AUDIO: rc=%d", (int)rc);
             }
 
 #endif
@@ -74528,19 +74524,15 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
             msg = NULL;
         }
 
-        LOGGER_API_WARNING(ac->tox, "AUDIO: iterate 001");
         if (rc < 0) {
             LOGGER_API_WARNING(ac->tox, "Decoding error: %s", opus_strerror(rc));
         } else {
-            LOGGER_API_WARNING(ac->tox, "AUDIO: iterate 002");
             if (ac->acb_pts) {
-                LOGGER_API_WARNING(ac->tox, "AUDIO: iterate 003:acb_pts");
                 ac->lp_frame_duration = (rc * 1000) / ac->lp_sampling_rate;
                 ac->acb_pts(ac->av, ac->friend_number, ac->temp_audio_buffer, rc, ac->lp_channel_count,
                         ac->lp_sampling_rate, ac->acb_pts_user_data, header_pts_saved);
                 return ret_value;
             } else if (ac->acb) {
-                LOGGER_API_WARNING(ac->tox, "AUDIO: iterate 003:acb");
                 ac->lp_frame_duration = (rc * 1000) / ac->lp_sampling_rate;
                 ac->acb(ac->av, ac->friend_number, ac->temp_audio_buffer, rc, ac->lp_channel_count,
                         ac->lp_sampling_rate, ac->acb_user_data);
@@ -74548,15 +74540,11 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
             }
         }
 
-        LOGGER_API_WARNING(ac->tox, "AUDIO: iterate ret:004");
         return ret_value;
     }
 
-    LOGGER_API_WARNING(ac->tox, "AUDIO: iterate mutes:005");
     pthread_mutex_unlock(ac->queue_mutex);
-    LOGGER_API_WARNING(ac->tox, "AUDIO: iterate mutes:006");
 
-    LOGGER_API_WARNING(ac->tox, "AUDIO: iterate ret:099");
     return ret_value;
 }
 
@@ -78729,13 +78717,10 @@ void toxav_audio_iterate_seperation(ToxAV *av, bool active)
 
 void toxav_audio_iterate(ToxAV *av)
 {
-    LOGGER_API_WARNING(av->tox, "toxav_audio_iterate:001");
     pthread_mutex_lock(av->mutex);
-    LOGGER_API_WARNING(av->tox, "toxav_audio_iterate:002");
 
     if (av->calls == nullptr) {
         pthread_mutex_unlock(av->mutex);
-        LOGGER_API_WARNING(av->tox, "toxav_audio_iterate:003");
         return;
     }
 
@@ -78749,11 +78734,8 @@ void toxav_audio_iterate(ToxAV *av)
         if (i) {
             if (i->active) {
 
-                LOGGER_API_WARNING(av->tox, "toxav_audio_iterate:010");
                 pthread_mutex_unlock(av->mutex);
-                LOGGER_API_WARNING(av->tox, "toxav_audio_iterate:011");
                 pthread_mutex_lock(i->toxav_call_mutex);
-                LOGGER_API_WARNING(av->tox, "toxav_audio_iterate:012");
                 if ((!i->msi_call) || (i->active == 0))
                 {
                     // this call has ended
@@ -78762,8 +78744,6 @@ void toxav_audio_iterate(ToxAV *av)
                 {
                     int64_t copy_of_value = i->call_timestamp_difference_to_sender;
                     int video_cap_copy = (int)(i->msi_call->self_capabilities & MSI_CAP_S_VIDEO);
-
-                    LOGGER_API_WARNING(av->tox, "toxav_audio_iterate:020:ac_iterate");
 
                     uint8_t res_ac = ac_iterate(i->audio,
                                                 &(i->last_incoming_audio_frame_rtimestamp),

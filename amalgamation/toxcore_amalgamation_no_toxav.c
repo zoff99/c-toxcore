@@ -47254,14 +47254,13 @@ static void send_crypto_packets(Net_Crypto *c)
         if (c->current_sleep_time > sleep_time) {
             c->current_sleep_time = sleep_time + 1;
 
-#if 0
             /* --- ADDED THROTTLED DEBUG LOGGING (WITH QUEUE PROOF) --- */
             if (c->current_sleep_time < 10) {
 
                 if (temp_time - net_crypto_last_sub10_log_time >= 2000 || net_crypto_last_sub10_log_time == 0) {
                     net_crypto_last_sub10_log_time = temp_time;
 
-                    LOGGER_DEBUG(c->log, "tox_iteration_interval DROPPED to %ums (total_send_rate=%.1f pkts/sec)",
+                    LOGGER_WARNING(c->log, "tox_iteration_interval DROPPED to %ums (total_send_rate=%.1f pkts/sec)",
                                  c->current_sleep_time, total_send_rate);
 
                     for (uint32_t dbg_i = 0; dbg_i < c->crypto_connections_length; ++dbg_i) {
@@ -47275,18 +47274,17 @@ static void send_crypto_packets(Net_Crypto *c)
                             // THIS IS THE PROOF: Check the actual send queue
                             uint32_t queue_size = num_packets_array(&dbg_conn->send_array);
 
-                            LOGGER_DEBUG(c->log, "  -> conn %u (%s) budget=%.1f pkts/sec | queue_size=%u (%s)",
-                                         dbg_i,
-                                         direct_connected ? "UDP_DIRECT" : "TCP_RELAY",
-                                         dbg_conn->packet_send_rate,
-                                         queue_size,
-                                         queue_size > 0 ? "ACTUALLY SENDING" : "IDLE (just probing/holding budget)");
+                            LOGGER_WARNING(c->log, "  -> conn %u (%s) budget=%.1f pkts/sec | queue_size=%u (%s)",
+                                           dbg_i,
+                                           direct_connected ? "UDP_DIRECT" : "TCP_RELAY",
+                                           dbg_conn->packet_send_rate,
+                                           queue_size,
+                                           queue_size > 0 ? "ACTUALLY SENDING" : "IDLE (just probing/holding budget)");
                         }
                     }
                 }
             }
             /* ------------------------------------------------------- */
-#endif
         }
     }
 
