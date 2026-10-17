@@ -447,13 +447,13 @@ uint8_t ac_iterate(ACSession *ac, uint64_t *a_r_timestamp, uint64_t *a_l_timesta
             }
         }
 
-        LOGGER_API_WARNING(ac->tox, "AUDIO: iterate ret:004");
+        LOGGER_API_WARNING(ac->tox, "AUDIO: iterate ret:002");
         return ret_value;
     }
 
-    LOGGER_API_WARNING(ac->tox, "AUDIO: iterate mutes:005");
+    LOGGER_API_WARNING(ac->tox, "AUDIO: iterate mutes:002");
     pthread_mutex_unlock(ac->queue_mutex);
-    LOGGER_API_WARNING(ac->tox, "AUDIO: iterate mutes:006");
+    LOGGER_API_WARNING(ac->tox, "AUDIO: iterate mutes:003");
 
     LOGGER_API_WARNING(ac->tox, "AUDIO: iterate ret:099");
     return ret_value;
