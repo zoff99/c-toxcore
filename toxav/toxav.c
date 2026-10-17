@@ -277,13 +277,10 @@ void toxav_audio_iterate_seperation(ToxAV *av, bool active)
 
 void toxav_audio_iterate(ToxAV *av)
 {
-    LOGGER_API_WARNING(av->tox, "toxav_audio_iterate:001");
     pthread_mutex_lock(av->mutex);
-    LOGGER_API_WARNING(av->tox, "toxav_audio_iterate:002");
 
     if (av->calls == nullptr) {
         pthread_mutex_unlock(av->mutex);
-        LOGGER_API_WARNING(av->tox, "toxav_audio_iterate:003");
         return;
     }
 
@@ -297,11 +294,8 @@ void toxav_audio_iterate(ToxAV *av)
         if (i) {
             if (i->active) {
 
-                LOGGER_API_WARNING(av->tox, "toxav_audio_iterate:010");
                 pthread_mutex_unlock(av->mutex);
-                LOGGER_API_WARNING(av->tox, "toxav_audio_iterate:011");
                 pthread_mutex_lock(i->toxav_call_mutex);
-                LOGGER_API_WARNING(av->tox, "toxav_audio_iterate:012");
                 if ((!i->msi_call) || (i->active == 0))
                 {
                     // this call has ended
@@ -310,8 +304,6 @@ void toxav_audio_iterate(ToxAV *av)
                 {
                     int64_t copy_of_value = i->call_timestamp_difference_to_sender;
                     int video_cap_copy = (int)(i->msi_call->self_capabilities & MSI_CAP_S_VIDEO);
-
-                    LOGGER_API_WARNING(av->tox, "toxav_audio_iterate:020:ac_iterate");
 
                     uint8_t res_ac = ac_iterate(i->audio,
                                                 &(i->last_incoming_audio_frame_rtimestamp),
