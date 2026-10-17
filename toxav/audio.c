@@ -157,7 +157,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     int64_t want_remote_video_ts = (current_time_monotonic(ac->mono_time) +
                                     timestamp_difference_to_sender_ +
                                     timestamp_difference_adjustment_for_audio2);
-    LOGGER_API_DEBUG(ac->tox, "want_remote_video_ts:a:002=%d, %d %d %d",
+    LOGGER_API_WARNING(ac->tox, "want_remote_video_ts:a:002=%d, %d %d %d",
             (int)want_remote_video_ts,
             (int)current_time_monotonic(ac->mono_time),
             (int)timestamp_difference_to_sender_,
@@ -175,7 +175,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     // HINT: compensate for older clients ----------------
     //       or when only receiving audio (no incoming video)
     if ((encoder_frame_has_record_timestamp == 0) || (video_send_cap == 0)) {
-        LOGGER_API_DEBUG(ac->tox, "old client:003");
+        LOGGER_API_WARNING(ac->tox, "old client:003");
         tsb_range_ms = UINT32_MAX;
         want_remote_video_ts = UINT32_MAX;
     }
@@ -190,7 +190,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
     tsb_get_range_in_buffer(ac->tox, q, &timestamp_min, &timestamp_max);
 
     if ((int)tsb_size(q) > 0) {
-        LOGGER_API_DEBUG(ac->tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d",
+        LOGGER_API_WARNING(ac->tox, "FC:%d min=%d max=%d want=%d diff=%d adj=%d",
                        (int)tsb_size(q),
                        timestamp_min,
                        timestamp_max,
@@ -212,7 +212,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
         (video_has_rountrip_time_ms == 0)
         )
     {
-        LOGGER_API_DEBUG(ac->tox, "AA:%d %d", (int)ac->audio_received_first_frame, (int)video_has_rountrip_time_ms);
+        LOGGER_API_WARNING(ac->tox, "AA:%d %d", (int)ac->audio_received_first_frame, (int)video_has_rountrip_time_ms);
         tsb_range_ms_used = UINT32_MAX;
         timestamp_want_get_used = UINT32_MAX;
     }
@@ -227,7 +227,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
                         &is_skipping);
 
     if (removed_entries > 0) {
-        LOGGER_API_DEBUG(ac->tox, "removed entries=%d", (int)removed_entries);
+        LOGGER_API_WARNING(ac->tox, "removed entries=%d", (int)removed_entries);
     }
 
     if (res == true) {
@@ -239,7 +239,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
         }
 
         struct RTPMessage *m = (struct RTPMessage *)ret;
-        LOGGER_API_DEBUG(ac->tox, "AudioFramesIN: header sequnum=%d", (int)m->header.sequnum);
+        LOGGER_API_WARNING(ac->tox, "AudioFramesIN: header sequnum=%d", (int)m->header.sequnum);
 
         if (ac->lp_seqnum_new == -1) {
             ac->lp_seqnum_new = m->header.sequnum;
@@ -250,22 +250,22 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
                 ) &&
                 (m->header.sequnum <= ac->lp_seqnum_new)
             ) {
-                LOGGER_API_DEBUG(ac->tox, "AudioFramesIN: drop pkt num: %d", (int)m->header.sequnum);
+                LOGGER_API_WARNING(ac->tox, "AudioFramesIN: drop pkt num: %d", (int)m->header.sequnum);
 
                 free(ret);
                 ret = NULL;
             } else {
 
-                LOGGER_API_DEBUG(ac->tox, "AudioFramesIN: using sequnum=%d", (int)m->header.sequnum);
+                LOGGER_API_WARNING(ac->tox, "AudioFramesIN: using sequnum=%d", (int)m->header.sequnum);
 
                 if (
                     ((m->header.sequnum > 8) && (ac->lp_seqnum_new < (UINT16_MAX - 7)))
                 ) {
-                    LOGGER_API_DEBUG(ac->tox, "AudioFramesIN:2: %d %d", (int)ac->lp_seqnum_new, (int)m->header.sequnum);
+                    LOGGER_API_WARNING(ac->tox, "AudioFramesIN:2: %d %d", (int)ac->lp_seqnum_new, (int)m->header.sequnum);
                     int64_t diff = (m->header.sequnum - ac->lp_seqnum_new);
 
                     if (diff > 1) {
-                        LOGGER_API_DEBUG(ac->tox, "AudioFramesIN: missing %d audio frames sequnum missing=%d",
+                        LOGGER_API_WARNING(ac->tox, "AudioFramesIN: missing %d audio frames sequnum missing=%d",
                                      (int)(diff - 1),
                                      (ac->lp_seqnum_new + 1));
                         lost_frame = 1;
@@ -277,7 +277,7 @@ static inline struct RTPMessage *jbuf_read(Logger *log, struct TSBuffer *q, int3
         }
     }
 
-    LOGGER_API_DEBUG(ac->tox, "jbuf_read:lost_frame=%d", (int)lost_frame);
+    LOGGER_API_WARNING(ac->tox, "jbuf_read:lost_frame=%d", (int)lost_frame);
 
     if (lost_frame == 1) {
         *success = AUDIO_LOST_FRAME_INDICATOR;
