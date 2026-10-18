@@ -6221,6 +6221,7 @@ bool handle_gc_lossless_helper(const GC_Session *c, GC_Chat *chat, uint32_t peer
 non_null(1, 2, 4) nullable(5, 9)
 static bool handle_gc_packet_fragment(const GC_Session *c, GC_Chat *chat, uint32_t peer_number, GC_Connection *gconn,
                                       const uint8_t *data, uint16_t length, uint8_t packet_type, uint64_t message_id,
+                                      const uint8_t *sender_pk,
                                       void *userdata)
 {
     if (gconn->last_chunk_id != 0 && message_id != gconn->last_chunk_id + 1) {
@@ -6235,6 +6236,14 @@ static bool handle_gc_packet_fragment(const GC_Session *c, GC_Chat *chat, uint32
                          message_id, userdata);
 
     if (frag_ret == -1) {
+        return false;
+    }
+
+    /* peer number can change from peer add operations in packet handlers */
+    peer_number = get_peer_number_of_enc_pk(chat, sender_pk, false);
+    gconn = get_gc_connection(chat, peer_number);
+
+    if (gconn == nullptr) {
         return false;
     }
 
@@ -6312,6 +6321,15 @@ static bool handle_gc_lossless_packet(const GC_Session *c, GC_Chat *chat, const 
     const int lossless_ret = gcc_handle_received_message(chat->log, chat->mono_time, gconn, data, (uint16_t) len,
                              packet_type, message_id, direct_conn);
 
+    /* peer number can change from peer add operations in packet handlers */
+    peer_number = get_peer_number_of_enc_pk(chat, sender_pk, false);
+    gconn = get_gc_connection(chat, peer_number);
+
+    if (gconn == nullptr) {
+        free(data);
+        return false;
+    }
+
     if (packet_type == GP_INVITE_REQUEST && !gconn->handshaked) {  // Both peers sent request at same time
         free(data);
         return true;
@@ -6341,7 +6359,7 @@ static bool handle_gc_lossless_packet(const GC_Session *c, GC_Chat *chat, const 
     /* handle packet fragment */
     if (lossless_ret == 3) {
         const bool frag_ret = handle_gc_packet_fragment(c, chat, peer_number, gconn, data, (uint16_t)len, packet_type,
-                              message_id, userdata);
+                              message_id, sender_pk, userdata);
         free(data);
         return frag_ret;
     }
