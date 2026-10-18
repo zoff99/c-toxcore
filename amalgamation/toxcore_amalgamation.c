@@ -25011,7 +25011,7 @@ non_null()
 static void dht_pk_callback(void *object, int32_t number, const uint8_t *dht_public_key, void *userdata)
 {
     Friend_Connections *const fr_c = (Friend_Connections *)object;
-    Friend_Conn *const friend_con = get_conn(fr_c, number);
+    Friend_Conn *friend_con = get_conn(fr_c, number);
 
     if (friend_con == nullptr) {
         return;
@@ -25028,6 +25028,14 @@ static void dht_pk_callback(void *object, int32_t number, const uint8_t *dht_pub
         crypto_kill(fr_c->net_crypto, friend_con->crypt_connection_id);
         friend_con->crypt_connection_id = -1;
         handle_status(object, number, false, userdata); /* Going offline. */
+
+        /* Re-fetch before dereferencing friend_con again below,
+         * since handle_status can realloc or free the conns array it points into. */
+        friend_con = get_conn(fr_c, number);
+
+        if (friend_con == nullptr) {
+            return;
+        }
     }
 
     friend_new_connection(fr_c, number);
@@ -36309,6 +36317,7 @@ bool handle_gc_lossless_helper(const GC_Session *c, GC_Chat *chat, uint32_t peer
 non_null(1, 2, 4) nullable(5, 9)
 static bool handle_gc_packet_fragment(const GC_Session *c, GC_Chat *chat, uint32_t peer_number, GC_Connection *gconn,
                                       const uint8_t *data, uint16_t length, uint8_t packet_type, uint64_t message_id,
+                                      const uint8_t *sender_pk,
                                       void *userdata)
 {
     if (gconn->last_chunk_id != 0 && message_id != gconn->last_chunk_id + 1) {
@@ -36323,6 +36332,14 @@ static bool handle_gc_packet_fragment(const GC_Session *c, GC_Chat *chat, uint32
                          message_id, userdata);
 
     if (frag_ret == -1) {
+        return false;
+    }
+
+    /* peer number can change from peer add operations in packet handlers */
+    peer_number = get_peer_number_of_enc_pk(chat, sender_pk, false);
+    gconn = get_gc_connection(chat, peer_number);
+
+    if (gconn == nullptr) {
         return false;
     }
 
@@ -36400,6 +36417,15 @@ static bool handle_gc_lossless_packet(const GC_Session *c, GC_Chat *chat, const 
     const int lossless_ret = gcc_handle_received_message(chat->log, chat->mono_time, gconn, data, (uint16_t) len,
                              packet_type, message_id, direct_conn);
 
+    /* peer number can change from peer add operations in packet handlers */
+    peer_number = get_peer_number_of_enc_pk(chat, sender_pk, false);
+    gconn = get_gc_connection(chat, peer_number);
+
+    if (gconn == nullptr) {
+        free(data);
+        return false;
+    }
+
     if (packet_type == GP_INVITE_REQUEST && !gconn->handshaked) {  // Both peers sent request at same time
         free(data);
         return true;
@@ -36429,7 +36455,7 @@ static bool handle_gc_lossless_packet(const GC_Session *c, GC_Chat *chat, const 
     /* handle packet fragment */
     if (lossless_ret == 3) {
         const bool frag_ret = handle_gc_packet_fragment(c, chat, peer_number, gconn, data, (uint16_t)len, packet_type,
-                              message_id, userdata);
+                              message_id, sender_pk, userdata);
         free(data);
         return frag_ret;
     }
@@ -49754,13 +49780,14 @@ static void send_crypto_packets(Net_Crypto *c)
         if (c->current_sleep_time > sleep_time) {
             c->current_sleep_time = sleep_time + 1;
 
+#if 0
             /* --- ADDED THROTTLED DEBUG LOGGING (WITH QUEUE PROOF) --- */
             if (c->current_sleep_time < 10) {
 
                 if (temp_time - net_crypto_last_sub10_log_time >= 2000 || net_crypto_last_sub10_log_time == 0) {
                     net_crypto_last_sub10_log_time = temp_time;
 
-                    LOGGER_WARNING(c->log, "tox_iteration_interval DROPPED to %ums (total_send_rate=%.1f pkts/sec)",
+                    LOGGER_DEBUG(c->log, "tox_iteration_interval DROPPED to %ums (total_send_rate=%.1f pkts/sec)",
                                  c->current_sleep_time, total_send_rate);
 
                     for (uint32_t dbg_i = 0; dbg_i < c->crypto_connections_length; ++dbg_i) {
@@ -49774,17 +49801,18 @@ static void send_crypto_packets(Net_Crypto *c)
                             // THIS IS THE PROOF: Check the actual send queue
                             uint32_t queue_size = num_packets_array(&dbg_conn->send_array);
 
-                            LOGGER_WARNING(c->log, "  -> conn %u (%s) budget=%.1f pkts/sec | queue_size=%u (%s)",
-                                           dbg_i,
-                                           direct_connected ? "UDP_DIRECT" : "TCP_RELAY",
-                                           dbg_conn->packet_send_rate,
-                                           queue_size,
-                                           queue_size > 0 ? "ACTUALLY SENDING" : "IDLE (just probing/holding budget)");
+                            LOGGER_DEBUG(c->log, "  -> conn %u (%s) budget=%.1f pkts/sec | queue_size=%u (%s)",
+                                         dbg_i,
+                                         direct_connected ? "UDP_DIRECT" : "TCP_RELAY",
+                                         dbg_conn->packet_send_rate,
+                                         queue_size,
+                                         queue_size > 0 ? "ACTUALLY SENDING" : "IDLE (just probing/holding budget)");
                         }
                     }
                 }
             }
             /* ------------------------------------------------------- */
+#endif
         }
     }
 
