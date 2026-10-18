@@ -459,7 +459,7 @@ non_null()
 static void dht_pk_callback(void *object, int32_t number, const uint8_t *dht_public_key, void *userdata)
 {
     Friend_Connections *const fr_c = (Friend_Connections *)object;
-    Friend_Conn *const friend_con = get_conn(fr_c, number);
+    Friend_Conn *friend_con = get_conn(fr_c, number);
 
     if (friend_con == nullptr) {
         return;
@@ -476,6 +476,14 @@ static void dht_pk_callback(void *object, int32_t number, const uint8_t *dht_pub
         crypto_kill(fr_c->net_crypto, friend_con->crypt_connection_id);
         friend_con->crypt_connection_id = -1;
         handle_status(object, number, false, userdata); /* Going offline. */
+
+        /* Re-fetch before dereferencing friend_con again below,
+         * since handle_status can realloc or free the conns array it points into. */
+        friend_con = get_conn(fr_c, number);
+
+        if (friend_con == nullptr) {
+            return;
+        }
     }
 
     friend_new_connection(fr_c, number);
