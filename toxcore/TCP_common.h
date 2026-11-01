@@ -63,6 +63,15 @@ void wipe_priority_list(TCP_Priority_List *p);
 
 #define MAX_PACKET_SIZE 2048
 
+/** @brief The maximum number of priority packets we queue for one connection.
+ *
+ * A peer that stops reading makes us queue a reply for each packet it sends.
+ * We send the queue whenever the socket becomes writable, so a peer that reads
+ * normally never gets near this limit. It only stops a peer that floods us
+ * without reading.
+ */
+#define TCP_MAX_PRIORITY_PACKETS 1024
+
 typedef struct TCP_Connection {
     const Random *rng;
     const Network *ns;
@@ -76,6 +85,7 @@ typedef struct TCP_Connection {
 
     TCP_Priority_List *priority_queue_start;
     TCP_Priority_List *priority_queue_end;
+    uint32_t priority_queue_length;
 
     // This is a shared pointer to the parent's respective Net_Profile object
     // (either TCP_Server for TCP server packets or TCP_Connections for TCP client packets).
