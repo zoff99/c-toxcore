@@ -3073,7 +3073,7 @@ static bool self_announce_group(const Messenger *m, GC_Chat *chat, Onion_Friend 
         return false;
     }
 
-    if (gca_add_announce(m->mono_time, m->group_announce, &announce) == nullptr) {
+    if (gca_add_self_announce(m->mono_time, m->group_announce, &announce) == nullptr) {
         onion_friend_set_gc_data(onion_friend, nullptr, 0);
         return false;
     }

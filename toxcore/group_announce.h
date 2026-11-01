@@ -20,6 +20,9 @@ extern "C" {
 /* The maximum number of announces to save for a particular group chat. */
 #define GCA_MAX_SAVED_ANNOUNCES_PER_GC 16
 
+/* The maximum number of group chats we store announces for. */
+#define GCA_MAX_SAVED_GROUPS 512
+
 /* Maximum number of TCP relays that can be in an announce. */
 #define GCA_MAX_ANNOUNCED_TCP_RELAYS 1
 
@@ -78,6 +81,7 @@ struct GC_Announces {
 struct GC_Announces_List {
     GC_Announces *root_announces;
     uint64_t last_timeout_check;
+    uint32_t count;
 };
 
 
@@ -126,6 +130,8 @@ int gca_get_announces(const GC_Announces_List *gc_announces_list, GC_Announce *g
 
 /** @brief Adds a public_announce to list of announces.
  *
+ * Fails for a new group when the list is full.
+ *
  * @param gc_announces_list The announces list that we want to add an entry to.
  * @param public_announce The public announce that we want to add.
  *
@@ -135,6 +141,11 @@ int gca_get_announces(const GC_Announces_List *gc_announces_list, GC_Announce *g
 non_null()
 GC_Peer_Announce *gca_add_announce(const Mono_Time *mono_time, GC_Announces_List *gc_announces_list,
                                    const GC_Public_Announce *public_announce);
+
+/** @brief Like gca_add_announce, but for our own groups, so a full list doesn't stop them. */
+non_null()
+GC_Peer_Announce *gca_add_self_announce(const Mono_Time *mono_time, GC_Announces_List *gc_announces_list,
+                                        const GC_Public_Announce *public_announce);
 
 /** @brief Packs an announce into a data buffer.
  *
