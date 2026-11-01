@@ -5928,14 +5928,6 @@ static int handle_gc_handshake_request(GC_Chat *chat, const IP_Port *ipp, const 
         return -1;
     }
 
-    if (chat->connection_O_metre >= GC_NEW_PEER_CONNECTION_LIMIT) {
-        chat->block_handshakes = true;
-        LOGGER_DEBUG(chat->log, "Handshake overflow. Blocking handshakes.");
-        return -1;
-    }
-
-    ++chat->connection_O_metre;
-
     const uint8_t *public_sig_key = data + ENC_PUBLIC_KEY_SIZE;
 
     const uint8_t request_type = data[ENC_PUBLIC_KEY_SIZE + SIG_PUBLIC_KEY_SIZE];
@@ -5943,6 +5935,15 @@ static int handle_gc_handshake_request(GC_Chat *chat, const IP_Port *ipp, const 
 
     int peer_number = get_peer_number_of_enc_pk(chat, sender_pk, false);
     const bool is_new_peer = peer_number < 0;
+
+    // Before peer_add, so a handshake flood cannot grow the peer list.
+    if (chat->connection_O_metre >= GC_NEW_PEER_CONNECTION_LIMIT) {
+        chat->block_handshakes = true;
+        LOGGER_DEBUG(chat->log, "Handshake overflow. Blocking handshakes.");
+        return -1;
+    }
+
+    ++chat->connection_O_metre;
 
     if (is_new_peer) {
         peer_number = peer_add(chat, ipp, sender_pk);
