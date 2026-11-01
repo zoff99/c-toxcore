@@ -33,6 +33,8 @@ static void remove_announces(GC_Announces_List *gc_announces_list, GC_Announces 
         announces->next_announce->prev_announce = announces->prev_announce;
     }
 
+    --gc_announces_list->count;
+
     free(announces);
 }
 
@@ -338,8 +340,9 @@ int gca_unpack_announces_list(const Logger *log, const uint8_t *data, uint16_t l
     return announces_count;
 }
 
-GC_Peer_Announce *gca_add_announce(const Mono_Time *mono_time, GC_Announces_List *gc_announces_list,
-                                   const GC_Public_Announce *public_announce)
+non_null(1) nullable(2, 3)
+static GC_Peer_Announce *add_announce(const Mono_Time *mono_time, GC_Announces_List *gc_announces_list,
+                                      const GC_Public_Announce *public_announce, bool limited)
 {
     if (gc_announces_list == nullptr || public_announce == nullptr) {
         return nullptr;
@@ -349,6 +352,11 @@ GC_Peer_Announce *gca_add_announce(const Mono_Time *mono_time, GC_Announces_List
 
     // No entry for this chat_id exists so we create one
     if (announces == nullptr) {
+        // Anyone can announce, so refuse new groups rather than drop old ones.
+        if (limited && gc_announces_list->count >= GCA_MAX_SAVED_GROUPS) {
+            return nullptr;
+        }
+
         announces = (GC_Announces *)calloc(1, sizeof(GC_Announces));
 
         if (announces == nullptr) {
@@ -365,6 +373,8 @@ GC_Peer_Announce *gca_add_announce(const Mono_Time *mono_time, GC_Announces_List
         announces->next_announce = gc_announces_list->root_announces;
         gc_announces_list->root_announces = announces;
         memcpy(announces->chat_id, public_announce->chat_public_key, CHAT_ID_SIZE);
+
+        ++gc_announces_list->count;
     }
 
     const uint64_t cur_time = mono_time_get(mono_time);
@@ -382,6 +392,18 @@ GC_Peer_Announce *gca_add_announce(const Mono_Time *mono_time, GC_Announces_List
     ++announces->index;
 
     return gc_peer_announce;
+}
+
+GC_Peer_Announce *gca_add_announce(const Mono_Time *mono_time, GC_Announces_List *gc_announces_list,
+                                   const GC_Public_Announce *public_announce)
+{
+    return add_announce(mono_time, gc_announces_list, public_announce, true);
+}
+
+GC_Peer_Announce *gca_add_self_announce(const Mono_Time *mono_time, GC_Announces_List *gc_announces_list,
+                                        const GC_Public_Announce *public_announce)
+{
+    return add_announce(mono_time, gc_announces_list, public_announce, false);
 }
 
 bool gca_is_valid_announce(const GC_Announce *announce)
