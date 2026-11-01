@@ -1369,7 +1369,13 @@ static bool tcp_epoll_process(TCP_Server *tcp_server, const Mono_Time *mono_time
             }
 
             case TCP_SOCKET_CONFIRMED: {
-                do_confirmed_recv(tcp_server, index);
+                // The slot may have been evicted earlier in this batch.
+                if (index < (int)tcp_server->size_accepted_connections
+                        && tcp_server->accepted_connection_array[index].status == TCP_STATUS_CONFIRMED
+                        && tcp_server->accepted_connection_array[index].con.sock.sock == sock.sock) {
+                    do_confirmed_recv(tcp_server, index);
+                }
+
                 break;
             }
         }
