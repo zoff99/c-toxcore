@@ -113,6 +113,10 @@ typedef struct GC_Connection {
     uint64_t    last_requested_packet_time;  /* The last time we requested a missing packet from this peer */
     uint64_t    last_sent_ping_time;
     uint64_t    last_sync_response;  /* the last time we sent this peer a sync response */
+    uint16_t    requested_roles_checksum;  /* the roles checksum this peer sent when we last asked it for a state sync */
+    bool        roles_checksum_requested;  /* whether we are waiting for the peer to answer that request */
+    uint16_t    synced_roles_checksum;  /* the roles checksum of the last state sync request this peer answered */
+    bool        roles_checksum_synced;  /* whether synced_roles_checksum is set */
     uint8_t     oob_relay_pk[CRYPTO_PUBLIC_KEY_SIZE];
     bool        self_is_closer; /* true if we're "closer" to the chat_id than this peer (uses real pk's) */
 
