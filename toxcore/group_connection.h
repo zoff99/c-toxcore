@@ -12,6 +12,10 @@
 
 #include "group_common.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Max number of TCP relays we share with a peer on handshake */
 #define GCC_MAX_TCP_SHARED_RELAYS 3
 
@@ -189,5 +193,9 @@ void gcc_peer_cleanup(GC_Connection *gconn);
 /** @brief Called on group exit. */
 non_null()
 void gcc_cleanup(const GC_Chat *chat);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif  // GROUP_CONNECTION_H
