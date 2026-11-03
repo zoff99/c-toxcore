@@ -98,13 +98,13 @@ static int queue(Group_JitterBuffer *q, const Mono_Time *mono_time, Group_Audio_
     const unsigned int num = sequnum % q->size;
 
     if (!mono_time_is_timeout(mono_time, q->last_queued_time, GROUP_JBUF_DEAD_SECONDS)) {
-        if ((uint32_t)(sequnum - q->bottom) > (1 << 15)) {
+        if ((uint16_t)(sequnum - q->bottom) > (1 << 15)) {
             /* Drop old packet. */
             return -1;
         }
     }
 
-    if ((uint32_t)(sequnum - q->bottom) > q->size) {
+    if ((uint16_t)(sequnum - q->bottom) > q->size) {
         clear_queue(q);
         q->bottom = sequnum - q->capacity;
         q->queue[num] = pk;
@@ -119,7 +119,7 @@ static int queue(Group_JitterBuffer *q, const Mono_Time *mono_time, Group_Audio_
 
     q->queue[num] = pk;
 
-    if ((sequnum - q->bottom) >= (q->top - q->bottom)) {
+    if ((uint16_t)(sequnum - q->bottom) >= (uint16_t)(q->top - q->bottom)) {
         q->top = sequnum + 1;
     }
 
@@ -150,7 +150,7 @@ static Group_Audio_Packet *dequeue(Group_JitterBuffer *q, int *success)
         return ret;
     }
 
-    if ((uint32_t)(q->top - q->bottom) > q->capacity) {
+    if ((uint16_t)(q->top - q->bottom) > q->capacity) {
         ++q->bottom;
         *success = 2;
         return nullptr;
