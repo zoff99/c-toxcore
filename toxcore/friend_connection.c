@@ -32,6 +32,12 @@ typedef struct Friend_Conn_Callbacks {
     int callback_id;
 } Friend_Conn_Callbacks;
 
+/** @brief The TCP relays most recently added for a friend. A new relay replaces the oldest. */
+typedef struct Friend_TCP_Relays {
+    Node_format relays[FRIEND_MAX_STORED_TCP_RELAYS];
+    uint16_t next;
+} Friend_TCP_Relays;
+
 struct Friend_Conn {
     uint8_t status;
 
@@ -53,8 +59,7 @@ struct Friend_Conn {
 
     uint16_t lock_count;
 
-    Node_format tcp_relays[FRIEND_MAX_STORED_TCP_RELAYS];
-    uint16_t tcp_relay_counter;
+    Friend_TCP_Relays tcp_relays;
     uint32_t tcp_relay_share_index;
 
     bool hosting_tcp_relay;
@@ -222,6 +227,40 @@ int getfriend_conn_id_pk(const Friend_Connections *fr_c, const uint8_t *real_pk)
     return -1;
 }
 
+/** @brief Adds a relay, and removes any earlier one with the same public key. */
+non_null()
+static void friend_tcp_relays_add(Friend_TCP_Relays *relays, const IP_Port *ip_port, const uint8_t *public_key)
+{
+    for (unsigned i = 0; i < FRIEND_MAX_STORED_TCP_RELAYS; ++i) {
+        if (!net_family_is_unspec(relays->relays[i].ip_port.ip.family)
+                && pk_equal(relays->relays[i].public_key, public_key)) {
+            relays->relays[i] = empty_node_format;
+        }
+    }
+
+    relays->relays[relays->next].ip_port = *ip_port;
+    memcpy(relays->relays[relays->next].public_key, public_key, CRYPTO_PUBLIC_KEY_SIZE);
+    relays->next = (relays->next + 1) % FRIEND_MAX_STORED_TCP_RELAYS;
+}
+
+/** @brief Returns the relay added `age` relays before the newest one, or null if it was removed or there is none. */
+non_null()
+static const Node_format *friend_tcp_relays_get(const Friend_TCP_Relays *relays, uint32_t age)
+{
+    if (age >= FRIEND_MAX_STORED_TCP_RELAYS) {
+        return nullptr;
+    }
+
+    const Node_format *relay = &relays->relays[(relays->next + FRIEND_MAX_STORED_TCP_RELAYS - 1 - age) %
+                               FRIEND_MAX_STORED_TCP_RELAYS];
+
+    if (net_family_is_unspec(relay->ip_port.ip.family)) {
+        return nullptr;
+    }
+
+    return relay;
+}
+
 /** @brief Add a TCP relay associated to the friend.
  *
  * @retval -1 on failure.
@@ -249,18 +288,7 @@ static int friend_add_tcp_relay(Friend_Connections *fr_c, int friendcon_id, cons
             }
         }
 
-        const uint16_t index = friend_con->tcp_relay_counter % FRIEND_MAX_STORED_TCP_RELAYS;
-
-        for (unsigned i = 0; i < FRIEND_MAX_STORED_TCP_RELAYS; ++i) {
-            if (!net_family_is_unspec(friend_con->tcp_relays[i].ip_port.ip.family)
-                    && pk_equal(friend_con->tcp_relays[i].public_key, public_key)) {
-                friend_con->tcp_relays[i] = empty_node_format;
-            }
-        }
-
-        friend_con->tcp_relays[index].ip_port = ipp_copy;
-        memcpy(friend_con->tcp_relays[index].public_key, public_key, CRYPTO_PUBLIC_KEY_SIZE);
-        ++friend_con->tcp_relay_counter;
+        friend_tcp_relays_add(&friend_con->tcp_relays, &ipp_copy, public_key);
 
         return add_tcp_relay_peer(fr_c->net_crypto, friend_con->crypt_connection_id, &ipp_copy, public_key);
     } else {
@@ -279,12 +307,10 @@ static void connect_to_saved_tcp_relays(Friend_Connections *fr_c, int friendcon_
     }
 
     for (unsigned i = 0; (i < FRIEND_MAX_STORED_TCP_RELAYS) && (number != 0); ++i) {
-        const uint16_t index = (friend_con->tcp_relay_counter % FRIEND_MAX_STORED_TCP_RELAYS + FRIEND_MAX_STORED_TCP_RELAYS - (i + 1))
-                               % FRIEND_MAX_STORED_TCP_RELAYS;
+        const Node_format *relay = friend_tcp_relays_get(&friend_con->tcp_relays, i);
 
-        if (!net_family_is_unspec(friend_con->tcp_relays[index].ip_port.ip.family)) {
-            if (add_tcp_relay_peer(fr_c->net_crypto, friend_con->crypt_connection_id, &friend_con->tcp_relays[index].ip_port,
-                                   friend_con->tcp_relays[index].public_key) == 0) {
+        if (relay != nullptr) {
+            if (add_tcp_relay_peer(fr_c->net_crypto, friend_con->crypt_connection_id, &relay->ip_port, relay->public_key) == 0) {
                 --number;
             }
         }
