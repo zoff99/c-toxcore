@@ -6019,6 +6019,11 @@ static int handle_gc_handshake_request(GC_Chat *chat, const IP_Port *ipp, const 
 
     if (!validate_sig_pk(get_enc_key(gconn->addr.public_key), public_sig_key)) {
         LOGGER_ERROR(chat->log, "Signature key did not match encryption key.");
+
+        if (is_new_peer) {
+            gcc_mark_for_deletion(gconn, chat->tcp_conn, GC_EXIT_TYPE_DISCONNECTED, nullptr, 0);
+        }
+
         return -1;
     }
 
@@ -8284,13 +8289,13 @@ bool handle_gc_invite_accepted_packet(const GC_Session *c, int friend_number, co
         return false;
     }
 
-    const uint8_t *invite_chat_pk = data + CHAT_ID_SIZE;
-
-    const int peer_number = peer_add(chat, nullptr, invite_chat_pk);
-
     if (!friend_was_invited(m, chat, friend_number)) {
         return false;
     }
+
+    const uint8_t *invite_chat_pk = data + CHAT_ID_SIZE;
+
+    const int peer_number = peer_add(chat, nullptr, invite_chat_pk);
 
     GC_Connection *gconn = get_gc_connection(chat, peer_number);
 
@@ -8304,7 +8309,7 @@ bool handle_gc_invite_accepted_packet(const GC_Session *c, int friend_number, co
     const bool copy_ip_port_result = copy_friend_ip_port_to_gconn(m, friend_number, gconn);
 
     if (num_tcp_relays == 0 && !copy_ip_port_result) {
-        return false;
+        return true;
     }
 
     uint16_t len = GC_JOIN_DATA_LENGTH;
@@ -8318,14 +8323,14 @@ bool handle_gc_invite_accepted_packet(const GC_Session *c, int friend_number, co
 
         if (tcp_relays_added == 0 && !copy_ip_port_result) {
             LOGGER_ERROR(chat->log, "Got invalid connection info from peer");
-            return false;
+            return true;
         }
 
         const int nodes_len = pack_nodes(chat->log, out_data + len, sizeof(out_data) - len, tcp_relays,
                                          (uint16_t)num_tcp_relays);
 
         if (nodes_len <= 0 && !copy_ip_port_result) {
-            return false;
+            return true;
         }
 
         len += nodes_len;
