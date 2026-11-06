@@ -1716,7 +1716,17 @@ static bool send_gc_sync_request(GC_Chat *chat, GC_Connection *gconn, uint16_t s
         length += MAX_GC_PASSWORD_SIZE;
     }
 
-    return send_lossless_group_packet(chat, gconn, data, length, GP_SYNC_REQUEST);
+    if (!send_lossless_group_packet(chat, gconn, data, length, GP_SYNC_REQUEST)) {
+        return false;
+    }
+
+    // Only a request for peers gets sync responses.
+    if ((sync_flags & GF_PEERS) > 0) {
+        gconn->sync_requested = true;
+        gconn->sync_responses = 0;
+    }
+
+    return true;
 }
 
 /** @brief Sends a sync response packet to peer designated by `gconn`.
@@ -1826,6 +1836,25 @@ non_null(1, 2, 4) nullable(6)
 static int handle_gc_sync_response(const GC_Session *c, GC_Chat *chat, uint32_t peer_number, const uint8_t *data,
                                    uint16_t length, void *userdata)
 {
+    GC_Connection *gconn = get_gc_connection(chat, peer_number);
+
+    if (gconn == nullptr) {
+        return -2;
+    }
+
+    if (!gconn->sync_requested) {
+        LOGGER_DEBUG(chat->log, "Ignoring sync response we did not request from peer %u", peer_number);
+        return 0;
+    }
+
+    // A peer sends one sync response for each of its peers.
+    if (gconn->sync_responses >= get_gc_peer_limit(chat)) {
+        LOGGER_DEBUG(chat->log, "Ignoring sync response over the peer limit from peer %u", peer_number);
+        return 0;
+    }
+
+    ++gconn->sync_responses;
+
     if (chat->connection_state == CS_CONNECTED && get_gc_confirmed_numpeers(chat) >= chat->shared_state.maxpeers
             && !peer_is_founder(chat, peer_number)) {
         return -1;
@@ -1839,7 +1868,7 @@ static int handle_gc_sync_response(const GC_Session *c, GC_Chat *chat, uint32_t 
 
     chat->connection_state = CS_CONNECTED;
 
-    GC_Connection *gconn = get_gc_connection(chat, peer_number);
+    gconn = get_gc_connection(chat, peer_number);
 
     if (gconn == nullptr) {
         return -2;
