@@ -267,7 +267,13 @@ static void group_av_peer_new(void *object, uint32_t groupnumber, uint32_t frien
     peer_av->mono_time = g_mono_time(group_av->g_c);
     peer_av->buffer = create_queue(GROUP_JBUF_SIZE);
 
+    if (peer_av->buffer == nullptr) {
+        free(peer_av);
+        return;
+    }
+
     if (group_peer_set_object(group_av->g_c, groupnumber, friendgroupnumber, peer_av) == -1) {
+        terminate_queue(peer_av->buffer);
         free(peer_av);
     }
 }
@@ -440,6 +446,14 @@ static int handle_group_audio_packet(void *object, uint32_t groupnumber, uint32_
     return 0;
 }
 
+/** The callbacks use the groupchat's object, so they mustn't outlive it. */
+static void group_av_clear_callbacks(const Group_Chats *g_c, uint32_t groupnumber)
+{
+    callback_groupchat_peer_new(g_c, groupnumber, nullptr);
+    callback_groupchat_peer_delete(g_c, groupnumber, nullptr);
+    callback_groupchat_delete(g_c, groupnumber, nullptr);
+}
+
 /** @brief Enable A/V in a groupchat.
  *
  * @retval 0 on success.
@@ -459,17 +473,23 @@ int groupchat_enable_av(const Logger *log, Tox *tox, Group_Chats *g_c, uint32_t 
         return -1;
     }
 
-    if (group_set_object(g_c, groupnumber, group_av) == -1
-            || callback_groupchat_peer_new(g_c, groupnumber, group_av_peer_new) == -1
-            || callback_groupchat_peer_delete(g_c, groupnumber, group_av_peer_delete) == -1
-            || callback_groupchat_delete(g_c, groupnumber, group_av_groupchat_delete) == -1) {
+    const int numpeers = group_number_peers(g_c, groupnumber, false);
+
+    if (numpeers < 0) {
         kill_group_av(group_av);
         return -1;
     }
 
-    const int numpeers = group_number_peers(g_c, groupnumber, false);
+    if (callback_groupchat_peer_new(g_c, groupnumber, group_av_peer_new) == -1
+            || callback_groupchat_peer_delete(g_c, groupnumber, group_av_peer_delete) == -1
+            || callback_groupchat_delete(g_c, groupnumber, group_av_groupchat_delete) == -1) {
+        group_av_clear_callbacks(g_c, groupnumber);
+        kill_group_av(group_av);
+        return -1;
+    }
 
-    if (numpeers < 0) {
+    if (group_set_object(g_c, groupnumber, group_av) == -1) {
+        group_av_clear_callbacks(g_c, groupnumber);
         kill_group_av(group_av);
         return -1;
     }
