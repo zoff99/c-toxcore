@@ -51,6 +51,9 @@ typedef enum Groupchat_Status {
 /** Maximum number of frozen peers to store; `group_set_max_frozen()` overrides. */
 #define MAX_FROZEN_DEFAULT 128
 
+/** Any member can introduce peers, so we only keep this many. */
+#define MAX_GROUP_PEERS 1024
+
 typedef struct Message_Info {
     uint32_t message_number;
     uint8_t  message_id;
@@ -830,6 +833,10 @@ static int addpeer(Group_Chats *g_c, uint32_t groupnumber, const uint8_t *real_p
     }
 
     delete_any_peer_with_pk(g_c, groupnumber, real_pk, userdata);
+
+    if (g->numpeers >= MAX_GROUP_PEERS) {
+        return -1;
+    }
 
     Group_Peer *temp = (Group_Peer *)realloc(g->group, sizeof(Group_Peer) * (g->numpeers + 1));
 
