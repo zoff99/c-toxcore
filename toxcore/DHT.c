@@ -1459,19 +1459,21 @@ bool dht_getnodes(DHT *dht, const IP_Port *ip_port, const uint8_t *public_key, c
         return false;
     }
 
-    uint8_t plain_message[sizeof(Node_format) * 2] = {0};
+    uint8_t plain_message[PACKED_NODE_SIZE_IP6];
 
     Node_format receiver;
     memcpy(receiver.public_key, public_key, CRYPTO_PUBLIC_KEY_SIZE);
     receiver.ip_port = *ip_port;
 
-    if (pack_nodes(dht->log, plain_message, sizeof(plain_message), &receiver, 1) == -1) {
+    const int plain_length = pack_nodes(dht->log, plain_message, sizeof(plain_message), &receiver, 1);
+
+    if (plain_length == -1) {
         return false;
     }
 
     uint64_t ping_id = 0;
 
-    ping_id = ping_array_add(dht->dht_ping_array, dht->mono_time, dht->rng, plain_message, sizeof(receiver));
+    ping_id = ping_array_add(dht->dht_ping_array, dht->mono_time, dht->rng, plain_message, plain_length);
 
     if (ping_id == 0) {
         LOGGER_ERROR(dht->log, "adding ping id failed");
@@ -1587,15 +1589,16 @@ static int handle_getnodes(void *object, const IP_Port *source, const uint8_t *p
 non_null()
 static bool sent_getnode_to_node(DHT *dht, const uint8_t *public_key, const IP_Port *node_ip_port, uint64_t ping_id)
 {
-    uint8_t data[sizeof(Node_format) * 2];
+    uint8_t data[PACKED_NODE_SIZE_IP6];
+    const int32_t length = ping_array_check(dht->dht_ping_array, dht->mono_time, data, sizeof(data), ping_id);
 
-    if (ping_array_check(dht->dht_ping_array, dht->mono_time, data, sizeof(data), ping_id) != sizeof(Node_format)) {
+    if (length == -1) {
         return false;
     }
 
     Node_format test;
 
-    if (unpack_nodes(&test, 1, nullptr, data, sizeof(data), false) != 1) {
+    if (unpack_nodes(&test, 1, nullptr, data, length, false) != 1) {
         return false;
     }
 
