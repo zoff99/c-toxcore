@@ -265,6 +265,15 @@ typedef struct Friend {
     uint32_t message_id; // a semi-unique id used in read receipts.
     uint32_t friendrequest_nospam; // The nospam number used in the friend request.
     uint64_t last_seen_time;
+    uint64_t first_online_duration; /* Time from tox_new() to first online (ms), 0 if never online */
+    /* Phase end timestamps (monotonic time in ms) */
+    uint64_t phase_friend_added;
+    uint64_t phase_dht_key_discovery_end;
+    uint64_t phase_ip_port_discovery_end;
+    uint64_t phase_transport_end;
+    uint64_t phase_handshake_end;
+    uint64_t phase_logical_end;
+    uint64_t phase_messenger_end;
     Connection_Status last_connection_udp_tcp;
     struct File_Transfers file_sending[MAX_CONCURRENT_FILE_PIPES];
     uint32_t num_sending_files;
@@ -345,6 +354,8 @@ struct Messenger {
     Onion_Connection_Status last_connection_status;
 
     Messenger_Options options;
+    uint64_t start_time; /* Timestamp of tox_new() initialization */
+    uint64_t self_connected_time;
 };
 
 /**
@@ -579,6 +590,11 @@ uint64_t m_get_friend_toxcore_capabilities(const Messenger *m, int32_t friendnum
  * if friendnumber is invalid this function will return UINT64_MAX.
  */
 non_null() uint64_t m_get_last_online(const Messenger *m, int32_t friendnumber);
+
+/** @brief returns the duration in ms from tox_new() to when the friend first came online.
+ * if friendnumber is invalid this function will return UINT64_MAX.
+ */
+non_null() uint64_t m_get_first_online_duration(const Messenger *m, int32_t friendnumber);
 
 /** @brief Set our typing status for a friend.
  * You are responsible for turning it on or off.

@@ -57,6 +57,12 @@ struct Friend_Conn {
     uint16_t tcp_relay_counter;
     uint32_t tcp_relay_share_index;
 
+    /* Timestamp when the transport (UDP/TCP) was successfully established */
+    uint64_t time_friend_added;
+    uint64_t time_dht_key_discovered;
+    uint64_t time_ip_port_discovered;
+    uint64_t time_transport_established;
+
     bool hosting_tcp_relay;
 };
 
@@ -64,7 +70,7 @@ static const Friend_Conn empty_friend_conn = {0};
 
 
 struct Friend_Connections {
-    const Mono_Time *mono_time;
+    Mono_Time *mono_time;
     const Logger *logger;
     Net_Crypto *net_crypto;
     DHT *dht;
@@ -370,6 +376,11 @@ static void dht_ip_callback(void *object, int32_t number, const IP_Port *ip_port
         return;
     }
 
+    /* HOOK: IP/Port discovered via DHT (first time only) */
+    if (friend_con->time_ip_port_discovered == 0) {
+        friend_con->time_ip_port_discovered = current_time_monotonic(fr_c->mono_time);
+    }
+
     if (friend_con->crypt_connection_id == -1) {
         friend_new_connection(fr_c, number);
     }
@@ -467,6 +478,11 @@ static void dht_pk_callback(void *object, int32_t number, const uint8_t *dht_pub
 
     if (pk_equal(friend_con->dht_temp_pk, dht_public_key)) {
         return;
+    }
+
+    /* HOOK: DHT Key discovered via Onion (first time only) */
+    if (friend_con->time_dht_key_discovered == 0) {
+        friend_con->time_dht_key_discovered = current_time_monotonic(fr_c->mono_time);
     }
 
     change_dht_pk(fr_c, number, dht_public_key);
@@ -580,6 +596,37 @@ static int handle_lossy_packet(void *object, int number, const uint8_t *data, ui
     return 0;
 }
 
+uint64_t friend_conn_get_time_transport_established(const Friend_Conn *fc)
+{
+    if (fc == nullptr) {
+        return 0;
+    }
+    return fc->time_transport_established;
+}
+
+uint64_t friend_conn_get_time_friend_added(const Friend_Conn *fc) {
+    if (fc == nullptr) {
+        return 0;
+    }
+    return fc->time_friend_added;
+}
+
+uint64_t friend_conn_get_time_dht_key_discovered(const Friend_Conn *fc)
+{
+    if (fc == nullptr) {
+        return 0;
+    }
+    return fc->time_dht_key_discovered;
+}
+
+uint64_t friend_conn_get_time_ip_port_discovered(const Friend_Conn *fc)
+{
+    if (fc == nullptr) {
+        return 0;
+    }
+    return fc->time_ip_port_discovered;
+}
+
 non_null()
 static int handle_new_connections(void *object, const New_Connection *n_c)
 {
@@ -605,6 +652,11 @@ static int handle_new_connections(void *object, const New_Connection *n_c)
     connection_data_handler(fr_c->net_crypto, id, &handle_packet, fr_c, friendcon_id);
     connection_lossy_data_handler(fr_c->net_crypto, id, &handle_lossy_packet, fr_c, friendcon_id);
     friend_con->crypt_connection_id = id;
+
+    /* HOOK: Incoming transport connection established */
+    if (friend_con->time_transport_established == 0) {
+        friend_con->time_transport_established = current_time_monotonic(fr_c->mono_time);
+    }
 
     if (!net_family_is_ipv4(n_c->source.ip.family) && !net_family_is_ipv6(n_c->source.ip.family)) {
         set_direct_ip_port(fr_c->net_crypto, friend_con->crypt_connection_id, &friend_con->dht_ip_port, false);
@@ -645,6 +697,12 @@ static int friend_new_connection(Friend_Connections *fr_c, int friendcon_id)
     }
 
     friend_con->crypt_connection_id = id;
+
+    /* HOOK: Transport connection initiated */
+    if (friend_con->time_transport_established == 0) {
+        friend_con->time_transport_established = current_time_monotonic(fr_c->mono_time);
+    }
+
     connection_status_handler(fr_c->net_crypto, id, &handle_status, fr_c, friendcon_id);
     connection_data_handler(fr_c->net_crypto, id, &handle_packet, fr_c, friendcon_id);
     connection_lossy_data_handler(fr_c->net_crypto, id, &handle_lossy_packet, fr_c, friendcon_id);
@@ -836,6 +894,11 @@ int new_friend_connection(Friend_Connections *fr_c, const uint8_t *real_public_k
     memcpy(friend_con->real_public_key, real_public_key, CRYPTO_PUBLIC_KEY_SIZE);
     friend_con->onion_friendnum = onion_friendnum;
 
+    /* HOOK: Record the exact moment the friend is added to the connection manager */
+    if (friend_con->time_friend_added == 0) {
+        friend_con->time_friend_added = current_time_monotonic(fr_c->mono_time);
+    }
+
     recv_tcp_relay_handler(fr_c->onion_c, onion_friendnum, &tcp_relay_node_callback, fr_c, friendcon_id);
     onion_dht_pk_callback(fr_c->onion_c, onion_friendnum, &dht_pk_callback, fr_c, friendcon_id);
 
@@ -924,7 +987,7 @@ int send_friend_request_packet(Friend_Connections *fr_c, int friendcon_id, uint3
 
 /** Create new friend_connections instance. */
 Friend_Connections *new_friend_connections(
-        const Logger *logger, const Mono_Time *mono_time, const Network *ns,
+        const Logger *logger, Mono_Time *mono_time, const Network *ns,
         Onion_Client *onion_c, bool local_discovery_enabled)
 {
     if (onion_c == nullptr) {

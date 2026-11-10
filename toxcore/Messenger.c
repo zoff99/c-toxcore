@@ -937,6 +937,15 @@ uint64_t m_get_last_online(const Messenger *m, int32_t friendnumber)
     return m->friendlist[friendnumber].last_seen_time;
 }
 
+uint64_t m_get_first_online_duration(const Messenger *m, int32_t friendnumber)
+{
+    if (!m_friend_exists(m, friendnumber)) {
+        return UINT64_MAX;
+    }
+
+    return m->friendlist[friendnumber].first_online_duration;
+}
+
 int m_set_usertyping(Messenger *m, int32_t friendnumber, bool is_typing)
 {
     if (!m_friend_exists(m, friendnumber)) {
@@ -1097,6 +1106,10 @@ static void check_friend_connectionstatus(Messenger *m, int32_t friendnumber, ui
             break_files(m, friendnumber);
             clear_receipts(m, friendnumber);
         } else {
+            /* Friend is coming online for the first time (TCP or UDP) */
+            if (m->friendlist[friendnumber].first_online_duration == 0) {
+                m->friendlist[friendnumber].first_online_duration = current_time_monotonic(m->mono_time) - m->start_time;
+            }
             m->friendlist[friendnumber].name_sent = false;
             m->friendlist[friendnumber].userstatus_sent = false;
             m->friendlist[friendnumber].statusmessage_sent = false;
@@ -2388,6 +2401,45 @@ static int m_handle_status(void *object, int i, bool status, void *userdata)
     Messenger *m = (Messenger *)object;
 
     if (status) { /* Went online. */
+        uint64_t now = current_time_monotonic(m->mono_time);
+
+        const Friend_Conn *fc = get_conn(m->fr_c, m->friendlist[i].friendcon_id);
+        if (fc != nullptr) {
+            uint64_t added_time = friend_conn_get_time_friend_added(fc);
+            uint64_t dht_key_time = friend_conn_get_time_dht_key_discovered(fc);
+            uint64_t ip_port_time = friend_conn_get_time_ip_port_discovered(fc);
+            uint64_t transport_time = friend_conn_get_time_transport_established(fc);
+
+            if (added_time > 0) m->friendlist[i].phase_friend_added = added_time;
+
+            // FALLBACK: If dht_pk_callback never fired (cached key path),
+            // use transport time as the DHT key discovery endpoint
+            if (dht_key_time > 0) {
+                m->friendlist[i].phase_dht_key_discovery_end = dht_key_time;
+            } else if (transport_time > 0) {
+                m->friendlist[i].phase_dht_key_discovery_end = transport_time;
+            }
+
+            // FALLBACK: If DHT IP callback never fired (TCP relay path),
+            // use transport time as the IP/Port discovery endpoint
+            if (ip_port_time > 0) {
+                m->friendlist[i].phase_ip_port_discovery_end = ip_port_time;
+            } else if (transport_time > 0) {
+                m->friendlist[i].phase_ip_port_discovery_end = transport_time;
+            }
+
+            if (transport_time > 0) m->friendlist[i].phase_transport_end = transport_time;
+        }
+
+        // 2. Discovery, Handshake, and Logical happen roughly together from Messenger's perspective
+        if (m->friendlist[i].phase_handshake_end == 0) {
+            m->friendlist[i].phase_handshake_end = now;
+        }
+
+        if (m->friendlist[i].phase_logical_end == 0) {
+            m->friendlist[i].phase_logical_end = now;
+        }
+
         send_online_packet(m, m->friendlist[i].friendcon_id);
     } else { /* Went offline. */
         if (m->friendlist[i].status == FRIEND_ONLINE) {
@@ -2424,6 +2476,11 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
 
     if (m->friendlist[i].status != FRIEND_ONLINE) {
         if (packet_id == PACKET_ID_ONLINE) {
+            /* Capture the time when PACKET_ID_ONLINE is received.
+             * This completes the Messenger Synchronization phase. */
+            if (m->friendlist[i].phase_messenger_end == 0) {
+                m->friendlist[i].phase_messenger_end = current_time_monotonic(m->mono_time);
+            }
             if (len == (TOX_CAPABILITIES_SIZE + 1)) {
                 uint64_t received_caps;
                 net_unpack_u64(data, &received_caps);
@@ -2984,6 +3041,11 @@ static void m_connection_status_callback(Messenger *m, void *userdata)
     const Onion_Connection_Status conn_status = onion_connection_status(m->onion_c, true);
 
     if (conn_status != m->last_connection_status) {
+        // Capture the moment we connect to the network (Bootstrap phase end)
+        if (conn_status != ONION_CONNECTION_STATUS_NONE && m->self_connected_time == 0) {
+            m->self_connected_time = current_time_monotonic(m->mono_time);
+        }
+
         if (m->core_connection_change != nullptr) {
             m->core_connection_change(m, conn_status, userdata);
         }
@@ -2991,7 +3053,6 @@ static void m_connection_status_callback(Messenger *m, void *userdata)
         m->last_connection_status = conn_status;
     }
 }
-
 
 #define DUMPING_CLIENTS_FRIENDS_EVERY_N_SECONDS 60UL
 
@@ -4182,6 +4243,8 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
     m->mono_time = mono_time;
     m->rng = rng;
     m->ns = ns;
+
+    m->start_time = current_time_monotonic(m->mono_time);
 
     m->fr = friendreq_new();
 

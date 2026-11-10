@@ -1758,6 +1758,70 @@ uint64_t tox_friend_get_last_online(const Tox *tox, uint32_t friend_number, Tox_
     return timestamp;
 }
 
+uint64_t tox_friend_get_first_online_duration(const Tox *tox, uint32_t friend_number,
+                                              TOX_FRIEND_ONLINE_PHASE phase,
+                                              Tox_Err_Friend_Query *error)
+{
+    tox_lock(tox);
+    const Messenger *m = tox->m;
+
+    if (!m_friend_exists(m, friend_number)) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_FRIEND_QUERY_FRIEND_NOT_FOUND);
+        tox_unlock(tox);
+        return 0;
+    }
+
+    const Friend *f = &m->friendlist[friend_number];
+    uint64_t start_ts = 0;
+    uint64_t end_ts = 0;
+
+    switch (phase) {
+        case TOX_FRIEND_ONLINE_PHASE_BOOTSTRAP:
+            start_ts = m->start_time;
+            end_ts = m->self_connected_time;
+            break;
+        case TOX_FRIEND_ONLINE_PHASE_DHT_KEY_DISCOVERY:
+            start_ts = m->start_time;
+            end_ts = f->phase_dht_key_discovery_end;
+            break;
+        case TOX_FRIEND_ONLINE_PHASE_IP_PORT_DISCOVERY:
+            start_ts = m->start_time;
+            end_ts = f->phase_ip_port_discovery_end;
+            break;
+        case TOX_FRIEND_ONLINE_PHASE_TRANSPORT:
+            start_ts = m->start_time;
+            end_ts = f->phase_transport_end;
+            break;
+        case TOX_FRIEND_ONLINE_PHASE_HANDSHAKE:
+            start_ts = m->start_time;
+            end_ts = f->phase_handshake_end;
+            break;
+        case TOX_FRIEND_ONLINE_PHASE_LOGICAL:
+            start_ts = m->start_time;
+            end_ts = f->phase_logical_end;
+            break;
+        case TOX_FRIEND_ONLINE_PHASE_MESSENGER:
+            start_ts = m->start_time;
+            end_ts = f->phase_messenger_end;
+            break;
+        default:
+            SET_ERROR_PARAMETER(error, TOX_ERR_FRIEND_QUERY_FRIEND_NOT_FOUND);
+            tox_unlock(tox);
+            return 0;
+    }
+
+    // Prevent underflow if a phase hasn't been recorded yet
+    if (start_ts == 0 || end_ts == 0) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_FRIEND_QUERY_OK);
+        tox_unlock(tox);
+        return 0;
+    }
+
+    SET_ERROR_PARAMETER(error, TOX_ERR_FRIEND_QUERY_OK);
+    tox_unlock(tox);
+    return (end_ts - start_ts) / 1000;
+}
+
 uint64_t tox_friend_get_capabilities(const Tox *tox, uint32_t friend_number)
 {
     tox_lock(tox);

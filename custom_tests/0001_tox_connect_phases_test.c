@@ -1,5 +1,3 @@
-
-
 #define _GNU_SOURCE
 
 
@@ -32,24 +30,40 @@
 #include <signal.h>
 #include <linux/sched.h>
 
+#include <sodium.h>
+
 #include <tox/tox.h>
+#include <tox/toxav.h>
 
 #define CURRENT_LOG_LEVEL 9 // 0 -> error, 1 -> warn, 2 -> info, 9 -> debug
 const char *log_filename = "output.log";
 const char *savedata_filename1 = "savedata1.tox";
 const char *savedata_filename2 = "savedata2.tox";
 FILE *logfile = NULL;
-uint8_t key_bin_rec[TOX_FILE_ID_LENGTH];
 
-const uint64_t totalf_size = 10 * 1024 * 1024;
-uint64_t cur_recv_pos = 0;
-uint32_t print_counter = 0;
-uint8_t *send_file;
-uint8_t *recv_file;
+uint8_t s_num1 = 1;
+uint8_t s_num2 = 2;
 
+// #define USE_TOR 1
+#define PROXY_PORT_TOR_DEFAULT 9050
+
+int s_online[3] = { 0, 0, 0};
 int f_online[3] = { 0, 0, 0};
-int ft_fin = 0;
-int ft_cancel[3] = { 0, 0, 0};
+int f_join_other[3] = { 0, 0, 0};
+int f_join_self[3] = { 0, 0, 0};
+
+int toxav_video_thread_stop = 0;
+int toxav_audioiterate_thread_stop = 0;
+
+long a_frames_rvcd = 0;
+long v_frames_rvcd = 0;
+long a_frames_sent = 0;
+long v_frames_sent = 0;
+uint64_t last_vframe_recv_ts = 0;
+uint64_t last_vframe_recv_pts = 0;
+uint64_t last_aframe_recv_ts = 0;
+uint64_t last_aframe_recv_pts = 0;
+
 
 struct Node1 {
     char *ip;
@@ -139,6 +153,17 @@ struct Node2 {
     { NULL, NULL, 0, 0 }
 };
 
+
+
+// gives a counter value that increaes every millisecond
+static uint64_t current_time_monotonic_default2()
+{
+    uint64_t time = 0;
+    struct timespec clock_mono;
+    clock_gettime(CLOCK_MONOTONIC, &clock_mono);
+    time = 1000ULL * clock_mono.tv_sec + (clock_mono.tv_nsec / 1000000ULL);
+    return time;
+}
 
 void dbg(int level, const char *fmt, ...)
 {
@@ -287,8 +312,8 @@ static Tox* tox_init(int num)
     // ----- set options ------
     options.ipv6_enabled = false;
     options.local_discovery_enabled = false;
-    options.hole_punching_enabled = true;
-    options.udp_enabled = false;
+    options.hole_punching_enabled = false;
+    options.udp_enabled = true;
     options.tcp_port = 0; // disable tcp relay function!
     // ----- set options ------
 
@@ -302,13 +327,12 @@ static Tox* tox_init(int num)
         f = fopen(savedata_filename2, "rb");
     }
 
-    uint8_t *savedata = NULL;
     if (f)
     {
         fseek(f, 0, SEEK_END);
         long fsize = ftell(f);
         fseek(f, 0, SEEK_SET);
-        savedata = calloc(1, fsize);
+        uint8_t *savedata = calloc(1, fsize);
         size_t dummy = fread(savedata, fsize, 1, f);
 
         if (dummy < 1)
@@ -332,23 +356,18 @@ static Tox* tox_init(int num)
     }
 
     tox = tox_new(&options, NULL);
-    free(savedata);
     return tox;
 }
 
 static bool tox_connect(Tox *tox, int num) {
 
-    dbg(9, "[%d]:bootstrapping ...\n", num);
+    // dbg(9, "[%d]:bootstrapping ...\n", num);
 
     if (num == 1)
     {
         for (int i = 0; nodes1[i].ip; i++) {
             uint8_t *key = (uint8_t *)calloc(1, 100);
             hex_string_to_bin2(nodes1[i].key, key);
-            if (!key) {
-                return false; // Return because it will most likely fail again
-            }
-
             tox_bootstrap(tox, nodes1[i].ip, nodes1[i].udp_port, key, NULL);
             if (nodes1[i].tcp_port != 0) {
                 tox_add_tcp_relay(tox, nodes1[i].ip, nodes1[i].tcp_port, key, NULL);
@@ -361,10 +380,6 @@ static bool tox_connect(Tox *tox, int num) {
         for (int i = 0; nodes2[i].ip; i++) {
             uint8_t *key = (uint8_t *)calloc(1, 100);
             hex_string_to_bin2(nodes2[i].key, key);
-            if (!key) {
-                return false; // Return because it will most likely fail again
-            }
-
             tox_bootstrap(tox, nodes2[i].ip, nodes2[i].udp_port, key, NULL);
             if (nodes2[i].tcp_port != 0) {
                 tox_add_tcp_relay(tox, nodes2[i].ip, nodes2[i].tcp_port, key, NULL);
@@ -372,7 +387,7 @@ static bool tox_connect(Tox *tox, int num) {
             free(key);
         }
     }
-    dbg(9, "[%d]:bootstrapping done.\n", num);
+    // dbg(9, "[%d]:bootstrapping done.\n", num);
 
     return true;
 }
@@ -402,12 +417,15 @@ static void self_connection_change_callback(Tox *tox, TOX_CONNECTION status, voi
     switch (status) {
         case TOX_CONNECTION_NONE:
             dbg(9, "[%d]:Lost connection to the Tox network.\n", num);
+            s_online[num] = 0;
             break;
         case TOX_CONNECTION_TCP:
             dbg(9, "[%d]:Connected using TCP.\n", num);
+            s_online[num] = 1;
             break;
         case TOX_CONNECTION_UDP:
             dbg(9, "[%d]:Connected using UDP.\n", num);
+            s_online[num] = 2;
             break;
     }
 }
@@ -446,132 +464,55 @@ static void friend_request_callback(Tox *tox, const uint8_t *public_key, const u
     dbg(9, "[%d]:accepting friend request. res=%d\n", num, err);
 }
 
-static void file_recv_chunk(Tox *tox, uint32_t friendnumber, uint32_t filenumber, uint64_t position, const uint8_t *data,
-                       size_t length, void *userdata)
+static void group_invite_cb(Tox *tox, uint32_t friend_number, const uint8_t *invite_data, size_t length,
+                                 const uint8_t *group_name, size_t group_name_length, void *userdata)
 {
-    tox;
     uint8_t* unum = (uint8_t *)userdata;
     uint8_t num = *unum;
 
-    // dbg(9, "[%d]: -> file_recv_chunk filenum=%d pos=%lu length=%d\n", num, filenumber, position, (int)length);
+    Tox_Err_Group_Invite_Accept error;
+    tox_group_invite_accept(tox, friend_number, invite_data, length,
+                                 (const uint8_t *)"tt", 2, NULL, 0,
+                                 &error);
 
-    if (data == NULL)
-    {
-        uint8_t key_bin_chunk[TOX_FILE_ID_LENGTH];
-        char    key_str_chunk[TOX_FILE_ID_LENGTH * 2];
-        Tox_Err_File_Get gfierr;
-        tox_file_get_file_id(tox, 0, filenumber, key_bin_chunk, &gfierr);
-        to_hex(key_str_chunk, key_bin_chunk, TOX_FILE_ID_LENGTH);
-        dbg(9, "[%d]:ID:F: %.*s\n", num, TOX_FILE_ID_LENGTH * 2, key_str_chunk);
-        dbg(9, "[%d]: -> file_recv_chunk FINISHED:RECEIVER filenum=%d pos=%lu length=%d\n", num, filenumber, position, (int)length);
-        
-        dbg(9, "[%d]: -> file_recv_chunk FINISHED:RECEIVER:comparing files ...\n", num);
-        uint8_t *send_file_tmp = send_file;
-        uint8_t *recv_file_tmp = recv_file;
-        int i = 0;
-        while(i++ < totalf_size)
-        {
-            if ((uint8_t)*send_file_tmp != (uint8_t)*recv_file_tmp)
-            {
-                dbg(9, "[%d]:ERR: -> file_recv_chunk FINISHED:RECEIVER:byte does NOT match at position %d byte:%d byte:%d\n", num, i, (uint8_t)*send_file_tmp, (uint8_t)*recv_file_tmp);
-                exit(3);
-            }
-            send_file_tmp++;
-            recv_file_tmp++;
-        }
-        dbg(9, "[%d]: -> file_recv_chunk FINISHED:RECEIVER:comparing files ... DONE\n", num);
-    }
-    else
-    {
-        print_counter++;
-        if ((print_counter % 770) == 0) // (770 * 1363) =~ 1MiB
-        {
-            dbg(9, "[%d]: -> file_recv_chunk filenum=%d pos=%lu length=%d\n", num, filenumber, position, (int)length);
-        }
-
-        uint8_t key_bin_chunk[TOX_FILE_ID_LENGTH];
-        char    key_str_chunk[TOX_FILE_ID_LENGTH * 2];
-        memcpy(key_bin_chunk, data, TOX_FILE_ID_LENGTH);
-        to_hex(key_str_chunk, key_bin_chunk, TOX_FILE_ID_LENGTH);
-        // dbg(9, "[%d]:ID:C: %.*s\n", 1, TOX_FILE_ID_LENGTH * 2, key_str_chunk);
-
-        cur_recv_pos = position;
-
-        memcpy((recv_file + position), (data + TOX_FILE_ID_LENGTH), (length - TOX_FILE_ID_LENGTH));
-    }
-
+    dbg(9, "[%d]:tox_group_invite_accept:%d\n", num, error);
 }
 
-static void file_recv_control(Tox *tox, uint32_t friend_number, uint32_t file_number, Tox_File_Control control,
-                               void *userdata)
+static void group_peer_join_cb(Tox *tox, uint32_t group_number, uint32_t peer_id, void *userdata)
 {
     tox;
     uint8_t* unum = (uint8_t *)userdata;
     uint8_t num = *unum;
-    dbg(9, "[%d]:file_recv_control. control=%d\n", num, control); // control "0" == "TOX_FILE_CONTROL_RESUME"
-    
-    if (control == 2)
-    {
-        // control "2" == TOX_FILE_CONTROL_CANCEL
-        dbg(9, "[%d]:ERR:file_recv_control. stop sending FT\n", num);
-        ft_cancel[num] = 1;
-    }
+
+    f_join_other[num]++;
+    dbg(9, "[%d]:Peer %d joined group %d other=%d\n", num, peer_id, group_number, f_join_other[num]);
 }
 
-static void file_chunk_request(Tox *tox, uint32_t friend_number, uint32_t file_number, uint64_t position,
-                                   size_t length, void *userdata)
+static void group_self_join_cb(Tox *tox, uint32_t group_number, void *userdata)
 {
     tox;
     uint8_t* unum = (uint8_t *)userdata;
     uint8_t num = *unum;
-    // dbg(9, "[%d]:file_chunk_request filenum=%d pos=%lu length=%d\n", num, file_number, position, (int)length);
 
-    if (length == 0)
-    {
-        dbg(9, "[%d]:file_chunk_request FINISHED:SENDER filenum=%d pos=%lu length=%d\n", num, file_number, position, (int)length);
-        ft_fin = 1;
-        return;
-    }
-
-    uint8_t *f_data = calloc(1, length + TOX_FILE_ID_LENGTH);
-    memcpy((f_data + TOX_FILE_ID_LENGTH), (send_file + position), length);
-    memcpy(f_data, key_bin_rec, TOX_FILE_ID_LENGTH);
-
-    Tox_Err_File_Send_Chunk error;
-    tox_file_send_chunk(tox, friend_number, file_number, position, f_data, (length + TOX_FILE_ID_LENGTH), &error);
-
-    free(f_data);
+    f_join_self[num]++;
+    dbg(9, "[%d]:You joined group %d self=%d\n", num, group_number, f_join_self[num]);
 }
 
-static void file_receive(Tox *tox, uint32_t friend_number, uint32_t file_number, uint32_t kind, uint64_t filesize,
-                             const uint8_t *filename, size_t filename_length, void *userdata)
+static void group_join_fail_cb(Tox *tox, uint32_t group_number, Tox_Group_Join_Fail fail_type, void *userdata)
 {
     tox;
     uint8_t* unum = (uint8_t *)userdata;
     uint8_t num = *unum;
+    dbg(9, "[%d]:Joining group %d failed. reason: %d\n", num, group_number, fail_type);
+}
 
-    char    key_str_rec[TOX_FILE_ID_LENGTH * 2];
-    Tox_Err_File_Get gfierr;
-    tox_file_get_file_id(tox, 0, file_number, key_bin_rec, &gfierr);
-    to_hex(key_str_rec, key_bin_rec, TOX_FILE_ID_LENGTH);
-    dbg(9, "[%d]:ID:R: %.*s\n", num, TOX_FILE_ID_LENGTH * 2, key_str_rec);
-
-    dbg(9, "[%d]:file_receive:%s size=%lu kind=%d\n", num, filename, filesize, kind);
-
-    if (filesize != totalf_size)
-    {
-        dbg(9, "[%d]:ERR:file_receive:%s size=%lu kind=%d does not match send size=%lu\n", num, filename, filesize, kind, (uint64_t)totalf_size);
-        exit(2);
-    }
-    else
-    {
-        dbg(9, "[%d]:file_receive:%s size=%lu kind=%d DOES match send size=%lu\n", num, filename, filesize, kind, (uint64_t)totalf_size);
-    }
-
-    recv_file = calloc(1, filesize);
-
-    Tox_Err_File_Control error;
-    tox_file_control(tox, friend_number, file_number, TOX_FILE_CONTROL_RESUME, &error);
+static void group_peer_exit_cb(Tox *tox, uint32_t group_number, uint32_t peer_id, Tox_Group_Exit_Type exit_type,
+                                    const uint8_t *name, size_t name_length, const uint8_t *part_message, size_t length, void *userdata)
+{
+    tox;
+    uint8_t* unum = (uint8_t *)userdata;
+    uint8_t num = *unum;
+    dbg(9, "[%d]:Peer %d left group %d reason: %d\n", num, peer_id, group_number, exit_type);
 }
 
 static void set_cb(Tox *tox1, Tox *tox2)
@@ -580,20 +521,48 @@ static void set_cb(Tox *tox1, Tox *tox2)
     tox_callback_self_connection_status(tox1, self_connection_change_callback);
     tox_callback_friend_connection_status(tox1, friend_connection_status_callback);
     tox_callback_friend_request(tox1, friend_request_callback);
+    tox_callback_group_invite(tox1, group_invite_cb);
+    tox_callback_group_peer_join(tox1, group_peer_join_cb);
+    tox_callback_group_self_join(tox1, group_self_join_cb);
+    tox_callback_group_peer_exit(tox1, group_peer_exit_cb);
+    tox_callback_group_join_fail(tox1, group_join_fail_cb);
 
     tox_callback_self_connection_status(tox2, self_connection_change_callback);
     tox_callback_friend_connection_status(tox2, friend_connection_status_callback);
     tox_callback_friend_request(tox2, friend_request_callback);
-
-
-    tox_callback_file_recv_control(tox1, file_recv_control);
-    tox_callback_file_recv_chunk(tox1, file_recv_chunk);
-    tox_callback_file_recv(tox1, file_receive);
-
-    tox_callback_file_recv_control(tox2, file_recv_control);
-    tox_callback_file_chunk_request(tox2, file_chunk_request);
+    tox_callback_group_invite(tox2, group_invite_cb);
+    tox_callback_group_peer_join(tox2, group_peer_join_cb);
+    tox_callback_group_self_join(tox2, group_self_join_cb);
+    tox_callback_group_peer_exit(tox2, group_peer_exit_cb);
+    tox_callback_group_join_fail(tox2, group_join_fail_cb);
     // ---------- CALLBACKS ----------
 
+}
+
+uint32_t s_r(const uint32_t upper_bound)
+{
+    return randombytes_uniform(upper_bound);
+}
+
+uint32_t n_r(const uint32_t upper_bound)
+{
+    return rand() % upper_bound;
+}
+
+uint32_t generate_random_uint32()
+{
+#if 0
+    // use libsodium function
+    uint32_t r = randombytes_random();
+    // dbg(9, "[%d]:random_sodium=%u\n", 0, r);
+    return r;
+#else
+    // HINT: this is not perfectly randon, FIX ME!
+    uint32_t r;
+    r = rand();
+    // dbg(9, "[%d]:random_glibc=%u\n", 0, r);
+    return r;
+#endif
 }
 
 static void print_stats(Tox *tox, int num)
@@ -616,6 +585,7 @@ static void del_savefile(int num)
     }
 }
 
+
 int main(void)
 {
     logfile = stdout;
@@ -623,6 +593,12 @@ int main(void)
     setvbuf(logfile, NULL, _IOLBF, 0);
 
     dbg(9, "--start--\n");
+
+    // --- seed rand ---
+    struct timeval time;
+    gettimeofday(&time, NULL);
+    srand((time.tv_sec * 1000) + (time.tv_usec / 1000));
+    // --- seed rand ---
 
     dbg(9, "[%d]:remove old savefiles\n", 0);
     del_savefile(1);
@@ -632,10 +608,13 @@ int main(void)
     uint8_t num2 = 2;
     f_online[1] = 0;
     f_online[2] = 0;
+    s_online[1] = 0;
+    s_online[2] = 0;
     Tox *tox1 = tox_init(1);
     Tox *tox2 = tox_init(2);
-    ft_cancel[1] = 0;
-    ft_cancel[2] = 0;
+
+    // HINT: force to use only UDP
+    // tox_set_force_udp_only_mode(true);
 
     uint8_t public_key_bin1[TOX_ADDRESS_SIZE];
     char    public_key_str1[TOX_ADDRESS_SIZE * 2];
@@ -652,9 +631,6 @@ int main(void)
     tox_self_set_name(tox1, "ABCtox1_789", strlen("ABCtox1_789"), NULL);
     tox_self_set_name(tox1, "UHGtox2_345", strlen("UHGtox2_345"), NULL);
 
-    print_stats(tox1, 1);
-    print_stats(tox1, 2);
-
     tox_connect(tox1, 1);
     tox_connect(tox2, 2);
 
@@ -663,105 +639,61 @@ int main(void)
     tox_iterate(tox1, (void *)&num1);
     tox_iterate(tox2, (void *)&num2);
 
+    // ----------- wait for friends to come online -----------
     Tox_Err_Friend_Add err1;
     tox_friend_add(tox1, public_key_bin2, "1", 1, &err1);
     dbg(9, "[%d]:add friend res=%d\n", 1, err1);
-
-    while (1 == 1) {
-        tox_iterate(tox1, (void *)&num1);
-        usleep(tox_iteration_interval(tox1)*1000);
-        tox_iterate(tox2, (void *)&num2);
-        usleep(tox_iteration_interval(tox2)*1000);
-        if ((f_online[1] > 0) && (f_online[2] > 0))
-        {
-            break;
-        }
-    }
-
-    dbg(9, "[%d]:friends online\n", 0);
-
-    send_file = calloc(1, totalf_size);
-
-    dbg(9, "[%d]:generating random mem ...\n", 0);
-    uint8_t *send_file_tmp = send_file;
-    int i = 0;
-    while(i++ < totalf_size)
-    {
-        uint8_t random_byte = (uint8_t)(rand() % 255);
-        *send_file_tmp = random_byte;
-        send_file_tmp++;
-    }
-    dbg(9, "[%d]:generating random mem ... DONE\n", 0);
-
-    uint32_t fnum = tox_file_send(tox2, 0, TOX_FILE_KIND_FTV2, totalf_size, NULL, (const uint8_t *)"Gentoo.exe",
-                                  sizeof("Gentoo.exe"), NULL);
-
-    uint8_t key_bin1[TOX_FILE_ID_LENGTH];
-    char    key_str1[TOX_FILE_ID_LENGTH * 2];
-    Tox_Err_File_Get gfierr;
-    tox_file_get_file_id(tox2, 0, fnum, key_bin1, &gfierr);
-    to_hex(key_str1, key_bin1, TOX_FILE_ID_LENGTH);
-    dbg(9, "[%d]:ID:S: %.*s\n", 2, TOX_FILE_ID_LENGTH * 2, key_str1);
-
-    for (int i=0;i<10;i++) {
-        tox_iterate(tox1, (void *)&num1);
-        usleep(tox_iteration_interval(tox1)*1000);
-        tox_iterate(tox2, (void *)&num2);
-        usleep(tox_iteration_interval(tox2)*1000);
-    }
-
     while (1 == 1) {
         tox_iterate(tox1, (void *)&num1);
         usleep(tox_iteration_interval(tox1) * 1000);
         tox_iterate(tox2, (void *)&num2);
         usleep(tox_iteration_interval(tox2) * 1000);
-        if (cur_recv_pos > ((totalf_size / 2) + 1))
+        if ((f_online[1] > 0) && (f_online[2] > 0) && (s_online[1] > 0) && (s_online[2] > 0))
         {
-            dbg(9, "[%d]:receiving position at %lu\n", 0, cur_recv_pos);
             break;
         }
     }
+    dbg(9, "[%d]:friends online and self toxes online\n", 0);
+    // ----------- wait for friends to come online -----------
 
-    dbg(9, "[%d]:receiver restarts tox node\n", 0);
-
-
-    dbg(9, "[%d]:save data\n", 0);
-    update_savedata_file(tox1, 1);
-    dbg(9, "[%d]:kill tox\n", 0);
-    tox_kill(tox1);
-    tox1 = NULL;
-    dbg(9, "[%d]:receiver starts up again\n", 0);
-    tox1 = tox_init(1);
-    dbg(9, "[%d]:connect\n", 0);
-    tox_connect(tox1, 1);
-    dbg(9, "[%d]:set callbacks\n", 0);
-    set_cb(tox1, tox2);
-
-    while (1 == 1) {
+    // Wait for PACKET_ID_ONLINE exchange to complete (Phase 5)
+    dbg(9, "[%d]:waiting for messenger sync...\n", 0);
+    for(int i=0; i<20; i++) { // Wait ~1 second
         tox_iterate(tox1, (void *)&num1);
-        usleep(tox_iteration_interval(tox1) * 1000);
+        usleep(50000);
         tox_iterate(tox2, (void *)&num2);
-        usleep(tox_iteration_interval(tox2) * 1000);
-        if (ft_fin == 1)
-        {
-            // HINT: in this test the FT should NOT finish ok!
-            exit(99);
-        }
-        
-        if (ft_cancel[2] == 1)
-        {
-            // HINT: both parties know that the FT was canceled. this is the expected result.
-            //       the sender got the signal to cancel the non existing FTv2.
-            break;
-        }
+        usleep(50000);
     }
+
+    // ----------- QUERY AND PRINT PHASE DURATIONS -----------
+    TOX_ERR_FRIEND_QUERY query_err;
+    uint64_t phase_bootstrap = tox_friend_get_first_online_duration(tox1, 0, TOX_FRIEND_ONLINE_PHASE_BOOTSTRAP, &query_err);
+    uint64_t phase_dht_key   = tox_friend_get_first_online_duration(tox1, 0, TOX_FRIEND_ONLINE_PHASE_DHT_KEY_DISCOVERY, &query_err);
+    uint64_t phase_ip_port   = tox_friend_get_first_online_duration(tox1, 0, TOX_FRIEND_ONLINE_PHASE_IP_PORT_DISCOVERY, &query_err);
+    uint64_t phase_transport = tox_friend_get_first_online_duration(tox1, 0, TOX_FRIEND_ONLINE_PHASE_TRANSPORT, &query_err);
+    uint64_t phase_handshake = tox_friend_get_first_online_duration(tox1, 0, TOX_FRIEND_ONLINE_PHASE_HANDSHAKE, &query_err);
+    uint64_t phase_logical   = tox_friend_get_first_online_duration(tox1, 0, TOX_FRIEND_ONLINE_PHASE_LOGICAL, &query_err);
+    uint64_t phase_messenger = tox_friend_get_first_online_duration(tox1, 0, TOX_FRIEND_ONLINE_PHASE_MESSENGER, &query_err);
+
+    dbg(9, "\n");
+    dbg(9, "+--------------------+------------------+\n");
+    dbg(9, "| Phase              | Duration (sec)   |\n");
+    dbg(9, "+--------------------+------------------+\n");
+    dbg(9, "| 1. Bootstrap       | %16llu |\n", (unsigned long long)phase_bootstrap);
+    dbg(9, "| 2. DHT Key Disc.   | %16llu |\n", (unsigned long long)phase_dht_key);
+    dbg(9, "| 3. IP/Port Disc.   | %16llu |\n", (unsigned long long)phase_ip_port);
+    dbg(9, "| 4. Transport       | %16llu |\n", (unsigned long long)phase_transport);
+    dbg(9, "| 5. Handshake       | %16llu |\n", (unsigned long long)phase_handshake);
+    dbg(9, "| 6. Logical         | %16llu |\n", (unsigned long long)phase_logical);
+    dbg(9, "| 7. Messenger       | %16llu |\n", (unsigned long long)phase_messenger);
+    dbg(9, "+--------------------+------------------+\n");
+    // -------------------------------------------------------
 
     tox_kill(tox1);
     tox_kill(tox2);
 
-    free(send_file);
-    free(recv_file);
-
+    dbg(9, "--END--\n");
     fclose(logfile);
+
     return 0;
 } 

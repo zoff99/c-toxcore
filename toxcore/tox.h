@@ -1625,6 +1625,31 @@ typedef enum Tox_Err_Friend_Query {
 
 } Tox_Err_Friend_Query;
 
+
+/**
+ * Represents the different phases of a friend coming online.
+ */
+typedef enum TOX_FRIEND_ONLINE_PHASE {
+    TOX_FRIEND_ONLINE_PHASE_BOOTSTRAP,        // tox_new -> self connected
+    TOX_FRIEND_ONLINE_PHASE_DHT_KEY_DISCOVERY,  // NEW: Finding the DHT key via Onion
+    TOX_FRIEND_ONLINE_PHASE_IP_PORT_DISCOVERY,  // NEW: Finding the IP via DHT
+    TOX_FRIEND_ONLINE_PHASE_TRANSPORT,        // friend IP found -> transport initiated
+    TOX_FRIEND_ONLINE_PHASE_HANDSHAKE,        // transport initiated -> handshake complete
+    TOX_FRIEND_ONLINE_PHASE_LOGICAL,          // handshake complete -> connection confirmed
+    TOX_FRIEND_ONLINE_PHASE_MESSENGER,        // connection confirmed -> online packet
+} TOX_FRIEND_ONLINE_PHASE;
+
+
+/**
+ * @brief Return the duration in seconds for a specific phase of the friend coming online process.
+ *
+ * @param phase The phase to query.
+ * @return The duration in seconds for the specified phase.
+ */
+uint64_t tox_friend_get_first_online_duration(const Tox *tox, uint32_t friend_number,
+                                              TOX_FRIEND_ONLINE_PHASE phase,
+                                              Tox_Err_Friend_Query *error);
+
 /**
  * Return the capabilities flags for a friend. If the friend number is invalid, the
  * return value is unspecified.

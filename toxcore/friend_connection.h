@@ -156,7 +156,7 @@ void set_friend_request_callback(Friend_Connections *fr_c, fr_request_cb *fr_req
 /** Create new friend_connections instance. */
 non_null()
 Friend_Connections *new_friend_connections(
-        const Logger *logger, const Mono_Time *mono_time, const Network *ns,
+        const Logger *logger, Mono_Time *mono_time, const Network *ns,
         Onion_Client *onion_c, bool local_discovery_enabled);
 
 /** main friend_connections loop. */
@@ -172,5 +172,18 @@ typedef struct Friend_Conn Friend_Conn;
 non_null() Friend_Conn *get_conn(const Friend_Connections *fr_c, int friendcon_id);
 non_null() int friend_conn_get_onion_friendnum(const Friend_Conn *fc);
 non_null() const IP_Port *friend_conn_get_dht_ip_port(const Friend_Conn *fc);
+
+/**
+ * @brief Get the timestamp when the transport (UDP/TCP) was established.
+ *
+ * @return the monotonic timestamp in ms, or 0 if not established.
+ */
+non_null()
+uint64_t friend_conn_get_time_transport_established(const Friend_Conn *fc);
+
+non_null() uint64_t friend_conn_get_time_friend_added(const Friend_Conn *fc);
+non_null() uint64_t friend_conn_get_time_dht_key_discovered(const Friend_Conn *fc);
+non_null() uint64_t friend_conn_get_time_ip_port_discovered(const Friend_Conn *fc);
+
 
 #endif

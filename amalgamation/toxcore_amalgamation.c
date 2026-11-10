@@ -7710,6 +7710,31 @@ typedef enum Tox_Err_Friend_Query {
 
 } Tox_Err_Friend_Query;
 
+
+/**
+ * Represents the different phases of a friend coming online.
+ */
+typedef enum TOX_FRIEND_ONLINE_PHASE {
+    TOX_FRIEND_ONLINE_PHASE_BOOTSTRAP,        // tox_new -> self connected
+    TOX_FRIEND_ONLINE_PHASE_DHT_KEY_DISCOVERY,  // NEW: Finding the DHT key via Onion
+    TOX_FRIEND_ONLINE_PHASE_IP_PORT_DISCOVERY,  // NEW: Finding the IP via DHT
+    TOX_FRIEND_ONLINE_PHASE_TRANSPORT,        // friend IP found -> transport initiated
+    TOX_FRIEND_ONLINE_PHASE_HANDSHAKE,        // transport initiated -> handshake complete
+    TOX_FRIEND_ONLINE_PHASE_LOGICAL,          // handshake complete -> connection confirmed
+    TOX_FRIEND_ONLINE_PHASE_MESSENGER,        // connection confirmed -> online packet
+} TOX_FRIEND_ONLINE_PHASE;
+
+
+/**
+ * @brief Return the duration in seconds for a specific phase of the friend coming online process.
+ *
+ * @param phase The phase to query.
+ * @return The duration in seconds for the specified phase.
+ */
+uint64_t tox_friend_get_first_online_duration(const Tox *tox, uint32_t friend_number,
+                                              TOX_FRIEND_ONLINE_PHASE phase,
+                                              Tox_Err_Friend_Query *error);
+
 /**
  * Return the capabilities flags for a friend. If the friend number is invalid, the
  * return value is unspecified.
@@ -13178,7 +13203,7 @@ void set_friend_request_callback(Friend_Connections *fr_c, fr_request_cb *fr_req
 /** Create new friend_connections instance. */
 non_null()
 Friend_Connections *new_friend_connections(
-        const Logger *logger, const Mono_Time *mono_time, const Network *ns,
+        const Logger *logger, Mono_Time *mono_time, const Network *ns,
         Onion_Client *onion_c, bool local_discovery_enabled);
 
 /** main friend_connections loop. */
@@ -13194,6 +13219,19 @@ typedef struct Friend_Conn Friend_Conn;
 non_null() Friend_Conn *get_conn(const Friend_Connections *fr_c, int friendcon_id);
 non_null() int friend_conn_get_onion_friendnum(const Friend_Conn *fc);
 non_null() const IP_Port *friend_conn_get_dht_ip_port(const Friend_Conn *fc);
+
+/**
+ * @brief Get the timestamp when the transport (UDP/TCP) was established.
+ *
+ * @return the monotonic timestamp in ms, or 0 if not established.
+ */
+non_null()
+uint64_t friend_conn_get_time_transport_established(const Friend_Conn *fc);
+
+non_null() uint64_t friend_conn_get_time_friend_added(const Friend_Conn *fc);
+non_null() uint64_t friend_conn_get_time_dht_key_discovered(const Friend_Conn *fc);
+non_null() uint64_t friend_conn_get_time_ip_port_discovered(const Friend_Conn *fc);
+
 
 #endif
 /* SPDX-License-Identifier: GPL-3.0-or-later
@@ -15123,6 +15161,15 @@ typedef struct Friend {
     uint32_t message_id; // a semi-unique id used in read receipts.
     uint32_t friendrequest_nospam; // The nospam number used in the friend request.
     uint64_t last_seen_time;
+    uint64_t first_online_duration; /* Time from tox_new() to first online (ms), 0 if never online */
+    /* Phase end timestamps (monotonic time in ms) */
+    uint64_t phase_friend_added;
+    uint64_t phase_dht_key_discovery_end;
+    uint64_t phase_ip_port_discovery_end;
+    uint64_t phase_transport_end;
+    uint64_t phase_handshake_end;
+    uint64_t phase_logical_end;
+    uint64_t phase_messenger_end;
     Connection_Status last_connection_udp_tcp;
     struct File_Transfers file_sending[MAX_CONCURRENT_FILE_PIPES];
     uint32_t num_sending_files;
@@ -15203,6 +15250,8 @@ struct Messenger {
     Onion_Connection_Status last_connection_status;
 
     Messenger_Options options;
+    uint64_t start_time; /* Timestamp of tox_new() initialization */
+    uint64_t self_connected_time;
 };
 
 /**
@@ -15437,6 +15486,11 @@ uint64_t m_get_friend_toxcore_capabilities(const Messenger *m, int32_t friendnum
  * if friendnumber is invalid this function will return UINT64_MAX.
  */
 non_null() uint64_t m_get_last_online(const Messenger *m, int32_t friendnumber);
+
+/** @brief returns the duration in ms from tox_new() to when the friend first came online.
+ * if friendnumber is invalid this function will return UINT64_MAX.
+ */
+non_null() uint64_t m_get_first_online_duration(const Messenger *m, int32_t friendnumber);
 
 /** @brief Set our typing status for a friend.
  * You are responsible for turning it on or off.
@@ -24609,6 +24663,12 @@ struct Friend_Conn {
     uint16_t tcp_relay_counter;
     uint32_t tcp_relay_share_index;
 
+    /* Timestamp when the transport (UDP/TCP) was successfully established */
+    uint64_t time_friend_added;
+    uint64_t time_dht_key_discovered;
+    uint64_t time_ip_port_discovered;
+    uint64_t time_transport_established;
+
     bool hosting_tcp_relay;
 };
 
@@ -24616,7 +24676,7 @@ static const Friend_Conn empty_friend_conn = {0};
 
 
 struct Friend_Connections {
-    const Mono_Time *mono_time;
+    Mono_Time *mono_time;
     const Logger *logger;
     Net_Crypto *net_crypto;
     DHT *dht;
@@ -24922,6 +24982,11 @@ static void dht_ip_callback(void *object, int32_t number, const IP_Port *ip_port
         return;
     }
 
+    /* HOOK: IP/Port discovered via DHT (first time only) */
+    if (friend_con->time_ip_port_discovered == 0) {
+        friend_con->time_ip_port_discovered = current_time_monotonic(fr_c->mono_time);
+    }
+
     if (friend_con->crypt_connection_id == -1) {
         friend_new_connection(fr_c, number);
     }
@@ -25019,6 +25084,11 @@ static void dht_pk_callback(void *object, int32_t number, const uint8_t *dht_pub
 
     if (pk_equal(friend_con->dht_temp_pk, dht_public_key)) {
         return;
+    }
+
+    /* HOOK: DHT Key discovered via Onion (first time only) */
+    if (friend_con->time_dht_key_discovered == 0) {
+        friend_con->time_dht_key_discovered = current_time_monotonic(fr_c->mono_time);
     }
 
     change_dht_pk(fr_c, number, dht_public_key);
@@ -25132,6 +25202,37 @@ static int handle_lossy_packet(void *object, int number, const uint8_t *data, ui
     return 0;
 }
 
+uint64_t friend_conn_get_time_transport_established(const Friend_Conn *fc)
+{
+    if (fc == nullptr) {
+        return 0;
+    }
+    return fc->time_transport_established;
+}
+
+uint64_t friend_conn_get_time_friend_added(const Friend_Conn *fc) {
+    if (fc == nullptr) {
+        return 0;
+    }
+    return fc->time_friend_added;
+}
+
+uint64_t friend_conn_get_time_dht_key_discovered(const Friend_Conn *fc)
+{
+    if (fc == nullptr) {
+        return 0;
+    }
+    return fc->time_dht_key_discovered;
+}
+
+uint64_t friend_conn_get_time_ip_port_discovered(const Friend_Conn *fc)
+{
+    if (fc == nullptr) {
+        return 0;
+    }
+    return fc->time_ip_port_discovered;
+}
+
 non_null()
 static int handle_new_connections(void *object, const New_Connection *n_c)
 {
@@ -25157,6 +25258,11 @@ static int handle_new_connections(void *object, const New_Connection *n_c)
     connection_data_handler(fr_c->net_crypto, id, &handle_packet, fr_c, friendcon_id);
     connection_lossy_data_handler(fr_c->net_crypto, id, &handle_lossy_packet, fr_c, friendcon_id);
     friend_con->crypt_connection_id = id;
+
+    /* HOOK: Incoming transport connection established */
+    if (friend_con->time_transport_established == 0) {
+        friend_con->time_transport_established = current_time_monotonic(fr_c->mono_time);
+    }
 
     if (!net_family_is_ipv4(n_c->source.ip.family) && !net_family_is_ipv6(n_c->source.ip.family)) {
         set_direct_ip_port(fr_c->net_crypto, friend_con->crypt_connection_id, &friend_con->dht_ip_port, false);
@@ -25197,6 +25303,12 @@ static int friend_new_connection(Friend_Connections *fr_c, int friendcon_id)
     }
 
     friend_con->crypt_connection_id = id;
+
+    /* HOOK: Transport connection initiated */
+    if (friend_con->time_transport_established == 0) {
+        friend_con->time_transport_established = current_time_monotonic(fr_c->mono_time);
+    }
+
     connection_status_handler(fr_c->net_crypto, id, &handle_status, fr_c, friendcon_id);
     connection_data_handler(fr_c->net_crypto, id, &handle_packet, fr_c, friendcon_id);
     connection_lossy_data_handler(fr_c->net_crypto, id, &handle_lossy_packet, fr_c, friendcon_id);
@@ -25388,6 +25500,11 @@ int new_friend_connection(Friend_Connections *fr_c, const uint8_t *real_public_k
     memcpy(friend_con->real_public_key, real_public_key, CRYPTO_PUBLIC_KEY_SIZE);
     friend_con->onion_friendnum = onion_friendnum;
 
+    /* HOOK: Record the exact moment the friend is added to the connection manager */
+    if (friend_con->time_friend_added == 0) {
+        friend_con->time_friend_added = current_time_monotonic(fr_c->mono_time);
+    }
+
     recv_tcp_relay_handler(fr_c->onion_c, onion_friendnum, &tcp_relay_node_callback, fr_c, friendcon_id);
     onion_dht_pk_callback(fr_c->onion_c, onion_friendnum, &dht_pk_callback, fr_c, friendcon_id);
 
@@ -25476,7 +25593,7 @@ int send_friend_request_packet(Friend_Connections *fr_c, int friendcon_id, uint3
 
 /** Create new friend_connections instance. */
 Friend_Connections *new_friend_connections(
-        const Logger *logger, const Mono_Time *mono_time, const Network *ns,
+        const Logger *logger, Mono_Time *mono_time, const Network *ns,
         Onion_Client *onion_c, bool local_discovery_enabled)
 {
     if (onion_c == nullptr) {
@@ -43035,6 +43152,15 @@ uint64_t m_get_last_online(const Messenger *m, int32_t friendnumber)
     return m->friendlist[friendnumber].last_seen_time;
 }
 
+uint64_t m_get_first_online_duration(const Messenger *m, int32_t friendnumber)
+{
+    if (!m_friend_exists(m, friendnumber)) {
+        return UINT64_MAX;
+    }
+
+    return m->friendlist[friendnumber].first_online_duration;
+}
+
 int m_set_usertyping(Messenger *m, int32_t friendnumber, bool is_typing)
 {
     if (!m_friend_exists(m, friendnumber)) {
@@ -43195,6 +43321,10 @@ static void check_friend_connectionstatus(Messenger *m, int32_t friendnumber, ui
             break_files(m, friendnumber);
             clear_receipts(m, friendnumber);
         } else {
+            /* Friend is coming online for the first time (TCP or UDP) */
+            if (m->friendlist[friendnumber].first_online_duration == 0) {
+                m->friendlist[friendnumber].first_online_duration = current_time_monotonic(m->mono_time) - m->start_time;
+            }
             m->friendlist[friendnumber].name_sent = false;
             m->friendlist[friendnumber].userstatus_sent = false;
             m->friendlist[friendnumber].statusmessage_sent = false;
@@ -44486,6 +44616,45 @@ static int m_handle_status(void *object, int i, bool status, void *userdata)
     Messenger *m = (Messenger *)object;
 
     if (status) { /* Went online. */
+        uint64_t now = current_time_monotonic(m->mono_time);
+
+        const Friend_Conn *fc = get_conn(m->fr_c, m->friendlist[i].friendcon_id);
+        if (fc != nullptr) {
+            uint64_t added_time = friend_conn_get_time_friend_added(fc);
+            uint64_t dht_key_time = friend_conn_get_time_dht_key_discovered(fc);
+            uint64_t ip_port_time = friend_conn_get_time_ip_port_discovered(fc);
+            uint64_t transport_time = friend_conn_get_time_transport_established(fc);
+
+            if (added_time > 0) m->friendlist[i].phase_friend_added = added_time;
+
+            // FALLBACK: If dht_pk_callback never fired (cached key path),
+            // use transport time as the DHT key discovery endpoint
+            if (dht_key_time > 0) {
+                m->friendlist[i].phase_dht_key_discovery_end = dht_key_time;
+            } else if (transport_time > 0) {
+                m->friendlist[i].phase_dht_key_discovery_end = transport_time;
+            }
+
+            // FALLBACK: If DHT IP callback never fired (TCP relay path),
+            // use transport time as the IP/Port discovery endpoint
+            if (ip_port_time > 0) {
+                m->friendlist[i].phase_ip_port_discovery_end = ip_port_time;
+            } else if (transport_time > 0) {
+                m->friendlist[i].phase_ip_port_discovery_end = transport_time;
+            }
+
+            if (transport_time > 0) m->friendlist[i].phase_transport_end = transport_time;
+        }
+
+        // 2. Discovery, Handshake, and Logical happen roughly together from Messenger's perspective
+        if (m->friendlist[i].phase_handshake_end == 0) {
+            m->friendlist[i].phase_handshake_end = now;
+        }
+
+        if (m->friendlist[i].phase_logical_end == 0) {
+            m->friendlist[i].phase_logical_end = now;
+        }
+
         send_online_packet(m, m->friendlist[i].friendcon_id);
     } else { /* Went offline. */
         if (m->friendlist[i].status == FRIEND_ONLINE) {
@@ -44522,6 +44691,11 @@ static int m_handle_packet(void *object, int i, const uint8_t *temp, uint16_t le
 
     if (m->friendlist[i].status != FRIEND_ONLINE) {
         if (packet_id == PACKET_ID_ONLINE) {
+            /* Capture the time when PACKET_ID_ONLINE is received.
+             * This completes the Messenger Synchronization phase. */
+            if (m->friendlist[i].phase_messenger_end == 0) {
+                m->friendlist[i].phase_messenger_end = current_time_monotonic(m->mono_time);
+            }
             if (len == (TOX_CAPABILITIES_SIZE + 1)) {
                 uint64_t received_caps;
                 net_unpack_u64(data, &received_caps);
@@ -45082,6 +45256,11 @@ static void m_connection_status_callback(Messenger *m, void *userdata)
     const Onion_Connection_Status conn_status = onion_connection_status(m->onion_c, true);
 
     if (conn_status != m->last_connection_status) {
+        // Capture the moment we connect to the network (Bootstrap phase end)
+        if (conn_status != ONION_CONNECTION_STATUS_NONE && m->self_connected_time == 0) {
+            m->self_connected_time = current_time_monotonic(m->mono_time);
+        }
+
         if (m->core_connection_change != nullptr) {
             m->core_connection_change(m, conn_status, userdata);
         }
@@ -45089,7 +45268,6 @@ static void m_connection_status_callback(Messenger *m, void *userdata)
         m->last_connection_status = conn_status;
     }
 }
-
 
 #define DUMPING_CLIENTS_FRIENDS_EVERY_N_SECONDS 60UL
 
@@ -46280,6 +46458,8 @@ Messenger *new_messenger(Mono_Time *mono_time, const Random *rng, const Network 
     m->mono_time = mono_time;
     m->rng = rng;
     m->ns = ns;
+
+    m->start_time = current_time_monotonic(m->mono_time);
 
     m->fr = friendreq_new();
 
@@ -63766,6 +63946,70 @@ uint64_t tox_friend_get_last_online(const Tox *tox, uint32_t friend_number, Tox_
 
     SET_ERROR_PARAMETER(error, TOX_ERR_FRIEND_GET_LAST_ONLINE_OK);
     return timestamp;
+}
+
+uint64_t tox_friend_get_first_online_duration(const Tox *tox, uint32_t friend_number,
+                                              TOX_FRIEND_ONLINE_PHASE phase,
+                                              Tox_Err_Friend_Query *error)
+{
+    tox_lock(tox);
+    const Messenger *m = tox->m;
+
+    if (!m_friend_exists(m, friend_number)) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_FRIEND_QUERY_FRIEND_NOT_FOUND);
+        tox_unlock(tox);
+        return 0;
+    }
+
+    const Friend *f = &m->friendlist[friend_number];
+    uint64_t start_ts = 0;
+    uint64_t end_ts = 0;
+
+    switch (phase) {
+        case TOX_FRIEND_ONLINE_PHASE_BOOTSTRAP:
+            start_ts = m->start_time;
+            end_ts = m->self_connected_time;
+            break;
+        case TOX_FRIEND_ONLINE_PHASE_DHT_KEY_DISCOVERY:
+            start_ts = m->start_time;
+            end_ts = f->phase_dht_key_discovery_end;
+            break;
+        case TOX_FRIEND_ONLINE_PHASE_IP_PORT_DISCOVERY:
+            start_ts = m->start_time;
+            end_ts = f->phase_ip_port_discovery_end;
+            break;
+        case TOX_FRIEND_ONLINE_PHASE_TRANSPORT:
+            start_ts = m->start_time;
+            end_ts = f->phase_transport_end;
+            break;
+        case TOX_FRIEND_ONLINE_PHASE_HANDSHAKE:
+            start_ts = m->start_time;
+            end_ts = f->phase_handshake_end;
+            break;
+        case TOX_FRIEND_ONLINE_PHASE_LOGICAL:
+            start_ts = m->start_time;
+            end_ts = f->phase_logical_end;
+            break;
+        case TOX_FRIEND_ONLINE_PHASE_MESSENGER:
+            start_ts = m->start_time;
+            end_ts = f->phase_messenger_end;
+            break;
+        default:
+            SET_ERROR_PARAMETER(error, TOX_ERR_FRIEND_QUERY_FRIEND_NOT_FOUND);
+            tox_unlock(tox);
+            return 0;
+    }
+
+    // Prevent underflow if a phase hasn't been recorded yet
+    if (start_ts == 0 || end_ts == 0) {
+        SET_ERROR_PARAMETER(error, TOX_ERR_FRIEND_QUERY_OK);
+        tox_unlock(tox);
+        return 0;
+    }
+
+    SET_ERROR_PARAMETER(error, TOX_ERR_FRIEND_QUERY_OK);
+    tox_unlock(tox);
+    return (end_ts - start_ts) / 1000;
 }
 
 uint64_t tox_friend_get_capabilities(const Tox *tox, uint32_t friend_number)
