@@ -306,6 +306,7 @@ static void update_savedata_file(const Tox *tox, int num)
 static Tox* tox_init(int num)
 {
     Tox *tox = NULL;
+    uint8_t *savedata = NULL; // moved to function scope so we can free it
     struct Tox_Options options;
     tox_options_default(&options);
 
@@ -332,7 +333,7 @@ static Tox* tox_init(int num)
         fseek(f, 0, SEEK_END);
         long fsize = ftell(f);
         fseek(f, 0, SEEK_SET);
-        uint8_t *savedata = calloc(1, fsize);
+        savedata = calloc(1, fsize);
         size_t dummy = fread(savedata, fsize, 1, f);
 
         if (dummy < 1)
@@ -356,6 +357,10 @@ static Tox* tox_init(int num)
     }
 
     tox = tox_new(&options, NULL);
+
+    // tox_new() copies the savedata, so the buffer is no longer needed
+    free(savedata);
+
     return tox;
 }
 
