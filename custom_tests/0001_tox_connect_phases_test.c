@@ -313,7 +313,7 @@ static Tox* tox_init(int num)
     options.ipv6_enabled = false;
     options.local_discovery_enabled = false;
     options.hole_punching_enabled = false;
-    options.udp_enabled = true;
+    options.udp_enabled = false;
     options.tcp_port = 0; // disable tcp relay function!
     // ----- set options ------
 
@@ -676,6 +676,7 @@ int main(void)
     uint64_t phase_messenger = tox_friend_get_first_online_duration(tox1, 0, TOX_FRIEND_ONLINE_PHASE_MESSENGER, &query_err);
 
     dbg(9, "\n");
+    dbg(9, "RUN 1: FRESH START (no savefile)\n");
     dbg(9, "+--------------------+------------------+\n");
     dbg(9, "| Phase              | Duration (sec)   |\n");
     dbg(9, "+--------------------+------------------+\n");
@@ -686,6 +687,74 @@ int main(void)
     dbg(9, "| 5. Handshake       | %16llu |\n", (unsigned long long)phase_handshake);
     dbg(9, "| 6. Logical         | %16llu |\n", (unsigned long long)phase_logical);
     dbg(9, "| 7. Messenger       | %16llu |\n", (unsigned long long)phase_messenger);
+    dbg(9, "+--------------------+------------------+\n");
+    // -------------------------------------------------------
+
+    // ----------- SAVE BOTH TOXES, KILL, RESTART FROM SAVEFILES -----------
+    dbg(9, "[%d]:saving savefiles\n", 0);
+    update_savedata_file(tox1, 1);
+    update_savedata_file(tox2, 2);
+
+    tox_kill(tox1);
+    tox_kill(tox2);
+    tox1 = NULL;
+    tox2 = NULL;
+
+    dbg(9, "[%d]:restarting from savefiles\n", 0);
+
+    f_online[1] = 0;
+    f_online[2] = 0;
+    s_online[1] = 0;
+    s_online[2] = 0;
+
+    tox1 = tox_init(1);
+    tox2 = tox_init(2);
+
+    tox_connect(tox1, 1);
+    tox_connect(tox2, 2);
+
+    set_cb(tox1, tox2);
+
+    print_stats(tox1, 1);
+    print_stats(tox2, 2);
+
+    tox_iterate(tox1, (void *)&num1);
+    tox_iterate(tox2, (void *)&num2);
+
+    // ----------- wait for friends to come online (friend already in savefile) -----------
+    while (1 == 1) {
+        tox_iterate(tox1, (void *)&num1);
+        usleep(tox_iteration_interval(tox1) * 1000);
+        tox_iterate(tox2, (void *)&num2);
+        usleep(tox_iteration_interval(tox2) * 1000);
+        if ((f_online[1] > 0) && (f_online[2] > 0) && (s_online[1] > 0) && (s_online[2] > 0))
+        {
+            break;
+        }
+    }
+    dbg(9, "[%d]:friends online and self toxes online (after restart)\n", 0);
+
+    // ----------- QUERY AND PRINT PHASE DURATIONS (RUN 2) -----------
+    uint64_t phase2_bootstrap = tox_friend_get_first_online_duration(tox1, 0, TOX_FRIEND_ONLINE_PHASE_BOOTSTRAP, &query_err);
+    uint64_t phase2_dht_key   = tox_friend_get_first_online_duration(tox1, 0, TOX_FRIEND_ONLINE_PHASE_DHT_KEY_DISCOVERY, &query_err);
+    uint64_t phase2_ip_port   = tox_friend_get_first_online_duration(tox1, 0, TOX_FRIEND_ONLINE_PHASE_IP_PORT_DISCOVERY, &query_err);
+    uint64_t phase2_transport = tox_friend_get_first_online_duration(tox1, 0, TOX_FRIEND_ONLINE_PHASE_TRANSPORT, &query_err);
+    uint64_t phase2_handshake = tox_friend_get_first_online_duration(tox1, 0, TOX_FRIEND_ONLINE_PHASE_HANDSHAKE, &query_err);
+    uint64_t phase2_logical   = tox_friend_get_first_online_duration(tox1, 0, TOX_FRIEND_ONLINE_PHASE_LOGICAL, &query_err);
+    uint64_t phase2_messenger = tox_friend_get_first_online_duration(tox1, 0, TOX_FRIEND_ONLINE_PHASE_MESSENGER, &query_err);
+
+    dbg(9, "\n");
+    dbg(9, "RUN 2: RESTART FROM SAVEFILE (friend already added)\n");
+    dbg(9, "+--------------------+------------------+\n");
+    dbg(9, "| Phase              | Duration (sec)   |\n");
+    dbg(9, "+--------------------+------------------+\n");
+    dbg(9, "| 1. Bootstrap       | %16llu |\n", (unsigned long long)phase2_bootstrap);
+    dbg(9, "| 2. DHT Key Disc.   | %16llu |\n", (unsigned long long)phase2_dht_key);
+    dbg(9, "| 3. IP/Port Disc.   | %16llu |\n", (unsigned long long)phase2_ip_port);
+    dbg(9, "| 4. Transport       | %16llu |\n", (unsigned long long)phase2_transport);
+    dbg(9, "| 5. Handshake       | %16llu |\n", (unsigned long long)phase2_handshake);
+    dbg(9, "| 6. Logical         | %16llu |\n", (unsigned long long)phase2_logical);
+    dbg(9, "| 7. Messenger       | %16llu |\n", (unsigned long long)phase2_messenger);
     dbg(9, "+--------------------+------------------+\n");
     // -------------------------------------------------------
 
