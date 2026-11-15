@@ -748,6 +748,10 @@ int set_tcp_connection_to_status(const TCP_Connections *tcp_c, int connections_n
                 if (tcp_con->status == TCP_CONN_SLEEPING) {
                     tcp_con->unsleep = 1;
                 }
+
+                if (con_to->connections[i].status == TCP_CONNECTIONS_STATUS_ONLINE) {
+                    --tcp_con->sleep_count;
+                }
             }
         }
 
