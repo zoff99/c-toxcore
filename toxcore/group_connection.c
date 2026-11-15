@@ -518,6 +518,7 @@ static bool process_recv_array_entry(const GC_Session *c, GC_Chat *chat, GC_Conn
     peer_number = get_peer_number_of_enc_pk(chat, sender_pk, false);
     gconn = get_gc_connection(chat, peer_number);
 
+    const uint64_t message_id = array_entry->message_id;
     clear_array_entry(array_entry);
 
     if (gconn == nullptr) {
@@ -525,11 +526,11 @@ static bool process_recv_array_entry(const GC_Session *c, GC_Chat *chat, GC_Conn
     }
 
     if (!ret) {
-        gc_send_message_ack(chat, gconn, array_entry->message_id, GR_ACK_REQ);
+        gc_send_message_ack(chat, gconn, message_id, GR_ACK_REQ);
         return false;
     }
 
-    gc_send_message_ack(chat, gconn, array_entry->message_id, GR_ACK_RECV);
+    gc_send_message_ack(chat, gconn, message_id, GR_ACK_RECV);
 
     gcc_set_recv_message_id(gconn, gconn->received_message_id + 1);
 
