@@ -493,6 +493,13 @@ int gcc_handle_received_message(const Logger *log, const Mono_Time *mono_time, G
         return 1;
     }
 
+    /* A copy may wait in the array from when this message came out of order. */
+    GC_Message_Array_Entry *const copy = &gconn->recv_array[gcc_get_array_index(message_id)];
+
+    if (!array_entry_is_empty(copy) && copy->message_id == message_id) {
+        clear_array_entry(copy);
+    }
+
     gcc_set_recv_message_id(gconn, gconn->received_message_id + 1);
 
     return 2;
@@ -544,12 +551,20 @@ void gcc_check_recv_array(const GC_Session *c, GC_Chat *chat, GC_Connection *gco
         return;
     }
 
-    const uint16_t idx = (gconn->received_message_id + 1) % GCC_BUFFER_SIZE;
-    GC_Message_Array_Entry *const array_entry = &gconn->recv_array[idx];
+    const uint64_t message_id = gconn->received_message_id + 1;
+    GC_Message_Array_Entry *const array_entry = &gconn->recv_array[gcc_get_array_index(message_id)];
 
-    if (!array_entry_is_empty(array_entry)) {
-        process_recv_array_entry(c, chat, gconn, peer_number, array_entry, userdata);
+    if (array_entry_is_empty(array_entry)) {
+        return;
     }
+
+    /* A message from a lap before, already handled. */
+    if (array_entry->message_id != message_id) {
+        clear_array_entry(array_entry);
+        return;
+    }
+
+    process_recv_array_entry(c, chat, gconn, peer_number, array_entry, userdata);
 }
 
 void gcc_resend_packets(const GC_Chat *chat, GC_Connection *gconn)
