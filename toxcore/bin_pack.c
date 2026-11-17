@@ -37,11 +37,12 @@ static size_t buf_writer(cmp_ctx_t *ctx, const void *data, size_t count)
 {
     Bin_Pack *bp = (Bin_Pack *)ctx->buf;
     assert(bp != nullptr);
-    const uint32_t new_pos = bp->bytes_pos + count;
-    if (new_pos < bp->bytes_pos) {
+    if (count > UINT32_MAX - bp->bytes_pos) {
         // 32 bit overflow.
         return 0;
     }
+
+    const uint32_t new_pos = bp->bytes_pos + (uint32_t)count;
     if (bp->bytes != nullptr) {
         if (new_pos > bp->bytes_size) {
             // Buffer too small.
