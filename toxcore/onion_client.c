@@ -78,6 +78,15 @@ struct Onion_Friend {
 
     uint64_t last_dht_pk_onion_sent;
     uint64_t last_dht_pk_dht_sent;
+    uint32_t dht_pk_onion_send_count; // successful onion DHTPK sends since the lookup quorum became ready
+    bool dht_pk_onion_ready;          // whether the friend lookup list currently satisfies the DHTPK quorum
+
+    bool lookup_seed_pending;         // friend lookup needs an immediate seed request
+    uint64_t lookup_startup_until;    // end of the aggressive startup/recovery window
+    uint64_t last_dht_pk_recv;        // last accepted onion/DHT DHTPK packet
+    int last_dht_pk_onion_result;     // last send_dhtpk_announce(onion) result
+    int last_dht_pk_dht_result;       // last send_dhtpk_announce(dht) result
+    uint64_t last_diag_log;           // rate limit for diagnostic DEBUG logs
 
     uint64_t last_noreplay;
 
@@ -164,7 +173,13 @@ struct Onion_Client {
 
     uint64_t ping_nodes_budget_last_sec;
     uint32_t ping_nodes_budget_sent;
+
+    bool friend_lookup_seeded; // whether the current onion connection has seeded friend lookups
+    uint64_t self_startup_until; // end of the aggressive self-announce startup window
 };
+
+/** Short retry intervals after the first successful onion DHTPK send. */
+static const uint32_t onion_dhtpk_initial_retry_intervals[ONION_DHTPK_INITIAL_RETRIES] = {1, 2, 5};
 
 /* DEBUG: onion announce callsite counters */
 static uint64_t dbg_onion_stats_time = 0;
@@ -506,6 +521,117 @@ static bool onion_node_timed_out(const Onion_Node *node, const Mono_Time *mono_t
     return node->timestamp == 0
            || (node->pings_since_last_response >= ONION_NODE_MAX_PINGS
                && mono_time_is_timeout(mono_time, node->last_pinged, ONION_NODE_TIMEOUT));
+}
+
+/** Count live friend lookup nodes and collect the indices of stored nodes.
+ *
+ * This is the same population used by send_onion_data() to decide whether an
+ * onion DHTPK packet can be sent.
+ */
+non_null()
+static uint16_t onion_friend_get_good_nodes(const Onion_Client *onion_c, uint16_t friend_num,
+        uint16_t *good_nodes, uint16_t *num_nodes)
+{
+    const Onion_Node *node_list = onion_c->friends_list[friend_num].clients_list;
+    uint16_t num_good = 0;
+    *num_nodes = 0;
+
+    for (unsigned int i = 0; i < MAX_ONION_CLIENTS; ++i) {
+        if (onion_node_timed_out(&node_list[i], onion_c->mono_time)) {
+            continue;
+        }
+
+        ++*num_nodes;
+
+        if (node_list[i].is_stored != 0) {
+            good_nodes[num_good] = (uint16_t)i;
+            ++num_good;
+        }
+    }
+
+    return num_good;
+}
+
+/** Whether the friend lookup list has enough stored nodes for onion DHTPK. */
+non_null()
+static bool onion_friend_dhtpk_ready(const Onion_Client *onion_c, uint16_t friend_num)
+{
+    uint16_t good_nodes[MAX_ONION_CLIENTS];
+    uint16_t num_nodes = 0;
+    const uint16_t num_good = onion_friend_get_good_nodes(onion_c, friend_num, good_nodes, &num_nodes);
+    return num_good >= (num_nodes - 1) / 4 + 1;
+}
+
+/** Onion DHTPK send interval for the current recovery burst.
+ *
+ * The first send after the quorum becomes ready is immediate. The next three
+ * successful sends use short retries, then the normal interval is restored.
+ */
+non_null()
+static uint32_t onion_dhtpk_onion_interval(const Onion_Friend *o_friend)
+{
+    if (o_friend->dht_pk_onion_send_count == 0) {
+        return 0;
+    }
+
+    if (o_friend->dht_pk_onion_send_count <= ONION_DHTPK_INITIAL_RETRIES) {
+        return onion_dhtpk_initial_retry_intervals[o_friend->dht_pk_onion_send_count - 1];
+    }
+
+    return ONION_DHTPK_SEND_INTERVAL;
+}
+
+/** Update quorum readiness. Return true when the quorum became ready. */
+non_null()
+static bool onion_friend_update_dhtpk_ready(Onion_Friend *o_friend, bool ready)
+{
+    const bool became_ready = ready && !o_friend->dht_pk_onion_ready;
+    o_friend->dht_pk_onion_ready = ready;
+
+    if (became_ready) {
+        // Send DHTPK immediately instead of waiting for an old retry timer.
+        o_friend->dht_pk_onion_send_count = 0;
+    }
+
+    return became_ready;
+}
+
+/** Whether the aggressive startup/recovery lookup window is active. */
+non_null()
+static bool onion_friend_startup_active(const Onion_Friend *o_friend, uint64_t now)
+{
+    return o_friend->lookup_startup_until != 0 && now < o_friend->lookup_startup_until;
+}
+
+/** Seed a friend lookup immediately and start the aggressive recovery window.
+ *
+ * This is used on fresh start, friend add, and onion reconnect so we do not
+ * wait for the normal randomized populate timer before sending the first
+ * onion announce requests for the friend.
+ */
+non_null()
+static void onion_friend_seed_lookup(Onion_Client *onion_c, uint16_t friend_num)
+{
+    if (friend_num >= onion_c->num_friends) {
+        return;
+    }
+
+    Onion_Friend *o_friend = &onion_c->friends_list[friend_num];
+
+    if (!o_friend->is_valid || o_friend->is_online) {
+        return;
+    }
+
+    const uint64_t now = mono_time_get(onion_c->mono_time);
+    o_friend->lookup_seed_pending = true;
+    o_friend->lookup_startup_until = now + ONION_FRIEND_STARTUP_WINDOW;
+    o_friend->populate_interval = ONION_FRIEND_STARTUP_POPULATE_INTERVAL;
+    o_friend->last_populated = 0;
+    o_friend->run_count = 0;
+    o_friend->pings = 0;
+    o_friend->time_last_pinged = 0;
+    o_friend->dht_pk_onion_send_count = 0;
+    o_friend->dht_pk_onion_ready = false;
 }
 
 /** @brief Create a new path or use an old suitable one (if pathnum is valid)
@@ -1040,6 +1166,9 @@ static bool handle_group_announce_response(Onion_Client *onion_c, uint32_t num, 
     return onion_c->group_announce_response(onion_c, num, plain, plain_size, onion_c->group_announce_response_user_data);
 }
 
+non_null()
+static int send_dhtpk_announce(Onion_Client *onion_c, uint16_t friend_num, uint8_t onion_dht_both);
+
 non_null(1, 2, 3) nullable(5)
 static int handle_announce_response(void *object, const IP_Port *source, const uint8_t *packet, uint16_t length,
                                     void *userdata)
@@ -1107,6 +1236,32 @@ static int handle_announce_response(void *object, const IP_Port *source, const u
 
         if (client_ping_nodes(onion_c, num, nodes, num_nodes, source) == -1) {
             return 1;
+        }
+    }
+
+    /* During the startup/recovery window, send onion DHTPK as soon as a
+     * friend announce response makes the lookup quorum ready, instead of
+     * waiting for the next do_friend() tick.
+     */
+    if (num > 0) {
+        Onion_Friend *o_friend = &onion_c->friends_list[num - 1];
+        const uint64_t now = mono_time_get(onion_c->mono_time);
+
+        if (o_friend->is_valid && !o_friend->is_online && onion_friend_startup_active(o_friend, now)) {
+            const bool ready = onion_friend_dhtpk_ready(onion_c, (uint16_t)(num - 1));
+            const bool became_ready = onion_friend_update_dhtpk_ready(o_friend, ready);
+            const uint32_t interval = onion_dhtpk_onion_interval(o_friend);
+
+            if (ready && (became_ready || interval == 0
+                          || mono_time_is_timeout(onion_c->mono_time, o_friend->last_dht_pk_onion_sent, interval))) {
+                const int result = send_dhtpk_announce(onion_c, (uint16_t)(num - 1), 0);
+                o_friend->last_dht_pk_onion_result = result;
+
+                if (result >= 1) {
+                    o_friend->last_dht_pk_onion_sent = now;
+                    ++o_friend->dht_pk_onion_send_count;
+                }
+            }
         }
     }
 
@@ -1269,6 +1424,9 @@ static int handle_dhtpk_announce(void *object, const uint8_t *source_pubkey, con
     }
 
     onion_c->friends_list[friend_num].last_noreplay = no_replay;
+    onion_c->friends_list[friend_num].last_dht_pk_recv = mono_time_get(onion_c->mono_time);
+
+    LOGGER_DEBUG(onion_c->logger, "onion: friend %d received DHTPK via onion/DHT", friend_num);
 
     if (onion_c->friends_list[friend_num].dht_pk_callback != nullptr) {
         onion_c->friends_list[friend_num].dht_pk_callback(onion_c->friends_list[friend_num].dht_pk_callback_object,
@@ -1354,23 +1512,10 @@ int send_onion_data(Onion_Client *onion_c, int friend_num, const uint8_t *data, 
         return -1;
     }
 
-    unsigned int good_nodes[MAX_ONION_CLIENTS];
-    unsigned int num_good = 0;
-    unsigned int num_nodes = 0;
+    uint16_t good_nodes[MAX_ONION_CLIENTS];
+    uint16_t num_nodes = 0;
+    const uint16_t num_good = onion_friend_get_good_nodes(onion_c, friend_num, good_nodes, &num_nodes);
     const Onion_Node *node_list = onion_c->friends_list[friend_num].clients_list;
-
-    for (unsigned int i = 0; i < MAX_ONION_CLIENTS; ++i) {
-        if (onion_node_timed_out(&node_list[i], onion_c->mono_time)) {
-            continue;
-        }
-
-        ++num_nodes;
-
-        if (node_list[i].is_stored != 0) {
-            good_nodes[num_good] = i;
-            ++num_good;
-        }
-    }
 
     if (num_good < (num_nodes - 1) / 4 + 1) {
         return -1;
@@ -1634,6 +1779,8 @@ int onion_addfriend(Onion_Client *onion_c, const uint8_t *public_key)
         ANNOUNCE_POPULATE_TIMEOUT_LOW +
         random_range_u32(onion_c->rng, 60);
 
+    onion_friend_seed_lookup(onion_c, (uint16_t)index);
+
     return index;
 }
 
@@ -1797,15 +1944,88 @@ int onion_set_friend_online(Onion_Client *onion_c, int friend_num, bool is_onlin
         return -1;
     }
 
+    const bool was_online = onion_c->friends_list[friend_num].is_online;
     onion_c->friends_list[friend_num].is_online = is_online;
 
     /* This should prevent some clock related issues */
     if (!is_online) {
         onion_c->friends_list[friend_num].last_noreplay = 0;
         onion_c->friends_list[friend_num].run_count = 0;
+        onion_c->friends_list[friend_num].dht_pk_onion_send_count = 0;
+        onion_c->friends_list[friend_num].dht_pk_onion_ready = false;
+
+        if (was_online) {
+            onion_friend_seed_lookup(onion_c, (uint16_t)friend_num);
+        }
     }
 
     return 0;
+}
+
+non_null(1) nullable(3)
+bool onion_get_friend_diagnostics(const Onion_Client *onion_c, uint16_t friend_num,
+                                  Onion_Friend_Diagnostics *out)
+{
+    if (out == nullptr || friend_num >= onion_c->num_friends) {
+        return false;
+    }
+
+    const Onion_Friend *o_friend = &onion_c->friends_list[friend_num];
+    uint16_t good_nodes[MAX_ONION_CLIENTS];
+    uint16_t num_nodes = 0;
+    const uint16_t num_good = onion_friend_get_good_nodes(onion_c, friend_num, good_nodes, &num_nodes);
+
+    out->friend_num = friend_num;
+    out->is_valid = o_friend->is_valid;
+    out->is_online = o_friend->is_online;
+    out->know_dht_public_key = o_friend->know_dht_public_key;
+    out->num_nodes = num_nodes;
+    out->num_stored = num_good;
+    out->dhtpk_ready = num_good >= (num_nodes - 1) / 4 + 1;
+    out->last_populated = o_friend->last_populated;
+    out->populate_interval = o_friend->populate_interval;
+    out->lookup_seed_pending = o_friend->lookup_seed_pending;
+    out->lookup_startup_until = o_friend->lookup_startup_until;
+    out->last_dht_pk_onion_sent = o_friend->last_dht_pk_onion_sent;
+    out->last_dht_pk_dht_sent = o_friend->last_dht_pk_dht_sent;
+    out->dht_pk_onion_send_count = o_friend->dht_pk_onion_send_count;
+    out->last_dht_pk_onion_result = o_friend->last_dht_pk_onion_result;
+    out->last_dht_pk_dht_result = o_friend->last_dht_pk_dht_result;
+    out->last_dht_pk_recv = o_friend->last_dht_pk_recv;
+    out->run_count = o_friend->run_count;
+    out->pings = o_friend->pings;
+    return true;
+}
+
+non_null()
+static void onion_friend_log_diagnostics(Onion_Client *onion_c, uint16_t friend_num, bool force)
+{
+    Onion_Friend *o_friend = &onion_c->friends_list[friend_num];
+    const uint64_t now = mono_time_get(onion_c->mono_time);
+
+    if (!force && now - o_friend->last_diag_log < ONION_FRIEND_DIAG_LOG_INTERVAL) {
+        return;
+    }
+
+    Onion_Friend_Diagnostics diag;
+
+    if (!onion_get_friend_diagnostics(onion_c, friend_num, &diag)) {
+        return;
+    }
+
+    o_friend->last_diag_log = now;
+    LOGGER_DEBUG(onion_c->logger,
+                 "onion: friend %u diag online=%d valid=%d know_dht=%d nodes=%u stored=%u ready=%d "
+                 "seed=%d startup_until=%llu last_pop=%llu pop_interval=%u "
+                 "dhtpk_onion_sent=%llu count=%u result=%d dht_sent=%llu result=%d recv=%llu run=%u pings=%u",
+                 (unsigned)friend_num, (int)diag.is_online, (int)diag.is_valid, (int)diag.know_dht_public_key,
+                 (unsigned)diag.num_nodes, (unsigned)diag.num_stored, (int)diag.dhtpk_ready,
+                 (int)diag.lookup_seed_pending, (unsigned long long)diag.lookup_startup_until,
+                 (unsigned long long)diag.last_populated, (unsigned)diag.populate_interval,
+                 (unsigned long long)diag.last_dht_pk_onion_sent, (unsigned)diag.dht_pk_onion_send_count,
+                 diag.last_dht_pk_onion_result, (unsigned long long)diag.last_dht_pk_dht_sent,
+                 diag.last_dht_pk_dht_result, (unsigned long long)diag.last_dht_pk_recv,
+                 (unsigned)diag.run_count, (unsigned)diag.pings);
 }
 
 non_null()
@@ -1851,6 +2071,7 @@ static void do_friend(Onion_Client *onion_c, uint16_t friendnum)
     uint32_t interval;
     const uint64_t tm = mono_time_get(onion_c->mono_time);
     const bool friend_is_new = o_friend->run_count <= ANNOUNCE_FRIEND_RUN_COUNT_BEGINNING;
+    const bool startup_active = onion_friend_startup_active(o_friend, tm);
 
     if (!friend_is_new) {
         // how often we ping a node for a friend depends on how many times we've already tried.
@@ -1868,17 +2089,41 @@ static void do_friend(Onion_Client *onion_c, uint16_t friendnum)
 
     assert(interval >= ANNOUNCE_FRIEND_NEW_INTERVAL); // an int overflow would be devastating
 
-    /* send packets to friend telling them our DHT public key. */
-    if (mono_time_is_timeout(onion_c->mono_time, onion_c->friends_list[friendnum].last_dht_pk_onion_sent,
-                             ONION_DHTPK_SEND_INTERVAL)) {
-        if (send_dhtpk_announce(onion_c, friendnum, 0) >= 1) {
-            onion_c->friends_list[friendnum].last_dht_pk_onion_sent = tm;
+    /* During the startup/recovery window we ping friend lookup nodes more
+     * aggressively. The normal backoff interval is still computed above so
+     * that behavior returns to the existing schedule once the window ends.
+     */
+    const uint32_t ping_interval = startup_active ? ONION_FRIEND_STARTUP_NODE_INTERVAL : interval;
+
+    /* Send packets to the friend telling them our DHT public key. When the
+     * lookup quorum first becomes ready, send immediately and use a few short
+     * retries before returning to the normal interval.
+     */
+    const bool became_ready = onion_friend_update_dhtpk_ready(o_friend, onion_friend_dhtpk_ready(onion_c, friendnum));
+
+    if (became_ready) {
+        onion_friend_log_diagnostics(onion_c, friendnum, true);
+    }
+
+    const uint32_t dhtpk_onion_interval = onion_dhtpk_onion_interval(o_friend);
+
+    if (dhtpk_onion_interval == 0
+            || mono_time_is_timeout(onion_c->mono_time, o_friend->last_dht_pk_onion_sent, dhtpk_onion_interval)) {
+        const int result = send_dhtpk_announce(onion_c, friendnum, 0);
+        o_friend->last_dht_pk_onion_result = result;
+
+        if (result >= 1) {
+            o_friend->last_dht_pk_onion_sent = tm;
+            ++o_friend->dht_pk_onion_send_count;
         }
     }
 
     if (mono_time_is_timeout(onion_c->mono_time, onion_c->friends_list[friendnum].last_dht_pk_dht_sent,
                              DHT_DHTPK_SEND_INTERVAL)) {
-        if (send_dhtpk_announce(onion_c, friendnum, 1) >= 1) {
+        const int result = send_dhtpk_announce(onion_c, friendnum, 1);
+        o_friend->last_dht_pk_dht_result = result;
+
+        if (result >= 1) {
             onion_c->friends_list[friendnum].last_dht_pk_dht_sent = tm;
         }
     }
@@ -1887,7 +2132,7 @@ static void do_friend(Onion_Client *onion_c, uint16_t friendnum)
 
     Onion_Node *node_list = o_friend->clients_list;
 
-    uint32_t spacing_timeout = interval / (MAX_ONION_CLIENTS / 2);
+    uint32_t spacing_timeout = ping_interval / (MAX_ONION_CLIENTS / 2);
     if (spacing_timeout == 0) {
         spacing_timeout = 1;
     }
@@ -1899,10 +2144,14 @@ static void do_friend(Onion_Client *onion_c, uint16_t friendnum)
 
         ++count;
 
-        // we don't want new nodes to be pinged immediately
+        // Normally we don't ping new nodes immediately. During the startup/
+        // recovery window we do, to shave a tick off friend-online latency.
         if (node_list[i].last_pinged == 0) {
             node_list[i].last_pinged = tm;
-            continue;
+
+            if (!startup_active) {
+                continue;
+            }
         }
 
         // node hasn't responded in a while so we skip it
@@ -1916,7 +2165,7 @@ static void do_friend(Onion_Client *onion_c, uint16_t friendnum)
             continue;
         }
 
-        if (!mono_time_is_timeout(onion_c->mono_time, node_list[i].last_pinged, interval)) {
+        if (!mono_time_is_timeout(onion_c->mono_time, node_list[i].last_pinged, ping_interval)) {
             continue;
         }
 
@@ -1935,8 +2184,14 @@ static void do_friend(Onion_Client *onion_c, uint16_t friendnum)
     }
 
     if (count == MAX_ONION_CLIENTS) {
+        o_friend->lookup_seed_pending = false;
+
         if (!friend_is_new) {
             o_friend->last_populated = tm;
+        }
+
+        if (startup_active) {
+            onion_friend_log_diagnostics(onion_c, friendnum, false);
         }
 
         return;
@@ -1944,8 +2199,12 @@ static void do_friend(Onion_Client *onion_c, uint16_t friendnum)
 
     // check if path nodes list for this friend needs to be repopulated
     uint32_t populate_timeout = ANNOUNCE_POPULATE_TIMEOUT;
+    uint16_t fanout = 1;
 
-    if (count <= MAX_ONION_CLIENTS / 2) {
+    if (startup_active || o_friend->lookup_seed_pending) {
+        populate_timeout = ONION_FRIEND_STARTUP_POPULATE_INTERVAL;
+        fanout = ONION_FRIEND_STARTUP_POPULATE_FANOUT;
+    } else if (count <= MAX_ONION_CLIENTS / 2) {
         if (o_friend->populate_interval == 0) {
             o_friend->populate_interval =
                 ANNOUNCE_POPULATE_TIMEOUT_LOW +
@@ -1955,11 +2214,27 @@ static void do_friend(Onion_Client *onion_c, uint16_t friendnum)
         populate_timeout = o_friend->populate_interval;
     }
 
-    if (mono_time_is_timeout(onion_c->mono_time, o_friend->last_populated, populate_timeout)) {
-        const uint16_t num_nodes = min_u16(onion_c->path_nodes_index, MAX_PATH_NODES);
-        const uint16_t n = min_u16(num_nodes, 1);
+    if (o_friend->lookup_seed_pending
+            || mono_time_is_timeout(onion_c->mono_time, o_friend->last_populated, populate_timeout)) {
+        const Node_format *path_nodes = onion_c->path_nodes;
+        uint16_t num_nodes = min_u16(onion_c->path_nodes_index, MAX_PATH_NODES);
+
+        /* On a fresh TCP-only start the DHT-derived path node list may still
+         * be empty. Fall back to the bootstrap nodes so the first friend
+         * lookup requests can be sent as soon as a TCP relay is usable.
+         */
+        if (num_nodes == 0) {
+            path_nodes = onion_c->path_nodes_bs;
+            num_nodes = min_u16(onion_c->path_nodes_index_bs, MAX_PATH_NODES);
+        }
+
+        const uint16_t n = min_u16(num_nodes, fanout);
 
         if (n == 0) {
+            if (startup_active) {
+                onion_friend_log_diagnostics(onion_c, friendnum, false);
+            }
+
             return;
         }
 
@@ -1975,8 +2250,8 @@ static void do_friend(Onion_Client *onion_c, uint16_t friendnum)
             ++dbg_friend_repopulate;
 
             if (client_send_announce_request(onion_c, friendnum + 1,
-                                             &onion_c->path_nodes[num].ip_port,
-                                             onion_c->path_nodes[num].public_key,
+                                             &path_nodes[num].ip_port,
+                                             path_nodes[num].public_key,
                                              nullptr, -1) == 0) {
                 sent_any = true;
             }
@@ -1988,15 +2263,25 @@ static void do_friend(Onion_Client *onion_c, uint16_t friendnum)
          */
         if (sent_any) {
             o_friend->last_populated = tm;
+            o_friend->lookup_seed_pending = false;
 
-            /*
-             * Choose a new random interval for next time.
-             * This prevents all friends from repopulating in the same second.
-             */
-            o_friend->populate_interval =
-                ANNOUNCE_POPULATE_TIMEOUT_LOW +
-                random_range_u32(onion_c->rng, 60);
+            if (startup_active) {
+                /* Keep the fast startup cadence until the window expires. */
+                o_friend->populate_interval = ONION_FRIEND_STARTUP_POPULATE_INTERVAL;
+            } else {
+                /*
+                 * Choose a new random interval for next time.
+                 * This prevents all friends from repopulating in the same second.
+                 */
+                o_friend->populate_interval =
+                    ANNOUNCE_POPULATE_TIMEOUT_LOW +
+                    random_range_u32(onion_c->rng, 60);
+            }
         }
+    }
+
+    if (startup_active || o_friend->lookup_seed_pending) {
+        onion_friend_log_diagnostics(onion_c, friendnum, false);
     }
 }
 
@@ -2025,6 +2310,8 @@ static void do_announce(Onion_Client *onion_c)
 {
     unsigned int count = 0;
     Onion_Node *node_list = onion_c->clients_announce_list;
+    const uint64_t now = mono_time_get(onion_c->mono_time);
+    const bool self_startup_active = now < onion_c->self_startup_until;
 
     for (unsigned int i = 0; i < MAX_ONION_CLIENTS_ANNOUNCE; ++i) {
         if (onion_node_timed_out(&node_list[i], onion_c->mono_time)) {
@@ -2044,7 +2331,8 @@ static void do_announce(Onion_Client *onion_c)
         }
 
 
-        unsigned int interval = ANNOUNCE_INTERVAL_NOT_ANNOUNCED;
+        unsigned int interval = self_startup_active ? ONION_SELF_STARTUP_NOT_ANNOUNCED_INTERVAL
+                                 : ANNOUNCE_INTERVAL_NOT_ANNOUNCED;
 
         if (node_list[i].is_stored != 0
                 && path_exists(onion_c->mono_time, &onion_c->onion_paths_self, node_list[i].path_used)) {
@@ -2093,8 +2381,12 @@ static void do_announce(Onion_Client *onion_c)
 
     // check if list needs to be re-populated
     uint32_t populate_timeout = ANNOUNCE_POPULATE_TIMEOUT;
+    unsigned int populate_fanout = MAX_ONION_CLIENTS_ANNOUNCE / 2;
 
-    if (count <= MAX_ONION_CLIENTS_ANNOUNCE / 2) {
+    if (self_startup_active) {
+        populate_timeout = ONION_SELF_STARTUP_POPULATE_INTERVAL;
+        populate_fanout = MAX_ONION_CLIENTS_ANNOUNCE;
+    } else if (count <= MAX_ONION_CLIENTS_ANNOUNCE / 2) {
         populate_timeout = ANNOUNCE_POPULATE_TIMEOUT_LOW;
     }
 
@@ -2116,7 +2408,11 @@ static void do_announce(Onion_Client *onion_c)
 
         onion_c->last_populated = mono_time_get(onion_c->mono_time);
 
-        for (unsigned i = 0; i < (MAX_ONION_CLIENTS_ANNOUNCE / 2); ++i) {
+        for (unsigned i = 0; i < populate_fanout; ++i) {
+            if (!onion_repopulate_budget_allow(onion_c)) {
+                break;
+            }
+
             const uint32_t num = random_range_u32(onion_c->rng, num_nodes);
 
             ++dbg_self_repopulate;
@@ -2187,6 +2483,14 @@ static void reset_friend_run_counts(Onion_Client *onion_c)
     }
 }
 
+non_null()
+static void seed_all_friend_lookups(Onion_Client *onion_c)
+{
+    for (uint16_t i = 0; i < onion_c->num_friends; ++i) {
+        onion_friend_seed_lookup(onion_c, i);
+    }
+}
+
 #define ONION_CONNECTION_SECONDS 3
 #define ONION_CONNECTED_TIMEOUT 10
 
@@ -2218,7 +2522,15 @@ void do_onion_client(Onion_Client *onion_c)
 
     ESTIMATE_CPU_CYCLES(150000); /* baseline cost of onion client loop */
 
-    if (mono_time_is_timeout(onion_c->mono_time, onion_c->first_run, ONION_CONNECTION_SECONDS)) {
+    const uint64_t now = mono_time_get(onion_c->mono_time);
+    const bool self_startup_active = now < onion_c->self_startup_until;
+
+    /* During startup, keep self-announce and path population running every
+     * tick instead of waiting for the normal first-run delay. This is needed
+     * to approach the fast friend-online target on TCP-only public starts.
+     */
+    if (self_startup_active
+            || mono_time_is_timeout(onion_c->mono_time, onion_c->first_run, ONION_CONNECTION_SECONDS)) {
         populate_path_nodes(onion_c);
         do_announce(onion_c);
     }
@@ -2226,6 +2538,7 @@ void do_onion_client(Onion_Client *onion_c)
     if (onion_isconnected(onion_c)) {
         if (mono_time_is_timeout(onion_c->mono_time, onion_c->last_time_connected, ONION_CONNECTED_TIMEOUT)) {
             reset_friend_run_counts(onion_c);
+            seed_all_friend_lookups(onion_c);
         }
 
         onion_c->last_time_connected = mono_time_get(onion_c->mono_time);
@@ -2242,13 +2555,44 @@ void do_onion_client(Onion_Client *onion_c)
     onion_c->udp_connected = dht_non_lan_connected(onion_c->dht);
     onion_c->udp_connected_lan_only_is_ok = dht_isconnected(onion_c->dht);
 
-    if (mono_time_is_timeout(onion_c->mono_time, onion_c->first_run, ONION_CONNECTION_SECONDS * 2)) {
+    if (self_startup_active) {
+        /* Enable TCP onion relays immediately while we are still determining
+         * whether UDP is usable. The normal decision below restores the
+         * steady-state setting once the startup window ends.
+         */
+        set_tcp_onion_status(nc_get_tcp_c(onion_c->c), !onion_c->udp_connected);
+    } else if (mono_time_is_timeout(onion_c->mono_time, onion_c->first_run, ONION_CONNECTION_SECONDS * 2)) {
         set_tcp_onion_status(nc_get_tcp_c(onion_c->c), !onion_c->udp_connected);
     }
 
-    if (onion_connection_status(onion_c, false) != ONION_CONNECTION_STATUS_NONE) {
+    const Onion_Connection_Status conn_status = onion_connection_status(onion_c, false);
+
+    if (conn_status != ONION_CONNECTION_STATUS_NONE) {
+        if (!onion_c->friend_lookup_seeded) {
+            populate_path_nodes(onion_c);
+            reset_friend_run_counts(onion_c);
+            seed_all_friend_lookups(onion_c);
+            onion_c->friend_lookup_seeded = true;
+        }
+
         for (unsigned i = 0; i < onion_c->num_friends; ++i) {
             do_friend(onion_c, i);
+        }
+    } else {
+        onion_c->friend_lookup_seeded = false;
+
+        /* Start friend onion lookup during the startup/recovery window even
+         * before our own onion announce quorum is fully online. This is the
+         * path that lets TCP-only public starts approach the 5 s average /
+         * 20 s soft target instead of waiting for the normal populate timer.
+         */
+        for (unsigned i = 0; i < onion_c->num_friends; ++i) {
+            const Onion_Friend *o_friend = &onion_c->friends_list[i];
+
+            if (o_friend->is_valid && !o_friend->is_online
+                    && (o_friend->lookup_seed_pending || onion_friend_startup_active(o_friend, now))) {
+                do_friend(onion_c, i);
+            }
         }
     }
 
@@ -2281,6 +2625,7 @@ Onion_Client *new_onion_client(const Logger *logger, const Random *rng, const Mo
     onion_c->mono_time = mono_time;
     onion_c->logger = logger;
     onion_c->rng = rng;
+    onion_c->self_startup_until = mono_time_get(mono_time) + ONION_SELF_STARTUP_WINDOW;
     onion_c->dht = nc_get_dht(c);
     onion_c->net = dht_get_net(onion_c->dht);
     onion_c->c = c;

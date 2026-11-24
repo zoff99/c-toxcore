@@ -25,6 +25,26 @@
 #define ONION_DHTPK_SEND_INTERVAL 30
 #define DHT_DHTPK_SEND_INTERVAL 20
 
+/** Number of short onion DHTPK retries after the first successful send. */
+#define ONION_DHTPK_INITIAL_RETRIES 3
+
+/** Startup/recovery window for aggressive friend onion lookup (seconds). */
+#define ONION_FRIEND_STARTUP_WINDOW 30
+/** Populate interval while the startup/recovery window is active (seconds). */
+#define ONION_FRIEND_STARTUP_POPULATE_INTERVAL 1
+/** Max lookup requests per populate while few friend nodes are known. */
+#define ONION_FRIEND_STARTUP_POPULATE_FANOUT 8
+/** Friend node ping interval during the startup/recovery window (seconds). */
+#define ONION_FRIEND_STARTUP_NODE_INTERVAL 1
+/** Minimum interval between friend diagnostic DEBUG logs (seconds). */
+#define ONION_FRIEND_DIAG_LOG_INTERVAL 5
+/** Startup window for aggressive self onion announce (seconds). */
+#define ONION_SELF_STARTUP_WINDOW 20
+/** Self announce populate interval during startup (seconds). */
+#define ONION_SELF_STARTUP_POPULATE_INTERVAL 1
+/** Self announce ping interval for not-yet-stored nodes during startup (seconds). */
+#define ONION_SELF_STARTUP_NOT_ANNOUNCED_INTERVAL 1
+
 #define NUMBER_ONION_PATHS 6
 
 /**
@@ -121,6 +141,46 @@ int onion_delfriend(Onion_Client *onion_c, int friend_num);
  */
 non_null()
 int onion_set_friend_online(Onion_Client *onion_c, int friend_num, bool is_online);
+
+/** @brief Internal diagnostics for a friend's onion lookup / DHTPK state.
+ *
+ * This is intentionally not part of the public tox.h API/ABI. It is meant for
+ * tests, profiling, and DEBUG logging.
+ */
+typedef struct Onion_Friend_Diagnostics {
+    uint16_t friend_num;
+    bool is_valid;
+    bool is_online;
+    bool know_dht_public_key;
+
+    uint16_t num_nodes;      // live nodes in the friend lookup list
+    uint16_t num_stored;     // live nodes that store the friend's onion key
+    bool dhtpk_ready;        // whether the onion DHTPK quorum is satisfied
+
+    uint64_t last_populated;
+    uint32_t populate_interval;
+    bool lookup_seed_pending;
+    uint64_t lookup_startup_until;
+
+    uint64_t last_dht_pk_onion_sent;
+    uint64_t last_dht_pk_dht_sent;
+    uint32_t dht_pk_onion_send_count;
+    int last_dht_pk_onion_result;
+    int last_dht_pk_dht_result;
+    uint64_t last_dht_pk_recv;
+
+    uint32_t run_count;
+    uint32_t pings;
+} Onion_Friend_Diagnostics;
+
+/** @brief Fill diagnostics for friend_num.
+ *
+ * @retval true on success.
+ * @retval false if friend_num is invalid or out is nullptr.
+ */
+non_null(1) nullable(3)
+bool onion_get_friend_diagnostics(const Onion_Client *onion_c, uint16_t friend_num,
+                                  Onion_Friend_Diagnostics *out);
 
 /** @brief Get the ip of friend friendnum and put it in ip_port
  *
